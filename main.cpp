@@ -17,6 +17,8 @@
 const std::string os = "windows";
 #else
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 const std::string os = "linux";
 #endif
 
@@ -25,6 +27,9 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* out
 std::string GetProgramDirectory();
 std::string curlGet(std::string curlurl);
 std::string replacePlaceholders(const std::string& input, const std::string& placeholder, const std::string& replacement);
+std::string getJavaExecutablePath();
+std::string escapeColon(const std::string& input);
+std::string backslashesToForwardslashes(const std::string& input);
 
 bool DirectoryExists(const std::string& directoryPath);
 void CreateDirectoryIfNotExists(const std::string& directoryPath);
@@ -55,7 +60,6 @@ int main() {
     //std::string latestVersion = "1.19.84 or something";
     if (!programDirectory.empty()) {
         CreateDirectoryIfNotExists(programDirectory + "/profiles");
-        CreateDirectoryIfNotExists(programDirectory + "/assets");
         CreateDirectoryIfNotExists(programDirectory + "/assets/indexes");
         CreateDirectoryIfNotExists(programDirectory + "/assets/objects");
         CreateDirectoryIfNotExists(programDirectory + "/versions");
@@ -114,7 +118,11 @@ int main() {
             bool allowed = 1;
             std::string libName = libBase + versionJson["libraries"][i]["downloads"]["artifact"]["path"].GetString();
             std::filesystem::path filePath(libName);
+            #ifdef _WIN32
+            std::string libPath = filePath.parent_path().string();
+            #else
             std::string libPath = filePath.parent_path();
+            #endif
             std::string libUrl = versionJson["libraries"][i]["downloads"]["artifact"]["url"].GetString();
             //std::string libSha1 = versionJson["libraries"][i]["downloads"]["artifact"]["sha1"].GetString();
             // above is a planned feature for future versions. Not fully implemented
@@ -134,7 +142,8 @@ int main() {
                 }
             }
         }
-
+        if(!DirectoryExists(programDirectory + "/assets")) {
+        CreateDirectoryIfNotExists(programDirectory + "/assets");
         const rapidjson::Value& objects = assetJson["objects"];
         int assetDownloadCounter = 1;
         for (rapidjson::Value::ConstMemberIterator it = objects.MemberBegin(); it != objects.MemberEnd(); ++it) {
@@ -148,6 +157,7 @@ int main() {
             saveStringToFile(curlGet("https://resources.download.minecraft.net/" + id + "/" + objHash), objFile);
             assetDownloadCounter++;
         }
+        }
     }
 
     std::string classPath;
@@ -157,10 +167,16 @@ int main() {
         const std::string fullPath = programDirectory + "/versions/" + version + "/" + artifactPath;
         //std::cout << fullPath << "\n";
         if (std::filesystem::exists(fullPath)) {
-            classPath += "\"" + fullPath + "\":";
+            classPath += escapeColon(backslashesToForwardslashes(fullPath));
+            #ifdef _WIN32
+            classPath += ";";
+            #else
+            classPath += ":";
+            #endif
         }
     }
-    classPath += "\"" + programDirectory + "/versions/" + version + "/" + version + ".jar\"";
+    classPath += escapeColon(backslashesToForwardslashes(programDirectory + "/versions/" + version + "/" + version + ".jar"));
+    classPath = " -cp \"" + classPath + "\" ";
 
     std::string gameArgs = " ";
     if (versionJson.HasMember("minecraftArguments") && versionJson["minecraftArguments"].IsString()) {
@@ -177,8 +193,8 @@ int main() {
     }
     gameArgs = replacePlaceholders(gameArgs, "auth_player_name", username);
     gameArgs = replacePlaceholders(gameArgs, "version_name", version);
-    gameArgs = replacePlaceholders(gameArgs, "game_directory", "\"" + programDirectory + "/profiles/" + version + "\"");
-    gameArgs = replacePlaceholders(gameArgs, "assets_root", "\"" + programDirectory + "/assets/\"");
+    gameArgs = replacePlaceholders(gameArgs, "game_directory", "\"" + backslashesToForwardslashes(programDirectory) + "/profiles/" + version + "\"");
+    gameArgs = replacePlaceholders(gameArgs, "assets_root", "\"" + backslashesToForwardslashes(programDirectory) + "/assets/\"");
     gameArgs = replacePlaceholders(gameArgs, "auth_xuid", "0");
     gameArgs = replacePlaceholders(gameArgs, "auth_uuid", "0");
     gameArgs = replacePlaceholders(gameArgs, "auth_access_token", "0");
@@ -187,17 +203,57 @@ int main() {
     gameArgs = replacePlaceholders(gameArgs, "version_type", "release");
     gameArgs = replacePlaceholders(gameArgs, "assets_index_name", versionJson["assetIndex"]["id"].GetString());
 
-    std::string cmdJava = "/home/mrmayman/Documents/Programs/jdk-17.0.6/bin/java";
-    std::string cmdOpts = " -Xss1M -Djava.library.path=" + version + "-natives -Dminecraft.launcher.brand=minecraft-launcher -Dminecraft.launcher.version=2.1.1349 "
-                        + replacePlaceholders(
-                            "\"" + std::string(versionJson["logging"]["client"]["argument"].GetString()), "path", programDirectory + "/versions/" + version + "/logging-" +
-                        versionJson["logging"]["client"]["file"]["id"].GetString()
-                            ) +
-                        "\" -cp " + classPath + " -Xmx2G -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M ";
+    std::string javaPath = getJavaExecutablePath();
+    std::cout << "Java found: " << executeCommand("java -version") << " at " << javaPath << "\nDo you want to use this java, or enter another path manually?\n1 to use this, 0 to enter manually: ";
+    bool javaManual;
+    std::cin >> javaManual;
+    std::string cmdJava;
+    if(javaManual) {
+        cmdJava = javaPath;
+    } else {
+        std::cout << "Enter path to java: ";
+        std::cin >> cmdJava;
+    }
+    //cmdJava = "/home/mrmayman/Documents/Programs/jdk-17.0.6/bin/java";
 
-    std::string finalCommand = cmdJava + cmdOpts + versionJson["mainClass"].GetString() + gameArgs;
+
+    std::string cmdOpts = " -Xss1M -Djava.library.path=" + version + "-natives" +
+                          " -Dminecraft.launcher.brand=minecraft-launcher" +
+                          " -Dminecraft.launcher.version=2.1.1349 " +
+                          replacePlaceholders(
+                            std::string(versionJson["logging"]["client"]["argument"].GetString()),
+                            "path",
+                            "\"" + programDirectory + "/versions/" + version + "/logging-" +
+                            versionJson["logging"]["client"]["file"]["id"].GetString() + "\""
+                          ) +
+                          " -Xmx2G -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M";
+
+    std::string finalCommand = cmdJava + cmdOpts + classPath + versionJson["mainClass"].GetString() + gameArgs;
     std::cout << finalCommand << "\n";
+    #ifdef _WIN32
+
+    // Windows-specific code
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    if (!CreateProcess(NULL, const_cast<char*>(finalCommand.c_str()), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        std::cerr << "Failed to execute the command." << std::endl;
+    } else {
+
+    // Wait for the process to finish
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Close process and thread handles
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    }
+
+    #else
     std::cout << executeCommand(finalCommand);
+    #endif
     std::cout << "shutting game down...\n";
 
     return 0;
@@ -335,6 +391,9 @@ std::string curlGet(std::string curlurl) {
 
         // Set the callback function to write the response into the string
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        #ifdef _WIN32
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        #endif
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
         // Perform the request
@@ -399,4 +458,52 @@ std::string readFileContents(const std::filesystem::path& filePath) {
 std::string replacePlaceholders(const std::string& input, const std::string& placeholder, const std::string& replacement) {
     std::regex pattern("\\$\\{" + placeholder + "\\}");
     return std::regex_replace(input, pattern, replacement);
+}
+
+std::string getJavaExecutablePath() {
+#ifdef _WIN32
+    HKEY hKey;
+    LONG result = RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\JavaSoft\\Java Runtime Environment", 0, KEY_READ | KEY_WOW64_32KEY, &hKey);
+    if (result == ERROR_SUCCESS) {
+        char javaHome[MAX_PATH];
+        DWORD size = sizeof(javaHome);
+        result = RegQueryValueEx(hKey, "JavaHome", NULL, NULL, reinterpret_cast<LPBYTE>(javaHome), &size);
+        RegCloseKey(hKey);
+        if (result == ERROR_SUCCESS) {
+            std::string javaExePath = javaHome;
+            javaExePath += "\\bin\\java.exe";
+            if (GetFileAttributesA(javaExePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                return javaExePath;
+            }
+        }
+    }
+#else
+    return executeCommand("which java");
+#endif
+
+    return "";  // Return an empty string if Java is not found
+}
+
+std::string backslashesToForwardslashes(const std::string& input) {
+    std::string escapedString;
+    for (char ch : input) {
+        if (ch == '\\') {
+            escapedString += '/'; // Add an additional backslash
+        } else {
+            escapedString += ch;
+        }
+    }
+    return escapedString;
+}
+
+std::string escapeColon(const std::string& input) {
+    std::string escapedString;
+    for (char ch : input) {
+        /*if(ch == ':') {
+            escapedString += "\\:";
+        } else {*/
+            escapedString += ch;
+        //}
+    }
+    return escapedString;
 }
