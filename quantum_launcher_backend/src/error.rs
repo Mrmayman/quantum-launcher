@@ -5,7 +5,7 @@ pub enum LauncherError {
     InstanceNotFound,
     InstanceAlreadyExists,
     ReqwestError(reqwest::Error),
-    ReqwestStatusError(reqwest::StatusCode),
+    ReqwestStatusError(reqwest::StatusCode, reqwest::Url),
     SerdeJsonError(serde_json::Error),
     SerdeFieldNotFound(&'static str),
     VersionNotFoundInManifest(String),
@@ -29,4 +29,15 @@ impl From<serde_json::Error> for LauncherError {
     fn from(value: serde_json::Error) -> Self {
         LauncherError::SerdeJsonError(value)
     }
+}
+
+#[macro_export]
+macro_rules! get {
+    ($expr:expr, $field:expr) => {
+        if let Some(value) = $expr {
+            value
+        } else {
+            return Err(LauncherError::SerdeFieldNotFound($field));
+        }
+    };
 }

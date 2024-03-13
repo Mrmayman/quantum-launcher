@@ -17,7 +17,7 @@ pub fn get_launcher_dir() -> LauncherResult<PathBuf> {
 
 pub fn create_dir_if_not_exists(path: &PathBuf) -> LauncherResult<()> {
     if !path.exists() {
-        match fs::create_dir_all(&path) {
+        match fs::create_dir_all(path) {
             Ok(_) => Ok(()),
             Err(err) => Err(LauncherError::IoError(err)),
         }
@@ -26,11 +26,26 @@ pub fn create_dir_if_not_exists(path: &PathBuf) -> LauncherResult<()> {
     }
 }
 
-pub fn download_file(client: &Client, url: &str) -> LauncherResult<String> {
+pub fn download_file_to_string(client: &Client, url: &str) -> LauncherResult<String> {
     let response = client.get(url).send()?;
     if response.status().is_success() {
         Ok(response.text()?)
     } else {
-        Err(LauncherError::ReqwestStatusError(response.status()))
+        Err(LauncherError::ReqwestStatusError(
+            response.status(),
+            response.url().clone(),
+        ))
+    }
+}
+
+pub fn download_file_to_bytes(client: &Client, url: &str) -> LauncherResult<Vec<u8>> {
+    let response = client.get(url).send()?;
+    if response.status().is_success() {
+        Ok(response.bytes()?.to_vec())
+    } else {
+        Err(LauncherError::ReqwestStatusError(
+            response.status(),
+            response.url().clone(),
+        ))
     }
 }
