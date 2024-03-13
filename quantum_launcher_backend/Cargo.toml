@@ -1,8 +1,12 @@
 [package]
-name = "quantum-launcher"
+name = "quantum_launcher_backend"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dirs = "*"
+reqwest = { version = "*", features = ["blocking"] }
+serde = "*"
+serde_json = "*"
