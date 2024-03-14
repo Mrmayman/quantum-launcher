@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 dirs = "*"
 reqwest = { version = "*", features = ["blocking"] }
-serde = "*"
+serde = { version = "*", features = ["derive"] }
 serde_json = "*"
