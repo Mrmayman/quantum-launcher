@@ -53,6 +53,7 @@ pub fn create(instance_name: &str, version: String) -> LauncherResult<()> {
     create_dir_if_not_exists(&object_folder)?;
 
     let objects = get!(asset_index["objects"].as_array(), "asset_index.objects");
+
     for object in objects {
         let obj_hash = get!(object["hash"].as_str(), "asset_index.objects[].hash");
         let obj_id = &obj_hash[0..2];
@@ -60,7 +61,10 @@ pub fn create(instance_name: &str, version: String) -> LauncherResult<()> {
         let obj_folder = object_folder.join(obj_id);
         create_dir_if_not_exists(&obj_folder)?;
 
-        let obj_data = file_utils::download_file_to_bytes(&network_client, OBJECTS_URL)?;
+        let obj_data = file_utils::download_file_to_bytes(
+            &network_client,
+            &format!("{}/{}/{}", OBJECTS_URL, obj_id, obj_hash),
+        )?;
         let mut file = File::create(obj_folder.join(&obj_hash))?;
         file.write_all(&obj_data)?;
     }
