@@ -1,5 +1,9 @@
 mod download;
 pub mod error;
-pub mod file_utils;
+mod file_utils;
 pub mod instance;
-pub mod version_details;
+
+mod json_structs {
+    pub mod json_manifest;
+    pub mod json_version;
+}

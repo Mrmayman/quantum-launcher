@@ -6,7 +6,10 @@ use serde_json::Value;
 use crate::{
     error::{LauncherError, LauncherResult},
     file_utils::{self, create_dir_if_not_exists},
-    get,
+    json_structs::{
+        json_manifest::Manifest,
+        json_version::{self, VersionDetails},
+    },
 };
 
 const VERSIONS_JSON: &str = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
@@ -25,7 +28,7 @@ const OS_NAME: &str = "unknown";
 
 pub struct GameDownloader {
     pub instance_dir: PathBuf,
-    pub version_json: Value,
+    pub version_json: VersionDetails,
     network_client: Client,
 }
 
@@ -46,25 +49,21 @@ impl GameDownloader {
         println!("[info] Starting download of libraries.");
         create_dir_if_not_exists(&self.instance_dir.join("libraries"))?;
 
-        let libraries = get!(
-            self.version_json["libraries"].as_array(),
-            "version.libraries"
-        );
-        let number_of_libraries = libraries.len();
+        let number_of_libraries = self.version_json.libraries.len();
 
-        for (library_number, library) in libraries.iter().enumerate() {
-            if !GameDownloader::download_libraries_library_is_allowed(library)? {
+        for (library_number, library) in self.version_json.libraries.iter().enumerate() {
+            if !GameDownloader::download_libraries_library_is_allowed(library) {
+                println!(
+                    "[info] Skipping library {}",
+                    serde_json::to_string_pretty(&library)?
+                );
                 continue;
             }
 
-            let lib_name = get!(
-                library["downloads"]["artifact"]["path"].as_str(),
-                "version.libraries[].downloads.artifact.path"
-            );
             let lib_file_path = self
                 .instance_dir
                 .join("libraries")
-                .join(PathBuf::from(lib_name));
+                .join(PathBuf::from(&library.downloads.artifact.path));
             let lib_dir_path = lib_file_path
                 .parent()
                 .expect(
@@ -72,17 +71,15 @@ impl GameDownloader {
                 )
                 .to_path_buf();
 
-            let lib_url = get!(
-                library["downloads"]["artifact"]["url"].as_str(),
-                "version.libraries[].downloads.artifact.url"
-            );
-
             println!(
-                "[info] Downloading library {library_number}/{number_of_libraries}: {lib_name}"
+                "[info] Downloading library {library_number}/{number_of_libraries}: {}",
+                library.downloads.artifact.path
             );
             create_dir_if_not_exists(&lib_dir_path)?;
-            let library_downloaded =
-                file_utils::download_file_to_bytes(&self.network_client, lib_url)?;
+            let library_downloaded = file_utils::download_file_to_bytes(
+                &self.network_client,
+                &library.downloads.artifact.url,
+            )?;
 
             let mut file = File::create(lib_file_path)?;
             file.write_all(&library_downloaded)?;
@@ -96,11 +93,10 @@ impl GameDownloader {
 
     pub fn download_jar(&self) -> LauncherResult<()> {
         println!("[info] Downloading game jar file.");
-        let jar_url = get!(
-            self.version_json["downloads"]["client"]["url"].as_str(),
-            "version.downloads.client.url"
-        );
-        let jar_bytes = file_utils::download_file_to_bytes(&self.network_client, jar_url)?;
+        let jar_bytes = file_utils::download_file_to_bytes(
+            &self.network_client,
+            &self.version_json.downloads.client.url,
+        )?;
         let mut jar_file = File::create(self.instance_dir.join("version.jar"))?;
         jar_file.write_all(&jar_bytes)?;
 
@@ -109,17 +105,12 @@ impl GameDownloader {
 
     pub fn download_logging_config(&self) -> Result<(), LauncherError> {
         println!("[info] Downloading logging configuration.");
-        let log_file_name = get!(
-            self.version_json["logging"]["client"]["file"]["id"].as_str(),
-            "version.logging.client.file.id"
-        );
-        let log_config_name = format!("logging-{log_file_name}");
-        let log_file_url = get!(
-            self.version_json["logging"]["client"]["file"]["url"].as_str(),
-            "version.logging.client.file.url"
-        );
+        let log_config_name = format!("logging-{}", self.version_json.logging.client.file.id);
 
-        let log_config = file_utils::download_file_to_string(&self.network_client, log_file_url)?;
+        let log_config = file_utils::download_file_to_string(
+            &self.network_client,
+            &self.version_json.logging.client.file.url,
+        )?;
         let mut file = File::create(self.instance_dir.join(log_config_name))?;
         file.write_all(log_config.as_bytes())?;
         Ok(())
@@ -133,17 +124,24 @@ impl GameDownloader {
         let object_folder = self.instance_dir.join("assets").join("objects");
         create_dir_if_not_exists(&object_folder)?;
 
-        let asset_index_url = get!(
-            self.version_json["assetIndex"]["url"].as_str(),
-            "version.assetIndex.url"
-        );
-        let asset_index = GameDownloader::download_json(&self.network_client, asset_index_url)?;
+        let asset_index =
+            GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)?;
 
-        let objects = get!(asset_index["objects"].as_object(), "asset_index.objects");
+        let objects = if let Some(value) = asset_index["objects"].as_object() {
+            value
+        } else {
+            return Err(LauncherError::SerdeFieldNotFound("asset_index.objects"));
+        };
         let objects_len = objects.len();
 
         for (object_number, (_, object_data)) in objects.iter().enumerate() {
-            let obj_hash = get!(object_data["hash"].as_str(), "asset_index.objects[].hash");
+            let obj_hash = if let Some(value) = object_data["hash"].as_str() {
+                value
+            } else {
+                return Err(LauncherError::SerdeFieldNotFound(
+                    "asset_index.objects[].hash",
+                ));
+            };
             let obj_id = &obj_hash[0..2];
 
             println!("[info] Downloading asset {object_number}/{objects_len}");
@@ -171,30 +169,23 @@ impl GameDownloader {
 }
 
 impl GameDownloader {
-    fn new_download_version_json(network_client: &Client, version: &str) -> LauncherResult<Value> {
+    fn new_download_version_json(
+        network_client: &Client,
+        version: &str,
+    ) -> LauncherResult<VersionDetails> {
         println!("[info] Started downloading version manifest JSON.");
-        let version_manifest_json = GameDownloader::download_json(network_client, VERSIONS_JSON)?;
-        let version = GameDownloader::find_required_version(&version_manifest_json, version)?;
+        let manifest_json = file_utils::download_file_to_string(network_client, VERSIONS_JSON)?;
+        let manifest: Manifest = serde_json::from_str(&manifest_json)?;
+
+        let version = match manifest.versions.iter().find(|n| n.id == version) {
+            Some(n) => n,
+            None => return Err(LauncherError::VersionNotFoundInManifest(version.to_owned())),
+        };
 
         println!("[info] Started downloading version details JSON.");
-        let version_json_url = get!(version["url"].as_str(), "manifest.versions[].url");
-        let version_json = GameDownloader::download_json(network_client, version_json_url)?;
+        let version_json = file_utils::download_file_to_string(network_client, &version.url)?;
+        let version_json = serde_json::from_str(&version_json)?;
         Ok(version_json)
-    }
-
-    fn find_required_version<'json>(
-        manifest_json: &'json Value,
-        version: &str,
-    ) -> LauncherResult<&'json Value> {
-        match get!(manifest_json["versions"].as_array(), "manifest.versions")
-            .iter()
-            .find(|n| {
-                let value = n["id"].as_str().expect("No id field in version manifest");
-                *value == *version
-            }) {
-            Some(n) => Ok(n),
-            None => Err(LauncherError::VersionNotFoundInManifest(version.to_owned())),
-        }
     }
 
     fn new_get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
@@ -212,27 +203,18 @@ impl GameDownloader {
         Ok(current_instance_dir)
     }
 
-    fn download_libraries_library_is_allowed(library: &Value) -> LauncherResult<bool> {
+    fn download_libraries_library_is_allowed(library: &json_version::Library) -> bool {
         let mut allowed: bool = true;
 
-        if let Value::Array(ref rules) = library["rules"] {
+        if let Some(ref rules) = library.rules {
             allowed = false;
 
             for rule in rules {
-                let os_name = get!(
-                    rule["os"]["name"].as_str(),
-                    "version.libraries[].rules[].os.name"
-                );
-
-                if os_name == OS_NAME {
-                    let action = get!(
-                        rule["action"].as_str(),
-                        "version.libraries[].rules[].action"
-                    );
-                    allowed = action == "allow";
+                if rule.os.name == OS_NAME {
+                    allowed = rule.action == "allow";
                 }
             }
         }
-        Ok(allowed)
+        allowed
     }
 }

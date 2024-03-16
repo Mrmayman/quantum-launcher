@@ -30,14 +30,3 @@ impl From<serde_json::Error> for LauncherError {
         LauncherError::SerdeJsonError(value)
     }
 }
-
-#[macro_export]
-macro_rules! get {
-    ($expr:expr, $field:expr) => {
-        if let Some(value) = $expr {
-            value
-        } else {
-            return Err(LauncherError::SerdeFieldNotFound($field));
-        }
-    };
-}

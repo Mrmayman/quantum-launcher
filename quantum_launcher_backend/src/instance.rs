@@ -51,7 +51,7 @@ pub fn create(instance_name: &str, version: String) -> LauncherResult<()> {
     game_downloader.download_assets()?;
 
     let mut json_file = File::create(game_downloader.instance_dir.join("details.json"))?;
-    json_file.write_all(game_downloader.version_json.to_string().as_bytes())?;
+    json_file.write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())?;
 
     Ok(())
 }
