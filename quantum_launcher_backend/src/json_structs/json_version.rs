@@ -61,13 +61,14 @@ pub struct JavaVersion {
 #[derive(Serialize, Deserialize)]
 pub struct Library {
     pub downloads: LibraryDownloads,
+    pub name: Option<String>,
     pub rules: Option<Vec<LibraryRule>>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct LibraryDownloads {
     pub artifact: LibraryDownloadArtifact,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

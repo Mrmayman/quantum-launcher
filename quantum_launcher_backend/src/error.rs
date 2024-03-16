@@ -1,3 +1,9 @@
+use std::string::FromUtf8Error;
+
+use reqwest::Error as ReqwestError;
+use serde_json::Error as SerdeJsonError;
+use std::io::Error as IoError;
+
 #[derive(Debug)]
 pub enum LauncherError {
     ConfigDirNotFound,
@@ -9,24 +15,31 @@ pub enum LauncherError {
     SerdeJsonError(serde_json::Error),
     SerdeFieldNotFound(&'static str),
     VersionNotFoundInManifest(String),
+    JavaVersionIsEmptyError,
+    JavaVersionConvertCmdOutputToStringError(FromUtf8Error),
+    JavaVersionImproperVersionPlacement(String),
+    JavaVersionParseToNumberError(String),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
 
-impl From<reqwest::Error> for LauncherError {
-    fn from(value: reqwest::Error) -> Self {
-        LauncherError::ReqwestError(value)
-    }
+macro_rules! impl_error {
+    ($from:ident, $to:ident) => {
+        impl From<$from> for LauncherError {
+            fn from(value: $from) -> Self {
+                LauncherError::$to(value)
+            }
+        }
+    };
 }
 
-impl From<std::io::Error> for LauncherError {
-    fn from(value: std::io::Error) -> Self {
-        LauncherError::IoError(value)
-    }
-}
+impl_error!(ReqwestError, ReqwestError);
+impl_error!(IoError, IoError);
+impl_error!(SerdeJsonError, SerdeJsonError);
+impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
 
-impl From<serde_json::Error> for LauncherError {
-    fn from(value: serde_json::Error) -> Self {
-        LauncherError::SerdeJsonError(value)
-    }
-}
+// impl From<FromUtf8Error> for LauncherError {
+//     fn from(value: FromUtf8Error) -> Self {
+//         LauncherError::FromUtf8Error(value)
+//     }
+// }
