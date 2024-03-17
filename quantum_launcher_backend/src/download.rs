@@ -104,15 +104,17 @@ impl GameDownloader {
     }
 
     pub fn download_logging_config(&self) -> Result<(), LauncherError> {
-        println!("[info] Downloading logging configuration.");
-        let log_config_name = format!("logging-{}", self.version_json.logging.client.file.id);
+        if let Some(ref logging) = self.version_json.logging {
+            println!("[info] Downloading logging configuration.");
+            let log_config_name = format!("logging-{}", logging.client.file.id);
 
-        let log_config = file_utils::download_file_to_string(
-            &self.network_client,
-            &self.version_json.logging.client.file.url,
-        )?;
-        let mut file = File::create(self.instance_dir.join(log_config_name))?;
-        file.write_all(log_config.as_bytes())?;
+            let log_config = file_utils::download_file_to_string(
+                &self.network_client,
+                &logging.client.file.url,
+            )?;
+            let mut file = File::create(self.instance_dir.join(log_config_name))?;
+            file.write_all(log_config.as_bytes())?;
+        }
         Ok(())
     }
 
@@ -126,6 +128,13 @@ impl GameDownloader {
 
         let asset_index =
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)?;
+        let mut file = File::create(
+            self.instance_dir
+                .join("assets")
+                .join("indexes")
+                .join(format!("{}.json", self.version_json.assetIndex.id)),
+        )?;
+        file.write_all(asset_index.to_string().as_bytes())?;
 
         let objects = if let Some(value) = asset_index["objects"].as_object() {
             value

@@ -1,8 +1,10 @@
-use std::string::FromUtf8Error;
+use std::{path::PathBuf, string::FromUtf8Error};
 
 use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
 use std::io::Error as IoError;
+
+use crate::json_structs::json_version::VersionDetails;
 
 #[derive(Debug)]
 pub enum LauncherError {
@@ -19,6 +21,9 @@ pub enum LauncherError {
     JavaVersionConvertCmdOutputToStringError(FromUtf8Error),
     JavaVersionImproperVersionPlacement(String),
     JavaVersionParseToNumberError(String),
+    VersionJsonNoArgumentsField(VersionDetails),
+    PathBufToString(PathBuf),
+    RequiredJavaVersionNotFound,
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;

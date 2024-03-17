@@ -13,4 +13,5 @@ fn main() {
     //     .unwrap()
     //     .iter()
     //     .for_each(|n| println!("{:?}", n));
+    backend::instance::launch("test_instance2", "mrmayman", "2G").unwrap();
 }
