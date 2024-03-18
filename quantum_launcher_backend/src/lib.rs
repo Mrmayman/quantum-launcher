@@ -1,6 +1,6 @@
 mod download;
 pub mod error;
-mod file_utils;
+pub mod file_utils;
 pub mod instance;
 pub mod java_locate;
 

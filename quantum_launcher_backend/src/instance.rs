@@ -3,6 +3,7 @@ use std::{
     io::{Read, Write},
     path::Path,
     process::Command,
+    sync::Arc,
 };
 
 use crate::{
@@ -15,7 +16,15 @@ use crate::{
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
-pub fn launch(instance_name: &str, username: &str, memory: &str) -> LauncherResult<()> {
+pub async fn launch(instance_name: String, username: String, memory: &str) -> Option<String> {
+    if let Err(err) = launch_game(&instance_name, &username, memory) {
+        Some(format!("{:?}", err))
+    } else {
+        None
+    }
+}
+
+fn launch_game(instance_name: &str, username: &str, memory: &str) -> LauncherResult<()> {
     let launcher_dir = file_utils::get_launcher_dir()?;
 
     let instances_dir = launcher_dir.join("instances");
@@ -149,7 +158,7 @@ fn launch_read_version_details(instance_dir: &Path) -> LauncherResult<VersionDet
     Ok(version_json)
 }
 
-pub fn create(instance_name: &str, version: String) -> LauncherResult<()> {
+pub async fn create(instance_name: &str, version: String) -> LauncherResult<()> {
     println!("[info] Started creating instance.");
 
     let game_downloader = GameDownloader::new(instance_name, &version)?;

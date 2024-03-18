@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 quantum_launcher_backend = { path = "../quantum_launcher_backend" }
-pollster = "*"
+iced = { version = "*", features = ["highlighter"] }
