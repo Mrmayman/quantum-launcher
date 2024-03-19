@@ -5,7 +5,7 @@ use crate::error::{LauncherError, LauncherResult};
 #[derive(Debug)]
 pub struct JavaInstall {
     pub version: usize,
-    pub path: PathBuf,
+    path: PathBuf,
 }
 
 impl JavaInstall {
@@ -26,7 +26,7 @@ impl JavaInstall {
         get_java_paths()?.lines().map(get_java_install).collect()
     }
 
-    pub fn command(&self) -> Command {
+    pub fn get_command(&self) -> Command {
         Command::new(&self.path)
     }
 }

@@ -1,44 +1,38 @@
 use std::{
     fs::File,
-    io::{Read, Write},
-    path::Path,
-    process::Command,
-    sync::Arc,
+    io::Read,
+    path::{Path, PathBuf},
+    process::Child,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
-    download::GameDownloader,
     error::{LauncherError, LauncherResult},
-    file_utils::{self, create_dir_if_not_exists},
+    file_utils,
     java_locate::JavaInstall,
     json_structs::json_version::VersionDetails,
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
-pub async fn launch(instance_name: String, username: String, memory: &str) -> Option<String> {
-    if let Err(err) = launch_game(&instance_name, &username, memory) {
-        Some(format!("{:?}", err))
-    } else {
-        None
+pub async fn launch(
+    instance_name: String,
+    username: String,
+    memory: &str,
+) -> Result<Arc<Mutex<Child>>, String> {
+    match launch_blocking(&instance_name, &username, memory) {
+        Ok(child) => Ok(Arc::new(Mutex::new(child))),
+        Err(err) => Err(format!("Error: {:?}", err)),
     }
 }
 
-fn launch_game(instance_name: &str, username: &str, memory: &str) -> LauncherResult<()> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
-
-    let instances_dir = launcher_dir.join("instances");
-    file_utils::create_dir_if_not_exists(&instances_dir)?;
-
-    let instance_dir = instances_dir.join(instance_name);
-    if !instance_dir.exists() {
-        return Err(LauncherError::InstanceNotFound);
-    }
+pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> LauncherResult<Child> {
+    let instance_dir = get_instance_dir(instance_name)?;
 
     let minecraft_dir = instance_dir.join(".minecraft");
-    create_dir_if_not_exists(&minecraft_dir)?;
+    file_utils::create_dir_if_not_exists(&minecraft_dir)?;
 
-    let version_json: VersionDetails = launch_read_version_details(&instance_dir)?;
+    let version_json: VersionDetails = read_version_json(&instance_dir)?;
 
     let mut game_arguments: Vec<String> = if let Some(arguments) = version_json.minecraftArguments {
         arguments.split(' ').map(ToOwned::to_owned).collect()
@@ -132,43 +126,34 @@ fn launch_game(instance_name: &str, username: &str, memory: &str) -> LauncherRes
         .find(|n| n.version >= version_json.javaVersion.majorVersion)
         .ok_or(LauncherError::RequiredJavaVersionNotFound)?;
 
-    println!("{:?}, \n\n{:?}", java_args, game_arguments);
-
-    let mut command = Command::new(&appropriate_install.path);
+    let mut command = appropriate_install.get_command();
     let command = command.args(java_args.iter().chain(game_arguments.iter()));
-    let result = command.output()?;
-    println!(
-        "Output: {}\n\nError: {}",
-        String::from_utf8(result.stdout).unwrap(),
-        String::from_utf8(result.stderr).unwrap()
-    );
+    let result = command.spawn()?;
 
-    Ok(())
+    Ok(result)
+}
+
+fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
+    let launcher_dir = file_utils::get_launcher_dir()?;
+
+    let instances_dir = launcher_dir.join("instances");
+    file_utils::create_dir_if_not_exists(&instances_dir)?;
+
+    let instance_dir = instances_dir.join(instance_name);
+    if !instance_dir.exists() {
+        return Err(LauncherError::InstanceNotFound);
+    }
+    Ok(instance_dir)
 }
 
 fn replace_var(string: &mut String, var: &str, value: &str) {
     *string = string.replace(&format!("${{{}}}", var), value);
 }
 
-fn launch_read_version_details(instance_dir: &Path) -> LauncherResult<VersionDetails> {
+fn read_version_json(instance_dir: &Path) -> LauncherResult<VersionDetails> {
     let mut file = File::open(instance_dir.join("details.json"))?;
     let mut version_json: String = Default::default();
     file.read_to_string(&mut version_json)?;
     let version_json = serde_json::from_str(&version_json)?;
     Ok(version_json)
-}
-
-pub async fn create(instance_name: &str, version: String) -> LauncherResult<()> {
-    println!("[info] Started creating instance.");
-
-    let game_downloader = GameDownloader::new(instance_name, &version)?;
-    game_downloader.download_jar()?;
-    game_downloader.download_libraries()?;
-    game_downloader.download_logging_config()?;
-    game_downloader.download_assets()?;
-
-    let mut json_file = File::create(game_downloader.instance_dir.join("details.json"))?;
-    json_file.write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())?;
-
-    Ok(())
 }
