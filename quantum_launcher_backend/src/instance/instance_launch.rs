@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     error::{LauncherError, LauncherResult},
-    file_utils,
+    file_utils::{self, create_dir_if_not_exists},
     java_locate::JavaInstall,
     json_structs::json_version::VersionDetails,
 };
@@ -22,11 +22,15 @@ pub async fn launch(
 ) -> Result<Arc<Mutex<Child>>, String> {
     match launch_blocking(&instance_name, &username, memory) {
         Ok(child) => Ok(Arc::new(Mutex::new(child))),
-        Err(err) => Err(format!("Error: {:?}", err)),
+        Err(err) => Err(err.to_string()),
     }
 }
 
 pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> LauncherResult<Child> {
+    if username.contains(' ') || username.is_empty() {
+        return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
+    }
+
     let instance_dir = get_instance_dir(instance_name)?;
 
     let minecraft_dir = instance_dir.join(".minecraft");
@@ -134,10 +138,15 @@ pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> Lau
 }
 
 fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
+    if instance_name.is_empty() {
+        return Err(LauncherError::InstanceNotFound);
+    }
+
     let launcher_dir = file_utils::get_launcher_dir()?;
+    create_dir_if_not_exists(&launcher_dir)?;
 
     let instances_dir = launcher_dir.join("instances");
-    file_utils::create_dir_if_not_exists(&instances_dir)?;
+    create_dir_if_not_exists(&instances_dir)?;
 
     let instance_dir = instances_dir.join(instance_name);
     if !instance_dir.exists() {

@@ -7,23 +7,24 @@ pub fn launch<'element>(
     selected_instance: &'element String,
     username: &str,
 ) -> iced::Element<'element, Message, <Launcher as iced::Application>::Theme, iced::Renderer> {
-    const USERNAME_INPUT_MESSAGE: &str = "Enter username...";
-
-    let version_list = widget::pick_list(
-        instances,
-        Some(selected_instance),
-        Message::InstanceSelected,
-    );
-
-    let username_input =
-        widget::text_input(USERNAME_INPUT_MESSAGE, username).on_input(Message::UsernameSet);
-
     column![
-        version_list,
-        username_input,
-        widget::button("Launch game").on_press(Message::LaunchGame)
+        column![
+            widget::text("Instances:"),
+            widget::pick_list(
+                instances,
+                Some(selected_instance),
+                Message::InstanceSelected,
+            ),
+            widget::button("Create Instance").on_press(Message::CreateInstance)
+        ]
+        .spacing(5),
+        column![
+            widget::text_input("Enter username...", username).on_input(Message::UsernameSet),
+            widget::button("Launch game").on_press(Message::LaunchGame)
+        ]
+        .spacing(5)
     ]
     .padding(10)
-    .spacing(10)
+    .spacing(40)
     .into()
 }

@@ -1,4 +1,8 @@
-use iced::{executor, widget, Application, Command, Settings, Theme};
+use iced::{
+    executor,
+    widget::{self, column},
+    Application, Command, Settings, Theme,
+};
 use launcher_state::{Launcher, Message, State};
 
 mod launcher_state;
@@ -77,13 +81,50 @@ impl Application for Launcher {
                     self.state = State::Error { error: err }
                 }
             }
+            Message::CreateInstance => {
+                self.state = State::Create {
+                    instance_name: Default::default(),
+                    version: Default::default(),
+                    versions: Vec::new(),
+                };
+                return Command::perform(
+                    quantum_launcher_backend::list_versions(),
+                    Message::CreateInstanceLoaded,
+                );
+            }
+            Message::CreateInstanceLoaded(result) => match result {
+                Ok(version_list) => {
+                    if let State::Create {
+                        ref mut versions, ..
+                    } = self.state
+                    {
+                        versions.extend_from_slice(&version_list)
+                    }
+                }
+                Err(n) => self.state = State::Error { error: n },
+            },
+            Message::CreateSelectedVersion(n) => {
+                if let State::Create {
+                    ref mut version, ..
+                } = self.state
+                {
+                    *version = n
+                }
+            }
+            Message::CreateInputName(n) => {
+                if let State::Create {
+                    ref mut instance_name,
+                    ..
+                } = self.state
+                {
+                    *instance_name = n
+                }
+            }
         }
         Command::none()
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
-        const USERNAME_INPUT_MESSAGE: &str = "Enter username...";
-
         match self.state {
             State::Launch {
                 ref instances,
@@ -93,7 +134,19 @@ impl Application for Launcher {
             State::Create {
                 ref instance_name,
                 ref version,
-            } => todo!(),
+                ref versions,
+            } => column![
+                column![
+                    widget::text("Select Instance"),
+                    widget::pick_list(
+                        versions.as_slice(),
+                        Some(version),
+                        Message::CreateSelectedVersion
+                    ),
+                ],
+                widget::text_input("Enter input", instance_name).on_input(Message::CreateInputName)
+            ]
+            .into(),
             State::Error { ref error } => {
                 widget::container(widget::text(format!("Error: {}", error))).into()
             }
@@ -102,5 +155,19 @@ impl Application for Launcher {
 }
 
 fn main() {
-    Launcher::run(Settings::default()).unwrap();
+    const WINDOW_HEIGHT: f32 = 600.0;
+    const WINDOW_WIDTH: f32 = 600.0;
+
+    Launcher::run(Settings {
+        window: iced::window::Settings {
+            size: iced::Size {
+                width: WINDOW_WIDTH,
+                height: WINDOW_HEIGHT,
+            },
+            resizable: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .unwrap();
 }

@@ -11,3 +11,4 @@ mod json_structs {
 
 pub use instance::instance_launch::launch;
 pub use instance::instance_launch::launch_blocking;
+pub use instance::instance_list_versions::list_versions;
