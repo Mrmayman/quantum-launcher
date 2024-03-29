@@ -22,8 +22,21 @@ impl JavaInstall {
     /// ```
     ///
     /// into `8` (the java version)
-    pub fn find_java_installs() -> LauncherResult<Vec<JavaInstall>> {
-        get_java_paths()?.lines().map(get_java_install).collect()
+    pub fn find_java_installs(
+        manually_added: Option<&[String]>,
+    ) -> LauncherResult<Vec<JavaInstall>> {
+        let mut paths: Vec<JavaInstall> = if let Some(n) = manually_added {
+            n.iter().map(|n| get_java_install(&n)).collect()
+        } else {
+            Ok(vec![])
+        }?;
+
+        let main_paths: LauncherResult<Vec<JavaInstall>> =
+            get_java_paths()?.lines().map(get_java_install).collect();
+        let main_paths = main_paths?;
+
+        paths.extend(main_paths);
+        Ok(paths)
     }
 
     pub fn get_command(&self) -> Command {

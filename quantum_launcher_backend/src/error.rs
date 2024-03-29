@@ -1,10 +1,10 @@
-use std::{fmt::Display, path::PathBuf, string::FromUtf8Error};
+use std::{fmt::Display, path::PathBuf, string::FromUtf8Error, sync::mpsc::SendError};
 
 use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
 use std::io::Error as IoError;
 
-use crate::json_structs::json_version::VersionDetails;
+use crate::{download::Progress, json_structs::json_version::VersionDetails};
 
 #[derive(Debug)]
 pub enum LauncherError {
@@ -24,7 +24,8 @@ pub enum LauncherError {
     JavaVersionParseToNumberError(String),
     VersionJsonNoArgumentsField(VersionDetails),
     PathBufToString(PathBuf),
-    RequiredJavaVersionNotFound,
+    RequiredJavaVersionNotFound(usize),
+    DownloadProgressMspcError(SendError<Progress>),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -43,6 +44,9 @@ impl_error!(ReqwestError, ReqwestError);
 impl_error!(IoError, IoError);
 impl_error!(SerdeJsonError, SerdeJsonError);
 impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
+
+type ProgressSendError = SendError<Progress>;
+impl_error!(ProgressSendError, DownloadProgressMspcError);
 
 impl Display for LauncherError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -91,11 +95,14 @@ impl Display for LauncherError {
                 f,
                 "Could not convert an OS path to String, may contain invalid characters: {n:?}"
             ),
-            LauncherError::RequiredJavaVersionNotFound => write!(
+            LauncherError::RequiredJavaVersionNotFound(ver) => write!(
                 f,
-                "The Java version required by the Minecraft version was not found"
+                "The Java version ({ver}) required by the Minecraft version was not found"
             ),
             LauncherError::UsernameIsInvalid(n) => write!(f, "Username is invalid: {n}"),
+            LauncherError::DownloadProgressMspcError(n) => {
+                write!(f, "Could not send download progress: {n}")
+            }
         }
     }
 }

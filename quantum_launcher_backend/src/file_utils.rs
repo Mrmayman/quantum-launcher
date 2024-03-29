@@ -15,12 +15,9 @@ pub fn get_launcher_dir() -> LauncherResult<PathBuf> {
     Ok(launcher_directory)
 }
 
-pub fn create_dir_if_not_exists(path: &PathBuf) -> LauncherResult<()> {
+pub fn create_dir_if_not_exists(path: &PathBuf) -> std::io::Result<()> {
     if !path.exists() {
-        match fs::create_dir_all(path) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(LauncherError::IoError(err)),
-        }
+        fs::create_dir_all(path)
     } else {
         Ok(())
     }

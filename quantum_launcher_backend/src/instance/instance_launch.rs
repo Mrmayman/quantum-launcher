@@ -15,18 +15,51 @@ use crate::{
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
+#[derive(Clone, Debug)]
+pub enum GameLaunchResult {
+    Ok(Arc<Mutex<Child>>),
+    Err(String),
+    LocateJavaManually {
+        required_java_version: Option<usize>,
+    },
+}
+
 pub async fn launch(
     instance_name: String,
     username: String,
     memory: &str,
-) -> Result<Arc<Mutex<Child>>, String> {
-    match launch_blocking(&instance_name, &username, memory) {
-        Ok(child) => Ok(Arc::new(Mutex::new(child))),
-        Err(err) => Err(err.to_string()),
+    manually_added_java_versions: Vec<String>,
+) -> GameLaunchResult {
+    let manual_result = GameLaunchResult::LocateJavaManually {
+        required_java_version: None,
+    };
+
+    match launch_blocking(
+        &instance_name,
+        &username,
+        memory,
+        &manually_added_java_versions,
+    ) {
+        Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
+        Err(LauncherError::JavaVersionConvertCmdOutputToStringError(_)) => manual_result,
+        Err(LauncherError::JavaVersionImproperVersionPlacement(_)) => manual_result,
+        Err(LauncherError::JavaVersionIsEmptyError) => manual_result,
+        Err(LauncherError::JavaVersionParseToNumberError(_)) => manual_result,
+        Err(LauncherError::RequiredJavaVersionNotFound(ver)) => {
+            GameLaunchResult::LocateJavaManually {
+                required_java_version: Some(ver),
+            }
+        }
+        Err(err) => GameLaunchResult::Err(err.to_string()),
     }
 }
 
-pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> LauncherResult<Child> {
+pub fn launch_blocking(
+    instance_name: &str,
+    username: &str,
+    memory: &str,
+    manually_added_java_versions: &[String],
+) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
     }
@@ -83,6 +116,7 @@ pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> Lau
         "-Xss1M".to_owned(),
         "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
         "-Dminecraft.launcher.version=2.1.1349".to_owned(),
+        "-Djava.library.path=1.20.4-natives".to_owned(),
         format!("-Xmx{}", memory),
     ];
 
@@ -97,7 +131,12 @@ pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> Lau
 
     java_args.push("-cp".to_owned());
 
-    let mut class_path: String = "\"".to_owned();
+    let mut class_path: String = "".to_owned();
+
+    // Weird command line edge case I don't understand.
+    if cfg!(windows) {
+        class_path.push('"');
+    }
 
     for library in version_json.libraries {
         let library_path = instance_dir
@@ -108,7 +147,7 @@ pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> Lau
                 Some(n) => n,
                 None => return Err(LauncherError::PathBufToString(library_path)),
             };
-            class_path.push_str(library_path);
+            class_path.push_str(&format!("{}", library_path));
             class_path.push(CLASSPATH_SEPARATOR);
         }
     }
@@ -118,17 +157,32 @@ pub fn launch_blocking(instance_name: &str, username: &str, memory: &str) -> Lau
         None => return Err(LauncherError::PathBufToString(jar_path)),
     };
 
-    class_path.push_str(jar_path);
-    class_path.push('"');
+    class_path.push_str(&format!("{}", jar_path));
+
+    if cfg!(windows) {
+        class_path.push('"');
+    }
 
     java_args.push(class_path);
     java_args.push(version_json.mainClass.clone());
 
-    let java_installations = JavaInstall::find_java_installs()?;
+    let java_installations = JavaInstall::find_java_installs(Some(manually_added_java_versions))?;
     let appropriate_install = java_installations
         .iter()
-        .find(|n| n.version >= version_json.javaVersion.majorVersion)
-        .ok_or(LauncherError::RequiredJavaVersionNotFound)?;
+        .find(|n| n.version == version_json.javaVersion.majorVersion)
+        .or_else(|| {
+            java_installations
+                .iter()
+                .find(|n| n.version >= version_json.javaVersion.majorVersion)
+        })
+        .ok_or(LauncherError::RequiredJavaVersionNotFound(
+            version_json.javaVersion.majorVersion,
+        ))?;
+
+    println!(
+        "Java Args: {:?}\n\nGame Args: {:?}",
+        java_args, game_arguments
+    );
 
     let mut command = appropriate_install.get_command();
     let command = command.args(java_args.iter().chain(game_arguments.iter()));

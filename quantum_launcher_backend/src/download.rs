@@ -1,4 +1,9 @@
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{
+    fs::File,
+    io::Write,
+    path::PathBuf,
+    sync::mpsc::{SendError, Sender},
+};
 
 use reqwest::blocking::Client;
 use serde_json::Value;
@@ -27,22 +32,64 @@ const OS_NAME: &str = "osx";
 #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 const OS_NAME: &str = "unknown";
 
+#[derive(Debug)]
+pub enum Progress {
+    Started,
+    DownloadingJsonManifest,
+    DownloadingVersionJson,
+    DownloadingAssets { progress: usize, out_of: usize },
+    DownloadingLibraries { progress: usize, out_of: usize },
+    DownloadingJar,
+    DownloadingLoggingConfig,
+}
+
+/// A struct that helps download a Minecraft instance.
+///
+/// # Example
+/// ```
+/// // progress_sender: Option<mspc::Sender<Progress>>
+/// // Btw don't run this doctest! It will burn 600 MB of disk space.
+/// let game_downloader = GameDownloader::new("1.20.4", &version, progress_sender)?;
+/// game_downloader.download_jar()?;
+/// game_downloader.download_libraries()?;
+/// game_downloader.download_logging_config()?;
+/// game_downloader.download_assets()?;
+///
+/// let mut json_file = File::create(game_downloader.instance_dir.join("details.json"))?;
+/// json_file.write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())?;
+/// ```
 pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
     network_client: Client,
+    sender: Option<Sender<Progress>>,
 }
 
 impl GameDownloader {
-    pub fn new(instance_name: &str, version: &str) -> LauncherResult<GameDownloader> {
+    /// Create a game downloader and downloads the version JSON.
+    ///
+    /// For information on what order to download things in, check the `GameDownloader` struct documentation.
+    ///
+    /// `sender: Option<Sender<Progress>>` is an optional mspc::Sender
+    /// that can be used if you are running this asynchronously or
+    /// on a separate thread, and want to communicate progress with main thread.
+    ///
+    /// Leave as `None` if not required.
+    pub fn new(
+        instance_name: &str,
+        version: &str,
+        sender: Option<Sender<Progress>>,
+    ) -> LauncherResult<GameDownloader> {
         let instance_dir = GameDownloader::new_get_instance_dir(instance_name)?;
         let network_client = Client::new();
-        let version_json = GameDownloader::new_download_version_json(&network_client, version)?;
+        let version_json =
+            GameDownloader::new_download_version_json(&network_client, version, &sender)?;
 
         Ok(Self {
             instance_dir,
             network_client,
             version_json,
+            sender,
         })
     }
 
@@ -53,6 +100,11 @@ impl GameDownloader {
         let number_of_libraries = self.version_json.libraries.len();
 
         for (library_number, library) in self.version_json.libraries.iter().enumerate() {
+            self.send_progress(Progress::DownloadingLibraries {
+                progress: library_number,
+                out_of: number_of_libraries,
+            })?;
+
             if !GameDownloader::download_libraries_library_is_allowed(library) {
                 println!(
                     "[info] Skipping library {}",
@@ -94,6 +146,8 @@ impl GameDownloader {
 
     pub fn download_jar(&self) -> LauncherResult<()> {
         println!("[info] Downloading game jar file.");
+        self.send_progress(Progress::DownloadingJar)?;
+
         let jar_bytes = file_utils::download_file_to_bytes(
             &self.network_client,
             &self.version_json.downloads.client.url,
@@ -107,6 +161,8 @@ impl GameDownloader {
     pub fn download_logging_config(&self) -> Result<(), LauncherError> {
         if let Some(ref logging) = self.version_json.logging {
             println!("[info] Downloading logging configuration.");
+            self.send_progress(Progress::DownloadingLoggingConfig)?;
+
             let log_config_name = format!("logging-{}", logging.client.file.id);
 
             let log_config = file_utils::download_file_to_string(
@@ -155,6 +211,11 @@ impl GameDownloader {
             let obj_id = &obj_hash[0..2];
 
             println!("[info] Downloading asset {object_number}/{objects_len}");
+            self.send_progress(Progress::DownloadingAssets {
+                progress: object_number,
+                out_of: objects_len,
+            })?;
+
             let obj_folder = object_folder.join(obj_id);
             create_dir_if_not_exists(&obj_folder)?;
 
@@ -182,8 +243,12 @@ impl GameDownloader {
     fn new_download_version_json(
         network_client: &Client,
         version: &str,
+        sender: &Option<Sender<Progress>>,
     ) -> LauncherResult<VersionDetails> {
         println!("[info] Started downloading version manifest JSON.");
+        if let Some(sender) = sender {
+            sender.send(Progress::DownloadingJsonManifest)?;
+        }
         let manifest_json = file_utils::download_file_to_string(network_client, VERSIONS_JSON)?;
         let manifest: Manifest = serde_json::from_str(&manifest_json)?;
 
@@ -193,6 +258,9 @@ impl GameDownloader {
         };
 
         println!("[info] Started downloading version details JSON.");
+        if let Some(sender) = sender {
+            sender.send(Progress::DownloadingVersionJson)?;
+        }
         let version_json = file_utils::download_file_to_string(network_client, &version.url)?;
         let version_json = serde_json::from_str(&version_json)?;
         Ok(version_json)
@@ -226,5 +294,12 @@ impl GameDownloader {
             }
         }
         allowed
+    }
+
+    fn send_progress(&self, progress: Progress) -> Result<(), SendError<Progress>> {
+        if let Some(ref sender) = self.sender {
+            sender.send(progress)?;
+        }
+        Ok(())
     }
 }

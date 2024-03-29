@@ -1,32 +1,47 @@
 use std::{
+    path::PathBuf,
     process::Child,
-    sync::{Arc, Mutex},
+    sync::{mpsc::Receiver, Arc, Mutex},
 };
 
-use quantum_launcher_backend::{error::LauncherResult, file_utils::create_dir_if_not_exists};
+use quantum_launcher_backend::{
+    download::Progress, error::LauncherResult, file_utils::create_dir_if_not_exists,
+    instance::instance_launch::GameLaunchResult,
+};
+
+use crate::config::LauncherConfig;
 
 #[derive(Debug, Clone)]
 pub enum Message {
     InstanceSelected(String),
     UsernameSet(String),
     LaunchGame,
-    GameOpened(Result<Arc<Mutex<Child>>, String>),
+    GameOpened(GameLaunchResult),
     CreateInstance,
     CreateInstanceLoaded(Result<Arc<Vec<String>>, String>),
     CreateSelectedVersion(String),
     CreateInputName(String),
+    CreateInstanceButtonPressed,
+    InstanceCreated(Result<(), String>),
+    LocateJavaStart,
+    LocateJavaEnd(Option<PathBuf>),
 }
 
 pub enum State {
     Launch {
-        instances: Vec<String>,
         selected_instance: String,
-        username: String,
+        spawned_process: Option<Arc<Mutex<Child>>>,
     },
     Create {
         instance_name: String,
         version: String,
         versions: Vec<String>,
+        progress: Option<Receiver<Progress>>,
+        progress_num: Option<f32>,
+    },
+    FindJavaVersion {
+        version: Option<PathBuf>,
+        required_version: Option<usize>,
     },
     Error {
         error: String,
@@ -35,6 +50,8 @@ pub enum State {
 
 pub struct Launcher {
     pub state: State,
+    pub instances: Option<Vec<String>>,
+    pub config: Option<LauncherConfig>,
 }
 
 impl Launcher {
@@ -59,11 +76,16 @@ impl Launcher {
             .collect();
 
         Ok(Self {
+            instances: Some(subdirectories),
             state: State::Launch {
-                instances: subdirectories,
                 selected_instance: Default::default(),
-                username: Default::default(),
+                spawned_process: None,
             },
+            config: Some(LauncherConfig::load()?),
         })
+    }
+
+    pub fn set_error(&mut self, error: String) {
+        self.state = State::Error { error }
     }
 }

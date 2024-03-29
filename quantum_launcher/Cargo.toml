@@ -3,8 +3,18 @@ name = "quantum_launcher"
 version = "0.1.0"
 edition = "2021"
 
+authors = ["Mrmayman <navneetkrishna22@gmail.com>"]
+description = "A simple Minecraft Launcher written in Rust."
+keywords = ["minecraft", "mc", "launcher"]
+license = "GPL-3.0-only"
+repository = "https://github.com/Mrmayman/quantum-launcher-rs/"
+readme = "../README.md"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 quantum_launcher_backend = { path = "../quantum_launcher_backend" }
 iced = { version = "*", features = ["highlighter"] }
+rfd = "*"
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
