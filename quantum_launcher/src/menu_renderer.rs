@@ -13,7 +13,7 @@ pub fn launch<'element>(
             widget::pick_list(
                 instances,
                 Some(selected_instance),
-                Message::InstanceSelected,
+                Message::LaunchInstanceSelected,
             ),
             widget::button("Create Instance").on_press(Message::CreateInstance)
         ]
@@ -24,8 +24,8 @@ pub fn launch<'element>(
     column![
         pick_list.spacing(5),
         column![
-            widget::text_input("Enter username...", username).on_input(Message::UsernameSet),
-            widget::button("Launch game").on_press(Message::LaunchGame)
+            widget::text_input("Enter username...", username).on_input(Message::LaunchUsernameSet),
+            widget::button("Launch game").on_press(Message::LaunchStart)
         ]
         .spacing(5)
     ]

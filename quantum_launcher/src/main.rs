@@ -7,11 +7,12 @@ use iced::{
     Application, Command, Settings, Theme,
 };
 use launcher_state::{Launcher, Message, State};
-use quantum_launcher_backend::{download::Progress, instance::instance_launch::GameLaunchResult};
+use quantum_launcher_backend::download::Progress;
 
 mod config;
 mod launcher_state;
 mod menu_renderer;
+mod message_handler;
 
 const MINECRAFT_MEMORY: &str = "2G";
 
@@ -82,90 +83,13 @@ impl Application for Launcher {
             }
         }
         match message {
-            Message::InstanceSelected(n) => {
-                if let State::Launch {
-                    ref mut selected_instance,
-                    ..
-                } = self.state
-                {
-                    *selected_instance = n
-                }
-            }
-            Message::UsernameSet(n) => {
-                self.config.as_mut().unwrap().username = n;
-            }
-            Message::LaunchGame => {
-                if let State::Launch {
-                    ref mut selected_instance,
-                    ..
-                } = self.state
-                {
-                    match self.config.as_ref().unwrap().save() {
-                        Ok(_) => {
-                            let selected_instance = selected_instance.clone();
-                            let username = self.config.as_ref().unwrap().username.clone();
-                            let manually_added_versions =
-                                self.config.as_ref().unwrap().java_installs.clone();
-
-                            return Command::perform(
-                                quantum_launcher_backend::launch(
-                                    selected_instance,
-                                    username,
-                                    MINECRAFT_MEMORY,
-                                    manually_added_versions,
-                                ),
-                                Message::GameOpened,
-                            );
-                        }
-                        Err(err) => self.set_error(err.to_string()),
-                    };
-                }
-            }
-            Message::GameOpened(n) => match n {
-                GameLaunchResult::Ok(child) => {
-                    if let State::Launch {
-                        ref mut spawned_process,
-                        ..
-                    } = self.state
-                    {
-                        *spawned_process = Some(child)
-                    }
-                }
-                GameLaunchResult::Err(err) => self.state = State::Error { error: err },
-                GameLaunchResult::LocateJavaManually {
-                    required_java_version,
-                } => {
-                    self.state = State::FindJavaVersion {
-                        version: None,
-                        required_version: required_java_version,
-                    }
-                }
-            },
-            Message::CreateInstance => {
-                self.state = State::Create {
-                    instance_name: Default::default(),
-                    version: Default::default(),
-                    versions: Vec::new(),
-                    progress: None,
-                    progress_num: None,
-                };
-                return Command::perform(
-                    quantum_launcher_backend::list_versions(),
-                    Message::CreateInstanceLoaded,
-                );
-            }
-            Message::CreateInstanceLoaded(result) => match result {
-                Ok(version_list) => {
-                    if let State::Create {
-                        ref mut versions, ..
-                    } = self.state
-                    {
-                        versions.extend_from_slice(&version_list)
-                    }
-                }
-                Err(n) => self.state = State::Error { error: n },
-            },
-            Message::CreateSelectedVersion(n) => {
+            Message::LaunchInstanceSelected(n) => self.m_launch_instance_selected(n),
+            Message::LaunchUsernameSet(n) => self.m_launch_username_set(n),
+            Message::LaunchStart => return self.m_launch_start(),
+            Message::LaunchEnd(n) => self.m_launch_end(n),
+            Message::CreateInstance => return self.m_create(),
+            Message::CreateInstanceVersionsLoaded(result) => self.m_create_versions_loaded(result),
+            Message::CreateInstanceVersionSelected(n) => {
                 if let State::Create {
                     ref mut version, ..
                 } = self.state
@@ -173,7 +97,7 @@ impl Application for Launcher {
                     *version = n
                 }
             }
-            Message::CreateInputName(n) => {
+            Message::CreateInstanceNameInput(n) => {
                 if let State::Create {
                     ref mut instance_name,
                     ..
@@ -182,7 +106,7 @@ impl Application for Launcher {
                     *instance_name = n
                 }
             }
-            Message::CreateInstanceButtonPressed => {
+            Message::CreateInstanceStart => {
                 if let State::Create {
                     ref instance_name,
                     ref version,
@@ -200,17 +124,15 @@ impl Application for Launcher {
                             version.to_owned(),
                             Some(sender),
                         ),
-                        Message::InstanceCreated,
+                        Message::CreateInstanceEnd,
                     );
                 }
             }
-            Message::InstanceCreated(result) => match result {
-                Ok(_) => {
-                    self.state = State::Launch {
-                        selected_instance: "".to_owned(),
-                        spawned_process: None,
-                    }
-                }
+            Message::CreateInstanceEnd(result) => match result {
+                Ok(_) => match Launcher::load() {
+                    Ok(launcher) => *self = launcher,
+                    Err(err) => self.set_error(err.to_string()),
+                },
                 Err(n) => self.state = State::Error { error: n },
             },
             Message::LocateJavaStart => {
@@ -278,14 +200,14 @@ impl Application for Launcher {
                         widget::pick_list(
                             versions.as_slice(),
                             Some(version),
-                            Message::CreateSelectedVersion
+                            Message::CreateInstanceVersionSelected
                         ),
                         ]
                         .spacing(10),
                         widget::text_input("Enter instance name...", instance_name)
-                        .on_input(Message::CreateInputName),
+                        .on_input(Message::CreateInstanceNameInput),
                         widget::button("Create Instance")
-                        .on_press(Message::CreateInstanceButtonPressed),
+                        .on_press(Message::CreateInstanceStart),
                         progress_bar,
                         widget::progress_bar(RangeInclusive::new(0.0, 1.0), 0.5)
                 ]

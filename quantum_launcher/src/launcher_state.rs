@@ -13,16 +13,16 @@ use crate::config::LauncherConfig;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    InstanceSelected(String),
-    UsernameSet(String),
-    LaunchGame,
-    GameOpened(GameLaunchResult),
+    LaunchInstanceSelected(String),
+    LaunchUsernameSet(String),
+    LaunchStart,
+    LaunchEnd(GameLaunchResult),
     CreateInstance,
-    CreateInstanceLoaded(Result<Arc<Vec<String>>, String>),
-    CreateSelectedVersion(String),
-    CreateInputName(String),
-    CreateInstanceButtonPressed,
-    InstanceCreated(Result<(), String>),
+    CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
+    CreateInstanceVersionSelected(String),
+    CreateInstanceNameInput(String),
+    CreateInstanceStart,
+    CreateInstanceEnd(Result<(), String>),
     LocateJavaStart,
     LocateJavaEnd(Option<PathBuf>),
 }
