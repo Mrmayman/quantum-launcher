@@ -1,8 +1,8 @@
-use std::{ops::RangeInclusive, path::PathBuf, sync::mpsc};
+use std::{ops::RangeInclusive, path::PathBuf};
 
 use config::LauncherConfig;
 use iced::{
-    executor,
+    executor, subscription,
     widget::{self, column},
     Application, Command, Settings, Theme,
 };
@@ -53,14 +53,10 @@ impl Application for Launcher {
             ..
         } = self.state
         {
-            println!("Progress 0");
             if let Some(ref mut progress_num) = progress_num {
-                println!("Progress 1");
                 if let Some(ref progress) = progress {
-                    println!("Progress 2");
                     match progress.try_recv() {
                         Ok(progress_message) => {
-                            println!("Progress 3: {progress_message:?}");
                             *progress_num = match progress_message {
                                 Progress::Started => 0.0,
                                 Progress::DownloadingJsonManifest => 0.2,
@@ -115,7 +111,7 @@ impl Application for Launcher {
                     ..
                 } = self.state
                 {
-                    let (sender, receiver) = mpsc::channel::<Progress>();
+                    let (sender, receiver) = std::sync::mpsc::channel::<Progress>();
                     *progress = Some(receiver);
                     *progress_num = Some(0.0);
                     return Command::perform(
@@ -162,8 +158,37 @@ impl Application for Launcher {
                 },
                 None => self.set_error("Selected Java path not found.".to_owned()),
             },
+            Message::CreateProgressUpdate(n) => {
+                if let State::Create {
+                    ref mut progress_num,
+                    ..
+                } = self.state
+                {
+                    if let Some(progress) = progress_num {
+                        *progress = n
+                    }
+                }
+            }
         }
         Command::none()
+    }
+
+    fn subscription(&self) -> iced::Subscription<Self::Message> {
+        struct Sub;
+
+        const MESSAGE_BUFFER_SIZE: usize = 100;
+
+        subscription::channel(
+            std::any::TypeId::of::<Sub>(),
+            MESSAGE_BUFFER_SIZE,
+            |mut output| async move {
+                loop {
+                    let (sender, receiver) =
+                        iced::futures::channel::mpsc::channel(MESSAGE_BUFFER_SIZE);
+                    println!("Test")
+                }
+            },
+        )
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {

@@ -23,6 +23,7 @@ pub enum Message {
     CreateInstanceNameInput(String),
     CreateInstanceStart,
     CreateInstanceEnd(Result<(), String>),
+    CreateProgressUpdate(f32),
     LocateJavaStart,
     LocateJavaEnd(Option<PathBuf>),
 }
@@ -36,7 +37,7 @@ pub enum State {
         instance_name: String,
         version: String,
         versions: Vec<String>,
-        progress: Option<Receiver<Progress>>,
+        progress: Option<Arc<Receiver<Progress>>>,
         progress_num: Option<f32>,
     },
     FindJavaVersion {
