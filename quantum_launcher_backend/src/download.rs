@@ -32,7 +32,7 @@ const OS_NAME: &str = "osx";
 #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 const OS_NAME: &str = "unknown";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Progress {
     Started,
     DownloadingJsonManifest,

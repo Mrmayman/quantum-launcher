@@ -1,7 +1,7 @@
 use std::{
     path::PathBuf,
     process::Child,
-    sync::{mpsc::Receiver, Arc, Mutex},
+    sync::{mpsc::Receiver, Arc},
 };
 
 use quantum_launcher_backend::{
@@ -16,6 +16,9 @@ pub enum Message {
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
     LaunchStart,
+    LaunchDeleteStart,
+    LaunchDeleteEnd,
+    LaunchDeleteCancel,
     LaunchEnd(GameLaunchResult),
     CreateInstance,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
@@ -23,7 +26,7 @@ pub enum Message {
     CreateInstanceNameInput(String),
     CreateInstanceStart,
     CreateInstanceEnd(Result<(), String>),
-    CreateProgressUpdate(f32),
+    CreateProgressUpdate,
     LocateJavaStart,
     LocateJavaEnd(Option<PathBuf>),
 }
@@ -31,13 +34,13 @@ pub enum Message {
 pub enum State {
     Launch {
         selected_instance: String,
-        spawned_process: Option<Arc<Mutex<Child>>>,
+        spawned_process: Option<Arc<std::sync::Mutex<Child>>>,
     },
     Create {
         instance_name: String,
         version: String,
         versions: Vec<String>,
-        progress: Option<Arc<Receiver<Progress>>>,
+        progress: Option<Receiver<Progress>>,
         progress_num: Option<f32>,
     },
     FindJavaVersion {
@@ -46,6 +49,9 @@ pub enum State {
     },
     Error {
         error: String,
+    },
+    DeleteInstance {
+        selected_instance: String,
     },
 }
 

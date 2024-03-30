@@ -2,9 +2,11 @@ use std::{ops::RangeInclusive, path::PathBuf};
 
 use config::LauncherConfig;
 use iced::{
-    executor, subscription,
+    executor,
+    futures::SinkExt,
+    subscription,
     widget::{self, column},
-    Application, Command, Settings, Theme,
+    Application, Command, Settings, Subscription, Theme,
 };
 use launcher_state::{Launcher, Message, State};
 use quantum_launcher_backend::download::Progress;
@@ -47,37 +49,6 @@ impl Application for Launcher {
     }
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
-        if let State::Create {
-            ref progress,
-            ref mut progress_num,
-            ..
-        } = self.state
-        {
-            if let Some(ref mut progress_num) = progress_num {
-                if let Some(ref progress) = progress {
-                    match progress.try_recv() {
-                        Ok(progress_message) => {
-                            *progress_num = match progress_message {
-                                Progress::Started => 0.0,
-                                Progress::DownloadingJsonManifest => 0.2,
-                                Progress::DownloadingVersionJson => 0.5,
-                                Progress::DownloadingAssets { progress, out_of } => {
-                                    (progress as f32 / out_of as f32) + 2.0
-                                }
-                                Progress::DownloadingLibraries { progress, out_of } => {
-                                    (progress as f32 / out_of as f32) + 1.0
-                                }
-                                Progress::DownloadingJar => 1.0,
-                                Progress::DownloadingLoggingConfig => 0.7,
-                            }
-                        }
-                        Err(err) => {
-                            println!("Err: {err:?}")
-                        }
-                    }
-                }
-            }
-        }
         match message {
             Message::LaunchInstanceSelected(n) => self.m_launch_instance_selected(n),
             Message::LaunchUsernameSet(n) => self.m_launch_username_set(n),
@@ -158,15 +129,77 @@ impl Application for Launcher {
                 },
                 None => self.set_error("Selected Java path not found.".to_owned()),
             },
-            Message::CreateProgressUpdate(n) => {
+            Message::CreateProgressUpdate => {
                 if let State::Create {
                     ref mut progress_num,
+                    ref progress,
                     ..
                 } = self.state
                 {
-                    if let Some(progress) = progress_num {
-                        *progress = n
+                    if let Some(progress) = progress {
+                        if let Ok(progress) = progress.try_recv() {
+                            if let Some(progress_num) = progress_num {
+                                *progress_num = match progress {
+                                    Progress::Started => 0.0,
+                                    Progress::DownloadingJsonManifest => 0.2,
+                                    Progress::DownloadingVersionJson => 0.5,
+                                    Progress::DownloadingAssets {
+                                        progress: progress_num,
+                                        out_of,
+                                    } => (progress_num as f32 * 2.0 / out_of as f32) + 2.0,
+                                    Progress::DownloadingLibraries {
+                                        progress: progress_num,
+                                        out_of,
+                                    } => (progress_num as f32 / out_of as f32) + 1.0,
+                                    Progress::DownloadingJar => 1.0,
+                                    Progress::DownloadingLoggingConfig => 0.7,
+                                }
+                            }
+                        }
                     }
+                }
+            }
+            Message::LaunchDeleteStart => {
+                if let State::Launch {
+                    ref selected_instance,
+                    ..
+                } = self.state
+                {
+                    self.state = State::DeleteInstance {
+                        selected_instance: selected_instance.clone(),
+                    }
+                }
+            }
+            Message::LaunchDeleteEnd => {
+                if let State::DeleteInstance {
+                    ref selected_instance,
+                } = self.state
+                {
+                    match quantum_launcher_backend::file_utils::get_launcher_dir() {
+                        Ok(launcher_dir) => {
+                            let instances_dir = launcher_dir.join("instances");
+                            let deleted_instance_dir = instances_dir.join(selected_instance);
+                            if deleted_instance_dir.starts_with(&instances_dir) {
+                                if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
+                                    self.set_error(err.to_string())
+                                } else {
+                                    self.state = State::Launch {
+                                        selected_instance: Default::default(),
+                                        spawned_process: None,
+                                    }
+                                }
+                            } else {
+                                self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned())
+                            }
+                        }
+                        Err(err) => self.set_error(err.to_string()),
+                    }
+                }
+            }
+            Message::LaunchDeleteCancel => {
+                self.state = State::Launch {
+                    selected_instance: Default::default(),
+                    spawned_process: None,
                 }
             }
         }
@@ -178,17 +211,21 @@ impl Application for Launcher {
 
         const MESSAGE_BUFFER_SIZE: usize = 100;
 
-        subscription::channel(
-            std::any::TypeId::of::<Sub>(),
-            MESSAGE_BUFFER_SIZE,
-            |mut output| async move {
-                loop {
-                    let (sender, receiver) =
-                        iced::futures::channel::mpsc::channel(MESSAGE_BUFFER_SIZE);
-                    println!("Test")
-                }
-            },
-        )
+        if let State::Create { ref progress, .. } = self.state {
+            if progress.is_none() {
+                return Subscription::none();
+            }
+            return subscription::channel(
+                std::any::TypeId::of::<Sub>(),
+                MESSAGE_BUFFER_SIZE,
+                |mut output| async move {
+                    loop {
+                        output.send(Message::CreateProgressUpdate).await.unwrap();
+                    }
+                },
+            );
+        }
+        Subscription::none()
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
@@ -196,11 +233,7 @@ impl Application for Launcher {
             State::Launch {
                 ref selected_instance,
                 ..
-            } => menu_renderer::launch(
-                self.instances.as_ref().map(|n| n.as_slice()),
-                selected_instance,
-                &self.config.as_ref().unwrap().username,
-            ),
+            } => self.menu_launch(selected_instance),
             State::Create {
                 ref instance_name,
                 ref version,
@@ -210,31 +243,27 @@ impl Application for Launcher {
             } => {
                 let progress_bar = if let Some(progress_num) = progress_num {
                     column![widget::progress_bar(
-                        RangeInclusive::new(0.0, 3.0),
+                        RangeInclusive::new(0.0, 4.0),
                         *progress_num
                     )]
                 } else {
-                    column![widget::text("Get ready to enjoy your instance lol.")]
+                    column![widget::text("Happy Gaming!")]
                 };
 
                 column![
                     column![
-                        widget::text(
-                            "Select Instance (only vanilla unmodded Minecraft is supported currently)"
-                        ),
+                        widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
                         widget::pick_list(
                             versions.as_slice(),
                             Some(version),
                             Message::CreateInstanceVersionSelected
                         ),
-                        ]
-                        .spacing(10),
-                        widget::text_input("Enter instance name...", instance_name)
+                    ]
+                    .spacing(10),
+                    widget::text_input("Enter instance name...", instance_name)
                         .on_input(Message::CreateInstanceNameInput),
-                        widget::button("Create Instance")
-                        .on_press(Message::CreateInstanceStart),
-                        progress_bar,
-                        widget::progress_bar(RangeInclusive::new(0.0, 1.0), 0.5)
+                    widget::button("Create Instance").on_press(Message::CreateInstanceStart),
+                    progress_bar,
                 ]
                 .spacing(20)
                 .padding(10)
@@ -254,13 +283,25 @@ impl Application for Launcher {
                 }),
                 widget::button("Select Java Executable").on_press(Message::LocateJavaStart),
             ]
+            .padding(10)
+            .spacing(20)
+            .into(),
+            State::DeleteInstance {
+                ref selected_instance,
+            } => column![
+                widget::text(format!(
+                    "Are you SURE you want to DELETE the Instance {}?",
+                    selected_instance
+                )),
+                widget::text("All your data, including worlds will be lost."),
+                widget::button("Yes, delete my data").on_press(Message::LaunchDeleteEnd),
+                widget::button("No").on_press(Message::LaunchDeleteCancel),
+            ]
+            .padding(10)
+            .spacing(10)
             .into(),
         }
     }
-
-    // fn subscription(&self) -> iced::Subscription<Self::Message> {
-    //     iced::time::Duration::from_secs_f32(1.0).map
-    // }
 }
 
 async fn pick_file() -> Option<PathBuf> {
