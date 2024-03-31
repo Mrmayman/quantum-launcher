@@ -12,6 +12,7 @@ use launcher_state::{Launcher, Message, State};
 use quantum_launcher_backend::download::Progress;
 
 mod config;
+mod l10n;
 mod launcher_state;
 mod menu_renderer;
 mod message_handler;
@@ -31,7 +32,7 @@ impl Application for Launcher {
                 return (
                     Self {
                         state: State::Error {
-                            error: format!("Error: {}", n),
+                            error: format!("{}: {n}", l10n!(ENGLISH, Error)),
                         },
                         instances: None,
                         config: LauncherConfig::load().ok(),
@@ -77,8 +78,8 @@ impl Application for Launcher {
                 if let State::Create {
                     ref instance_name,
                     ref version,
-                    ref mut progress,
-                    ref mut progress_num,
+                    progress_reciever: ref mut progress,
+                    progress_number: ref mut progress_num,
                     ..
                 } = self.state
                 {
@@ -119,41 +120,60 @@ impl Application for Launcher {
                                 spawned_process: None,
                             }
                         }
-                        None => self
-                            .set_error("Selected Java path contains invalid characters".to_owned()),
+                        None => self.set_error(l10n!(ENGLISH, InvalidCharsInJavaPath).to_owned()),
                     },
-                    None => self.set_error(
-                        "Could not open launcher config at QuantumLauncher/launcher.config"
-                            .to_owned(),
-                    ),
+                    None => self.set_error(format!(
+                        "{} (QuantumLauncher/launcher.config)",
+                        l10n!(ENGLISH, CouldNotOpenLauncherConfig)
+                    )),
                 },
-                None => self.set_error("Selected Java path not found.".to_owned()),
+                None => self.set_error(l10n!(ENGLISH, SelectedJavaPathNotFound).to_owned()),
             },
             Message::CreateProgressUpdate => {
                 if let State::Create {
-                    ref mut progress_num,
-                    ref progress,
+                    ref mut progress_number,
+                    ref progress_reciever,
+                    ref mut progress_text,
                     ..
                 } = self.state
                 {
-                    if let Some(progress) = progress {
-                        if let Ok(progress) = progress.try_recv() {
-                            if let Some(progress_num) = progress_num {
-                                *progress_num = match progress {
-                                    Progress::Started => 0.0,
-                                    Progress::DownloadingJsonManifest => 0.2,
-                                    Progress::DownloadingVersionJson => 0.5,
-                                    Progress::DownloadingAssets {
-                                        progress: progress_num,
-                                        out_of,
-                                    } => (progress_num as f32 * 2.0 / out_of as f32) + 2.0,
-                                    Progress::DownloadingLibraries {
-                                        progress: progress_num,
-                                        out_of,
-                                    } => (progress_num as f32 / out_of as f32) + 1.0,
-                                    Progress::DownloadingJar => 1.0,
-                                    Progress::DownloadingLoggingConfig => 0.7,
+                    if let Some(Ok(progress)) = progress_reciever.as_ref().map(|n| n.try_recv()) {
+                        if let Some(progress_text) = progress_text {
+                            *progress_text = match progress {
+                                Progress::Started => "Started.".to_owned(),
+                                Progress::DownloadingJsonManifest => {
+                                    "Downloading Manifest JSON.".to_owned()
                                 }
+                                Progress::DownloadingVersionJson => {
+                                    "Downloading Version JSON.".to_owned()
+                                }
+                                Progress::DownloadingAssets { progress, out_of } => {
+                                    format!("Downloading asset {progress} / {out_of}.")
+                                }
+                                Progress::DownloadingLibraries { progress, out_of } => {
+                                    format!("Downloading library {progress} / {out_of}.")
+                                }
+                                Progress::DownloadingJar => "Downloading Game Jar file.".to_owned(),
+                                Progress::DownloadingLoggingConfig => {
+                                    "Downloading logging config.".to_owned()
+                                }
+                            }
+                        }
+                        if let Some(progress_num) = progress_number {
+                            *progress_num = match progress {
+                                Progress::Started => 0.0,
+                                Progress::DownloadingJsonManifest => 0.2,
+                                Progress::DownloadingVersionJson => 0.5,
+                                Progress::DownloadingAssets {
+                                    progress: progress_num,
+                                    out_of,
+                                } => (progress_num as f32 * 8.0 / out_of as f32) + 2.0,
+                                Progress::DownloadingLibraries {
+                                    progress: progress_num,
+                                    out_of,
+                                } => (progress_num as f32 / out_of as f32) + 1.0,
+                                Progress::DownloadingJar => 1.0,
+                                Progress::DownloadingLoggingConfig => 0.7,
                             }
                         }
                     }
@@ -211,7 +231,11 @@ impl Application for Launcher {
 
         const MESSAGE_BUFFER_SIZE: usize = 100;
 
-        if let State::Create { ref progress, .. } = self.state {
+        if let State::Create {
+            progress_reciever: ref progress,
+            ..
+        } = self.state
+        {
             if progress.is_none() {
                 return Subscription::none();
             }
@@ -238,14 +262,19 @@ impl Application for Launcher {
                 ref instance_name,
                 ref version,
                 ref versions,
-                ref progress_num,
+                ref progress_number,
+                ref progress_text,
                 ..
             } => {
-                let progress_bar = if let Some(progress_num) = progress_num {
-                    column![widget::progress_bar(
-                        RangeInclusive::new(0.0, 4.0),
-                        *progress_num
-                    )]
+                let progress_bar = if let Some(progress_number) = progress_number {
+                    if let Some(progress_text) = progress_text {
+                        column![
+                            widget::progress_bar(RangeInclusive::new(0.0, 10.0), *progress_number),
+                            widget::text(progress_text),
+                        ]
+                    } else {
+                        column![widget::text("Happy Gaming!")]
+                    }
                 } else {
                     column![widget::text("Happy Gaming!")]
                 };

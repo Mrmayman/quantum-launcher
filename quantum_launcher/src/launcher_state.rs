@@ -40,8 +40,9 @@ pub enum State {
         instance_name: String,
         version: String,
         versions: Vec<String>,
-        progress: Option<Receiver<Progress>>,
-        progress_num: Option<f32>,
+        progress_reciever: Option<Receiver<Progress>>,
+        progress_number: Option<f32>,
+        progress_text: Option<String>,
     },
     FindJavaVersion {
         version: Option<PathBuf>,

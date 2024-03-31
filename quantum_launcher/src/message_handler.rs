@@ -80,8 +80,9 @@ impl Launcher {
             instance_name: Default::default(),
             version: Default::default(),
             versions: Vec::new(),
-            progress: None,
-            progress_num: None,
+            progress_reciever: None,
+            progress_number: None,
+            progress_text: None,
         };
         Command::perform(
             quantum_launcher_backend::list_versions(),
