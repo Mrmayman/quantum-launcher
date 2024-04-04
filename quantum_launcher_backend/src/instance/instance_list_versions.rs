@@ -13,5 +13,5 @@ fn list() -> LauncherResult<Vec<String>> {
 }
 
 pub async fn list_versions() -> Result<Arc<Vec<String>>, String> {
-    list().map_err(|n| n.to_string()).map(|n| Arc::new(n))
+    list().map_err(|n| n.to_string()).map(Arc::new)
 }

@@ -5,7 +5,7 @@ use std::{
 };
 
 use quantum_launcher_backend::{
-    download::Progress, error::LauncherResult, file_utils::create_dir_if_not_exists,
+    download::DownloadProgress, error::LauncherResult, file_utils::create_dir_if_not_exists,
     instance::instance_launch::GameLaunchResult,
 };
 
@@ -15,18 +15,18 @@ use crate::config::LauncherConfig;
 pub enum Message {
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
-    LaunchStart,
-    LaunchDeleteStart,
-    LaunchDeleteEnd,
-    LaunchDeleteCancel,
+    Launch,
+    DeleteInstanceMenu,
+    DeleteInstance,
+    DeleteInstanceCancel,
     LaunchEnd(GameLaunchResult),
-    CreateInstance,
+    CreateInstanceScreen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
     CreateInstanceVersionSelected(String),
     CreateInstanceNameInput(String),
-    CreateInstanceStart,
+    CreateInstance,
     CreateInstanceEnd(Result<(), String>),
-    CreateProgressUpdate,
+    CreateInstanceProgressUpdate,
     LocateJavaStart,
     LocateJavaEnd(Option<PathBuf>),
 }
@@ -40,7 +40,7 @@ pub enum State {
         instance_name: String,
         version: String,
         versions: Vec<String>,
-        progress_reciever: Option<Receiver<Progress>>,
+        progress_reciever: Option<Receiver<DownloadProgress>>,
         progress_number: Option<f32>,
         progress_text: Option<String>,
     },
@@ -95,5 +95,12 @@ impl Launcher {
 
     pub fn set_error(&mut self, error: String) {
         self.state = State::Error { error }
+    }
+
+    pub fn go_to_launch_screen(&mut self) {
+        self.state = State::Launch {
+            selected_instance: "".to_owned(),
+            spawned_process: None,
+        }
     }
 }

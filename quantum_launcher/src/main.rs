@@ -1,4 +1,4 @@
-use std::{ops::RangeInclusive, path::PathBuf};
+use std::path::PathBuf;
 
 use config::LauncherConfig;
 use iced::{
@@ -9,7 +9,6 @@ use iced::{
     Application, Command, Settings, Subscription, Theme,
 };
 use launcher_state::{Launcher, Message, State};
-use quantum_launcher_backend::download::Progress;
 
 mod config;
 mod l10n;
@@ -51,51 +50,21 @@ impl Application for Launcher {
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
-            Message::LaunchInstanceSelected(n) => self.m_launch_instance_selected(n),
-            Message::LaunchUsernameSet(n) => self.m_launch_username_set(n),
-            Message::LaunchStart => return self.m_launch_start(),
-            Message::LaunchEnd(n) => self.m_launch_end(n),
-            Message::CreateInstance => return self.m_create(),
-            Message::CreateInstanceVersionsLoaded(result) => self.m_create_versions_loaded(result),
-            Message::CreateInstanceVersionSelected(n) => {
-                if let State::Create {
-                    ref mut version, ..
-                } = self.state
-                {
-                    *version = n
-                }
+            Message::LaunchInstanceSelected(selected_instance) => {
+                self.select_launch_instance(selected_instance)
             }
-            Message::CreateInstanceNameInput(n) => {
-                if let State::Create {
-                    ref mut instance_name,
-                    ..
-                } = self.state
-                {
-                    *instance_name = n
-                }
+            Message::LaunchUsernameSet(username) => self.set_username(username),
+            Message::Launch => return self.launch_game(),
+            Message::LaunchEnd(result) => self.finish_launching(result),
+            Message::CreateInstanceScreen => return self.go_to_create_screen(),
+            Message::CreateInstanceVersionsLoaded(result) => {
+                self.create_instance_finish_loading_versions_list(result)
             }
-            Message::CreateInstanceStart => {
-                if let State::Create {
-                    ref instance_name,
-                    ref version,
-                    progress_reciever: ref mut progress,
-                    progress_number: ref mut progress_num,
-                    ..
-                } = self.state
-                {
-                    let (sender, receiver) = std::sync::mpsc::channel::<Progress>();
-                    *progress = Some(receiver);
-                    *progress_num = Some(0.0);
-                    return Command::perform(
-                        quantum_launcher_backend::create_instance(
-                            instance_name.to_owned(),
-                            version.to_owned(),
-                            Some(sender),
-                        ),
-                        Message::CreateInstanceEnd,
-                    );
-                }
+            Message::CreateInstanceVersionSelected(selected_version) => {
+                self.select_created_instance_version(selected_version)
             }
+            Message::CreateInstanceNameInput(name) => self.update_created_instance_name(name),
+            Message::CreateInstance => return self.create_instance(),
             Message::CreateInstanceEnd(result) => match result {
                 Ok(_) => match Launcher::load() {
                     Ok(launcher) => *self = launcher,
@@ -103,125 +72,14 @@ impl Application for Launcher {
                 },
                 Err(n) => self.state = State::Error { error: n },
             },
+            Message::CreateInstanceProgressUpdate => self.update_instance_creation_progress_bar(),
             Message::LocateJavaStart => {
                 return Command::perform(pick_file(), Message::LocateJavaEnd)
             }
-            Message::LocateJavaEnd(path) => match path {
-                Some(path) => match self.config {
-                    Some(ref mut config) => match path.to_str() {
-                        Some(path) => {
-                            config.java_installs.push(path.to_owned());
-                            match config.save() {
-                                Ok(_) => {}
-                                Err(err) => self.set_error(err.to_string()),
-                            }
-                            self.state = State::Launch {
-                                selected_instance: "".to_owned(),
-                                spawned_process: None,
-                            }
-                        }
-                        None => self.set_error(l10n!(ENGLISH, InvalidCharsInJavaPath).to_owned()),
-                    },
-                    None => self.set_error(format!(
-                        "{} (QuantumLauncher/launcher.config)",
-                        l10n!(ENGLISH, CouldNotOpenLauncherConfig)
-                    )),
-                },
-                None => self.set_error(l10n!(ENGLISH, SelectedJavaPathNotFound).to_owned()),
-            },
-            Message::CreateProgressUpdate => {
-                if let State::Create {
-                    ref mut progress_number,
-                    ref progress_reciever,
-                    ref mut progress_text,
-                    ..
-                } = self.state
-                {
-                    if let Some(Ok(progress)) = progress_reciever.as_ref().map(|n| n.try_recv()) {
-                        if let Some(progress_text) = progress_text {
-                            *progress_text = match progress {
-                                Progress::Started => "Started.".to_owned(),
-                                Progress::DownloadingJsonManifest => {
-                                    "Downloading Manifest JSON.".to_owned()
-                                }
-                                Progress::DownloadingVersionJson => {
-                                    "Downloading Version JSON.".to_owned()
-                                }
-                                Progress::DownloadingAssets { progress, out_of } => {
-                                    format!("Downloading asset {progress} / {out_of}.")
-                                }
-                                Progress::DownloadingLibraries { progress, out_of } => {
-                                    format!("Downloading library {progress} / {out_of}.")
-                                }
-                                Progress::DownloadingJar => "Downloading Game Jar file.".to_owned(),
-                                Progress::DownloadingLoggingConfig => {
-                                    "Downloading logging config.".to_owned()
-                                }
-                            }
-                        }
-                        if let Some(progress_num) = progress_number {
-                            *progress_num = match progress {
-                                Progress::Started => 0.0,
-                                Progress::DownloadingJsonManifest => 0.2,
-                                Progress::DownloadingVersionJson => 0.5,
-                                Progress::DownloadingAssets {
-                                    progress: progress_num,
-                                    out_of,
-                                } => (progress_num as f32 * 8.0 / out_of as f32) + 2.0,
-                                Progress::DownloadingLibraries {
-                                    progress: progress_num,
-                                    out_of,
-                                } => (progress_num as f32 / out_of as f32) + 1.0,
-                                Progress::DownloadingJar => 1.0,
-                                Progress::DownloadingLoggingConfig => 0.7,
-                            }
-                        }
-                    }
-                }
-            }
-            Message::LaunchDeleteStart => {
-                if let State::Launch {
-                    ref selected_instance,
-                    ..
-                } = self.state
-                {
-                    self.state = State::DeleteInstance {
-                        selected_instance: selected_instance.clone(),
-                    }
-                }
-            }
-            Message::LaunchDeleteEnd => {
-                if let State::DeleteInstance {
-                    ref selected_instance,
-                } = self.state
-                {
-                    match quantum_launcher_backend::file_utils::get_launcher_dir() {
-                        Ok(launcher_dir) => {
-                            let instances_dir = launcher_dir.join("instances");
-                            let deleted_instance_dir = instances_dir.join(selected_instance);
-                            if deleted_instance_dir.starts_with(&instances_dir) {
-                                if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
-                                    self.set_error(err.to_string())
-                                } else {
-                                    self.state = State::Launch {
-                                        selected_instance: Default::default(),
-                                        spawned_process: None,
-                                    }
-                                }
-                            } else {
-                                self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned())
-                            }
-                        }
-                        Err(err) => self.set_error(err.to_string()),
-                    }
-                }
-            }
-            Message::LaunchDeleteCancel => {
-                self.state = State::Launch {
-                    selected_instance: Default::default(),
-                    spawned_process: None,
-                }
-            }
+            Message::LocateJavaEnd(path) => self.add_java_to_config(path),
+            Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
+            Message::DeleteInstance => self.delete_selected_instance(),
+            Message::DeleteInstanceCancel => self.go_to_launch_screen(),
         }
         Command::none()
     }
@@ -244,7 +102,10 @@ impl Application for Launcher {
                 MESSAGE_BUFFER_SIZE,
                 |mut output| async move {
                     loop {
-                        output.send(Message::CreateProgressUpdate).await.unwrap();
+                        output
+                            .send(Message::CreateInstanceProgressUpdate)
+                            .await
+                            .unwrap();
                     }
                 },
             );
@@ -265,39 +126,13 @@ impl Application for Launcher {
                 ref progress_number,
                 ref progress_text,
                 ..
-            } => {
-                let progress_bar = if let Some(progress_number) = progress_number {
-                    if let Some(progress_text) = progress_text {
-                        column![
-                            widget::progress_bar(RangeInclusive::new(0.0, 10.0), *progress_number),
-                            widget::text(progress_text),
-                        ]
-                    } else {
-                        column![widget::text("Happy Gaming!")]
-                    }
-                } else {
-                    column![widget::text("Happy Gaming!")]
-                };
-
-                column![
-                    column![
-                        widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
-                        widget::pick_list(
-                            versions.as_slice(),
-                            Some(version),
-                            Message::CreateInstanceVersionSelected
-                        ),
-                    ]
-                    .spacing(10),
-                    widget::text_input("Enter instance name...", instance_name)
-                        .on_input(Message::CreateInstanceNameInput),
-                    widget::button("Create Instance").on_press(Message::CreateInstanceStart),
-                    progress_bar,
-                ]
-                .spacing(20)
-                .padding(10)
-                .into()
-            }
+            } => self.menu_create(
+                progress_number,
+                progress_text,
+                versions,
+                version,
+                instance_name,
+            ),
             State::Error { ref error } => {
                 widget::container(widget::text(format!("Error: {}", error))).into()
             }
@@ -323,8 +158,8 @@ impl Application for Launcher {
                     selected_instance
                 )),
                 widget::text("All your data, including worlds will be lost."),
-                widget::button("Yes, delete my data").on_press(Message::LaunchDeleteEnd),
-                widget::button("No").on_press(Message::LaunchDeleteCancel),
+                widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
+                widget::button("No").on_press(Message::DeleteInstanceCancel),
             ]
             .padding(10)
             .spacing(10)

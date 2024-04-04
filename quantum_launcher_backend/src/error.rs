@@ -4,7 +4,7 @@ use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
 use std::io::Error as IoError;
 
-use crate::{download::Progress, json_structs::json_version::VersionDetails};
+use crate::{download::DownloadProgress, json_structs::json_version::VersionDetails};
 
 #[derive(Debug)]
 pub enum LauncherError {
@@ -25,7 +25,7 @@ pub enum LauncherError {
     VersionJsonNoArgumentsField(VersionDetails),
     PathBufToString(PathBuf),
     RequiredJavaVersionNotFound(usize),
-    DownloadProgressMspcError(SendError<Progress>),
+    DownloadProgressMspcError(SendError<DownloadProgress>),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -45,7 +45,7 @@ impl_error!(IoError, IoError);
 impl_error!(SerdeJsonError, SerdeJsonError);
 impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
 
-type ProgressSendError = SendError<Progress>;
+type ProgressSendError = SendError<DownloadProgress>;
 impl_error!(ProgressSendError, DownloadProgressMspcError);
 
 impl Display for LauncherError {

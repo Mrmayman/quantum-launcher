@@ -32,8 +32,18 @@ const OS_NAME: &str = "osx";
 #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 const OS_NAME: &str = "unknown";
 
+/// An enum representing the progress in downloading
+/// a Minecraft instance.
+///
+/// # Order
+/// 1) Manifest Json
+/// 2) Version Json
+/// 3) Logging config
+/// 4) Jar
+/// 5) Libraries
+/// 6) Assets
 #[derive(Debug, Clone)]
-pub enum Progress {
+pub enum DownloadProgress {
     Started,
     DownloadingJsonManifest,
     DownloadingVersionJson,
@@ -41,6 +51,44 @@ pub enum Progress {
     DownloadingLibraries { progress: usize, out_of: usize },
     DownloadingJar,
     DownloadingLoggingConfig,
+}
+
+impl ToString for DownloadProgress {
+    fn to_string(&self) -> String {
+        match self {
+            DownloadProgress::Started => "Started.".to_owned(),
+            DownloadProgress::DownloadingJsonManifest => "Downloading Manifest JSON.".to_owned(),
+            DownloadProgress::DownloadingVersionJson => "Downloading Version JSON.".to_owned(),
+            DownloadProgress::DownloadingAssets { progress, out_of } => {
+                format!("Downloading asset {progress} / {out_of}.")
+            }
+            DownloadProgress::DownloadingLibraries { progress, out_of } => {
+                format!("Downloading library {progress} / {out_of}.")
+            }
+            DownloadProgress::DownloadingJar => "Downloading Game Jar file.".to_owned(),
+            DownloadProgress::DownloadingLoggingConfig => "Downloading logging config.".to_owned(),
+        }
+    }
+}
+
+impl Into<f32> for DownloadProgress {
+    fn into(self) -> f32 {
+        match self {
+            DownloadProgress::Started => 0.0,
+            DownloadProgress::DownloadingJsonManifest => 0.2,
+            DownloadProgress::DownloadingVersionJson => 0.5,
+            DownloadProgress::DownloadingAssets {
+                progress: progress_num,
+                out_of,
+            } => (progress_num as f32 * 8.0 / out_of as f32) + 2.0,
+            DownloadProgress::DownloadingLibraries {
+                progress: progress_num,
+                out_of,
+            } => (progress_num as f32 / out_of as f32) + 1.0,
+            DownloadProgress::DownloadingJar => 1.0,
+            DownloadProgress::DownloadingLoggingConfig => 0.7,
+        }
+    }
 }
 
 /// A struct that helps download a Minecraft instance.
@@ -62,7 +110,7 @@ pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
     network_client: Client,
-    sender: Option<Sender<Progress>>,
+    sender: Option<Sender<DownloadProgress>>,
 }
 
 impl GameDownloader {
@@ -78,7 +126,7 @@ impl GameDownloader {
     pub fn new(
         instance_name: &str,
         version: &str,
-        sender: Option<Sender<Progress>>,
+        sender: Option<Sender<DownloadProgress>>,
     ) -> LauncherResult<GameDownloader> {
         let instance_dir = GameDownloader::new_get_instance_dir(instance_name)?;
         let network_client = Client::new();
@@ -100,7 +148,7 @@ impl GameDownloader {
         let number_of_libraries = self.version_json.libraries.len();
 
         for (library_number, library) in self.version_json.libraries.iter().enumerate() {
-            self.send_progress(Progress::DownloadingLibraries {
+            self.send_progress(DownloadProgress::DownloadingLibraries {
                 progress: library_number,
                 out_of: number_of_libraries,
             })?;
@@ -146,7 +194,7 @@ impl GameDownloader {
 
     pub fn download_jar(&self) -> LauncherResult<()> {
         println!("[info] Downloading game jar file.");
-        self.send_progress(Progress::DownloadingJar)?;
+        self.send_progress(DownloadProgress::DownloadingJar)?;
 
         let jar_bytes = file_utils::download_file_to_bytes(
             &self.network_client,
@@ -161,7 +209,7 @@ impl GameDownloader {
     pub fn download_logging_config(&self) -> Result<(), LauncherError> {
         if let Some(ref logging) = self.version_json.logging {
             println!("[info] Downloading logging configuration.");
-            self.send_progress(Progress::DownloadingLoggingConfig)?;
+            self.send_progress(DownloadProgress::DownloadingLoggingConfig)?;
 
             let log_config_name = format!("logging-{}", logging.client.file.id);
 
@@ -211,7 +259,7 @@ impl GameDownloader {
             let obj_id = &obj_hash[0..2];
 
             println!("[info] Downloading asset {object_number}/{objects_len}");
-            self.send_progress(Progress::DownloadingAssets {
+            self.send_progress(DownloadProgress::DownloadingAssets {
                 progress: object_number,
                 out_of: objects_len,
             })?;
@@ -243,11 +291,11 @@ impl GameDownloader {
     fn new_download_version_json(
         network_client: &Client,
         version: &str,
-        sender: &Option<Sender<Progress>>,
+        sender: &Option<Sender<DownloadProgress>>,
     ) -> LauncherResult<VersionDetails> {
         println!("[info] Started downloading version manifest JSON.");
         if let Some(sender) = sender {
-            sender.send(Progress::DownloadingJsonManifest)?;
+            sender.send(DownloadProgress::DownloadingJsonManifest)?;
         }
         let manifest_json = file_utils::download_file_to_string(network_client, VERSIONS_JSON)?;
         let manifest: Manifest = serde_json::from_str(&manifest_json)?;
@@ -259,7 +307,7 @@ impl GameDownloader {
 
         println!("[info] Started downloading version details JSON.");
         if let Some(sender) = sender {
-            sender.send(Progress::DownloadingVersionJson)?;
+            sender.send(DownloadProgress::DownloadingVersionJson)?;
         }
         let version_json = file_utils::download_file_to_string(network_client, &version.url)?;
         let version_json = serde_json::from_str(&version_json)?;
@@ -296,7 +344,7 @@ impl GameDownloader {
         allowed
     }
 
-    fn send_progress(&self, progress: Progress) -> Result<(), SendError<Progress>> {
+    fn send_progress(&self, progress: DownloadProgress) -> Result<(), SendError<DownloadProgress>> {
         if let Some(ref sender) = self.sender {
             sender.send(progress)?;
         }

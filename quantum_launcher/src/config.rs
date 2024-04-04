@@ -30,7 +30,7 @@ impl LauncherConfig {
 
     pub fn save(&self) -> Result<(), LauncherError> {
         let config_path = file_utils::get_launcher_dir()?.join("config.json");
-        let mut file = File::create(&config_path)?;
+        let mut file = File::create(config_path)?;
 
         let config = serde_json::to_string(&self)?;
         file.write_all(config.as_bytes())?;

@@ -26,7 +26,7 @@ impl JavaInstall {
         manually_added: Option<&[String]>,
     ) -> LauncherResult<Vec<JavaInstall>> {
         let mut paths: Vec<JavaInstall> = if let Some(n) = manually_added {
-            n.iter().map(|n| get_java_install(&n)).collect()
+            n.iter().map(|n| get_java_install(n)).collect()
         } else {
             Ok(vec![])
         }?;

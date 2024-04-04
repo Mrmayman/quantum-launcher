@@ -15,6 +15,6 @@ pub enum Entry {
 #[macro_export]
 macro_rules! l10n {
     ( $lang:ident, $entry:ident ) => {
-        crate::l10n::$lang[crate::l10n::Entry::$entry as usize]
+        $crate::l10n::$lang[$crate::l10n::Entry::$entry as usize]
     };
 }

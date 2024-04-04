@@ -147,7 +147,7 @@ pub fn launch_blocking(
                 Some(n) => n,
                 None => return Err(LauncherError::PathBufToString(library_path)),
             };
-            class_path.push_str(&format!("{}", library_path));
+            class_path.push_str(library_path);
             class_path.push(CLASSPATH_SEPARATOR);
         }
     }
@@ -157,7 +157,7 @@ pub fn launch_blocking(
         None => return Err(LauncherError::PathBufToString(jar_path)),
     };
 
-    class_path.push_str(&format!("{}", jar_path));
+    class_path.push_str(jar_path);
 
     if cfg!(windows) {
         class_path.push('"');

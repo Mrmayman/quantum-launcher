@@ -1,14 +1,14 @@
 use std::{fs::File, io::Write, sync::mpsc::Sender};
 
 use crate::{
-    download::{GameDownloader, Progress},
+    download::{DownloadProgress, GameDownloader},
     error::LauncherResult,
 };
 
 pub async fn create_instance(
     instance_name: String,
     version: String,
-    progress_sender: Option<Sender<Progress>>,
+    progress_sender: Option<Sender<DownloadProgress>>,
 ) -> Result<(), String> {
     create(&instance_name, version, progress_sender).map_err(|n| n.to_string())
 }
@@ -16,12 +16,12 @@ pub async fn create_instance(
 fn create(
     instance_name: &str,
     version: String,
-    progress_sender: Option<Sender<Progress>>,
+    progress_sender: Option<Sender<DownloadProgress>>,
 ) -> LauncherResult<()> {
     println!("[info] Started creating instance.");
 
     if let Some(ref sender) = progress_sender {
-        sender.send(Progress::Started)?;
+        sender.send(DownloadProgress::Started)?;
     }
 
     let game_downloader = GameDownloader::new(instance_name, &version, progress_sender)?;
