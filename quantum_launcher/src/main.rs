@@ -79,7 +79,7 @@ impl Application for Launcher {
             Message::LocateJavaEnd(path) => self.add_java_to_config(path),
             Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
             Message::DeleteInstance => self.delete_selected_instance(),
-            Message::DeleteInstanceCancel => self.go_to_launch_screen(),
+            Message::GoToLaunchScreen => self.go_to_launch_screen(),
         }
         Command::none()
     }
@@ -159,7 +159,7 @@ impl Application for Launcher {
                 )),
                 widget::text("All your data, including worlds will be lost."),
                 widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-                widget::button("No").on_press(Message::DeleteInstanceCancel),
+                widget::button("No").on_press(Message::GoToLaunchScreen),
             ]
             .padding(10)
             .spacing(10)

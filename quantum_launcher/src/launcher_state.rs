@@ -5,7 +5,9 @@ use std::{
 };
 
 use quantum_launcher_backend::{
-    download::DownloadProgress, error::LauncherResult, file_utils::create_dir_if_not_exists,
+    download::DownloadProgress,
+    error::{LauncherError, LauncherResult},
+    file_utils::create_dir_if_not_exists,
     instance::instance_launch::GameLaunchResult,
 };
 
@@ -18,7 +20,7 @@ pub enum Message {
     Launch,
     DeleteInstanceMenu,
     DeleteInstance,
-    DeleteInstanceCancel,
+    GoToLaunchScreen,
     LaunchEnd(GameLaunchResult),
     CreateInstanceScreen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
@@ -65,10 +67,13 @@ pub struct Launcher {
 impl Launcher {
     pub fn load() -> LauncherResult<Self> {
         let dir_path = quantum_launcher_backend::file_utils::get_launcher_dir()?;
-        create_dir_if_not_exists(&dir_path)?;
+        create_dir_if_not_exists(&dir_path)
+            .map_err(|err| LauncherError::IoError(err, dir_path.clone()))?;
         let dir_path = dir_path.join("instances");
-        create_dir_if_not_exists(&dir_path)?;
-        let dir = std::fs::read_dir(&dir_path)?;
+        create_dir_if_not_exists(&dir_path)
+            .map_err(|err| LauncherError::IoError(err, dir_path.clone()))?;
+        let dir =
+            std::fs::read_dir(&dir_path).map_err(|err| LauncherError::IoError(err, dir_path))?;
 
         let subdirectories: Vec<String> = dir
             .filter_map(|entry| {

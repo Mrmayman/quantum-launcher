@@ -5,7 +5,7 @@ use std::{
     sync::mpsc::{SendError, Sender},
 };
 
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde_json::Value;
 
 use crate::{
@@ -123,7 +123,7 @@ impl GameDownloader {
     /// on a separate thread, and want to communicate progress with main thread.
     ///
     /// Leave as `None` if not required.
-    pub fn new(
+    pub async fn new(
         instance_name: &str,
         version: &str,
         sender: Option<Sender<DownloadProgress>>,
@@ -131,7 +131,7 @@ impl GameDownloader {
         let instance_dir = GameDownloader::new_get_instance_dir(instance_name)?;
         let network_client = Client::new();
         let version_json =
-            GameDownloader::new_download_version_json(&network_client, version, &sender)?;
+            GameDownloader::new_download_version_json(&network_client, version, &sender).await?;
 
         Ok(Self {
             instance_dir,
@@ -141,9 +141,12 @@ impl GameDownloader {
         })
     }
 
-    pub fn download_libraries(&self) -> Result<(), LauncherError> {
+    pub async fn download_libraries(&self) -> Result<(), LauncherError> {
         println!("[info] Starting download of libraries.");
-        create_dir_if_not_exists(&self.instance_dir.join("libraries"))?;
+
+        let library_path = &self.instance_dir.join("libraries");
+        create_dir_if_not_exists(&library_path)
+            .map_err(|err| LauncherError::IoError(err, library_path.clone()))?;
 
         let number_of_libraries = self.version_json.libraries.len();
 
@@ -176,14 +179,18 @@ impl GameDownloader {
                 "[info] Downloading library {library_number}/{number_of_libraries}: {}",
                 library.downloads.artifact.path
             );
-            create_dir_if_not_exists(&lib_dir_path)?;
+            create_dir_if_not_exists(&lib_dir_path)
+                .map_err(|err| LauncherError::IoError(err, lib_dir_path))?;
             let library_downloaded = file_utils::download_file_to_bytes(
                 &self.network_client,
                 &library.downloads.artifact.url,
-            )?;
+            )
+            .await?;
 
-            let mut file = File::create(lib_file_path)?;
-            file.write_all(&library_downloaded)?;
+            let mut file = File::create(&lib_file_path)
+                .map_err(|err| LauncherError::IoError(err, lib_file_path.clone()))?;
+            file.write_all(&library_downloaded)
+                .map_err(|err| LauncherError::IoError(err, lib_file_path))?;
 
             // According to the reference implementation, I also download natives.
             // At library.natives field.
@@ -192,54 +199,71 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub fn download_jar(&self) -> LauncherResult<()> {
+    pub async fn download_jar(&self) -> LauncherResult<()> {
         println!("[info] Downloading game jar file.");
         self.send_progress(DownloadProgress::DownloadingJar)?;
 
         let jar_bytes = file_utils::download_file_to_bytes(
             &self.network_client,
             &self.version_json.downloads.client.url,
-        )?;
-        let mut jar_file = File::create(self.instance_dir.join("version.jar"))?;
-        jar_file.write_all(&jar_bytes)?;
+        )
+        .await?;
+
+        let jar_path = self.instance_dir.join("version.jar");
+        let mut jar_file =
+            File::create(&jar_path).map_err(|err| LauncherError::IoError(err, jar_path.clone()))?;
+        jar_file
+            .write_all(&jar_bytes)
+            .map_err(|err| LauncherError::IoError(err, jar_path))?;
 
         Ok(())
     }
 
-    pub fn download_logging_config(&self) -> Result<(), LauncherError> {
+    pub async fn download_logging_config(&self) -> Result<(), LauncherError> {
         if let Some(ref logging) = self.version_json.logging {
             println!("[info] Downloading logging configuration.");
             self.send_progress(DownloadProgress::DownloadingLoggingConfig)?;
 
             let log_config_name = format!("logging-{}", logging.client.file.id);
 
-            let log_config = file_utils::download_file_to_string(
-                &self.network_client,
-                &logging.client.file.url,
-            )?;
-            let mut file = File::create(self.instance_dir.join(log_config_name))?;
-            file.write_all(log_config.as_bytes())?;
+            let log_config =
+                file_utils::download_file_to_string(&self.network_client, &logging.client.file.url)
+                    .await?;
+
+            let config_path = self.instance_dir.join(log_config_name);
+            let mut file = File::create(&config_path)
+                .map_err(|err| LauncherError::IoError(err, config_path.clone()))?;
+            file.write_all(log_config.as_bytes())
+                .map_err(|err| LauncherError::IoError(err, config_path))?;
         }
         Ok(())
     }
 
-    pub fn download_assets(&self) -> Result<(), LauncherError> {
+    pub async fn download_assets(&self) -> Result<(), LauncherError> {
         const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 
         println!("[info] Downloading assets.");
-        create_dir_if_not_exists(&self.instance_dir.join("assets").join("indexes"))?;
-        let object_folder = self.instance_dir.join("assets").join("objects");
-        create_dir_if_not_exists(&object_folder)?;
+
+        let assets_indexes_path = self.instance_dir.join("assets").join("indexes");
+        create_dir_if_not_exists(&assets_indexes_path)
+            .map_err(|err| LauncherError::IoError(err, assets_indexes_path))?;
+        let assets_objects_path = self.instance_dir.join("assets").join("objects");
+        create_dir_if_not_exists(&assets_objects_path)
+            .map_err(|err| LauncherError::IoError(err, assets_objects_path.clone()))?;
 
         let asset_index =
-            GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)?;
-        let mut file = File::create(
-            self.instance_dir
-                .join("assets")
-                .join("indexes")
-                .join(format!("{}.json", self.version_json.assetIndex.id)),
-        )?;
-        file.write_all(asset_index.to_string().as_bytes())?;
+            GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
+                .await?;
+
+        let assets_indexes_json_path = self
+            .instance_dir
+            .join("assets")
+            .join("indexes")
+            .join(format!("{}.json", self.version_json.assetIndex.id));
+        let mut file = File::create(&assets_indexes_json_path)
+            .map_err(|err| LauncherError::IoError(err, assets_indexes_json_path.clone()))?;
+        file.write_all(asset_index.to_string().as_bytes())
+            .map_err(|err| LauncherError::IoError(err, assets_indexes_json_path))?;
 
         let objects = if let Some(value) = asset_index["objects"].as_object() {
             value
@@ -264,21 +288,27 @@ impl GameDownloader {
                 out_of: objects_len,
             })?;
 
-            let obj_folder = object_folder.join(obj_id);
-            create_dir_if_not_exists(&obj_folder)?;
+            let obj_folder = assets_objects_path.join(obj_id);
+            create_dir_if_not_exists(&obj_folder)
+                .map_err(|err| LauncherError::IoError(err, obj_folder.clone()))?;
 
             let obj_data = file_utils::download_file_to_bytes(
                 &self.network_client,
                 &format!("{}/{}/{}", OBJECTS_URL, obj_id, obj_hash),
-            )?;
-            let mut file = File::create(obj_folder.join(obj_hash))?;
-            file.write_all(&obj_data)?;
+            )
+            .await?;
+
+            let obj_file_path = obj_folder.join(obj_hash);
+            let mut file = File::create(&obj_file_path)
+                .map_err(|err| LauncherError::IoError(err, obj_file_path.clone()))?;
+            file.write_all(&obj_data)
+                .map_err(|err| LauncherError::IoError(err, obj_file_path))?;
         }
         Ok(())
     }
 
-    pub fn download_json(network_client: &Client, url: &str) -> LauncherResult<Value> {
-        let json = file_utils::download_file_to_string(network_client, url)?;
+    pub async fn download_json(network_client: &Client, url: &str) -> LauncherResult<Value> {
+        let json = file_utils::download_file_to_string(network_client, url).await?;
         let result = serde_json::from_str::<serde_json::Value>(&json);
         match result {
             Ok(n) => Ok(n),
@@ -288,7 +318,7 @@ impl GameDownloader {
 }
 
 impl GameDownloader {
-    fn new_download_version_json(
+    async fn new_download_version_json(
         network_client: &Client,
         version: &str,
         sender: &Option<Sender<DownloadProgress>>,
@@ -297,7 +327,8 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingJsonManifest)?;
         }
-        let manifest_json = file_utils::download_file_to_string(network_client, VERSIONS_JSON)?;
+        let manifest_json =
+            file_utils::download_file_to_string(network_client, VERSIONS_JSON).await?;
         let manifest: Manifest = serde_json::from_str(&manifest_json)?;
 
         let version = match manifest.versions.iter().find(|n| n.id == version) {
@@ -309,7 +340,8 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingVersionJson)?;
         }
-        let version_json = file_utils::download_file_to_string(network_client, &version.url)?;
+        let version_json =
+            file_utils::download_file_to_string(network_client, &version.url).await?;
         let version_json = serde_json::from_str(&version_json)?;
         Ok(version_json)
     }
@@ -318,13 +350,15 @@ impl GameDownloader {
         println!("[info] Initializing instance folder.");
         let launcher_dir = file_utils::get_launcher_dir()?;
         let instances_dir = launcher_dir.join("instances");
-        file_utils::create_dir_if_not_exists(&instances_dir)?;
+        file_utils::create_dir_if_not_exists(&instances_dir)
+            .map_err(|err| LauncherError::IoError(err, instances_dir.clone()))?;
 
         let current_instance_dir = instances_dir.join(instance_name);
         if current_instance_dir.exists() {
             return Err(LauncherError::InstanceAlreadyExists);
         }
-        std::fs::create_dir_all(&current_instance_dir)?;
+        std::fs::create_dir_all(&current_instance_dir)
+            .map_err(|err| LauncherError::IoError(err, current_instance_dir.clone()))?;
 
         Ok(current_instance_dir)
     }

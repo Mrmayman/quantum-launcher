@@ -54,12 +54,14 @@ impl Launcher {
                     widget::text(progress_text),
                 ]
             } else {
-                column![widget::text("Happy Gaming!")]
+                column![]
             }
         } else {
-            column![widget::text("Happy Gaming!")]
+            column![]
         };
+
         column![
+            widget::button("< Back").on_press(Message::GoToLaunchScreen),
             column![
                 widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
                 widget::pick_list(
@@ -71,7 +73,7 @@ impl Launcher {
             .spacing(10),
             widget::text_input("Enter instance name...", instance_name)
                 .on_input(Message::CreateInstanceNameInput),
-            widget::button("Create Instance").on_press(Message::CreateInstance),
+            widget::button("+ Create Instance").on_press(Message::CreateInstance),
             progress_bar,
         ]
         .spacing(20)

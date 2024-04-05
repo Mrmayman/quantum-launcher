@@ -46,7 +46,10 @@ impl JavaInstall {
 
 fn get_java_install(path: &str) -> LauncherResult<JavaInstall> {
     let path = PathBuf::from(path);
-    let java_output = Command::new(&path).arg("-version").output()?;
+    let java_output = Command::new(&path)
+        .arg("-version")
+        .output()
+        .map_err(LauncherError::CommandError)?;
     let java_output = String::from_utf8(java_output.stderr)?;
 
     let first_line = java_output
@@ -89,9 +92,17 @@ fn get_number_from_version_string(s: &str) -> Option<usize> {
 fn get_java_paths() -> LauncherResult<String> {
     match String::from_utf8(
         match std::env::consts::OS {
-            "windows" => Command::new("where").arg("java").output()?,
-            "macos" => Command::new("/usr/libexec/java_home").output()?,
-            _ if cfg!(unix) => Command::new("which").arg("java").output()?,
+            "windows" => Command::new("where")
+                .arg("java")
+                .output()
+                .map_err(LauncherError::CommandError)?,
+            "macos" => Command::new("/usr/libexec/java_home")
+                .output()
+                .map_err(LauncherError::CommandError)?,
+            _ if cfg!(unix) => Command::new("which")
+                .arg("java")
+                .output()
+                .map_err(LauncherError::CommandError)?,
             _ => panic!("OS not supported for finding java"),
         }
         .stdout,

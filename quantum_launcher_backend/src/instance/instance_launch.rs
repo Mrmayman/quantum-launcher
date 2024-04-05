@@ -67,7 +67,8 @@ pub fn launch_blocking(
     let instance_dir = get_instance_dir(instance_name)?;
 
     let minecraft_dir = instance_dir.join(".minecraft");
-    file_utils::create_dir_if_not_exists(&minecraft_dir)?;
+    file_utils::create_dir_if_not_exists(&minecraft_dir)
+        .map_err(|err| LauncherError::IoError(err, minecraft_dir.clone()))?;
 
     let version_json: VersionDetails = read_version_json(&instance_dir)?;
 
@@ -186,7 +187,7 @@ pub fn launch_blocking(
 
     let mut command = appropriate_install.get_command();
     let command = command.args(java_args.iter().chain(game_arguments.iter()));
-    let result = command.spawn()?;
+    let result = command.spawn().map_err(LauncherError::CommandError)?;
 
     Ok(result)
 }
@@ -197,10 +198,12 @@ fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
     }
 
     let launcher_dir = file_utils::get_launcher_dir()?;
-    create_dir_if_not_exists(&launcher_dir)?;
+    create_dir_if_not_exists(&launcher_dir)
+        .map_err(|err| LauncherError::IoError(err, launcher_dir.clone()))?;
 
     let instances_dir = launcher_dir.join("instances");
-    create_dir_if_not_exists(&instances_dir)?;
+    create_dir_if_not_exists(&instances_dir)
+        .map_err(|err| LauncherError::IoError(err, instances_dir.clone()))?;
 
     let instance_dir = instances_dir.join(instance_name);
     if !instance_dir.exists() {
@@ -214,9 +217,14 @@ fn replace_var(string: &mut String, var: &str, value: &str) {
 }
 
 fn read_version_json(instance_dir: &Path) -> LauncherResult<VersionDetails> {
-    let mut file = File::open(instance_dir.join("details.json"))?;
+    let file_path = instance_dir.join("details.json");
+    let mut file =
+        File::open(&file_path).map_err(|err| LauncherError::IoError(err, file_path.clone()))?;
+
     let mut version_json: String = Default::default();
-    file.read_to_string(&mut version_json)?;
+    file.read_to_string(&mut version_json)
+        .map_err(|err| LauncherError::IoError(err, file_path))?;
+
     let version_json = serde_json::from_str(&version_json)?;
     Ok(version_json)
 }

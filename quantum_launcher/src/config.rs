@@ -18,22 +18,27 @@ impl LauncherConfig {
                 username: Default::default(),
             };
 
-            let mut file = File::create(config_path)?;
-            file.write_all(serde_json::to_string(&config)?.as_bytes())?;
+            let mut file = File::create(&config_path)
+                .map_err(|err| LauncherError::IoError(err, config_path.clone()))?;
+            file.write_all(serde_json::to_string(&config)?.as_bytes())
+                .map_err(|err| LauncherError::IoError(err, config_path))?;
 
             return Ok(config);
         }
 
-        let config = std::fs::read_to_string(&config_path)?;
+        let config = std::fs::read_to_string(&config_path)
+            .map_err(|err| LauncherError::IoError(err, config_path))?;
         Ok(serde_json::from_str(&config)?)
     }
 
     pub fn save(&self) -> Result<(), LauncherError> {
         let config_path = file_utils::get_launcher_dir()?.join("config.json");
-        let mut file = File::create(config_path)?;
+        let mut file = File::create(&config_path)
+            .map_err(|err| LauncherError::IoError(err, config_path.clone()))?;
 
         let config = serde_json::to_string(&self)?;
-        file.write_all(config.as_bytes())?;
+        file.write_all(config.as_bytes())
+            .map_err(|err| LauncherError::IoError(err, config_path))?;
         Ok(())
     }
 }

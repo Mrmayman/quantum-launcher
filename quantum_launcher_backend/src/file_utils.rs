@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use reqwest::blocking::Client;
+use reqwest::Client;
 
 use crate::error::{LauncherError, LauncherResult};
 
@@ -10,7 +10,8 @@ pub fn get_launcher_dir() -> LauncherResult<PathBuf> {
         None => return Err(LauncherError::ConfigDirNotFound),
     };
     let launcher_directory = config_directory.join("QuantumLauncher");
-    create_dir_if_not_exists(&launcher_directory)?;
+    create_dir_if_not_exists(&launcher_directory)
+        .map_err(|err| LauncherError::IoError(err, launcher_directory.clone()))?;
 
     Ok(launcher_directory)
 }
@@ -23,10 +24,10 @@ pub fn create_dir_if_not_exists(path: &PathBuf) -> std::io::Result<()> {
     }
 }
 
-pub fn download_file_to_string(client: &Client, url: &str) -> LauncherResult<String> {
-    let response = client.get(url).send()?;
+pub async fn download_file_to_string(client: &Client, url: &str) -> LauncherResult<String> {
+    let response = client.get(url).send().await?;
     if response.status().is_success() {
-        Ok(response.text()?)
+        Ok(response.text().await?)
     } else {
         Err(LauncherError::ReqwestStatusError(
             response.status(),
@@ -35,10 +36,10 @@ pub fn download_file_to_string(client: &Client, url: &str) -> LauncherResult<Str
     }
 }
 
-pub fn download_file_to_bytes(client: &Client, url: &str) -> LauncherResult<Vec<u8>> {
-    let response = client.get(url).send()?;
+pub async fn download_file_to_bytes(client: &Client, url: &str) -> LauncherResult<Vec<u8>> {
+    let response = client.get(url).send().await?;
     if response.status().is_success() {
-        Ok(response.bytes()?.to_vec())
+        Ok(response.bytes().await?.to_vec())
     } else {
         Err(LauncherError::ReqwestStatusError(
             response.status(),

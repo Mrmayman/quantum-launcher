@@ -2,14 +2,12 @@ use std::{fmt::Display, path::PathBuf, string::FromUtf8Error, sync::mpsc::SendEr
 
 use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
-use std::io::Error as IoError;
 
 use crate::{download::DownloadProgress, json_structs::json_version::VersionDetails};
 
 #[derive(Debug)]
 pub enum LauncherError {
     ConfigDirNotFound,
-    IoError(std::io::Error),
     InstanceNotFound,
     UsernameIsInvalid(String),
     InstanceAlreadyExists,
@@ -26,6 +24,8 @@ pub enum LauncherError {
     PathBufToString(PathBuf),
     RequiredJavaVersionNotFound(usize),
     DownloadProgressMspcError(SendError<DownloadProgress>),
+    IoError(std::io::Error, PathBuf),
+    CommandError(std::io::Error),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -41,7 +41,6 @@ macro_rules! impl_error {
 }
 
 impl_error!(ReqwestError, ReqwestError);
-impl_error!(IoError, IoError);
 impl_error!(SerdeJsonError, SerdeJsonError);
 impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
 
@@ -58,7 +57,6 @@ impl Display for LauncherError {
                     "Config directory not found (AppData/Roaming on Windows, ~/.config/ on Linux)"
                 ),
             },
-            LauncherError::IoError(n) => write!(f, "IO Error: {n}"),
             LauncherError::InstanceNotFound => write!(f, "Selected Instance not found"),
             LauncherError::InstanceAlreadyExists => {
                 write!(f, "Cannot create instance as it already exists")
@@ -102,6 +100,10 @@ impl Display for LauncherError {
             LauncherError::UsernameIsInvalid(n) => write!(f, "Username is invalid: {n}"),
             LauncherError::DownloadProgressMspcError(n) => {
                 write!(f, "Could not send download progress: {n}")
+            }
+            LauncherError::IoError(n, p) => write!(f, "At path {p:?}, IO error: {n}"),
+            LauncherError::CommandError(n) => {
+                write!(f, "IO error while trying to run Java command: {n}")
             }
         }
     }

@@ -69,7 +69,7 @@ impl Launcher {
                     *spawned_process = Some(child)
                 }
             }
-            GameLaunchResult::Err(err) => self.state = State::Error { error: err },
+            GameLaunchResult::Err(err) => self.set_error(err),
             GameLaunchResult::LocateJavaManually {
                 required_java_version,
             } => {
@@ -138,12 +138,14 @@ impl Launcher {
             ref version,
             ref mut progress_reciever,
             ref mut progress_number,
+            ref mut progress_text,
             ..
         } = self.state
         {
             let (sender, receiver) = mpsc::channel::<DownloadProgress>();
             *progress_reciever = Some(receiver);
             *progress_number = Some(0.0);
+            *progress_text = Some("Started download".to_owned());
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
