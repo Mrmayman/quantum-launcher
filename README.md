@@ -28,6 +28,6 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - Managing your aternos servers from within the launcher.
 
 # Note on Piracy
-I do not encourage or promote piracy in any way. Authentication is not implemented for ease of implementation and use. If you use this launcher, it is assumed that you already paid for the game and want a more convenient way to play it.
+(For legal reasons) I do not encourage or promote piracy in any way. Authentication is not implemented for ease of development and use. If you use this launcher and pirate the game, you are playing at your own risk.
 
 If anyone has any complaint, open an issue in the repo and I will address it.
