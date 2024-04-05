@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    process::Child,
+    process::{Child, Command},
     sync::{Arc, Mutex},
 };
 
@@ -12,6 +12,7 @@ use crate::{
     java_locate::JavaInstall,
     json_structs::{
         json_fabric::FabricJSON,
+        json_instance_config::InstanceConfigJson,
         json_version::{Library, VersionDetails},
     },
 };
@@ -30,19 +31,13 @@ pub enum GameLaunchResult {
 pub async fn launch(
     instance_name: String,
     username: String,
-    memory: &str,
     manually_added_java_versions: Vec<String>,
 ) -> GameLaunchResult {
     let manual_result = GameLaunchResult::LocateJavaManually {
         required_java_version: None,
     };
 
-    match launch_blocking(
-        &instance_name,
-        &username,
-        memory,
-        &manually_added_java_versions,
-    ) {
+    match launch_blocking(&instance_name, &username, &manually_added_java_versions) {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
         Err(LauncherError::JavaVersionConvertCmdOutputToStringError(_)) => manual_result,
         Err(LauncherError::JavaVersionImproperVersionPlacement(_)) => manual_result,
@@ -60,7 +55,6 @@ pub async fn launch(
 pub fn launch_blocking(
     instance_name: &str,
     username: &str,
-    memory: &str,
     manually_added_java_versions: &[String],
 ) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
@@ -72,19 +66,83 @@ pub fn launch_blocking(
     file_utils::create_dir_if_not_exists(&minecraft_dir)
         .map_err(|err| LauncherError::IoError(err, minecraft_dir.clone()))?;
 
+    let config_json = get_config(&instance_dir)?;
+
     let version_json = read_version_json(&instance_dir)?;
 
     let game_arguments = get_arguments(&version_json, username, minecraft_dir, &instance_dir)?;
 
-    let mut java_args = vec![
+    let mut java_arguments = vec![
         "-Xss1M".to_owned(),
         "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
         "-Dminecraft.launcher.version=2.1.1349".to_owned(),
         "-Djava.library.path=1.20.4-natives".to_owned(),
-        format!("-Xmx{}", memory),
+        format!("-Xmx{}", config_json.get_ram_in_string()),
     ];
 
-    let fabric_dir: Option<LauncherResult<FabricJSON>> = find_fabric_directory(
+    let fabric_json = if config_json.mod_type == "Fabric" {
+        if let Some(fabric_json) = get_fabric_json(&instance_dir, &version_json) {
+            let fabric_json = fabric_json?;
+            // Add all the special fabric arguments.
+            fabric_json.arguments.jvm.iter().for_each(|n| {
+                java_arguments.push(n.clone());
+            });
+
+            Some(fabric_json)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(ref logging) = version_json.logging {
+        let logging_path = instance_dir.join(format!("logging-{}", logging.client.file.id));
+        let logging_path = logging_path
+            .to_str()
+            .ok_or(LauncherError::PathBufToString(logging_path.clone()))?;
+        java_arguments.push(format!("-Dlog4j.configurationFile=\"{}\"", logging_path))
+    }
+
+    java_arguments.push("-cp".to_owned());
+    java_arguments.push(get_class_path(&version_json, instance_dir)?);
+    if let Some(ref fabric_json) = fabric_json {
+        java_arguments.push(fabric_json.mainClass.clone());
+    } else {
+        java_arguments.push(version_json.mainClass.clone());
+    }
+
+    let mut command = if let Some(java_override) = config_json.java_override {
+        Command::new(java_override)
+    } else {
+        let java_installations =
+            JavaInstall::find_java_installs(Some(manually_added_java_versions))?;
+        let appropriate_install = java_installations
+            .iter()
+            .find(|n| n.version == version_json.javaVersion.majorVersion)
+            .or_else(|| {
+                java_installations
+                    .iter()
+                    .find(|n| n.version >= version_json.javaVersion.majorVersion)
+            })
+            .ok_or(LauncherError::RequiredJavaVersionNotFound(
+                version_json.javaVersion.majorVersion,
+            ))?;
+
+        appropriate_install.get_command()
+    };
+
+    let command = command.args(java_arguments.iter().chain(game_arguments.iter()));
+    let result = command.spawn().map_err(LauncherError::CommandError)?;
+
+    Ok(result)
+}
+
+fn get_fabric_json(
+    instance_dir: &PathBuf,
+    version_json: &VersionDetails,
+) -> Option<Result<FabricJSON, LauncherError>> {
+    find_fabric_directory(
         &instance_dir.join(".minecraft").join("versions"),
         &version_json.id,
     )
@@ -95,58 +153,14 @@ pub fn launch_blocking(
             .map_err(|err| LauncherError::IoError(err, json_path))?;
         let fabric_json: FabricJSON = serde_json::from_str(&fabric_json)?;
         Ok(fabric_json)
-    });
+    })
+}
 
-    println!("fabric: {fabric_dir:?}");
-
-    let fabric_json = if let Some(fabric_json) = fabric_dir {
-        Some(fabric_json?)
-    } else {
-        None
-    };
-
-    if let Some(ref fabric_json) = fabric_json {
-        fabric_json.arguments.jvm.iter().for_each(|n| {
-            java_args.push(n.clone());
-        })
-    }
-
-    if let Some(ref logging) = version_json.logging {
-        let logging_path = instance_dir.join(format!("logging-{}", logging.client.file.id));
-        let logging_path = match logging_path.to_str() {
-            Some(n) => n,
-            None => return Err(LauncherError::PathBufToString(logging_path)),
-        };
-        java_args.push(format!("-Dlog4j.configurationFile=\"{}\"", logging_path))
-    }
-
-    java_args.push("-cp".to_owned());
-    java_args.push(get_class_path(&version_json, instance_dir)?);
-    if let Some(ref fabric_json) = fabric_json {
-        println!("main class: {}", fabric_json.mainClass);
-        java_args.push(fabric_json.mainClass.clone());
-    } else {
-        java_args.push(version_json.mainClass.clone());
-    }
-
-    let java_installations = JavaInstall::find_java_installs(Some(manually_added_java_versions))?;
-    let appropriate_install = java_installations
-        .iter()
-        .find(|n| n.version == version_json.javaVersion.majorVersion)
-        .or_else(|| {
-            java_installations
-                .iter()
-                .find(|n| n.version >= version_json.javaVersion.majorVersion)
-        })
-        .ok_or(LauncherError::RequiredJavaVersionNotFound(
-            version_json.javaVersion.majorVersion,
-        ))?;
-
-    let mut command = appropriate_install.get_command();
-    let command = command.args(java_args.iter().chain(game_arguments.iter()));
-    let result = command.spawn().map_err(LauncherError::CommandError)?;
-
-    Ok(result)
+fn get_config(instance_dir: &PathBuf) -> Result<InstanceConfigJson, LauncherError> {
+    let config_file_path = instance_dir.join("config.json");
+    let config_json = std::fs::read_to_string(&config_file_path)
+        .map_err(|err| LauncherError::IoError(err, config_file_path))?;
+    Ok(serde_json::from_str(&config_json)?)
 }
 
 fn find_first_json(dir: &Path) -> Option<PathBuf> {
@@ -164,28 +178,18 @@ fn find_first_json(dir: &Path) -> Option<PathBuf> {
 }
 
 fn find_fabric_directory(dir: &Path, exclude_dir: &str) -> Option<PathBuf> {
-    // Read the contents of the directory
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        // Iterate over directory entries
-        for entry in entries.flatten() {
-            println!("fabric dir entry: {entry:?}");
-            // Get the path of the entry
-            let path = entry.path();
-            // Check if it's a directory
-            if path.is_dir() {
-                // Check if the directory name matches the exclusion criterion
-                if let Some(name) = path.file_name() {
-                    if name == exclude_dir {
-                        continue; // Skip the directory
-                    }
-                    if !name.to_str()?.contains("fabric") {
-                        continue; // Skip the directory
-                    }
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(name) = path.file_name() {
+                if name == exclude_dir {
+                    continue;
                 }
-                // Return the first directory found
-                println!("fabric path: {path:?}");
-                return Some(path);
+                if !name.to_str()?.contains("fabric") {
+                    continue;
+                }
             }
+            return Some(path);
         }
     }
     None

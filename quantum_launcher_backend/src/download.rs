@@ -12,6 +12,7 @@ use crate::{
     error::{LauncherError, LauncherResult},
     file_utils::{self, create_dir_if_not_exists},
     json_structs::{
+        json_instance_config::InstanceConfigJson,
         json_manifest::Manifest,
         json_profiles::{ProfileJson, Settings},
         json_version::{self, Library, VersionDetails},
@@ -32,6 +33,8 @@ const OS_NAME: &str = "osx";
 
 #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 const OS_NAME: &str = "unknown";
+
+const DEFAULT_RAM_MB_FOR_INSTANCE: usize = 2048;
 
 /// An enum representing the progress in downloading
 /// a Minecraft instance.
@@ -371,6 +374,21 @@ impl GameDownloader {
         json_file
             .write_all(serde_json::to_string(&self.version_json)?.as_bytes())
             .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
+        Ok(())
+    }
+
+    pub fn create_config_json(&self) -> LauncherResult<()> {
+        let config_json = InstanceConfigJson {
+            java_override: None,
+            ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
+            mod_type: "Vanilla".to_owned(),
+        };
+        let config_json = serde_json::to_string(&config_json)?;
+
+        let config_json_path = self.instance_dir.join("config.json");
+        std::fs::write(&config_json_path, config_json)
+            .map_err(|err| LauncherError::IoError(err, config_json_path))?;
+
         Ok(())
     }
 }

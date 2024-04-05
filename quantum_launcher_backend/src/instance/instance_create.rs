@@ -34,6 +34,7 @@ async fn create(
 
     game_downloader.create_version_json()?;
     game_downloader.create_profiles_json()?;
+    game_downloader.create_config_json()?;
 
     Ok(())
 }

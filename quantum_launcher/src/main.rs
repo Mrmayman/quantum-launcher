@@ -16,8 +16,6 @@ mod launcher_state;
 mod menu_renderer;
 mod message_handler;
 
-const MINECRAFT_MEMORY: &str = "2G";
-
 impl Application for Launcher {
     type Executor = executor::Default;
     type Message = Message;

@@ -11,7 +11,6 @@ use quantum_launcher_backend::{
 use crate::{
     l10n,
     launcher_state::{Launcher, Message, State},
-    MINECRAFT_MEMORY,
 };
 
 impl Launcher {
@@ -46,7 +45,6 @@ impl Launcher {
                         quantum_launcher_backend::launch(
                             selected_instance,
                             username,
-                            MINECRAFT_MEMORY,
                             manually_added_versions,
                         ),
                         Message::LaunchEnd,
