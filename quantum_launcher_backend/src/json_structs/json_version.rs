@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionDetails {
     /// The list of command line arguments.
     ///
@@ -39,14 +39,14 @@ pub struct VersionDetails {
     pub r#type: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Arguments {
     pub game: Vec<Value>,
     pub jvm: Vec<Value>,
 }
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetIndex {
     pub id: String,
     pub sha1: String,
@@ -55,7 +55,7 @@ pub struct AssetIndex {
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Downloads {
     pub client: Download,
     pub client_mappings: Download,
@@ -63,7 +63,7 @@ pub struct Downloads {
     pub server_mappings: Download,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Download {
     pub sha1: String,
     pub size: usize,
@@ -71,37 +71,49 @@ pub struct Download {
 }
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavaVersion {
     pub component: String,
     pub majorVersion: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Library {
-    pub downloads: LibraryDownloads,
-    pub name: Option<String>,
-    pub rules: Option<Vec<LibraryRule>>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Library {
+    Normal {
+        downloads: LibraryDownloads,
+        name: Option<String>,
+        rules: Option<Vec<LibraryRule>>,
+    },
+    Fabric {
+        sha1: Option<String>,
+        sha256: Option<String>,
+        size: Option<usize>,
+        name: String,
+        sha512: Option<String>,
+        md5: Option<String>,
+        url: String,
+    },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryDownloads {
     pub artifact: LibraryDownloadArtifact,
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryRule {
     pub action: String,
     pub os: LibraryRuleOS,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryRuleOS {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryDownloadArtifact {
     pub path: String,
     pub sha1: String,
@@ -109,19 +121,19 @@ pub struct LibraryDownloadArtifact {
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Logging {
     pub client: LoggingClient,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LoggingClient {
     pub argument: String,
     pub file: LoggingClientFile,
     pub r#type: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LoggingClientFile {
     pub id: String,
     pub sha1: String,

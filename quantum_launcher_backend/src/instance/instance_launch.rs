@@ -10,7 +10,10 @@ use crate::{
     error::{LauncherError, LauncherResult},
     file_utils::{self, create_dir_if_not_exists},
     java_locate::JavaInstall,
-    json_structs::json_version::VersionDetails,
+    json_structs::{
+        json_fabric::FabricJSON,
+        json_version::{Library, VersionDetails},
+    },
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -65,26 +68,238 @@ pub fn launch_blocking(
     }
 
     let instance_dir = get_instance_dir(instance_name)?;
-
     let minecraft_dir = instance_dir.join(".minecraft");
     file_utils::create_dir_if_not_exists(&minecraft_dir)
         .map_err(|err| LauncherError::IoError(err, minecraft_dir.clone()))?;
 
-    let version_json: VersionDetails = read_version_json(&instance_dir)?;
+    let version_json = read_version_json(&instance_dir)?;
 
-    let mut game_arguments: Vec<String> = if let Some(arguments) = version_json.minecraftArguments {
-        arguments.split(' ').map(ToOwned::to_owned).collect()
-    } else if let Some(arguments) = version_json.arguments {
-        arguments
-            .game
-            .iter()
-            .filter_map(|arg| arg.as_str())
-            .map(ToOwned::to_owned)
-            .collect()
+    let game_arguments = get_arguments(&version_json, username, minecraft_dir, &instance_dir)?;
+
+    let mut java_args = vec![
+        "-Xss1M".to_owned(),
+        "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
+        "-Dminecraft.launcher.version=2.1.1349".to_owned(),
+        "-Djava.library.path=1.20.4-natives".to_owned(),
+        format!("-Xmx{}", memory),
+    ];
+
+    let fabric_dir: Option<LauncherResult<FabricJSON>> = find_fabric_directory(
+        &instance_dir.join(".minecraft").join("versions"),
+        &version_json.id,
+    )
+    .map(|dir| find_first_json(&dir))
+    .flatten()
+    .map(|json_path| {
+        let fabric_json = std::fs::read_to_string(&json_path)
+            .map_err(|err| LauncherError::IoError(err, json_path))?;
+        let fabric_json: FabricJSON = serde_json::from_str(&fabric_json)?;
+        Ok(fabric_json)
+    });
+
+    println!("fabric: {fabric_dir:?}");
+
+    let fabric_json = if let Some(fabric_json) = fabric_dir {
+        Some(fabric_json?)
     } else {
-        return Err(LauncherError::VersionJsonNoArgumentsField(version_json));
+        None
     };
 
+    if let Some(ref fabric_json) = fabric_json {
+        fabric_json.arguments.jvm.iter().for_each(|n| {
+            java_args.push(n.clone());
+        })
+    }
+
+    if let Some(ref logging) = version_json.logging {
+        let logging_path = instance_dir.join(format!("logging-{}", logging.client.file.id));
+        let logging_path = match logging_path.to_str() {
+            Some(n) => n,
+            None => return Err(LauncherError::PathBufToString(logging_path)),
+        };
+        java_args.push(format!("-Dlog4j.configurationFile=\"{}\"", logging_path))
+    }
+
+    java_args.push("-cp".to_owned());
+    java_args.push(get_class_path(&version_json, instance_dir)?);
+    if let Some(ref fabric_json) = fabric_json {
+        println!("main class: {}", fabric_json.mainClass);
+        java_args.push(fabric_json.mainClass.clone());
+    } else {
+        java_args.push(version_json.mainClass.clone());
+    }
+
+    let java_installations = JavaInstall::find_java_installs(Some(manually_added_java_versions))?;
+    let appropriate_install = java_installations
+        .iter()
+        .find(|n| n.version == version_json.javaVersion.majorVersion)
+        .or_else(|| {
+            java_installations
+                .iter()
+                .find(|n| n.version >= version_json.javaVersion.majorVersion)
+        })
+        .ok_or(LauncherError::RequiredJavaVersionNotFound(
+            version_json.javaVersion.majorVersion,
+        ))?;
+
+    let mut command = appropriate_install.get_command();
+    let command = command.args(java_args.iter().chain(game_arguments.iter()));
+    let result = command.spawn().map_err(LauncherError::CommandError)?;
+
+    Ok(result)
+}
+
+fn find_first_json(dir: &Path) -> Option<PathBuf> {
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(extension) = path.extension() {
+                if extension == "json" {
+                    return Some(path);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn find_fabric_directory(dir: &Path, exclude_dir: &str) -> Option<PathBuf> {
+    // Read the contents of the directory
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        // Iterate over directory entries
+        for entry in entries.flatten() {
+            println!("fabric dir entry: {entry:?}");
+            // Get the path of the entry
+            let path = entry.path();
+            // Check if it's a directory
+            if path.is_dir() {
+                // Check if the directory name matches the exclusion criterion
+                if let Some(name) = path.file_name() {
+                    if name == exclude_dir {
+                        continue; // Skip the directory
+                    }
+                    if !name.to_str()?.contains("fabric") {
+                        continue; // Skip the directory
+                    }
+                }
+                // Return the first directory found
+                println!("fabric path: {path:?}");
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+fn get_class_path(version_json: &VersionDetails, instance_dir: PathBuf) -> LauncherResult<String> {
+    let mut class_path: String = "".to_owned();
+    if cfg!(windows) {
+        class_path.push('"');
+    }
+
+    version_json
+        .libraries
+        .iter()
+        .filter_map(|n| {
+            if let Library::Normal { downloads, .. } = n {
+                Some(downloads)
+            } else {
+                None
+            }
+        })
+        .map(|downloads| {
+            let library_path = instance_dir
+                .join("libraries")
+                .join(&downloads.artifact.path);
+            if library_path.exists() {
+                let library_path = match library_path.to_str() {
+                    Some(n) => n,
+                    None => return Err(LauncherError::PathBufToString(library_path)),
+                };
+                class_path.push_str(library_path);
+                class_path.push(CLASSPATH_SEPARATOR);
+            }
+            Ok(())
+        })
+        .find(|n| n.is_err())
+        .unwrap_or(Ok(()))?;
+
+    let mod_lib_path = instance_dir.join(".minecraft").join("libraries");
+    if mod_lib_path.exists() {
+        find_jar_files(&mod_lib_path)?
+            .iter()
+            .for_each(|library_path| {
+                library_path.to_str().map(|jar_file| {
+                    class_path.push_str(jar_file);
+                    class_path.push(CLASSPATH_SEPARATOR);
+                });
+            })
+    }
+
+    let jar_path = instance_dir
+        .join(".minecraft")
+        .join("versions")
+        .join(&version_json.id)
+        .join(format!("{}.jar", version_json.id));
+    let jar_path = jar_path
+        .to_str()
+        .ok_or(LauncherError::PathBufToString(jar_path.clone()))?;
+    class_path.push_str(jar_path);
+
+    if cfg!(windows) {
+        class_path.push('"');
+    }
+    Ok(class_path)
+}
+
+fn find_jar_files(dir: &Path) -> LauncherResult<Vec<PathBuf>> {
+    let mut jar_files = Vec::new();
+
+    // Recursively iterate over the directory entries
+    let entries =
+        std::fs::read_dir(dir).map_err(|err| LauncherError::IoError(err, dir.to_owned()))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|err| LauncherError::IoError(err, dir.to_owned()))?;
+        let path = entry.path();
+
+        if path.is_file() {
+            // Check if the file has a .jar extension
+            if let Some(extension) = path.extension() {
+                if extension == "jar" {
+                    jar_files.push(path);
+                }
+            }
+        } else if path.is_dir() {
+            // Recursively search directories
+            jar_files.extend(find_jar_files(&path)?);
+        }
+    }
+
+    Ok(jar_files)
+}
+
+fn get_arguments(
+    version_json: &VersionDetails,
+    username: &str,
+    minecraft_dir: PathBuf,
+    instance_dir: &Path,
+) -> LauncherResult<Vec<String>> {
+    let mut game_arguments: Vec<String> =
+        if let Some(ref arguments) = version_json.minecraftArguments {
+            arguments.split(' ').map(ToOwned::to_owned).collect()
+        } else if let Some(ref arguments) = version_json.arguments {
+            arguments
+                .game
+                .iter()
+                .filter_map(|arg| arg.as_str())
+                .map(ToOwned::to_owned)
+                .collect()
+        } else {
+            return Err(LauncherError::VersionJsonNoArgumentsField(
+                version_json.clone(),
+            ));
+        };
     for argument in game_arguments.iter_mut() {
         replace_var(argument, "auth_player_name", username);
         replace_var(argument, "version_name", &version_json.id);
@@ -112,79 +327,7 @@ pub fn launch_blocking(
         replace_var(argument, "version_type", "release");
         replace_var(argument, "assets_index_name", &version_json.assetIndex.id);
     }
-
-    let mut java_args = vec![
-        "-Xss1M".to_owned(),
-        "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
-        "-Dminecraft.launcher.version=2.1.1349".to_owned(),
-        "-Djava.library.path=1.20.4-natives".to_owned(),
-        format!("-Xmx{}", memory),
-    ];
-
-    if let Some(logging) = version_json.logging {
-        let logging_path = instance_dir.join(format!("logging-{}", logging.client.file.id));
-        let logging_path = match logging_path.to_str() {
-            Some(n) => n,
-            None => return Err(LauncherError::PathBufToString(logging_path)),
-        };
-        java_args.push(format!("-Dlog4j.configurationFile=\"{}\"", logging_path))
-    }
-
-    java_args.push("-cp".to_owned());
-
-    let mut class_path: String = "".to_owned();
-
-    // Weird command line edge case I don't understand.
-    if cfg!(windows) {
-        class_path.push('"');
-    }
-
-    for library in version_json.libraries {
-        let library_path = instance_dir
-            .join("libraries")
-            .join(&library.downloads.artifact.path);
-        if library_path.exists() {
-            let library_path = match library_path.to_str() {
-                Some(n) => n,
-                None => return Err(LauncherError::PathBufToString(library_path)),
-            };
-            class_path.push_str(library_path);
-            class_path.push(CLASSPATH_SEPARATOR);
-        }
-    }
-    let jar_path = instance_dir.join("version.jar");
-    let jar_path = match jar_path.to_str() {
-        Some(n) => n,
-        None => return Err(LauncherError::PathBufToString(jar_path)),
-    };
-
-    class_path.push_str(jar_path);
-
-    if cfg!(windows) {
-        class_path.push('"');
-    }
-
-    java_args.push(class_path);
-    java_args.push(version_json.mainClass.clone());
-
-    let java_installations = JavaInstall::find_java_installs(Some(manually_added_java_versions))?;
-    let appropriate_install = java_installations
-        .iter()
-        .find(|n| n.version == version_json.javaVersion.majorVersion)
-        .or_else(|| {
-            java_installations
-                .iter()
-                .find(|n| n.version >= version_json.javaVersion.majorVersion)
-        })
-        .ok_or(LauncherError::RequiredJavaVersionNotFound(
-            version_json.javaVersion.majorVersion,
-        ))?;
-
-    let mut command = appropriate_install.get_command();
-    let command = command.args(java_args.iter().chain(game_arguments.iter()));
-    let result = command.spawn().map_err(LauncherError::CommandError)?;
-
-    Ok(result)
+    Ok(game_arguments)
 }
 
 fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {

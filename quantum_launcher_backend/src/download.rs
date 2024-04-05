@@ -14,7 +14,7 @@ use crate::{
     json_structs::{
         json_manifest::Manifest,
         json_profiles::{ProfileJson, Settings},
-        json_version::{self, VersionDetails},
+        json_version::{self, Library, VersionDetails},
     },
 };
 
@@ -165,37 +165,39 @@ impl GameDownloader {
                 continue;
             }
 
-            let lib_file_path = self
-                .instance_dir
-                .join("libraries")
-                .join(PathBuf::from(&library.downloads.artifact.path));
-            let lib_dir_path = lib_file_path
+            if let Library::Normal { downloads, .. } = library {
+                let lib_file_path = self
+                    .instance_dir
+                    .join("libraries")
+                    .join(PathBuf::from(&downloads.artifact.path));
+                let lib_dir_path = lib_file_path
                 .parent()
                 .expect(
                     "Downloaded java library does not have parent module like the sun in com.sun.java",
                 )
                 .to_path_buf();
 
-            println!(
-                "[info] Downloading library {library_number}/{number_of_libraries}: {}",
-                library.downloads.artifact.path
-            );
-            create_dir_if_not_exists(&lib_dir_path)
-                .map_err(|err| LauncherError::IoError(err, lib_dir_path))?;
-            let library_downloaded = file_utils::download_file_to_bytes(
-                &self.network_client,
-                &library.downloads.artifact.url,
-            )
-            .await?;
+                println!(
+                    "[info] Downloading library {library_number}/{number_of_libraries}: {}",
+                    downloads.artifact.path
+                );
+                create_dir_if_not_exists(&lib_dir_path)
+                    .map_err(|err| LauncherError::IoError(err, lib_dir_path))?;
+                let library_downloaded = file_utils::download_file_to_bytes(
+                    &self.network_client,
+                    &downloads.artifact.url,
+                )
+                .await?;
 
-            let mut file = File::create(&lib_file_path)
-                .map_err(|err| LauncherError::IoError(err, lib_file_path.clone()))?;
-            file.write_all(&library_downloaded)
-                .map_err(|err| LauncherError::IoError(err, lib_file_path))?;
+                let mut file = File::create(&lib_file_path)
+                    .map_err(|err| LauncherError::IoError(err, lib_file_path.clone()))?;
+                file.write_all(&library_downloaded)
+                    .map_err(|err| LauncherError::IoError(err, lib_file_path))?;
 
-            // According to the reference implementation, I also download natives.
-            // At library.natives field.
-            // However this field doesn't exist for the versions I tried so I'm skipping this.
+                // According to the reference implementation, I also download natives.
+                // At library.natives field.
+                // However this field doesn't exist for the versions I tried so I'm skipping this.
+            }
         }
         Ok(())
     }
@@ -210,9 +212,18 @@ impl GameDownloader {
         )
         .await?;
 
-        let jar_path = self.instance_dir.join("version.jar");
+        let version_dir = self
+            .instance_dir
+            .join(".minecraft")
+            .join("versions")
+            .join(&self.version_json.id);
+        create_dir_if_not_exists(&version_dir)
+            .map_err(|err| LauncherError::IoError(err, version_dir.clone()))?;
+
+        let jar_path = version_dir.join(format!("{}.jar", self.version_json.id));
         let mut jar_file =
             File::create(&jar_path).map_err(|err| LauncherError::IoError(err, jar_path.clone()))?;
+
         jar_file
             .write_all(&jar_bytes)
             .map_err(|err| LauncherError::IoError(err, jar_path))?;
@@ -343,11 +354,11 @@ impl GameDownloader {
         };
 
         let profile_json = serde_json::to_string(&profile_json)?;
-        let profile_json_path = self.instance_dir.join("profiles.json");
-        let mut profile_json_file = File::create(&profile_json_path)
-            .map_err(|err| LauncherError::IoError(err, profile_json_path.clone()))?;
-        profile_json_file
-            .write_all(profile_json.as_bytes())
+        let profile_json_path = self
+            .instance_dir
+            .join(".minecraft")
+            .join("launcher_profiles.json");
+        std::fs::write(&profile_json_path, profile_json)
             .map_err(|err| LauncherError::IoError(err, profile_json_path))?;
 
         Ok(())
@@ -413,7 +424,10 @@ impl GameDownloader {
     fn download_libraries_library_is_allowed(library: &json_version::Library) -> bool {
         let mut allowed: bool = true;
 
-        if let Some(ref rules) = library.rules {
+        if let Library::Normal {
+            rules: Some(rules), ..
+        } = library
+        {
             allowed = false;
 
             for rule in rules {
