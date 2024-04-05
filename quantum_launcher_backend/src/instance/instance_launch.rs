@@ -180,11 +180,6 @@ pub fn launch_blocking(
             version_json.javaVersion.majorVersion,
         ))?;
 
-    println!(
-        "Java Args: {:?}\n\nGame Args: {:?}",
-        java_args, game_arguments
-    );
-
     let mut command = appropriate_install.get_command();
     let command = command.args(java_args.iter().chain(game_arguments.iter()));
     let result = command.spawn().map_err(LauncherError::CommandError)?;

@@ -13,6 +13,7 @@ use crate::{
     file_utils::{self, create_dir_if_not_exists},
     json_structs::{
         json_manifest::Manifest,
+        json_profiles::{ProfileJson, Settings},
         json_version::{self, VersionDetails},
     },
 };
@@ -314,6 +315,52 @@ impl GameDownloader {
             Ok(n) => Ok(n),
             Err(err) => Err(LauncherError::from(err)),
         }
+    }
+
+    pub fn create_profiles_json(&self) -> LauncherResult<()> {
+        let profile_json = ProfileJson {
+            profiles: [].into(),
+            clientToken: None,
+            authenticationDatabase: None,
+            launcherVersion: None,
+            settings: Settings {
+                enableSnapshots: true,
+                enableAdvanced: true,
+                keepLauncherOpen: true,
+                showGameLog: true,
+                locale: None,
+                showMenu: true,
+                enableHistorical: true,
+                profileSorting: "ByLastPlayed".to_owned(),
+                crashAssistance: false,
+                enableAnalytics: false,
+                soundOn: Some(false),
+            },
+            analyticsToken: None,
+            analyticsFailcount: None,
+            selectedUser: None,
+            version: None,
+        };
+
+        let profile_json = serde_json::to_string(&profile_json)?;
+        let profile_json_path = self.instance_dir.join("profiles.json");
+        let mut profile_json_file = File::create(&profile_json_path)
+            .map_err(|err| LauncherError::IoError(err, profile_json_path.clone()))?;
+        profile_json_file
+            .write_all(profile_json.as_bytes())
+            .map_err(|err| LauncherError::IoError(err, profile_json_path))?;
+
+        Ok(())
+    }
+
+    pub fn create_version_json(&self) -> LauncherResult<()> {
+        let json_file_path = self.instance_dir.join("details.json");
+        let mut json_file = File::create(&json_file_path)
+            .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
+        json_file
+            .write_all(serde_json::to_string(&self.version_json)?.as_bytes())
+            .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
+        Ok(())
     }
 }
 

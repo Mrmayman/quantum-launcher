@@ -1,8 +1,8 @@
-use std::{fs::File, io::Write, sync::mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 use crate::{
     download::{DownloadProgress, GameDownloader},
-    error::{LauncherError, LauncherResult},
+    error::LauncherResult,
 };
 
 pub async fn create_instance(
@@ -32,12 +32,8 @@ async fn create(
     game_downloader.download_libraries().await?;
     game_downloader.download_assets().await?;
 
-    let json_file_path = game_downloader.instance_dir.join("details.json");
-    let mut json_file = File::create(&json_file_path)
-        .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
-    json_file
-        .write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())
-        .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
+    game_downloader.create_version_json()?;
+    game_downloader.create_profiles_json()?;
 
     Ok(())
 }

@@ -4,10 +4,7 @@ pub mod file_utils;
 pub mod instance;
 pub mod java_locate;
 
-mod json_structs {
-    pub mod json_manifest;
-    pub mod json_version;
-}
+mod json_structs;
 
 pub use instance::instance_create::create_instance;
 pub use instance::instance_launch::launch;
