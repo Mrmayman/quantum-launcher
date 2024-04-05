@@ -3,6 +3,10 @@ pub const ENGLISH: &[&str] = &[
     "Selected Java path contains invalid characters",
     "Could not open launcher config",
     "Selected Java path not found.",
+    "No",
+    "Yes, delete my data",
+    "All your data, including worlds will be lost.",
+    "Are you SURE you want to DELETE the Instance",
 ];
 
 pub enum Entry {
@@ -10,6 +14,10 @@ pub enum Entry {
     InvalidCharsInJavaPath,
     CouldNotOpenLauncherConfig,
     SelectedJavaPathNotFound,
+    No,
+    YesDeleteMyData,
+    AllYourDataIncludingWorldsWillBeLost,
+    AreYouSUREYouWantToDeleteTheInstance,
 }
 
 #[macro_export]

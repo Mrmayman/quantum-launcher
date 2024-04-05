@@ -1,15 +1,21 @@
 use std::ops::RangeInclusive;
 
 use iced::widget::{self, column};
+use quantum_launcher_backend::json_structs::json_instance_config::InstanceConfigJson;
 
-use crate::launcher_state::{Launcher, Message};
+use crate::{
+    l10n,
+    launcher_state::{Launcher, Message},
+};
+
+type Element<'a> =
+    iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
 
 impl Launcher {
     pub fn menu_launch<'element>(
         &'element self,
         selected_instance: &'element String,
-    ) -> iced::Element<'element, Message, <Launcher as iced::Application>::Theme, iced::Renderer>
-    {
+    ) -> Element<'element> {
         let pick_list = if let Some(instances) = self.instances.as_deref() {
             column![
                 widget::text("Instances:"),
@@ -19,7 +25,12 @@ impl Launcher {
                     Message::LaunchInstanceSelected,
                 ),
                 widget::button("Create Instance").on_press(Message::CreateInstanceScreen),
-                widget::button("Delete Selected Instance").on_press(Message::DeleteInstanceMenu),
+                widget::button("Delete Selected Instance").on_press_maybe(
+                    (!selected_instance.is_empty()).then_some(Message::DeleteInstanceMenu)
+                ),
+                widget::button("Edit Instance Settings").on_press_maybe(
+                    (!selected_instance.is_empty()).then_some(Message::EditInstance)
+                ),
             ]
         } else {
             column![widget::text("Loading instances...")]
@@ -30,7 +41,8 @@ impl Launcher {
             column![
                 widget::text_input("Enter username...", &self.config.as_ref().unwrap().username)
                     .on_input(Message::LaunchUsernameSet),
-                widget::button("Launch game").on_press(Message::Launch)
+                widget::button("Launch game")
+                    .on_press_maybe((!selected_instance.is_empty()).then_some(Message::Launch))
             ]
             .spacing(5)
         ]
@@ -46,7 +58,7 @@ impl Launcher {
         versions: &'element Vec<String>,
         version: &'element String,
         instance_name: &String,
-    ) -> iced::Element<Message, <Launcher as iced::Application>::Theme, iced::Renderer> {
+    ) -> Element<'element> {
         let progress_bar = if let Some(progress_number) = progress_number {
             if let Some(progress_text) = progress_text {
                 column![
@@ -78,6 +90,63 @@ impl Launcher {
         ]
         .spacing(20)
         .padding(10)
+        .into()
+    }
+
+    pub fn menu_delete<'element>(selected_instance: &'element str) -> Element<'element> {
+        column![
+            widget::text(format!(
+                "{}: {selected_instance}?",
+                l10n!(ENGLISH, AreYouSUREYouWantToDeleteTheInstance),
+            )),
+            widget::text(l10n!(ENGLISH, AllYourDataIncludingWorldsWillBeLost)),
+            widget::button(l10n!(ENGLISH, YesDeleteMyData)).on_press(Message::DeleteInstance),
+            widget::button(l10n!(ENGLISH, No)).on_press(Message::GoToLaunchScreen),
+        ]
+        .padding(10)
+        .spacing(10)
+        .into()
+    }
+
+    pub fn menu_edit<'element>(
+        selected_instance: &'element str,
+        config: &InstanceConfigJson,
+        slider_value: f32,
+        slider_text: &str,
+    ) -> Element<'element> {
+        // 2 ^ 8 = 256 MB
+        const MEM_256_MB_IN_TWOS_EXPONENT: f32 = 8.0;
+        // 2 ^ 13 = 8192 MB
+        const MEM_8192_MB_IN_TWOS_EXPONENT: f32 = 13.0;
+
+        column![
+            widget::button("< Back").on_press(Message::GoToLaunchScreen),
+            widget::text(format!("Editing {} instance: {}", config.mod_type, selected_instance)),
+            column![
+                widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
+                widget::text_input(
+                    "Enter Java override (leave blank if none)...",
+                    config
+                        .java_override
+                        .as_ref()
+                        .map(|n| n.as_str())
+                        .unwrap_or_default()
+                )
+                .on_input(Message::EditInstanceJavaOverride)
+            ]
+            .spacing(10),
+            column![
+                widget::text("Allocated memory"),
+                widget::text("For normal Minecraft, allocate 2 - 3 GB"),
+                widget::text("For old versions, allocate 512 MB - 1 GB"),
+                widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB"),
+                widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, slider_value, Message::EditInstanceMemoryChanged).step(0.1),
+                widget::text(&slider_text),
+            ],
+            widget::button("Save").on_press(Message::EditInstanceSave),
+        ]
+        .padding(10)
+        .spacing(20)
         .into()
     }
 }

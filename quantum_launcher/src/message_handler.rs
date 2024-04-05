@@ -5,11 +5,15 @@ use std::{
 
 use iced::Command;
 use quantum_launcher_backend::{
-    download::DownloadProgress, instance::instance_launch::GameLaunchResult,
+    download::DownloadProgress,
+    error::{LauncherError, LauncherResult},
+    file_utils,
+    instance::instance_launch::GameLaunchResult,
+    json_structs::json_instance_config::InstanceConfigJson,
 };
 
 use crate::{
-    l10n,
+    format_memory, l10n,
     launcher_state::{Launcher, Message, State},
 };
 
@@ -58,15 +62,7 @@ impl Launcher {
 
     pub fn finish_launching(&mut self, result: GameLaunchResult) {
         match result {
-            GameLaunchResult::Ok(child) => {
-                if let State::Launch {
-                    ref mut spawned_process,
-                    ..
-                } = self.state
-                {
-                    *spawned_process = Some(child)
-                }
-            }
+            GameLaunchResult::Ok(child) => self.spawned_process = Some(child),
             GameLaunchResult::Err(err) => self.set_error(err),
             GameLaunchResult::LocateJavaManually {
                 required_java_version,
@@ -235,5 +231,41 @@ impl Launcher {
                 self.go_to_launch_screen()
             }
         }
+    }
+
+    pub fn edit_instance(&mut self, selected_instance: String) -> LauncherResult<()> {
+        let launcher_dir = file_utils::get_launcher_dir()?;
+        let config_path = launcher_dir
+            .join("instances")
+            .join(&selected_instance)
+            .join("config.json");
+
+        let config_json = std::fs::read_to_string(&config_path)
+            .map_err(|err| LauncherError::IoError(err, config_path))?;
+        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+
+        let slider_value = f32::log2(config_json.ram_in_mb as f32);
+        let memory_mb = config_json.ram_in_mb;
+
+        self.state = State::EditInstance {
+            selected_instance: selected_instance,
+            config: config_json,
+            slider_value,
+            slider_text: format_memory(memory_mb),
+        };
+        Ok(())
+    }
+
+    pub fn save_config(instance_name: &str, config: &InstanceConfigJson) -> LauncherResult<()> {
+        let launcher_dir = file_utils::get_launcher_dir()?;
+        let config_path = launcher_dir
+            .join("instances")
+            .join(instance_name)
+            .join("config.json");
+
+        let config_json = serde_json::to_string(config)?;
+        std::fs::write(&config_path, config_json)
+            .map_err(|err| LauncherError::IoError(err, config_path))?;
+        Ok(())
     }
 }

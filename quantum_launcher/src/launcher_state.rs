@@ -9,6 +9,7 @@ use quantum_launcher_backend::{
     error::{LauncherError, LauncherResult},
     file_utils::create_dir_if_not_exists,
     instance::instance_launch::GameLaunchResult,
+    json_structs::json_instance_config::InstanceConfigJson,
 };
 
 use crate::config::LauncherConfig;
@@ -31,12 +32,21 @@ pub enum Message {
     CreateInstanceProgressUpdate,
     LocateJavaStart,
     LocateJavaEnd(Option<PathBuf>),
+    EditInstance,
+    EditInstanceJavaOverride(String),
+    EditInstanceMemoryChanged(f32),
+    EditInstanceSave,
 }
 
 pub enum State {
     Launch {
         selected_instance: String,
-        spawned_process: Option<Arc<std::sync::Mutex<Child>>>,
+    },
+    EditInstance {
+        selected_instance: String,
+        config: InstanceConfigJson,
+        slider_value: f32,
+        slider_text: String,
     },
     Create {
         instance_name: String,
@@ -62,6 +72,7 @@ pub struct Launcher {
     pub state: State,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
+    pub spawned_process: Option<Arc<std::sync::Mutex<Child>>>,
 }
 
 impl Launcher {
@@ -92,8 +103,8 @@ impl Launcher {
             instances: Some(subdirectories),
             state: State::Launch {
                 selected_instance: Default::default(),
-                spawned_process: None,
             },
+            spawned_process: None,
             config: Some(LauncherConfig::load()?),
         })
     }
@@ -105,7 +116,6 @@ impl Launcher {
     pub fn go_to_launch_screen(&mut self) {
         self.state = State::Launch {
             selected_instance: "".to_owned(),
-            spawned_process: None,
         }
     }
 }

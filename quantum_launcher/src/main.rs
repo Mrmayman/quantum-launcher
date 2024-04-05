@@ -33,6 +33,7 @@ impl Application for Launcher {
                         },
                         instances: None,
                         config: LauncherConfig::load().ok(),
+                        spawned_process: None,
                     },
                     Command::none(),
                 )
@@ -78,6 +79,49 @@ impl Application for Launcher {
             Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::GoToLaunchScreen => self.go_to_launch_screen(),
+            Message::EditInstance => {
+                if let State::Launch {
+                    ref selected_instance,
+                    ..
+                } = self.state
+                {
+                    match self.edit_instance(selected_instance.clone()) {
+                        Ok(_) => {}
+                        Err(err) => self.set_error(err.to_string()),
+                    }
+                }
+            }
+            Message::EditInstanceJavaOverride(n) => {
+                if let State::EditInstance { ref mut config, .. } = self.state {
+                    config.java_override = Some(n);
+                }
+            }
+            Message::EditInstanceMemoryChanged(new_slider_value) => {
+                if let State::EditInstance {
+                    ref mut config,
+                    ref mut slider_value,
+                    ref mut slider_text,
+                    ..
+                } = self.state
+                {
+                    *slider_value = new_slider_value;
+                    config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
+                    *slider_text = format_memory(config.ram_in_mb);
+                }
+            }
+            Message::EditInstanceSave => {
+                if let State::EditInstance {
+                    ref selected_instance,
+                    ref config,
+                    ..
+                } = self.state
+                {
+                    match Launcher::save_config(&selected_instance, config) {
+                        Ok(_) => self.go_to_launch_screen(),
+                        Err(err) => self.set_error(err.to_string()),
+                    }
+                }
+            }
         }
         Command::none()
     }
@@ -150,18 +194,13 @@ impl Application for Launcher {
             .into(),
             State::DeleteInstance {
                 ref selected_instance,
-            } => column![
-                widget::text(format!(
-                    "Are you SURE you want to DELETE the Instance {}?",
-                    selected_instance
-                )),
-                widget::text("All your data, including worlds will be lost."),
-                widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-                widget::button("No").on_press(Message::GoToLaunchScreen),
-            ]
-            .padding(10)
-            .spacing(10)
-            .into(),
+            } => Launcher::menu_delete(&selected_instance),
+            State::EditInstance {
+                ref selected_instance,
+                ref config,
+                slider_value,
+                ref slider_text,
+            } => Launcher::menu_edit(selected_instance, config, slider_value, slider_text),
         }
     }
 }
@@ -178,6 +217,16 @@ async fn pick_file() -> Option<PathBuf> {
         .pick_file()
         .await
         .map(|n| n.path().to_owned())
+}
+
+fn format_memory(memory_bytes: usize) -> String {
+    const MB_TO_GB: usize = 1024;
+
+    if memory_bytes >= MB_TO_GB {
+        format!("{:.2} GB", memory_bytes as f64 / MB_TO_GB as f64)
+    } else {
+        format!("{memory_bytes} MB")
+    }
 }
 
 fn main() {
