@@ -9,6 +9,7 @@ use iced::{
     Application, Command, Settings, Subscription, Theme,
 };
 use launcher_state::{Launcher, Message, State};
+use message_handler::format_memory;
 
 mod config;
 mod l10n;
@@ -122,6 +123,17 @@ impl Application for Launcher {
                     }
                 }
             }
+            Message::ManageMods => {
+                if let State::Launch {
+                    ref selected_instance,
+                } = self.state
+                {
+                    match self.edit_mods(selected_instance.clone()) {
+                        Ok(_) => {}
+                        Err(err) => self.set_error(err.to_string()),
+                    }
+                }
+            }
         }
         Command::none()
     }
@@ -201,6 +213,15 @@ impl Application for Launcher {
                 slider_value,
                 ref slider_text,
             } => Launcher::menu_edit(selected_instance, config, slider_value, slider_text),
+            State::EditMods { .. } => column![
+                widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                widget::button("Install Fabric"),
+                widget::button("Go to mods folder"),
+                widget::text("Mod management and store coming soon...")
+            ]
+            .padding(10)
+            .spacing(20)
+            .into(),
         }
     }
 }
@@ -217,16 +238,6 @@ async fn pick_file() -> Option<PathBuf> {
         .pick_file()
         .await
         .map(|n| n.path().to_owned())
-}
-
-fn format_memory(memory_bytes: usize) -> String {
-    const MB_TO_GB: usize = 1024;
-
-    if memory_bytes >= MB_TO_GB {
-        format!("{:.2} GB", memory_bytes as f64 / MB_TO_GB as f64)
-    } else {
-        format!("{memory_bytes} MB")
-    }
 }
 
 fn main() {

@@ -13,7 +13,7 @@ use quantum_launcher_backend::{
 };
 
 use crate::{
-    format_memory, l10n,
+    l10n,
     launcher_state::{Launcher, Message, State},
 };
 
@@ -268,4 +268,54 @@ impl Launcher {
             .map_err(|err| LauncherError::IoError(err, config_path))?;
         Ok(())
     }
+
+    pub fn edit_mods(&mut self, selected_instance: String) -> LauncherResult<()> {
+        let launcher_dir = file_utils::get_launcher_dir()?;
+        let config_path = launcher_dir
+            .join("instances")
+            .join(&selected_instance)
+            .join("config.json");
+
+        let config_json = std::fs::read_to_string(&config_path)
+            .map_err(|err| LauncherError::IoError(err, config_path))?;
+        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+
+        self.state = State::EditMods {
+            selected_instance: selected_instance,
+            config: config_json,
+        };
+        Ok(())
+    }
+}
+
+pub fn format_memory(memory_bytes: usize) -> String {
+    const MB_TO_GB: usize = 1024;
+
+    if memory_bytes >= MB_TO_GB {
+        format!("{:.2} GB", memory_bytes as f64 / MB_TO_GB as f64)
+    } else {
+        format!("{memory_bytes} MB")
+    }
+}
+
+pub fn open_file_explorer(path: &str) {
+    use std::process::Command;
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open").arg(path).spawn().unwrap();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer").arg(path).spawn().unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open").arg(path).spawn().unwrap();
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    println!("[error] Opening file explorer not supported on this platform.")
 }

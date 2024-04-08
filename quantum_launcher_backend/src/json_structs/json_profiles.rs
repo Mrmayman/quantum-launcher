@@ -78,3 +78,31 @@ pub struct SelectedUser {
     pub account: String,
     pub profile: String,
 }
+
+impl Default for ProfileJson {
+    fn default() -> Self {
+        Self {
+            profiles: [].into(),
+            clientToken: None,
+            authenticationDatabase: None,
+            launcherVersion: None,
+            settings: Settings {
+                enableSnapshots: true,
+                enableAdvanced: true,
+                keepLauncherOpen: true,
+                showGameLog: true,
+                locale: None,
+                showMenu: true,
+                enableHistorical: true,
+                profileSorting: "ByLastPlayed".to_owned(),
+                crashAssistance: false,
+                enableAnalytics: false,
+                soundOn: Some(false),
+            },
+            analyticsToken: None,
+            analyticsFailcount: None,
+            selectedUser: None,
+            version: None,
+        }
+    }
+}

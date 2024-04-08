@@ -31,6 +31,8 @@ impl Launcher {
                 widget::button("Edit Instance Settings").on_press_maybe(
                     (!selected_instance.is_empty()).then_some(Message::EditInstance)
                 ),
+                widget::button("Manage Mods...")
+                    .on_press_maybe((!selected_instance.is_empty()).then_some(Message::ManageMods))
             ]
         } else {
             column![widget::text("Loading instances...")]

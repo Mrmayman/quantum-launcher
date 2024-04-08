@@ -14,7 +14,7 @@ use crate::{
     json_structs::{
         json_instance_config::InstanceConfigJson,
         json_manifest::Manifest,
-        json_profiles::{ProfileJson, Settings},
+        json_profiles::ProfileJson,
         json_version::{self, Library, VersionDetails},
     },
 };
@@ -332,29 +332,7 @@ impl GameDownloader {
     }
 
     pub fn create_profiles_json(&self) -> LauncherResult<()> {
-        let profile_json = ProfileJson {
-            profiles: [].into(),
-            clientToken: None,
-            authenticationDatabase: None,
-            launcherVersion: None,
-            settings: Settings {
-                enableSnapshots: true,
-                enableAdvanced: true,
-                keepLauncherOpen: true,
-                showGameLog: true,
-                locale: None,
-                showMenu: true,
-                enableHistorical: true,
-                profileSorting: "ByLastPlayed".to_owned(),
-                crashAssistance: false,
-                enableAnalytics: false,
-                soundOn: Some(false),
-            },
-            analyticsToken: None,
-            analyticsFailcount: None,
-            selectedUser: None,
-            version: None,
-        };
+        let profile_json = ProfileJson::default();
 
         let profile_json = serde_json::to_string(&profile_json)?;
         let profile_json_path = self

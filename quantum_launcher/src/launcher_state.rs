@@ -36,6 +36,7 @@ pub enum Message {
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
     EditInstanceSave,
+    ManageMods,
 }
 
 pub enum State {
@@ -47,6 +48,10 @@ pub enum State {
         config: InstanceConfigJson,
         slider_value: f32,
         slider_text: String,
+    },
+    EditMods {
+        selected_instance: String,
+        config: InstanceConfigJson,
     },
     Create {
         instance_name: String,
