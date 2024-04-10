@@ -288,6 +288,7 @@ impl Application for Launcher {
                         widget::button("Install Forge"),
                         widget::button("Install OptiFine")
                     ]
+                    .spacing(5)
                 } else {
                     column![widget::button(widget::text(format!(
                         "Uninstall {}",
@@ -348,8 +349,8 @@ async fn pick_file() -> Option<PathBuf> {
 }
 
 fn main() {
-    const WINDOW_HEIGHT: f32 = 600.0;
-    const WINDOW_WIDTH: f32 = 600.0;
+    const WINDOW_HEIGHT: f32 = 350.0;
+    const WINDOW_WIDTH: f32 = 220.0;
 
     Launcher::run(Settings {
         window: iced::window::Settings {

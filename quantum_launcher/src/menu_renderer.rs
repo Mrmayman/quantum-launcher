@@ -25,17 +25,24 @@ impl Launcher {
                     instances,
                     selected_instance.as_ref(),
                     Message::LaunchInstanceSelected,
-                ),
-                widget::button("Create Instance").on_press(Message::CreateInstanceScreen),
-                widget::button("Delete Selected Instance").on_press_maybe(
-                    (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
-                ),
-                widget::button("Edit Instance Settings")
-                    .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance)),
-                widget::button("Manage Mods...")
-                    .on_press_maybe((selected_instance.is_some()).then_some(Message::ManageMods)),
-                widget::button("Open .minecraft").on_press_maybe(
-                    (selected_instance.is_some()).then(|| {
+                )
+                .width(200),
+                widget::button("+ New Instance")
+                    .on_press(Message::CreateInstanceScreen)
+                    .width(200),
+                widget::button("× Delete Instance")
+                    .on_press_maybe(
+                        (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
+                    )
+                    .width(200),
+                widget::button("⚙️ Settings")
+                    .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance))
+                    .width(200),
+                widget::button("✏️ Manage Mods")
+                    .on_press_maybe((selected_instance.is_some()).then_some(Message::ManageMods))
+                    .width(200),
+                widget::button("> Open .minecraft")
+                    .on_press_maybe((selected_instance.is_some()).then(|| {
                         let launcher_dir = file_utils::get_launcher_dir().unwrap();
                         Message::OpenDir(
                             launcher_dir
@@ -43,8 +50,8 @@ impl Launcher {
                                 .join(selected_instance.as_ref().unwrap())
                                 .join(".minecraft"),
                         )
-                    })
-                )
+                    }))
+                    .width(200)
             ]
         } else {
             column![widget::text("Loading instances...")]
@@ -54,9 +61,11 @@ impl Launcher {
             pick_list.spacing(5),
             column![
                 widget::text_input("Enter username...", &self.config.as_ref().unwrap().username)
-                    .on_input(Message::LaunchUsernameSet),
-                widget::button("Launch game")
+                    .on_input(Message::LaunchUsernameSet)
+                    .width(200),
+                widget::button("~ Launch game")
                     .on_press_maybe((selected_instance.is_some()).then_some(Message::Launch))
+                    .width(200)
             ]
             .spacing(5)
         ]
