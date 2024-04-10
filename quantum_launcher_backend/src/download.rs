@@ -75,9 +75,9 @@ impl ToString for DownloadProgress {
     }
 }
 
-impl Into<f32> for DownloadProgress {
-    fn into(self) -> f32 {
-        match self {
+impl From<DownloadProgress> for f32 {
+    fn from(val: DownloadProgress) -> Self {
+        match val {
             DownloadProgress::Started => 0.0,
             DownloadProgress::DownloadingJsonManifest => 0.2,
             DownloadProgress::DownloadingVersionJson => 0.5,
@@ -148,7 +148,7 @@ impl GameDownloader {
     pub async fn download_libraries(&self) -> Result<(), LauncherError> {
         println!("[info] Starting download of libraries.");
 
-        let library_path = &self.instance_dir.join("libraries");
+        let library_path = self.instance_dir.join("libraries");
         create_dir_if_not_exists(&library_path)
             .map_err(|err| LauncherError::IoError(err, library_path.clone()))?;
 

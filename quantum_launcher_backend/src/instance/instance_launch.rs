@@ -81,20 +81,16 @@ pub fn launch_blocking(
     ];
 
     let fabric_json = if config_json.mod_type == "Fabric" {
-        if let Some(fabric_json) = get_fabric_json(&instance_dir, &version_json) {
-            let fabric_json = fabric_json?;
-            // Add all the special fabric arguments.
-            fabric_json.arguments.jvm.iter().for_each(|n| {
-                java_arguments.push(n.clone());
-            });
-
-            Some(fabric_json)
-        } else {
-            None
-        }
+        Some(get_fabric_json(&instance_dir)?)
     } else {
         None
     };
+
+    if let Some(ref fabric_json) = fabric_json {
+        fabric_json.arguments.jvm.iter().for_each(|n| {
+            java_arguments.push(n.clone());
+        });
+    }
 
     if let Some(ref logging) = version_json.logging {
         let logging_path = instance_dir.join(format!("logging-{}", logging.client.file.id));
@@ -105,7 +101,7 @@ pub fn launch_blocking(
     }
 
     java_arguments.push("-cp".to_owned());
-    java_arguments.push(get_class_path(&version_json, instance_dir)?);
+    java_arguments.push(get_class_path(&version_json, instance_dir, &fabric_json)?);
     if let Some(ref fabric_json) = fabric_json {
         java_arguments.push(fabric_json.mainClass.clone());
     } else {
@@ -138,64 +134,25 @@ pub fn launch_blocking(
     Ok(result)
 }
 
-fn get_fabric_json(
-    instance_dir: &PathBuf,
-    version_json: &VersionDetails,
-) -> Option<Result<FabricJSON, LauncherError>> {
-    find_fabric_directory(
-        &instance_dir.join(".minecraft").join("versions"),
-        &version_json.id,
-    )
-    .map(|dir| find_first_json(&dir))
-    .flatten()
-    .map(|json_path| {
-        let fabric_json = std::fs::read_to_string(&json_path)
-            .map_err(|err| LauncherError::IoError(err, json_path))?;
-        let fabric_json: FabricJSON = serde_json::from_str(&fabric_json)?;
-        Ok(fabric_json)
-    })
+fn get_fabric_json(instance_dir: &Path) -> LauncherResult<FabricJSON> {
+    let json_path = instance_dir.join("fabric.json");
+    let fabric_json = std::fs::read_to_string(&json_path)
+        .map_err(|err| LauncherError::IoError(err, json_path))?;
+    Ok(serde_json::from_str(&fabric_json)?)
 }
 
-fn get_config(instance_dir: &PathBuf) -> Result<InstanceConfigJson, LauncherError> {
+fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, LauncherError> {
     let config_file_path = instance_dir.join("config.json");
     let config_json = std::fs::read_to_string(&config_file_path)
         .map_err(|err| LauncherError::IoError(err, config_file_path))?;
     Ok(serde_json::from_str(&config_json)?)
 }
 
-fn find_first_json(dir: &Path) -> Option<PathBuf> {
-    for entry in std::fs::read_dir(dir).ok()?.flatten() {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(extension) = path.extension() {
-                if extension == "json" {
-                    return Some(path);
-                }
-            }
-        }
-    }
-    None
-}
-
-fn find_fabric_directory(dir: &Path, exclude_dir: &str) -> Option<PathBuf> {
-    for entry in std::fs::read_dir(dir).ok()?.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            if let Some(name) = path.file_name() {
-                if name == exclude_dir {
-                    continue;
-                }
-                if !name.to_str()?.contains("fabric") {
-                    continue;
-                }
-            }
-            return Some(path);
-        }
-    }
-    None
-}
-
-fn get_class_path(version_json: &VersionDetails, instance_dir: PathBuf) -> LauncherResult<String> {
+fn get_class_path(
+    version_json: &VersionDetails,
+    instance_dir: PathBuf,
+    fabric_json: &Option<FabricJSON>,
+) -> LauncherResult<String> {
     let mut class_path: String = "".to_owned();
     if cfg!(windows) {
         class_path.push('"');
@@ -228,16 +185,12 @@ fn get_class_path(version_json: &VersionDetails, instance_dir: PathBuf) -> Launc
         .find(|n| n.is_err())
         .unwrap_or(Ok(()))?;
 
-    let mod_lib_path = instance_dir.join(".minecraft").join("libraries");
-    if mod_lib_path.exists() {
-        find_jar_files(&mod_lib_path)?
-            .iter()
-            .for_each(|library_path| {
-                library_path.to_str().map(|jar_file| {
-                    class_path.push_str(jar_file);
-                    class_path.push(CLASSPATH_SEPARATOR);
-                });
-            })
+    if let Some(ref fabric_json) = fabric_json {
+        for library in fabric_json.libraries.iter() {
+            let library_path = instance_dir.join("libraries").join(library.get_path());
+            class_path.push_str(library_path.to_str().unwrap());
+            class_path.push(CLASSPATH_SEPARATOR);
+        }
     }
 
     let jar_path = instance_dir
@@ -254,33 +207,6 @@ fn get_class_path(version_json: &VersionDetails, instance_dir: PathBuf) -> Launc
         class_path.push('"');
     }
     Ok(class_path)
-}
-
-fn find_jar_files(dir: &Path) -> LauncherResult<Vec<PathBuf>> {
-    let mut jar_files = Vec::new();
-
-    // Recursively iterate over the directory entries
-    let entries =
-        std::fs::read_dir(dir).map_err(|err| LauncherError::IoError(err, dir.to_owned()))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|err| LauncherError::IoError(err, dir.to_owned()))?;
-        let path = entry.path();
-
-        if path.is_file() {
-            // Check if the file has a .jar extension
-            if let Some(extension) = path.extension() {
-                if extension == "jar" {
-                    jar_files.push(path);
-                }
-            }
-        } else if path.is_dir() {
-            // Recursively search directories
-            jar_files.extend(find_jar_files(&path)?);
-        }
-    }
-
-    Ok(jar_files)
 }
 
 fn get_arguments(

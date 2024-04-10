@@ -24,7 +24,7 @@ impl Launcher {
             ..
         } = self.state
         {
-            *selected_instance = instance_name
+            *selected_instance = Some(instance_name)
         }
     }
 
@@ -40,7 +40,7 @@ impl Launcher {
         {
             match self.config.as_ref().unwrap().save() {
                 Ok(_) => {
-                    let selected_instance = selected_instance.clone();
+                    let selected_instance = selected_instance.clone().unwrap();
                     let username = self.config.as_ref().unwrap().username.clone();
                     let manually_added_versions =
                         self.config.as_ref().unwrap().java_installs.clone();
@@ -78,7 +78,7 @@ impl Launcher {
     pub fn go_to_create_screen(&mut self) -> Command<Message> {
         self.state = State::Create {
             instance_name: Default::default(),
-            version: Default::default(),
+            selected_version: None,
             versions: Vec::new(),
             progress_reciever: None,
             progress_number: None,
@@ -109,10 +109,11 @@ impl Launcher {
 
     pub fn select_created_instance_version(&mut self, selected_version: String) {
         if let State::Create {
-            ref mut version, ..
+            selected_version: ref mut version,
+            ..
         } = self.state
         {
-            *version = selected_version
+            *version = Some(selected_version)
         }
     }
 
@@ -129,7 +130,7 @@ impl Launcher {
     pub fn create_instance(&mut self) -> Command<Message> {
         if let State::Create {
             ref instance_name,
-            ref version,
+            selected_version: ref version,
             ref mut progress_reciever,
             ref mut progress_number,
             ref mut progress_text,
@@ -145,7 +146,7 @@ impl Launcher {
             return Command::perform(
                 quantum_launcher_backend::create_instance(
                     instance_name.to_owned(),
-                    version.to_owned(),
+                    version.to_owned().unwrap(),
                     Some(sender),
                 ),
                 Message::CreateInstanceEnd,
@@ -185,7 +186,7 @@ impl Launcher {
         } = self.state
         {
             self.state = State::DeleteInstance {
-                selected_instance: selected_instance.clone(),
+                selected_instance: selected_instance.clone().unwrap(),
             }
         }
     }
@@ -248,7 +249,7 @@ impl Launcher {
         let memory_mb = config_json.ram_in_mb;
 
         self.state = State::EditInstance {
-            selected_instance: selected_instance,
+            selected_instance,
             config: config_json,
             slider_value,
             slider_text: format_memory(memory_mb),
@@ -281,7 +282,7 @@ impl Launcher {
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         self.state = State::EditMods {
-            selected_instance: selected_instance,
+            selected_instance,
             config: config_json,
         };
         Ok(())

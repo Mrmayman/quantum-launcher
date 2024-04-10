@@ -8,7 +8,7 @@ use quantum_launcher_backend::{
     download::DownloadProgress,
     error::{LauncherError, LauncherResult},
     file_utils::create_dir_if_not_exists,
-    instance::instance_launch::GameLaunchResult,
+    instance::{instance_launch::GameLaunchResult, instance_mod_installer::fabric::FabricVersion},
     json_structs::json_instance_config::InstanceConfigJson,
 };
 
@@ -16,6 +16,10 @@ use crate::config::LauncherConfig;
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    OpenDir(PathBuf),
+    InstallFabricEnd(Result<(), String>),
+    InstallFabricVersionSelected(String),
+    InstallFabricVersionsLoaded(Result<Vec<FabricVersion>, String>),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
     Launch,
@@ -37,11 +41,13 @@ pub enum Message {
     EditInstanceMemoryChanged(f32),
     EditInstanceSave,
     ManageMods,
+    InstallFabricClicked,
+    InstallFabric,
 }
 
 pub enum State {
     Launch {
-        selected_instance: String,
+        selected_instance: Option<String>,
     },
     EditInstance {
         selected_instance: String,
@@ -55,7 +61,7 @@ pub enum State {
     },
     Create {
         instance_name: String,
-        version: String,
+        selected_version: Option<String>,
         versions: Vec<String>,
         progress_reciever: Option<Receiver<DownloadProgress>>,
         progress_number: Option<f32>,
@@ -70,6 +76,11 @@ pub enum State {
     },
     DeleteInstance {
         selected_instance: String,
+    },
+    InstallFabric {
+        selected_instance: String,
+        fabric_version: Option<String>,
+        fabric_versions: Vec<String>,
     },
 }
 
@@ -120,7 +131,7 @@ impl Launcher {
 
     pub fn go_to_launch_screen(&mut self) {
         self.state = State::Launch {
-            selected_instance: "".to_owned(),
+            selected_instance: None,
         }
     }
 }

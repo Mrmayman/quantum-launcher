@@ -1,7 +1,9 @@
 use std::ops::RangeInclusive;
 
 use iced::widget::{self, column};
-use quantum_launcher_backend::json_structs::json_instance_config::InstanceConfigJson;
+use quantum_launcher_backend::{
+    file_utils, json_structs::json_instance_config::InstanceConfigJson,
+};
 
 use crate::{
     l10n,
@@ -14,25 +16,35 @@ type Element<'a> =
 impl Launcher {
     pub fn menu_launch<'element>(
         &'element self,
-        selected_instance: &'element String,
+        selected_instance: &'element Option<String>,
     ) -> Element<'element> {
         let pick_list = if let Some(instances) = self.instances.as_deref() {
             column![
                 widget::text("Instances:"),
                 widget::pick_list(
                     instances,
-                    Some(selected_instance),
+                    selected_instance.as_ref(),
                     Message::LaunchInstanceSelected,
                 ),
                 widget::button("Create Instance").on_press(Message::CreateInstanceScreen),
                 widget::button("Delete Selected Instance").on_press_maybe(
-                    (!selected_instance.is_empty()).then_some(Message::DeleteInstanceMenu)
+                    (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
                 ),
-                widget::button("Edit Instance Settings").on_press_maybe(
-                    (!selected_instance.is_empty()).then_some(Message::EditInstance)
-                ),
+                widget::button("Edit Instance Settings")
+                    .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance)),
                 widget::button("Manage Mods...")
-                    .on_press_maybe((!selected_instance.is_empty()).then_some(Message::ManageMods))
+                    .on_press_maybe((selected_instance.is_some()).then_some(Message::ManageMods)),
+                widget::button("Open .minecraft").on_press_maybe(
+                    (selected_instance.is_some()).then(|| {
+                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                        Message::OpenDir(
+                            launcher_dir
+                                .join("instances")
+                                .join(selected_instance.as_ref().unwrap())
+                                .join(".minecraft"),
+                        )
+                    })
+                )
             ]
         } else {
             column![widget::text("Loading instances...")]
@@ -44,7 +56,7 @@ impl Launcher {
                 widget::text_input("Enter username...", &self.config.as_ref().unwrap().username)
                     .on_input(Message::LaunchUsernameSet),
                 widget::button("Launch game")
-                    .on_press_maybe((!selected_instance.is_empty()).then_some(Message::Launch))
+                    .on_press_maybe((selected_instance.is_some()).then_some(Message::Launch))
             ]
             .spacing(5)
         ]
@@ -58,8 +70,8 @@ impl Launcher {
         progress_number: &Option<f32>,
         progress_text: &Option<String>,
         versions: &'element Vec<String>,
-        version: &'element String,
-        instance_name: &String,
+        version: Option<&'element String>,
+        instance_name: &str,
     ) -> Element<'element> {
         let progress_bar = if let Some(progress_number) = progress_number {
             if let Some(progress_text) = progress_text {
@@ -80,14 +92,15 @@ impl Launcher {
                 widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
                 widget::pick_list(
                     versions.as_slice(),
-                    Some(version),
+                    version,
                     Message::CreateInstanceVersionSelected
                 ),
             ]
             .spacing(10),
             widget::text_input("Enter instance name...", instance_name)
                 .on_input(Message::CreateInstanceNameInput),
-            widget::button("+ Create Instance").on_press(Message::CreateInstance),
+            widget::button("+ Create Instance")
+                .on_press_maybe(version.is_some().then(|| Message::CreateInstance)),
             progress_bar,
         ]
         .spacing(20)
@@ -95,7 +108,7 @@ impl Launcher {
         .into()
     }
 
-    pub fn menu_delete<'element>(selected_instance: &'element str) -> Element<'element> {
+    pub fn menu_delete(selected_instance: &str) -> Element {
         column![
             widget::text(format!(
                 "{}: {selected_instance}?",
@@ -130,8 +143,7 @@ impl Launcher {
                     "Enter Java override (leave blank if none)...",
                     config
                         .java_override
-                        .as_ref()
-                        .map(|n| n.as_str())
+                        .as_deref()
                         .unwrap_or_default()
                 )
                 .on_input(Message::EditInstanceJavaOverride)
@@ -143,7 +155,7 @@ impl Launcher {
                 widget::text("For old versions, allocate 512 MB - 1 GB"),
                 widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB"),
                 widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, slider_value, Message::EditInstanceMemoryChanged).step(0.1),
-                widget::text(&slider_text),
+                widget::text(slider_text),
             ],
             widget::button("Save").on_press(Message::EditInstanceSave),
         ]

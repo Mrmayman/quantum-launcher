@@ -9,7 +9,8 @@ use iced::{
     Application, Command, Settings, Subscription, Theme,
 };
 use launcher_state::{Launcher, Message, State};
-use message_handler::format_memory;
+use message_handler::{format_memory, open_file_explorer};
+use quantum_launcher_backend::{error::LauncherError, instance::instance_mod_installer};
 
 mod config;
 mod l10n;
@@ -86,7 +87,7 @@ impl Application for Launcher {
                     ..
                 } = self.state
                 {
-                    match self.edit_instance(selected_instance.clone()) {
+                    match self.edit_instance(selected_instance.clone().unwrap()) {
                         Ok(_) => {}
                         Err(err) => self.set_error(err.to_string()),
                     }
@@ -117,7 +118,7 @@ impl Application for Launcher {
                     ..
                 } = self.state
                 {
-                    match Launcher::save_config(&selected_instance, config) {
+                    match Launcher::save_config(selected_instance, config) {
                         Ok(_) => self.go_to_launch_screen(),
                         Err(err) => self.set_error(err.to_string()),
                     }
@@ -128,12 +129,78 @@ impl Application for Launcher {
                     ref selected_instance,
                 } = self.state
                 {
-                    match self.edit_mods(selected_instance.clone()) {
+                    match self.edit_mods(selected_instance.clone().unwrap()) {
                         Ok(_) => {}
                         Err(err) => self.set_error(err.to_string()),
                     }
                 }
             }
+            Message::InstallFabric => {
+                if let State::EditMods {
+                    ref selected_instance,
+                    ..
+                } = self.state
+                {
+                    self.state = State::InstallFabric {
+                        selected_instance: selected_instance.clone(),
+                        fabric_version: None,
+                        fabric_versions: Vec::new(),
+                    };
+
+                    return Command::perform(
+                        instance_mod_installer::fabric::get_list_of_versions(),
+                        Message::InstallFabricVersionsLoaded,
+                    );
+                }
+            }
+            Message::InstallFabricVersionsLoaded(result) => match result {
+                Ok(list_of_versions) => {
+                    if let State::InstallFabric {
+                        ref mut fabric_versions,
+                        ..
+                    } = self.state
+                    {
+                        *fabric_versions = list_of_versions
+                            .iter()
+                            .map(|ver| ver.version.clone())
+                            .collect();
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::InstallFabricVersionSelected(selection) => {
+                if let State::InstallFabric {
+                    ref mut fabric_version,
+                    ..
+                } = self.state
+                {
+                    *fabric_version = Some(selection);
+                }
+            }
+            Message::InstallFabricClicked => {
+                if let State::InstallFabric {
+                    ref selected_instance,
+                    ref fabric_version,
+                    ..
+                } = self.state
+                {
+                    return Command::perform(
+                        instance_mod_installer::fabric::install_wrapped(
+                            fabric_version.clone().unwrap(),
+                            selected_instance.to_owned(),
+                        ),
+                        Message::InstallFabricEnd,
+                    );
+                }
+            }
+            Message::InstallFabricEnd(result) => match result {
+                Ok(_) => self.go_to_launch_screen(),
+                Err(err) => self.set_error(err),
+            },
+            Message::OpenDir(dir) => match dir.to_str() {
+                Some(dir) => open_file_explorer(dir),
+                None => self.set_error(LauncherError::PathBufToString(dir).to_string()),
+            },
         }
         Command::none()
     }
@@ -175,7 +242,7 @@ impl Application for Launcher {
             } => self.menu_launch(selected_instance),
             State::Create {
                 ref instance_name,
-                ref version,
+                ref selected_version,
                 ref versions,
                 ref progress_number,
                 ref progress_text,
@@ -184,7 +251,7 @@ impl Application for Launcher {
                 progress_number,
                 progress_text,
                 versions,
-                version,
+                selected_version.as_ref(),
                 instance_name,
             ),
             State::Error { ref error } => {
@@ -206,18 +273,58 @@ impl Application for Launcher {
             .into(),
             State::DeleteInstance {
                 ref selected_instance,
-            } => Launcher::menu_delete(&selected_instance),
+            } => Launcher::menu_delete(selected_instance),
             State::EditInstance {
                 ref selected_instance,
                 ref config,
                 slider_value,
                 ref slider_text,
             } => Launcher::menu_edit(selected_instance, config, slider_value, slider_text),
-            State::EditMods { .. } => column![
+            State::EditMods { ref config, .. } => {
+                let mod_installer = if config.mod_type == "Vanilla" {
+                    column![
+                        widget::button("Install Fabric").on_press(Message::InstallFabric),
+                        widget::button("Install Quilt"),
+                        widget::button("Install Forge"),
+                        widget::button("Install OptiFine")
+                    ]
+                } else {
+                    column![widget::button(widget::text(format!(
+                        "Uninstall {}",
+                        config.mod_type
+                    )))]
+                };
+
+                column![
+                    widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                    mod_installer,
+                    widget::button("Go to mods folder"),
+                    widget::text("Mod management and store coming soon...")
+                ]
+                .padding(10)
+                .spacing(20)
+                .into()
+            }
+            State::InstallFabric {
+                ref selected_instance,
+                ref fabric_version,
+                ref fabric_versions,
+            } => column![
                 widget::button("< Back").on_press(Message::GoToLaunchScreen),
-                widget::button("Install Fabric"),
-                widget::button("Go to mods folder"),
-                widget::text("Mod management and store coming soon...")
+                widget::text(format!(
+                    "Select Fabric Version for instance {}",
+                    selected_instance
+                )),
+                widget::pick_list(
+                    fabric_versions.as_slice(),
+                    fabric_version.as_ref(),
+                    Message::InstallFabricVersionSelected
+                ),
+                widget::button("Install Fabric").on_press_maybe(
+                    fabric_version
+                        .is_some()
+                        .then(|| Message::InstallFabricClicked)
+                ),
             ]
             .padding(10)
             .spacing(20)

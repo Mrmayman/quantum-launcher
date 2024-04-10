@@ -26,6 +26,7 @@ pub enum LauncherError {
     DownloadProgressMspcError(SendError<DownloadProgress>),
     IoError(std::io::Error, PathBuf),
     CommandError(std::io::Error),
+    LatestFabricVersionNotFound,
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -104,6 +105,9 @@ impl Display for LauncherError {
             LauncherError::IoError(n, p) => write!(f, "At path {p:?}, IO error: {n}"),
             LauncherError::CommandError(n) => {
                 write!(f, "IO error while trying to run Java command: {n}")
+            }
+            LauncherError::LatestFabricVersionNotFound => {
+                write!(f, "Could not find the latest Fabric loader version")
             }
         }
     }
