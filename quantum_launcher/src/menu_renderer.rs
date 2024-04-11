@@ -41,7 +41,7 @@ impl Launcher {
                 widget::button("✏️ Manage Mods")
                     .on_press_maybe((selected_instance.is_some()).then_some(Message::ManageMods))
                     .width(200),
-                widget::button("> Open .minecraft")
+                widget::button("> Open Files")
                     .on_press_maybe((selected_instance.is_some()).then(|| {
                         let launcher_dir = file_utils::get_launcher_dir().unwrap();
                         Message::OpenDir(
@@ -75,7 +75,6 @@ impl Launcher {
     }
 
     pub fn menu_create<'element>(
-        &'element self,
         progress_number: &Option<f32>,
         progress_text: &Option<String>,
         versions: &'element Vec<String>,
@@ -99,7 +98,8 @@ impl Launcher {
             column![
                 widget::button("< Back").on_press(Message::GoToLaunchScreen),
                 column![
-                    widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
+                    widget::text("Select Version"),
+                    widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
                     widget::pick_list(
                         versions.as_slice(),
                         version,
@@ -149,30 +149,51 @@ impl Launcher {
             column![
                 widget::button("< Back").on_press(Message::GoToLaunchScreen),
                 widget::text(format!("Editing {} instance: {}", config.mod_type, selected_instance)),
-                column![
-                    widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
-                    widget::text_input(
-                        "Enter Java override (leave blank if none)...",
-                        config
-                            .java_override
-                            .as_deref()
-                            .unwrap_or_default()
-                    )
-                    .on_input(Message::EditInstanceJavaOverride)
-                ]
-                .spacing(10),
-                column![
-                    widget::text("Allocated memory"),
-                    widget::text("For normal Minecraft, allocate 2 - 3 GB"),
-                    widget::text("For old versions, allocate 512 MB - 1 GB"),
-                    widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB"),
-                    widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, slider_value, Message::EditInstanceMemoryChanged).step(0.1),
-                    widget::text(slider_text),
-                ],
+                widget::container(
+                    column![
+                        widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
+                        widget::text_input(
+                            "Enter Java override",
+                            config
+                                .java_override
+                                .as_deref()
+                                .unwrap_or_default()
+                        )
+                        .on_input(Message::EditInstanceJavaOverride)
+                    ]
+                    .padding(10)
+                    .spacing(10)
+                ),
+                widget::container(
+                    column![
+                        widget::text("Allocated memory"),
+                        widget::text("For normal Minecraft, allocate 2 - 3 GB"),
+                        widget::text("For old versions, allocate 512 MB - 1 GB"),
+                        widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB"),
+                        widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, slider_value, Message::EditInstanceMemoryChanged).step(0.1),
+                        widget::text(slider_text),
+                    ]
+                    .padding(10)
+                    .spacing(5),
+                ),
                 widget::button("Save").on_press(Message::EditInstanceSave),
             ]
             .padding(10)
             .spacing(20)
         ).into()
+    }
+
+    pub fn menu_find_java(required_version: &Option<usize>) -> Element {
+        column![
+            widget::text(if let Some(ver) = required_version {
+                format!("An installation of Java ({ver}) could not be found",)
+            } else {
+                "Required Java Install not found".to_owned()
+            }),
+            widget::button("Select Java Executable").on_press(Message::LocateJavaStart),
+        ]
+        .padding(10)
+        .spacing(20)
+        .into()
     }
 }

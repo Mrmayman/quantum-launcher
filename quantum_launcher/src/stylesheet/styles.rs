@@ -22,6 +22,7 @@ impl widget::container::StyleSheet for LauncherTheme {
             LauncherTheme::Dark => widget::container::Appearance {
                 text_color: Some(DARK_PURPLE.get(Color::Light)),
                 background: Some(iced::Background::Color(DARK_PURPLE.get(Color::Dark))),
+                border: DARK_PURPLE.get_border(Color::SecondDark),
                 ..Default::default()
             },
         }

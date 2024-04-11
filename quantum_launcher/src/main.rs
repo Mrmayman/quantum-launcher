@@ -249,7 +249,7 @@ impl Application for Launcher {
                 ref progress_number,
                 ref progress_text,
                 ..
-            } => self.menu_create(
+            } => Launcher::menu_create(
                 progress_number,
                 progress_text,
                 versions,
@@ -262,17 +262,7 @@ impl Application for Launcher {
             State::FindJavaVersion {
                 ref required_version,
                 ..
-            } => column![
-                widget::text(if let Some(ver) = required_version {
-                    format!("An installation of Java ({ver}) could not be found",)
-                } else {
-                    "Required Java Install not found".to_owned()
-                }),
-                widget::button("Select Java Executable").on_press(Message::LocateJavaStart),
-            ]
-            .padding(10)
-            .spacing(20)
-            .into(),
+            } => Launcher::menu_find_java(required_version),
             State::DeleteInstance {
                 ref selected_instance,
             } => Launcher::menu_delete(selected_instance),
