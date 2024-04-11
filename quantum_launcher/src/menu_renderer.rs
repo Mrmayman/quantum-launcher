@@ -1,16 +1,16 @@
 use std::ops::RangeInclusive;
 
-use iced::widget::{self, column};
+use iced::widget::{self, column, row};
 use quantum_launcher_backend::{
     file_utils, json_structs::json_instance_config::InstanceConfigJson,
 };
 
 use crate::{
-    l10n,
+    icon_manager, l10n,
     launcher_state::{Launcher, Message},
 };
 
-type Element<'a> =
+pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
 
 impl Launcher {
@@ -27,47 +27,72 @@ impl Launcher {
                     Message::LaunchInstanceSelected,
                 )
                 .width(200),
-                widget::button("+ New Instance")
-                    .on_press(Message::CreateInstanceScreen)
-                    .width(200),
-                widget::button("× Delete Instance")
-                    .on_press_maybe(
-                        (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
+                widget::button(
+                    row![icon_manager::create(), widget::text("New Instance")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press(Message::CreateInstanceScreen)
+                .width(200),
+                widget::button(
+                    row![icon_manager::delete(), widget::text("Delete Instance")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press_maybe(
+                    (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
+                )
+                .width(200),
+                widget::button(
+                    row![icon_manager::settings(), widget::text("Settings")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance))
+                .width(200),
+                widget::button(
+                    row![icon_manager::download(), widget::text("Manage Mods")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press_maybe((selected_instance.is_some()).then_some(Message::ManageMods))
+                .width(200),
+                widget::button(
+                    row![icon_manager::folder(), widget::text("Open Files")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press_maybe((selected_instance.is_some()).then(|| {
+                    let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                    Message::OpenDir(
+                        launcher_dir
+                            .join("instances")
+                            .join(selected_instance.as_ref().unwrap())
+                            .join(".minecraft"),
                     )
-                    .width(200),
-                widget::button("⚙️ Settings")
-                    .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance))
-                    .width(200),
-                widget::button("✏️ Manage Mods")
-                    .on_press_maybe((selected_instance.is_some()).then_some(Message::ManageMods))
-                    .width(200),
-                widget::button("> Open Files")
-                    .on_press_maybe((selected_instance.is_some()).then(|| {
-                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                        Message::OpenDir(
-                            launcher_dir
-                                .join("instances")
-                                .join(selected_instance.as_ref().unwrap())
-                                .join(".minecraft"),
-                        )
-                    }))
-                    .width(200)
+                }))
+                .width(200)
             ]
         } else {
             column![widget::text("Loading instances...")]
         };
 
         column![
-            pick_list.spacing(5),
             column![
+                widget::text("Username:"),
                 widget::text_input("Enter username...", &self.config.as_ref().unwrap().username)
                     .on_input(Message::LaunchUsernameSet)
                     .width(200),
-                widget::button("~ Launch game")
-                    .on_press_maybe((selected_instance.is_some()).then_some(Message::Launch))
-                    .width(200)
             ]
-            .spacing(5)
+            .spacing(5),
+            pick_list.spacing(5),
+            widget::button(
+                row![icon_manager::play(), widget::text("Launch Game")]
+                    .spacing(10)
+                    .padding(5)
+            )
+            .on_press_maybe((selected_instance.is_some()).then_some(Message::Launch))
+            .width(200)
         ]
         .padding(10)
         .spacing(20)
@@ -96,7 +121,11 @@ impl Launcher {
 
         widget::scrollable(
             column![
-                widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                widget::button(
+                    row![icon_manager::back(), widget::text("Back")]
+                        .spacing(10)
+                        .padding(5)
+                ).on_press(Message::GoToLaunchScreen),
                 column![
                     widget::text("Select Version"),
                     widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
@@ -109,8 +138,10 @@ impl Launcher {
                 .spacing(10),
                 widget::text_input("Enter instance name...", instance_name)
                     .on_input(Message::CreateInstanceNameInput),
-                widget::button("+ Create Instance")
-                    .on_press_maybe((version.is_some() && !instance_name.is_empty()).then(|| Message::CreateInstance)),
+                widget::button(row![icon_manager::create(), widget::text("Create Instance")]
+                        .spacing(10)
+                        .padding(5)
+                ).on_press_maybe((version.is_some() && !instance_name.is_empty()).then(|| Message::CreateInstance)),
                 progress_bar,
             ]
             .spacing(10)
@@ -147,7 +178,10 @@ impl Launcher {
 
         widget::scrollable(
             column![
-                widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                widget::button(row![icon_manager::back(), widget::text("Back")]
+                    .spacing(10)
+                    .padding(5)
+                ).on_press(Message::GoToLaunchScreen),
                 widget::text(format!("Editing {} instance: {}", config.mod_type, selected_instance)),
                 widget::container(
                     column![
@@ -176,7 +210,10 @@ impl Launcher {
                     .padding(10)
                     .spacing(5),
                 ),
-                widget::button("Save").on_press(Message::EditInstanceSave),
+                widget::button(row![icon_manager::save(), widget::text("Save")]
+                    .spacing(10)
+                    .padding(5)
+                ).on_press(Message::EditInstanceSave),
             ]
             .padding(10)
             .spacing(20)

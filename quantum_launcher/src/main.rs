@@ -5,7 +5,7 @@ use iced::{
     executor,
     futures::SinkExt,
     subscription,
-    widget::{self, column},
+    widget::{self, column, row},
     Application, Command, Settings, Subscription,
 };
 use launcher_state::{Launcher, Message, State};
@@ -14,6 +14,7 @@ use quantum_launcher_backend::{error::LauncherError, instance::instance_mod_inst
 use stylesheet::styles::LauncherTheme;
 
 mod config;
+mod icon_manager;
 mod l10n;
 mod launcher_state;
 mod menu_renderer;
@@ -282,14 +283,23 @@ impl Application for Launcher {
                     ]
                     .spacing(5)
                 } else {
-                    column![widget::button(widget::text(format!(
-                        "Uninstall {}",
-                        config.mod_type
-                    )))]
+                    column![widget::button(
+                        row![
+                            icon_manager::delete(),
+                            widget::text(format!("Uninstall {}", config.mod_type))
+                        ]
+                        .spacing(10)
+                        .padding(5)
+                    )]
                 };
 
                 column![
-                    widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                    widget::button(
+                        row![icon_manager::back(), widget::text("Back")]
+                            .spacing(10)
+                            .padding(5)
+                    )
+                    .on_press(Message::GoToLaunchScreen),
                     mod_installer,
                     widget::button("Go to mods folder"),
                     widget::text("Mod management and store coming soon...")
@@ -303,7 +313,12 @@ impl Application for Launcher {
                 ref fabric_version,
                 ref fabric_versions,
             } => column![
-                widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                widget::button(
+                    row![icon_manager::back(), widget::text("Back")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press(Message::GoToLaunchScreen),
                 widget::text(format!(
                     "Select Fabric Version for instance {}",
                     selected_instance
@@ -341,7 +356,7 @@ async fn pick_file() -> Option<PathBuf> {
 }
 
 fn main() {
-    const WINDOW_HEIGHT: f32 = 342.0;
+    const WINDOW_HEIGHT: f32 = 450.0;
     const WINDOW_WIDTH: f32 = 220.0;
 
     Launcher::run(Settings {
@@ -353,6 +368,15 @@ fn main() {
             resizable: true,
             ..Default::default()
         },
+        fonts: vec![
+            include_bytes!("../../assets/Inter-Regular.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../../assets/launcher-icons.ttf")
+                .as_slice()
+                .into(),
+        ],
+        default_font: iced::Font::with_name("Inter"),
         ..Default::default()
     })
     .unwrap();

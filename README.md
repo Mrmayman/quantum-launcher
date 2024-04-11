@@ -5,8 +5,8 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 
 # Features
 - Instances to isolate different installations. No more conflicts between versions!
-- Create or delete an Instance with ease.
-- Launch your game with one click.
+- Install fabric with one click.
+- Create or delete an Instance easily.
 - Remembers your username across sessions.
 - Can't autodetect java? Add it manually with a simple file picker.
 
@@ -18,14 +18,15 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - `.minecraft` located at `YOUR_INSTANCE/.minecraft/`.
 
 # Todo
-- macOS support.
-- Fix many bugs and quality of life issues.
-- Fix instability on Windows. (my main dev machine is Linux `:)` ) 
-- Separate Java versions for each instance.
-- Manual override of Java versions.
-- Autodownload for Forge, Fabric and OptiFine.
+- Add java installs dropdown list for Java override selection.
+- Add java autoinstall.
+- Add ability to enable and disable mods.
+- Add menu to see logs.
+- Fix the weird freeze when downloading assets on Windows.
+- Autodownload for Forge, Quilt and OptiFine.
 - A built in mod store using the Modrinth API.
 - Managing your aternos servers from within the launcher.
+- macOS support.
 
 # Note on Piracy
 (For legal reasons) I do not encourage or promote piracy in any way. Authentication is not implemented for ease of development and use. If you use this launcher and pirate the game, you are playing at your own risk.
