@@ -280,21 +280,19 @@ impl GameDownloader {
         file.write_all(asset_index.to_string().as_bytes())
             .map_err(|err| LauncherError::IoError(err, assets_indexes_json_path))?;
 
-        let objects = if let Some(value) = asset_index["objects"].as_object() {
-            value
-        } else {
-            return Err(LauncherError::SerdeFieldNotFound("asset_index.objects"));
-        };
+        let objects = asset_index["objects"]
+            .as_object()
+            .ok_or(LauncherError::SerdeFieldNotFound("asset_index.objects"))?;
         let objects_len = objects.len();
 
         for (object_number, (_, object_data)) in objects.iter().enumerate() {
-            let obj_hash = if let Some(value) = object_data["hash"].as_str() {
-                value
-            } else {
-                return Err(LauncherError::SerdeFieldNotFound(
-                    "asset_index.objects[].hash",
-                ));
-            };
+            let obj_hash =
+                object_data["hash"]
+                    .as_str()
+                    .ok_or(LauncherError::SerdeFieldNotFound(
+                        "asset_index.objects[].hash",
+                    ))?;
+
             let obj_id = &obj_hash[0..2];
 
             println!("[info] Downloading asset {object_number}/{objects_len}");
