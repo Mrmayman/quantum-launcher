@@ -110,7 +110,7 @@ impl Launcher {
                 widget::text_input("Enter instance name...", instance_name)
                     .on_input(Message::CreateInstanceNameInput),
                 widget::button("+ Create Instance")
-                    .on_press_maybe(version.is_some().then(|| Message::CreateInstance)),
+                    .on_press_maybe((version.is_some() && !instance_name.is_empty()).then(|| Message::CreateInstance)),
                 progress_bar,
             ]
             .spacing(10)
