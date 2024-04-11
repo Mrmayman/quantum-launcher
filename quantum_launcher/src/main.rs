@@ -6,22 +6,24 @@ use iced::{
     futures::SinkExt,
     subscription,
     widget::{self, column},
-    Application, Command, Settings, Subscription, Theme,
+    Application, Command, Settings, Subscription,
 };
 use launcher_state::{Launcher, Message, State};
 use message_handler::{format_memory, open_file_explorer};
 use quantum_launcher_backend::{error::LauncherError, instance::instance_mod_installer};
+use stylesheet::styles::LauncherTheme;
 
 mod config;
 mod l10n;
 mod launcher_state;
 mod menu_renderer;
 mod message_handler;
+mod stylesheet;
 
 impl Application for Launcher {
     type Executor = executor::Default;
     type Message = Message;
-    type Theme = Theme;
+    type Theme = LauncherTheme;
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
@@ -349,7 +351,7 @@ async fn pick_file() -> Option<PathBuf> {
 }
 
 fn main() {
-    const WINDOW_HEIGHT: f32 = 350.0;
+    const WINDOW_HEIGHT: f32 = 342.0;
     const WINDOW_WIDTH: f32 = 220.0;
 
     Launcher::run(Settings {
@@ -358,7 +360,7 @@ fn main() {
                 width: WINDOW_WIDTH,
                 height: WINDOW_HEIGHT,
             },
-            resizable: false,
+            resizable: true,
             ..Default::default()
         },
         ..Default::default()

@@ -95,25 +95,27 @@ impl Launcher {
             column![]
         };
 
-        column![
-            widget::button("< Back").on_press(Message::GoToLaunchScreen),
+        widget::scrollable(
             column![
-                widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
-                widget::pick_list(
-                    versions.as_slice(),
-                    version,
-                    Message::CreateInstanceVersionSelected
-                ),
+                widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                column![
+                    widget::text("Select Version (Fabric/Forge/Optifine coming soon)"),
+                    widget::pick_list(
+                        versions.as_slice(),
+                        version,
+                        Message::CreateInstanceVersionSelected
+                    ),
+                ]
+                .spacing(10),
+                widget::text_input("Enter instance name...", instance_name)
+                    .on_input(Message::CreateInstanceNameInput),
+                widget::button("+ Create Instance")
+                    .on_press_maybe(version.is_some().then(|| Message::CreateInstance)),
+                progress_bar,
             ]
-            .spacing(10),
-            widget::text_input("Enter instance name...", instance_name)
-                .on_input(Message::CreateInstanceNameInput),
-            widget::button("+ Create Instance")
-                .on_press_maybe(version.is_some().then(|| Message::CreateInstance)),
-            progress_bar,
-        ]
-        .spacing(20)
-        .padding(10)
+            .spacing(10)
+            .padding(10),
+        )
         .into()
     }
 
@@ -143,33 +145,34 @@ impl Launcher {
         // 2 ^ 13 = 8192 MB
         const MEM_8192_MB_IN_TWOS_EXPONENT: f32 = 13.0;
 
-        column![
-            widget::button("< Back").on_press(Message::GoToLaunchScreen),
-            widget::text(format!("Editing {} instance: {}", config.mod_type, selected_instance)),
+        widget::scrollable(
             column![
-                widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
-                widget::text_input(
-                    "Enter Java override (leave blank if none)...",
-                    config
-                        .java_override
-                        .as_deref()
-                        .unwrap_or_default()
-                )
-                .on_input(Message::EditInstanceJavaOverride)
+                widget::button("< Back").on_press(Message::GoToLaunchScreen),
+                widget::text(format!("Editing {} instance: {}", config.mod_type, selected_instance)),
+                column![
+                    widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
+                    widget::text_input(
+                        "Enter Java override (leave blank if none)...",
+                        config
+                            .java_override
+                            .as_deref()
+                            .unwrap_or_default()
+                    )
+                    .on_input(Message::EditInstanceJavaOverride)
+                ]
+                .spacing(10),
+                column![
+                    widget::text("Allocated memory"),
+                    widget::text("For normal Minecraft, allocate 2 - 3 GB"),
+                    widget::text("For old versions, allocate 512 MB - 1 GB"),
+                    widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB"),
+                    widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, slider_value, Message::EditInstanceMemoryChanged).step(0.1),
+                    widget::text(slider_text),
+                ],
+                widget::button("Save").on_press(Message::EditInstanceSave),
             ]
-            .spacing(10),
-            column![
-                widget::text("Allocated memory"),
-                widget::text("For normal Minecraft, allocate 2 - 3 GB"),
-                widget::text("For old versions, allocate 512 MB - 1 GB"),
-                widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB"),
-                widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, slider_value, Message::EditInstanceMemoryChanged).step(0.1),
-                widget::text(slider_text),
-            ],
-            widget::button("Save").on_press(Message::EditInstanceSave),
-        ]
-        .padding(10)
-        .spacing(20)
-        .into()
+            .padding(10)
+            .spacing(20)
+        ).into()
     }
 }

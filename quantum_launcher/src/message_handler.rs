@@ -164,14 +164,20 @@ impl Launcher {
                 Ok(launcher_dir) => {
                     let instances_dir = launcher_dir.join("instances");
                     let deleted_instance_dir = instances_dir.join(selected_instance);
-                    if deleted_instance_dir.starts_with(&instances_dir) {
-                        if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
-                            self.set_error(err.to_string())
-                        } else {
-                            self.go_to_launch_screen()
-                        }
-                    } else {
-                        self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned())
+
+                    if !deleted_instance_dir.starts_with(&instances_dir) {
+                        self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned());
+                        return;
+                    }
+
+                    if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
+                        self.set_error(err.to_string());
+                        return;
+                    }
+
+                    match Launcher::load() {
+                        Ok(launcher) => *self = launcher,
+                        Err(err) => self.set_error(err.to_string()),
                     }
                 }
                 Err(err) => self.set_error(err.to_string()),
