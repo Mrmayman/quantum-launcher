@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use config::LauncherConfig;
 use iced::{
     executor,
     futures::SinkExt,
@@ -15,7 +14,6 @@ use stylesheet::styles::LauncherTheme;
 
 mod config;
 mod icon_manager;
-mod l10n;
 mod launcher_state;
 mod menu_renderer;
 mod message_handler;
@@ -28,24 +26,13 @@ impl Application for Launcher {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        let state = match Launcher::load() {
-            Ok(n) => n,
-            Err(n) => {
-                return (
-                    Self {
-                        state: State::Error {
-                            error: format!("{}: {n}", l10n!(ENGLISH, Error)),
-                        },
-                        instances: None,
-                        config: LauncherConfig::load().ok(),
-                        spawned_process: None,
-                    },
-                    Command::none(),
-                )
-            }
-        };
-
-        (state, Command::none())
+        (
+            match Launcher::new() {
+                Ok(launcher) => launcher,
+                Err(error) => Launcher::with_error(error.to_string()),
+            },
+            Command::none(),
+        )
     }
 
     fn title(&self) -> String {
@@ -70,7 +57,7 @@ impl Application for Launcher {
             Message::CreateInstanceNameInput(name) => self.update_created_instance_name(name),
             Message::CreateInstance => return self.create_instance(),
             Message::CreateInstanceEnd(result) => match result {
-                Ok(_) => match Launcher::load() {
+                Ok(_) => match Launcher::new() {
                     Ok(launcher) => *self = launcher,
                     Err(err) => self.set_error(err.to_string()),
                 },
@@ -85,56 +72,42 @@ impl Application for Launcher {
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::GoToLaunchScreen => self.go_to_launch_screen(),
             Message::EditInstance => {
-                if let State::Launch {
-                    ref selected_instance,
-                    ..
-                } = self.state
-                {
-                    match self.edit_instance(selected_instance.clone().unwrap()) {
+                if let State::Launch(ref menu_launch) = self.state {
+                    match self.edit_instance(menu_launch.selected_instance.clone().unwrap()) {
                         Ok(_) => {}
                         Err(err) => self.set_error(err.to_string()),
                     }
                 }
             }
             Message::EditInstanceJavaOverride(n) => {
-                if let State::EditInstance { ref mut config, .. } = self.state {
-                    config.java_override = Some(n);
+                if let State::EditInstance(ref mut menu_edit_instance) = self.state {
+                    menu_edit_instance.config.java_override = Some(n);
                 }
             }
             Message::EditInstanceMemoryChanged(new_slider_value) => {
-                if let State::EditInstance {
-                    ref mut config,
-                    ref mut slider_value,
-                    ref mut slider_text,
-                    ..
-                } = self.state
-                {
-                    *slider_value = new_slider_value;
-                    config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
-                    *slider_text = format_memory(config.ram_in_mb);
+                if let State::EditInstance(ref mut menu_edit_instance) = self.state {
+                    menu_edit_instance.slider_value = new_slider_value;
+                    menu_edit_instance.config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
+                    menu_edit_instance.slider_text =
+                        format_memory(menu_edit_instance.config.ram_in_mb);
                 }
             }
             Message::EditInstanceSave => {
-                if let State::EditInstance {
-                    ref selected_instance,
-                    ref config,
-                    ..
-                } = self.state
-                {
-                    match Launcher::save_config(selected_instance, config) {
+                if let State::EditInstance(ref mut menu_edit_instance) = self.state {
+                    match Launcher::save_config(
+                        &menu_edit_instance.selected_instance,
+                        &menu_edit_instance.config,
+                    ) {
                         Ok(_) => self.go_to_launch_screen(),
                         Err(err) => self.set_error(err.to_string()),
                     }
                 }
             }
             Message::ManageMods => {
-                if let State::Launch {
-                    ref selected_instance,
-                } = self.state
-                {
-                    match self.edit_mods(selected_instance.clone().unwrap()) {
-                        Ok(_) => {}
-                        Err(err) => self.set_error(err.to_string()),
+                if let State::Launch(ref menu_launch) = self.state {
+                    if let Err(err) = self.edit_mods(menu_launch.selected_instance.clone().unwrap())
+                    {
+                        self.set_error(err.to_string())
                     }
                 }
             }
@@ -239,10 +212,9 @@ impl Application for Launcher {
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
         match self.state {
-            State::Launch {
-                ref selected_instance,
-                ..
-            } => self.menu_launch(selected_instance),
+            State::Launch(ref menu_launch) => {
+                menu_launch.view(self.config.as_ref(), self.instances.as_deref())
+            }
             State::Create {
                 ref instance_name,
                 ref selected_version,
@@ -267,12 +239,7 @@ impl Application for Launcher {
             State::DeleteInstance {
                 ref selected_instance,
             } => Launcher::menu_delete(selected_instance),
-            State::EditInstance {
-                ref selected_instance,
-                ref config,
-                slider_value,
-                ref slider_text,
-            } => Launcher::menu_edit(selected_instance, config, slider_value, slider_text),
+            State::EditInstance(ref menu_edit) => menu_edit.view(),
             State::EditMods { ref config, .. } => {
                 let mod_installer = if config.mod_type == "Vanilla" {
                     column![

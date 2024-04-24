@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     error::{LauncherError, LauncherResult},
-    file_utils::{self, create_dir_if_not_exists},
+    file_utils,
     java_locate::JavaInstall,
     json_structs::{
         json_fabric::FabricJSON,
@@ -63,7 +63,7 @@ pub fn launch_blocking(
 
     let instance_dir = get_instance_dir(instance_name)?;
     let minecraft_dir = instance_dir.join(".minecraft");
-    file_utils::create_dir_if_not_exists(&minecraft_dir)
+    std::fs::create_dir_all(&minecraft_dir)
         .map_err(|err| LauncherError::IoError(err, minecraft_dir.clone()))?;
 
     let config_json = get_config(&instance_dir)?;
@@ -266,11 +266,11 @@ fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
     }
 
     let launcher_dir = file_utils::get_launcher_dir()?;
-    create_dir_if_not_exists(&launcher_dir)
+    std::fs::create_dir_all(&launcher_dir)
         .map_err(|err| LauncherError::IoError(err, launcher_dir.clone()))?;
 
     let instances_dir = launcher_dir.join("instances");
-    create_dir_if_not_exists(&instances_dir)
+    std::fs::create_dir_all(&instances_dir)
         .map_err(|err| LauncherError::IoError(err, instances_dir.clone()))?;
 
     let instance_dir = instances_dir.join(instance_name);

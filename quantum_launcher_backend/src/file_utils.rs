@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 use reqwest::Client;
 
@@ -10,18 +10,10 @@ pub fn get_launcher_dir() -> LauncherResult<PathBuf> {
         None => return Err(LauncherError::ConfigDirNotFound),
     };
     let launcher_directory = config_directory.join("QuantumLauncher");
-    create_dir_if_not_exists(&launcher_directory)
+    std::fs::create_dir_all(&launcher_directory)
         .map_err(|err| LauncherError::IoError(err, launcher_directory.clone()))?;
 
     Ok(launcher_directory)
-}
-
-pub fn create_dir_if_not_exists(path: &PathBuf) -> std::io::Result<()> {
-    if !path.exists() {
-        fs::create_dir_all(path)
-    } else {
-        Ok(())
-    }
 }
 
 pub async fn download_file_to_string(client: &Client, url: &str) -> LauncherResult<String> {

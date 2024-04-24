@@ -12,19 +12,12 @@ use quantum_launcher_backend::{
     json_structs::json_instance_config::InstanceConfigJson,
 };
 
-use crate::{
-    l10n,
-    launcher_state::{Launcher, Message, State},
-};
+use crate::launcher_state::{Launcher, MenuEditInstance, Message, State};
 
 impl Launcher {
     pub fn select_launch_instance(&mut self, instance_name: String) {
-        if let State::Launch {
-            ref mut selected_instance,
-            ..
-        } = self.state
-        {
-            *selected_instance = Some(instance_name)
+        if let State::Launch(ref mut menu_launch) = self.state {
+            menu_launch.selected_instance = Some(instance_name)
         }
     }
 
@@ -33,14 +26,10 @@ impl Launcher {
     }
 
     pub fn launch_game(&mut self) -> Command<Message> {
-        if let State::Launch {
-            ref mut selected_instance,
-            ..
-        } = self.state
-        {
+        if let State::Launch(ref mut menu_launch) = self.state {
             match self.config.as_ref().unwrap().save() {
                 Ok(_) => {
-                    let selected_instance = selected_instance.clone().unwrap();
+                    let selected_instance = menu_launch.selected_instance.clone().unwrap();
                     let username = self.config.as_ref().unwrap().username.clone();
                     let manually_added_versions =
                         self.config.as_ref().unwrap().java_installs.clone();
@@ -175,7 +164,7 @@ impl Launcher {
                         return;
                     }
 
-                    match Launcher::load() {
+                    match Launcher::new() {
                         Ok(launcher) => *self = launcher,
                         Err(err) => self.set_error(err.to_string()),
                     }
@@ -186,13 +175,9 @@ impl Launcher {
     }
 
     pub fn confirm_instance_deletion(&mut self) {
-        if let State::Launch {
-            ref selected_instance,
-            ..
-        } = self.state
-        {
+        if let State::Launch(ref mut menu_launch) = self.state {
             self.state = State::DeleteInstance {
-                selected_instance: selected_instance.clone().unwrap(),
+                selected_instance: menu_launch.selected_instance.clone().unwrap(),
             }
         }
     }
@@ -219,14 +204,15 @@ impl Launcher {
     pub fn add_java_to_config(&mut self, path: Option<PathBuf>) {
         match (path.as_ref().map(|n| n.to_str()), &mut self.config) {
             // Config not loaded.
-            (_, None) => self.set_error(format!(
-                "{} (QuantumLauncher/launcher.config)",
-                l10n!(ENGLISH, CouldNotOpenLauncherConfig)
-            )),
+            (_, None) => self.set_error(
+                "Could not open launcher config (QuantumLauncher/launcher.config)".to_owned(),
+            ),
             // Couldn't find path.
-            (None, _) => self.set_error(l10n!(ENGLISH, SelectedJavaPathNotFound).to_owned()),
+            (None, _) => self.set_error("Selected Java path not found.".to_owned()),
             // Couldn't convert path to string.
-            (Some(None), _) => self.set_error(l10n!(ENGLISH, InvalidCharsInJavaPath).to_owned()),
+            (Some(None), _) => {
+                self.set_error("Selected Java path contains invalid characters".to_owned())
+            }
             (Some(Some(path)), Some(config)) => {
                 // Add java path to list of java installs.
                 config.java_installs.push(path.to_owned());
@@ -254,12 +240,12 @@ impl Launcher {
         let slider_value = f32::log2(config_json.ram_in_mb as f32);
         let memory_mb = config_json.ram_in_mb;
 
-        self.state = State::EditInstance {
+        self.state = State::EditInstance(MenuEditInstance {
             selected_instance,
             config: config_json,
             slider_value,
             slider_text: format_memory(memory_mb),
-        };
+        });
         Ok(())
     }
 

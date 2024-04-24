@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::{
     error::{LauncherError, LauncherResult},
-    file_utils::{self, create_dir_if_not_exists},
+    file_utils,
     json_structs::{
         json_instance_config::InstanceConfigJson,
         json_manifest::Manifest,
@@ -149,7 +149,7 @@ impl GameDownloader {
         println!("[info] Starting download of libraries.");
 
         let library_path = self.instance_dir.join("libraries");
-        create_dir_if_not_exists(&library_path)
+        std::fs::create_dir_all(&library_path)
             .map_err(|err| LauncherError::IoError(err, library_path.clone()))?;
 
         let number_of_libraries = self.version_json.libraries.len();
@@ -184,7 +184,7 @@ impl GameDownloader {
                     "[info] Downloading library {library_number}/{number_of_libraries}: {}",
                     downloads.artifact.path
                 );
-                create_dir_if_not_exists(&lib_dir_path)
+                std::fs::create_dir_all(&lib_dir_path)
                     .map_err(|err| LauncherError::IoError(err, lib_dir_path))?;
                 let library_downloaded = file_utils::download_file_to_bytes(
                     &self.network_client,
@@ -220,7 +220,7 @@ impl GameDownloader {
             .join(".minecraft")
             .join("versions")
             .join(&self.version_json.id);
-        create_dir_if_not_exists(&version_dir)
+        std::fs::create_dir_all(&version_dir)
             .map_err(|err| LauncherError::IoError(err, version_dir.clone()))?;
 
         let jar_path = version_dir.join(format!("{}.jar", self.version_json.id));
@@ -260,10 +260,10 @@ impl GameDownloader {
         println!("[info] Downloading assets.");
 
         let assets_indexes_path = self.instance_dir.join("assets").join("indexes");
-        create_dir_if_not_exists(&assets_indexes_path)
+        std::fs::create_dir_all(&assets_indexes_path)
             .map_err(|err| LauncherError::IoError(err, assets_indexes_path))?;
         let assets_objects_path = self.instance_dir.join("assets").join("objects");
-        create_dir_if_not_exists(&assets_objects_path)
+        std::fs::create_dir_all(&assets_objects_path)
             .map_err(|err| LauncherError::IoError(err, assets_objects_path.clone()))?;
 
         let asset_index =
@@ -302,7 +302,7 @@ impl GameDownloader {
             })?;
 
             let obj_folder = assets_objects_path.join(obj_id);
-            create_dir_if_not_exists(&obj_folder)
+            std::fs::create_dir_all(&obj_folder)
                 .map_err(|err| LauncherError::IoError(err, obj_folder.clone()))?;
 
             let obj_data = file_utils::download_file_to_bytes(
@@ -367,9 +367,7 @@ impl GameDownloader {
 
         Ok(())
     }
-}
 
-impl GameDownloader {
     async fn new_download_version_json(
         network_client: &Client,
         version: &str,
@@ -402,7 +400,7 @@ impl GameDownloader {
         println!("[info] Initializing instance folder.");
         let launcher_dir = file_utils::get_launcher_dir()?;
         let instances_dir = launcher_dir.join("instances");
-        file_utils::create_dir_if_not_exists(&instances_dir)
+        std::fs::create_dir_all(&instances_dir)
             .map_err(|err| LauncherError::IoError(err, instances_dir.clone()))?;
 
         let current_instance_dir = instances_dir.join(instance_name);

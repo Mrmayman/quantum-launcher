@@ -7,7 +7,6 @@ use std::{
 use quantum_launcher_backend::{
     download::DownloadProgress,
     error::{LauncherError, LauncherResult},
-    file_utils::create_dir_if_not_exists,
     instance::{instance_launch::GameLaunchResult, instance_mod_installer::fabric::FabricVersion},
     json_structs::json_instance_config::InstanceConfigJson,
 };
@@ -45,16 +44,21 @@ pub enum Message {
     InstallFabric,
 }
 
+#[derive(Default)]
+pub struct MenuLaunch {
+    pub selected_instance: Option<String>,
+}
+
+pub struct MenuEditInstance {
+    pub selected_instance: String,
+    pub config: InstanceConfigJson,
+    pub slider_value: f32,
+    pub slider_text: String,
+}
+
 pub enum State {
-    Launch {
-        selected_instance: Option<String>,
-    },
-    EditInstance {
-        selected_instance: String,
-        config: InstanceConfigJson,
-        slider_value: f32,
-        slider_text: String,
-    },
+    Launch(MenuLaunch),
+    EditInstance(MenuEditInstance),
     EditMods {
         selected_instance: String,
         config: InstanceConfigJson,
@@ -92,13 +96,17 @@ pub struct Launcher {
 }
 
 impl Launcher {
-    pub fn load() -> LauncherResult<Self> {
+    pub fn new() -> LauncherResult<Self> {
+        // .config/QuantumLauncher/ OR AppData/Roaming/QuantumLauncher/
         let dir_path = quantum_launcher_backend::file_utils::get_launcher_dir()?;
-        create_dir_if_not_exists(&dir_path)
+        std::fs::create_dir_all(&dir_path)
             .map_err(|err| LauncherError::IoError(err, dir_path.clone()))?;
+
+        // QuantumLauncher/instances/
         let dir_path = dir_path.join("instances");
-        create_dir_if_not_exists(&dir_path)
+        std::fs::create_dir_all(&dir_path)
             .map_err(|err| LauncherError::IoError(err, dir_path.clone()))?;
+
         let dir =
             std::fs::read_dir(&dir_path).map_err(|err| LauncherError::IoError(err, dir_path))?;
 
@@ -117,12 +125,21 @@ impl Launcher {
 
         Ok(Self {
             instances: Some(subdirectories),
-            state: State::Launch {
-                selected_instance: Default::default(),
-            },
+            state: State::Launch(MenuLaunch::default()),
             spawned_process: None,
             config: Some(LauncherConfig::load()?),
         })
+    }
+
+    pub fn with_error(error: String) -> Self {
+        Self {
+            state: State::Error {
+                error: format!("Error: {error}"),
+            },
+            instances: None,
+            config: LauncherConfig::load().ok(),
+            spawned_process: None,
+        }
     }
 
     pub fn set_error(&mut self, error: String) {
@@ -130,8 +147,6 @@ impl Launcher {
     }
 
     pub fn go_to_launch_screen(&mut self) {
-        self.state = State::Launch {
-            selected_instance: None,
-        }
+        self.state = State::Launch(MenuLaunch::default())
     }
 }
