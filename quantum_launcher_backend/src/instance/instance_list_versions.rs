@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    download::VERSIONS_JSON, error::LauncherResult, file_utils,
+    download::constants::VERSIONS_JSON, error::LauncherResult, file_utils,
     json_structs::json_manifest::Manifest,
 };
 

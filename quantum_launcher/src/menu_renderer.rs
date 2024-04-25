@@ -17,7 +17,7 @@ fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
 ) -> iced::widget::Button<'element, Message, LauncherTheme> {
-    widget::button(row![icon, text].spacing(10).padding(5)).width(200)
+    widget::button(row![icon, text].spacing(10).padding(5))
 }
 
 impl MenuLaunch {

@@ -1,6 +1,8 @@
+pub mod constants;
+mod library_downloader;
+pub mod progress;
+
 use std::{
-    fs::File,
-    io::Write,
     path::PathBuf,
     sync::mpsc::{SendError, Sender},
 };
@@ -9,91 +11,16 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::{
+    download::constants::VERSIONS_JSON,
     error::{LauncherError, LauncherResult},
     file_utils,
     json_structs::{
-        json_instance_config::InstanceConfigJson,
-        json_manifest::Manifest,
-        json_profiles::ProfileJson,
-        json_version::{self, Library, VersionDetails},
+        json_instance_config::InstanceConfigJson, json_manifest::Manifest,
+        json_profiles::ProfileJson, json_version::VersionDetails,
     },
 };
 
-pub(crate) const VERSIONS_JSON: &str =
-    "https://launchermeta.mojang.com/mc/game/version_manifest.json";
-
-#[cfg(target_os = "linux")]
-const OS_NAME: &str = "linux";
-
-#[cfg(target_os = "windows")]
-const OS_NAME: &str = "windows";
-
-#[cfg(target_os = "macos")]
-const OS_NAME: &str = "osx";
-
-#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-const OS_NAME: &str = "unknown";
-
-const DEFAULT_RAM_MB_FOR_INSTANCE: usize = 2048;
-
-/// An enum representing the progress in downloading
-/// a Minecraft instance.
-///
-/// # Order
-/// 1) Manifest Json
-/// 2) Version Json
-/// 3) Logging config
-/// 4) Jar
-/// 5) Libraries
-/// 6) Assets
-#[derive(Debug, Clone)]
-pub enum DownloadProgress {
-    Started,
-    DownloadingJsonManifest,
-    DownloadingVersionJson,
-    DownloadingAssets { progress: usize, out_of: usize },
-    DownloadingLibraries { progress: usize, out_of: usize },
-    DownloadingJar,
-    DownloadingLoggingConfig,
-}
-
-impl ToString for DownloadProgress {
-    fn to_string(&self) -> String {
-        match self {
-            DownloadProgress::Started => "Started.".to_owned(),
-            DownloadProgress::DownloadingJsonManifest => "Downloading Manifest JSON.".to_owned(),
-            DownloadProgress::DownloadingVersionJson => "Downloading Version JSON.".to_owned(),
-            DownloadProgress::DownloadingAssets { progress, out_of } => {
-                format!("Downloading asset {progress} / {out_of}.")
-            }
-            DownloadProgress::DownloadingLibraries { progress, out_of } => {
-                format!("Downloading library {progress} / {out_of}.")
-            }
-            DownloadProgress::DownloadingJar => "Downloading Game Jar file.".to_owned(),
-            DownloadProgress::DownloadingLoggingConfig => "Downloading logging config.".to_owned(),
-        }
-    }
-}
-
-impl From<DownloadProgress> for f32 {
-    fn from(val: DownloadProgress) -> Self {
-        match val {
-            DownloadProgress::Started => 0.0,
-            DownloadProgress::DownloadingJsonManifest => 0.2,
-            DownloadProgress::DownloadingVersionJson => 0.5,
-            DownloadProgress::DownloadingAssets {
-                progress: progress_num,
-                out_of,
-            } => (progress_num as f32 * 8.0 / out_of as f32) + 2.0,
-            DownloadProgress::DownloadingLibraries {
-                progress: progress_num,
-                out_of,
-            } => (progress_num as f32 / out_of as f32) + 1.0,
-            DownloadProgress::DownloadingJar => 1.0,
-            DownloadProgress::DownloadingLoggingConfig => 0.7,
-        }
-    }
-}
+use self::{constants::DEFAULT_RAM_MB_FOR_INSTANCE, progress::DownloadProgress};
 
 /// A struct that helps download a Minecraft instance.
 ///
@@ -145,66 +72,6 @@ impl GameDownloader {
         })
     }
 
-    pub async fn download_libraries(&self) -> Result<(), LauncherError> {
-        println!("[info] Starting download of libraries.");
-
-        let library_path = self.instance_dir.join("libraries");
-        std::fs::create_dir_all(&library_path)
-            .map_err(|err| LauncherError::IoError(err, library_path.clone()))?;
-
-        let number_of_libraries = self.version_json.libraries.len();
-
-        for (library_number, library) in self.version_json.libraries.iter().enumerate() {
-            self.send_progress(DownloadProgress::DownloadingLibraries {
-                progress: library_number,
-                out_of: number_of_libraries,
-            })?;
-
-            if !GameDownloader::download_libraries_library_is_allowed(library) {
-                println!(
-                    "[info] Skipping library {}",
-                    serde_json::to_string_pretty(&library)?
-                );
-                continue;
-            }
-
-            if let Library::Normal { downloads, .. } = library {
-                let lib_file_path = self
-                    .instance_dir
-                    .join("libraries")
-                    .join(PathBuf::from(&downloads.artifact.path));
-                let lib_dir_path = lib_file_path
-                .parent()
-                .expect(
-                    "Downloaded java library does not have parent module like the sun in com.sun.java",
-                )
-                .to_path_buf();
-
-                println!(
-                    "[info] Downloading library {library_number}/{number_of_libraries}: {}",
-                    downloads.artifact.path
-                );
-                std::fs::create_dir_all(&lib_dir_path)
-                    .map_err(|err| LauncherError::IoError(err, lib_dir_path))?;
-                let library_downloaded = file_utils::download_file_to_bytes(
-                    &self.network_client,
-                    &downloads.artifact.url,
-                )
-                .await?;
-
-                let mut file = File::create(&lib_file_path)
-                    .map_err(|err| LauncherError::IoError(err, lib_file_path.clone()))?;
-                file.write_all(&library_downloaded)
-                    .map_err(|err| LauncherError::IoError(err, lib_file_path))?;
-
-                // According to the reference implementation, I also download natives.
-                // At library.natives field.
-                // However this field doesn't exist for the versions I tried so I'm skipping this.
-            }
-        }
-        Ok(())
-    }
-
     pub async fn download_jar(&self) -> LauncherResult<()> {
         println!("[info] Downloading game jar file.");
         self.send_progress(DownloadProgress::DownloadingJar)?;
@@ -224,11 +91,7 @@ impl GameDownloader {
             .map_err(|err| LauncherError::IoError(err, version_dir.clone()))?;
 
         let jar_path = version_dir.join(format!("{}.jar", self.version_json.id));
-        let mut jar_file =
-            File::create(&jar_path).map_err(|err| LauncherError::IoError(err, jar_path.clone()))?;
-
-        jar_file
-            .write_all(&jar_bytes)
+        std::fs::write(&jar_path, &jar_bytes)
             .map_err(|err| LauncherError::IoError(err, jar_path))?;
 
         Ok(())
@@ -246,9 +109,7 @@ impl GameDownloader {
                     .await?;
 
             let config_path = self.instance_dir.join(log_config_name);
-            let mut file = File::create(&config_path)
-                .map_err(|err| LauncherError::IoError(err, config_path.clone()))?;
-            file.write_all(log_config.as_bytes())
+            std::fs::write(&config_path, log_config.as_bytes())
                 .map_err(|err| LauncherError::IoError(err, config_path))?;
         }
         Ok(())
@@ -275,10 +136,12 @@ impl GameDownloader {
             .join("assets")
             .join("indexes")
             .join(format!("{}.json", self.version_json.assetIndex.id));
-        let mut file = File::create(&assets_indexes_json_path)
-            .map_err(|err| LauncherError::IoError(err, assets_indexes_json_path.clone()))?;
-        file.write_all(asset_index.to_string().as_bytes())
-            .map_err(|err| LauncherError::IoError(err, assets_indexes_json_path))?;
+
+        std::fs::write(
+            &assets_indexes_json_path,
+            asset_index.to_string().as_bytes(),
+        )
+        .map_err(|err| LauncherError::IoError(err, assets_indexes_json_path))?;
 
         let objects = asset_index["objects"]
             .as_object()
@@ -312,9 +175,8 @@ impl GameDownloader {
             .await?;
 
             let obj_file_path = obj_folder.join(obj_hash);
-            let mut file = File::create(&obj_file_path)
-                .map_err(|err| LauncherError::IoError(err, obj_file_path.clone()))?;
-            file.write_all(&obj_data)
+
+            std::fs::write(&obj_file_path, &obj_data)
                 .map_err(|err| LauncherError::IoError(err, obj_file_path))?;
         }
         Ok(())
@@ -345,11 +207,12 @@ impl GameDownloader {
 
     pub fn create_version_json(&self) -> LauncherResult<()> {
         let json_file_path = self.instance_dir.join("details.json");
-        let mut json_file = File::create(&json_file_path)
-            .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
-        json_file
-            .write_all(serde_json::to_string(&self.version_json)?.as_bytes())
-            .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
+
+        std::fs::write(
+            &json_file_path,
+            serde_json::to_string(&self.version_json)?.as_bytes(),
+        )
+        .map_err(|err| LauncherError::IoError(err, json_file_path.clone()))?;
         Ok(())
     }
 
@@ -411,24 +274,6 @@ impl GameDownloader {
             .map_err(|err| LauncherError::IoError(err, current_instance_dir.clone()))?;
 
         Ok(current_instance_dir)
-    }
-
-    fn download_libraries_library_is_allowed(library: &json_version::Library) -> bool {
-        let mut allowed: bool = true;
-
-        if let Library::Normal {
-            rules: Some(rules), ..
-        } = library
-        {
-            allowed = false;
-
-            for rule in rules {
-                if rule.os.name == OS_NAME {
-                    allowed = rule.action == "allow";
-                }
-            }
-        }
-        allowed
     }
 
     fn send_progress(&self, progress: DownloadProgress) -> Result<(), SendError<DownloadProgress>> {

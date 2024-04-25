@@ -2,8 +2,9 @@ use std::{fmt::Display, path::PathBuf, string::FromUtf8Error, sync::mpsc::SendEr
 
 use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
+use zip_extract::ZipExtractError;
 
-use crate::{download::DownloadProgress, json_structs::json_version::VersionDetails};
+use crate::{download::progress::DownloadProgress, json_structs::json_version::VersionDetails};
 
 #[derive(Debug)]
 pub enum LauncherError {
@@ -25,8 +26,12 @@ pub enum LauncherError {
     RequiredJavaVersionNotFound(usize),
     DownloadProgressMspcError(SendError<DownloadProgress>),
     IoError(std::io::Error, PathBuf),
+    PathParentError(PathBuf),
     CommandError(std::io::Error),
     LatestFabricVersionNotFound,
+    TempFileError(std::io::Error),
+    NativesExtractError(ZipExtractError),
+    NativesOutsideDirRemove,
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -109,6 +114,14 @@ impl Display for LauncherError {
             LauncherError::LatestFabricVersionNotFound => {
                 write!(f, "Could not find the latest Fabric loader version")
             }
+            LauncherError::PathParentError(p) => write!(f, "Could not get parent of path {p:?}"),
+            LauncherError::TempFileError(err) => {
+                write!(f, "Could not create temporary file: {err:?}")
+            }
+            LauncherError::NativesExtractError(err) => {
+                write!(f, "Could not extract natives jar file as zip: {err:?}")
+            }
+            LauncherError::NativesOutsideDirRemove => write!(f, "Tried to delete natives file outside QuantumLauncher/instances/INSTANCE/libraries/natives. POTENTIAL ATTACK AVOIDED"),
         }
     }
 }

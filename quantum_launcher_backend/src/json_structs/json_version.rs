@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -58,9 +60,9 @@ pub struct AssetIndex {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Downloads {
     pub client: Download,
-    pub client_mappings: Download,
-    pub server: Download,
-    pub server_mappings: Download,
+    pub client_mappings: Option<Download>,
+    pub server: Option<Download>,
+    pub server_mappings: Option<Download>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -78,39 +80,58 @@ pub struct JavaVersion {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Library {
+    pub downloads: Option<LibraryDownloads>,
+    pub extract: Option<LibraryExtract>,
+    pub name: Option<String>,
+    pub rules: Option<Vec<LibraryRule>>,
+    pub natives: Option<BTreeMap<String, String>>,
+    // Fabric:
+    pub sha1: Option<String>,
+    pub sha256: Option<String>,
+    // name: Option<String>
+    pub size: Option<usize>,
+    pub sha512: Option<String>,
+    pub md5: Option<String>,
+    pub url: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LibraryExtract {
+    pub exclude: Vec<String>,
+    pub name: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
-pub enum Library {
+pub enum LibraryDownloads {
     Normal {
-        downloads: LibraryDownloads,
+        artifact: LibraryDownloadArtifact,
         name: Option<String>,
-        rules: Option<Vec<LibraryRule>>,
     },
-    Fabric {
-        sha1: Option<String>,
-        sha256: Option<String>,
-        size: Option<usize>,
-        name: String,
-        sha512: Option<String>,
-        md5: Option<String>,
-        url: String,
+    Native {
+        classifiers: BTreeMap<String, LibraryClassifier>,
     },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LibraryDownloads {
-    pub artifact: LibraryDownloadArtifact,
-    pub name: Option<String>,
+pub struct LibraryClassifier {
+    pub path: String,
+    pub sha1: String,
+    pub size: usize,
+    pub url: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryRule {
     pub action: String,
-    pub os: LibraryRuleOS,
+    pub os: Option<LibraryRuleOS>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryRuleOS {
     pub name: String,
+    pub version: Option<String>, // Regex
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

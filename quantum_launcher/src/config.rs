@@ -1,5 +1,3 @@
-use std::{fs::File, io::Write};
-
 use quantum_launcher_backend::{error::LauncherError, file_utils};
 use serde::{Deserialize, Serialize};
 
@@ -18,9 +16,7 @@ impl LauncherConfig {
                 username: Default::default(),
             };
 
-            let mut file = File::create(&config_path)
-                .map_err(|err| LauncherError::IoError(err, config_path.clone()))?;
-            file.write_all(serde_json::to_string(&config)?.as_bytes())
+            std::fs::write(&config_path, serde_json::to_string(&config)?.as_bytes())
                 .map_err(|err| LauncherError::IoError(err, config_path))?;
 
             return Ok(config);
@@ -33,11 +29,9 @@ impl LauncherConfig {
 
     pub fn save(&self) -> Result<(), LauncherError> {
         let config_path = file_utils::get_launcher_dir()?.join("config.json");
-        let mut file = File::create(&config_path)
-            .map_err(|err| LauncherError::IoError(err, config_path.clone()))?;
-
         let config = serde_json::to_string(&self)?;
-        file.write_all(config.as_bytes())
+
+        std::fs::write(&config_path, config.as_bytes())
             .map_err(|err| LauncherError::IoError(err, config_path))?;
         Ok(())
     }

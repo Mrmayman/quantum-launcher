@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use crate::{
-    download::{DownloadProgress, GameDownloader},
+    download::{progress::DownloadProgress, GameDownloader},
     error::LauncherResult,
 };
 

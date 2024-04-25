@@ -5,7 +5,7 @@ use std::{
 };
 
 use quantum_launcher_backend::{
-    download::DownloadProgress,
+    download::progress::DownloadProgress,
     error::{LauncherError, LauncherResult},
     instance::{instance_launch::GameLaunchResult, instance_mod_installer::fabric::FabricVersion},
     json_structs::json_instance_config::InstanceConfigJson,

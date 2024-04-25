@@ -5,7 +5,7 @@ use std::{
 
 use iced::Command;
 use quantum_launcher_backend::{
-    download::DownloadProgress,
+    download::progress::DownloadProgress,
     error::{LauncherError, LauncherResult},
     file_utils,
     instance::instance_launch::GameLaunchResult,

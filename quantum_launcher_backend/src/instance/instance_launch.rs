@@ -1,11 +1,3 @@
-use std::{
-    fs::File,
-    io::Read,
-    path::{Path, PathBuf},
-    process::{Child, Command},
-    sync::{Arc, Mutex},
-};
-
 use crate::{
     error::{LauncherError, LauncherResult},
     file_utils,
@@ -13,8 +5,15 @@ use crate::{
     json_structs::{
         json_fabric::FabricJSON,
         json_instance_config::InstanceConfigJson,
-        json_version::{Library, VersionDetails},
+        json_version::{LibraryDownloads, VersionDetails},
     },
+};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+    process::{Child, Command},
+    sync::{Arc, Mutex},
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -72,11 +71,18 @@ pub fn launch_blocking(
 
     let game_arguments = get_arguments(&version_json, username, minecraft_dir, &instance_dir)?;
 
+    let natives_path = instance_dir.join("libraries").join("natives");
+
     let mut java_arguments = vec![
         "-Xss1M".to_owned(),
         "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
         "-Dminecraft.launcher.version=2.1.1349".to_owned(),
-        "-Djava.library.path=1.20.4-natives".to_owned(),
+        format!(
+            "-Djava.library.path={}",
+            natives_path
+                .to_str()
+                .ok_or(LauncherError::PathBufToString(natives_path.clone()))?
+        ),
         format!("-Xmx{}", config_json.get_ram_in_string()),
     ];
 
@@ -128,6 +134,8 @@ pub fn launch_blocking(
         appropriate_install.get_command()
     };
 
+    println!("{java_arguments:?}\n\n{game_arguments:?}\n");
+
     let command = command.args(java_arguments.iter().chain(game_arguments.iter()));
     let result = command.spawn().map_err(LauncherError::CommandError)?;
 
@@ -161,17 +169,13 @@ fn get_class_path(
     version_json
         .libraries
         .iter()
-        .filter_map(|n| {
-            if let Library::Normal { downloads, .. } = n {
-                Some(downloads)
-            } else {
-                None
-            }
+        .filter_map(|n| match n.downloads.as_ref() {
+            Some(LibraryDownloads::Normal { artifact, .. }) => Some(artifact),
+            _ => None,
         })
-        .map(|downloads| {
-            let library_path = instance_dir
-                .join("libraries")
-                .join(&downloads.artifact.path);
+        .map(|artifact| {
+            let library_path = instance_dir.join("libraries").join(&artifact.path);
+            println!("{}", artifact.path);
             if library_path.exists() {
                 let library_path = match library_path.to_str() {
                     Some(n) => n,
@@ -245,6 +249,7 @@ fn get_arguments(
             None => return Err(LauncherError::PathBufToString(assets_path)),
         };
         replace_var(argument, "assets_root", assets_path);
+        replace_var(argument, "game_assets", assets_path);
         replace_var(argument, "auth_xuid", "0");
         replace_var(
             argument,
