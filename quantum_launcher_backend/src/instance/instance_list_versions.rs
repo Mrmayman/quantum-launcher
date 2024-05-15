@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use crate::{
-    download::constants::VERSIONS_JSON, error::LauncherResult, file_utils,
-    json_structs::json_manifest::Manifest,
-};
+use crate::{error::LauncherResult, file_utils, json_structs::json_manifest::Manifest};
 
 async fn list() -> LauncherResult<Vec<String>> {
     let network_client = reqwest::Client::new();
-    let manifest_json = file_utils::download_file_to_string(&network_client, VERSIONS_JSON).await?;
-    let manifest: Manifest = serde_json::from_str(&manifest_json)?;
+    let manifest = Manifest::download().await?;
     Ok(manifest.versions.iter().map(|n| n.id.clone()).collect())
 }
 

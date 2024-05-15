@@ -4,7 +4,16 @@ use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
 use zip_extract::ZipExtractError;
 
-use crate::{download::progress::DownloadProgress, json_structs::json_version::VersionDetails};
+use crate::{
+    download::progress::DownloadProgress,
+    file_utils::RequestError,
+    json_structs::{json_version::VersionDetails, JsonDownloadError},
+};
+
+struct IoError {
+    error: std::io::Error,
+    path: PathBuf,
+}
 
 #[derive(Debug)]
 pub enum LauncherError {
@@ -12,8 +21,7 @@ pub enum LauncherError {
     InstanceNotFound,
     UsernameIsInvalid(String),
     InstanceAlreadyExists,
-    ReqwestError(reqwest::Error),
-    ReqwestStatusError(reqwest::StatusCode, reqwest::Url),
+    RequestError(RequestError),
     SerdeJsonError(serde_json::Error),
     SerdeFieldNotFound(&'static str),
     VersionNotFoundInManifest(String),
@@ -32,6 +40,7 @@ pub enum LauncherError {
     TempFileError(std::io::Error),
     NativesExtractError(ZipExtractError),
     NativesOutsideDirRemove,
+    JsonDownloadError(JsonDownloadError),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -46,7 +55,7 @@ macro_rules! impl_error {
     };
 }
 
-impl_error!(ReqwestError, ReqwestError);
+impl_error!(JsonDownloadError, JsonDownloadError);
 impl_error!(SerdeJsonError, SerdeJsonError);
 impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
 
@@ -60,68 +69,66 @@ impl Display for LauncherError {
                 Some(n) => write!(f, "Config directory at {n:?} not accessible"),
                 None => write!(
                     f,
-                    "Config directory not found (AppData/Roaming on Windows, ~/.config/ on Linux)"
+                    "config directory not found (AppData/Roaming on Windows, ~/.config/ on Linux)"
                 ),
             },
             LauncherError::InstanceNotFound => write!(f, "Selected Instance not found"),
             LauncherError::InstanceAlreadyExists => {
-                write!(f, "Cannot create instance as it already exists")
+                write!(f, "cannot create instance as it already exists")
             }
-            LauncherError::ReqwestError(n) => write!(f, "Network error: {}", n),
-            LauncherError::ReqwestStatusError(code, url) => write!(
-                f,
-                "Network status error when reading url {} : {code}",
-                url.as_str(),
-            ),
             LauncherError::SerdeJsonError(n) => write!(f, "JSON Error: {n}"),
             LauncherError::SerdeFieldNotFound(n) => write!(f, "JSON Field not found: {n}"),
             LauncherError::VersionNotFoundInManifest(n) => {
-                write!(f, "Version {n} was not found in manifest JSON")
+                write!(f, "version {n} was not found in manifest JSON")
             }
             LauncherError::JavaVersionIsEmptyError => write!(
                 f,
-                "Got empty or invalid response when checking Java version"
+                "got empty or invalid response when checking Java version"
             ),
             LauncherError::JavaVersionConvertCmdOutputToStringError(n) => {
-                write!(f, "Java version message contains invalid characters: {n}")
+                write!(f, "java version message contains invalid characters: {n}")
             }
             LauncherError::JavaVersionImproperVersionPlacement(n) => write!(
                 f,
-                "Java version has invalid layout, could not read the version number: {n}"
+                "java version has invalid layout, could not read the version number: {n}"
             ),
             LauncherError::JavaVersionParseToNumberError(n) => {
-                write!(f, "Could not convert Java version to a number: {n}")
+                write!(f, "could not convert Java version to a number: {n}")
             }
             LauncherError::VersionJsonNoArgumentsField(n) => {
-                write!(f, "Version JSON does not have any arguments field:\n{n:?}")
+                write!(f, "version JSON does not have any arguments field:\n{n:?}")
             }
             LauncherError::PathBufToString(n) => write!(
                 f,
-                "Could not convert an OS path to String, may contain invalid characters: {n:?}"
+                "could not convert an OS path to String, may contain invalid characters: {n:?}"
             ),
             LauncherError::RequiredJavaVersionNotFound(ver) => write!(
                 f,
-                "The Java version ({ver}) required by the Minecraft version was not found"
+                "the Java version ({ver}) required by the Minecraft version was not found"
             ),
-            LauncherError::UsernameIsInvalid(n) => write!(f, "Username is invalid: {n}"),
+            LauncherError::UsernameIsInvalid(n) => write!(f, "username is invalid: {n}"),
             LauncherError::DownloadProgressMspcError(n) => {
-                write!(f, "Could not send download progress: {n}")
+                write!(f, "could not send download progress: {n}")
             }
-            LauncherError::IoError(n, p) => write!(f, "At path {p:?}, IO error: {n}"),
+            LauncherError::IoError(n, p) => write!(f, "at path {p:?}, IO error: {n}"),
             LauncherError::CommandError(n) => {
                 write!(f, "IO error while trying to run Java command: {n}")
             }
             LauncherError::LatestFabricVersionNotFound => {
-                write!(f, "Could not find the latest Fabric loader version")
+                write!(f, "could not find the latest Fabric loader version")
             }
-            LauncherError::PathParentError(p) => write!(f, "Could not get parent of path {p:?}"),
+            LauncherError::PathParentError(p) => write!(f, "could not get parent of path {p:?}"),
             LauncherError::TempFileError(err) => {
-                write!(f, "Could not create temporary file: {err:?}")
+                write!(f, "could not create temporary file: {err}")
             }
             LauncherError::NativesExtractError(err) => {
-                write!(f, "Could not extract natives jar file as zip: {err:?}")
+                write!(f, "could not extract natives jar file as zip: {err}")
             }
-            LauncherError::NativesOutsideDirRemove => write!(f, "Tried to delete natives file outside QuantumLauncher/instances/INSTANCE/libraries/natives. POTENTIAL ATTACK AVOIDED"),
+            LauncherError::NativesOutsideDirRemove => write!(f, "tried to delete natives file outside QuantumLauncher/instances/INSTANCE/libraries/natives. POTENTIAL ATTACK AVOIDED"),
+            LauncherError::RequestError(err) => match err {
+                RequestError::DownloadError { code, url } => write!(f, "error downloading from {}, code: {code}", url),
+                RequestError::ReqwestError(err) => write!(f, "reqwest library error: {err}"),
+            },
         }
     }
 }

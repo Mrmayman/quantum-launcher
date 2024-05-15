@@ -2,6 +2,7 @@ pub mod download;
 pub mod error;
 pub mod file_utils;
 pub mod instance;
+pub mod java_install;
 pub mod java_locate;
 pub mod json_structs;
 

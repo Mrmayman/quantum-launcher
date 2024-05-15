@@ -15,11 +15,9 @@ impl JavaInstall {
     /// # What it does
     /// It has to turn:
     ///
-    /// ```
     /// openjdk version "1.8.0_402"
     /// OpenJDK Runtime Environment (Zulu 8.76.0.17-CA-win64) (build 1.8.0_402-b06)
     /// OpenJDK 64-Bit Server VM (Zulu 8.76.0.17-CA-win64) (build 25.402-b06, mixed mode)
-    /// ```
     ///
     /// into `8` (the java version)
     pub fn find_java_installs(

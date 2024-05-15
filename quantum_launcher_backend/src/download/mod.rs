@@ -28,14 +28,14 @@ use self::{constants::DEFAULT_RAM_MB_FOR_INSTANCE, progress::DownloadProgress};
 /// ```
 /// // progress_sender: Option<mspc::Sender<Progress>>
 /// // Btw don't run this doctest! It will burn 600 MB of disk space.
-/// let game_downloader = GameDownloader::new("1.20.4", &version, progress_sender)?;
-/// game_downloader.download_jar()?;
-/// game_downloader.download_libraries()?;
-/// game_downloader.download_logging_config()?;
-/// game_downloader.download_assets()?;
+/// // let game_downloader = GameDownloader::new("1.20.4", &version, progress_sender)?;
+/// // game_downloader.download_jar()?;
+/// // game_downloader.download_libraries()?;
+/// // game_downloader.download_logging_config()?;
+/// // game_downloader.download_assets()?;
 ///
-/// let mut json_file = File::create(game_downloader.instance_dir.join("details.json"))?;
-/// json_file.write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())?;
+/// // let mut json_file = File::create(game_downloader.instance_dir.join("details.json"))?;
+/// // json_file.write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())?;
 /// ```
 pub struct GameDownloader {
     pub instance_dir: PathBuf,

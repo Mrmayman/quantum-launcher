@@ -1,6 +1,3 @@
-pub(crate) const VERSIONS_JSON: &str =
-    "https://launchermeta.mojang.com/mc/game/version_manifest.json";
-
 #[cfg(target_os = "linux")]
 pub const OS_NAME: &str = "linux";
 
