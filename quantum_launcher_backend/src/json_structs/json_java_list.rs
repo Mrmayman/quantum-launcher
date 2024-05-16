@@ -84,7 +84,7 @@ impl JavaListJson {
             JavaVersion::Java8 => &java_list.jre_legacy,
         };
 
-        let first_version = version.get(0)?;
+        let first_version = version.first()?;
         Some(first_version.manifest.url.clone())
     }
 }

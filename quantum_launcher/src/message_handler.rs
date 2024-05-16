@@ -5,10 +5,8 @@ use std::{
 
 use iced::Command;
 use quantum_launcher_backend::{
-    download::progress::DownloadProgress,
-    error::{LauncherError, LauncherResult},
-    file_utils,
-    instance::instance_launch::GameLaunchResult,
+    download::progress::DownloadProgress, error::LauncherResult, file_utils,
+    instance::instance_launch::GameLaunchResult, io_err,
     json_structs::json_instance_config::InstanceConfigJson,
 };
 
@@ -233,8 +231,7 @@ impl Launcher {
             .join(&selected_instance)
             .join("config.json");
 
-        let config_json = std::fs::read_to_string(&config_path)
-            .map_err(|err| LauncherError::IoError(err, config_path))?;
+        let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         let slider_value = f32::log2(config_json.ram_in_mb as f32);
@@ -257,8 +254,7 @@ impl Launcher {
             .join("config.json");
 
         let config_json = serde_json::to_string(config)?;
-        std::fs::write(&config_path, config_json)
-            .map_err(|err| LauncherError::IoError(err, config_path))?;
+        std::fs::write(&config_path, config_json).map_err(io_err!(config_path))?;
         Ok(())
     }
 
@@ -269,8 +265,7 @@ impl Launcher {
             .join(&selected_instance)
             .join("config.json");
 
-        let config_json = std::fs::read_to_string(&config_path)
-            .map_err(|err| LauncherError::IoError(err, config_path))?;
+        let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         self.state = State::EditMods {

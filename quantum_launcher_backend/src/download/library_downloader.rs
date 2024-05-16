@@ -1,18 +1,21 @@
-use std::{io::Cursor, path::PathBuf};
+use std::{
+    io::Cursor,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     download::progress::DownloadProgress,
-    error::{LauncherError, LauncherResult},
-    file_utils,
+    error::IoError,
+    file_utils, io_err,
     json_structs::json_version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
 };
 
-use super::{constants::OS_NAME, GameDownloader};
+use super::{constants::OS_NAME, DownloadError, GameDownloader};
 
 impl GameDownloader {
-    pub async fn download_libraries(&self) -> Result<(), LauncherError> {
+    pub async fn download_libraries(&self) -> Result<(), DownloadError> {
         println!("[info] Starting download of libraries.");
 
         self.prepare_library_directories()?;
@@ -39,13 +42,11 @@ impl GameDownloader {
         Ok(())
     }
 
-    fn prepare_library_directories(&self) -> Result<(), LauncherError> {
+    fn prepare_library_directories(&self) -> Result<(), IoError> {
         let library_path = self.instance_dir.join("libraries");
-        std::fs::create_dir_all(&library_path)
-            .map_err(|err| LauncherError::IoError(err, library_path.clone()))?;
+        std::fs::create_dir_all(&library_path).map_err(io_err!(library_path))?;
         let natives_path = library_path.join("natives");
-        std::fs::create_dir_all(&natives_path)
-            .map_err(|err| LauncherError::IoError(err, natives_path.clone()))?;
+        std::fs::create_dir_all(&natives_path).map_err(io_err!(natives_path))?;
         Ok(())
     }
 
@@ -53,7 +54,7 @@ impl GameDownloader {
         &self,
         library: &Library,
         (library_number, number_of_libraries): (usize, usize),
-    ) -> LauncherResult<()> {
+    ) -> Result<(), DownloadError> {
         let libraries_dir = self.instance_dir.join("libraries");
 
         if let Some(downloads) = library.downloads.as_ref() {
@@ -82,9 +83,9 @@ impl GameDownloader {
     async fn download_library_normal(
         &self,
         artifact: &LibraryDownloadArtifact,
-        libraries_dir: &PathBuf,
+        libraries_dir: &Path,
         (library_number, number_of_libraries): (usize, usize),
-    ) -> LauncherResult<()> {
+    ) -> Result<(), DownloadError> {
         let lib_file_path = libraries_dir.join(PathBuf::from(&artifact.path));
 
         let lib_dir_path = lib_file_path
@@ -99,13 +100,11 @@ impl GameDownloader {
             artifact.path
         );
 
-        std::fs::create_dir_all(&lib_dir_path)
-            .map_err(|err| LauncherError::IoError(err, lib_dir_path))?;
+        std::fs::create_dir_all(&lib_dir_path).map_err(io_err!(lib_dir_path))?;
         let library_downloaded =
             file_utils::download_file_to_bytes(&self.network_client, &artifact.url).await?;
 
-        std::fs::write(&lib_file_path, &library_downloaded)
-            .map_err(|err| LauncherError::IoError(err, lib_file_path))?;
+        std::fs::write(&lib_file_path, library_downloaded).map_err(io_err!(lib_file_path))?;
 
         Ok(())
     }
@@ -113,9 +112,9 @@ impl GameDownloader {
     async fn download_library_native(
         &self,
         classifiers: &std::collections::BTreeMap<String, LibraryClassifier>,
-        libraries_dir: &PathBuf,
+        libraries_dir: &Path,
         extract: Option<&LibraryExtract>,
-    ) -> LauncherResult<()> {
+    ) -> Result<(), DownloadError> {
         let natives_dir = libraries_dir.join("natives");
 
         for (os, download) in classifiers {
@@ -127,7 +126,7 @@ impl GameDownloader {
                 file_utils::download_file_to_bytes(&self.network_client, &download.url).await?;
 
             zip_extract::extract(Cursor::new(&library), &natives_dir, true)
-                .map_err(LauncherError::NativesExtractError)?;
+                .map_err(DownloadError::NativesExtractError)?;
         }
 
         if let Some(extract) = extract {
@@ -135,16 +134,15 @@ impl GameDownloader {
                 let exclusion_path = natives_dir.join(exclusion);
 
                 if !exclusion_path.starts_with(&natives_dir) {
-                    return Err(LauncherError::NativesOutsideDirRemove);
+                    return Err(DownloadError::NativesOutsideDirRemove);
                 }
 
                 if exclusion_path.exists() {
                     if exclusion_path.is_dir() {
                         std::fs::remove_dir_all(&exclusion_path)
-                            .map_err(|err| LauncherError::IoError(err, exclusion_path))?;
+                            .map_err(io_err!(exclusion_path))?;
                     } else {
-                        std::fs::remove_file(&exclusion_path)
-                            .map_err(|err| LauncherError::IoError(err, exclusion_path))?;
+                        std::fs::remove_file(&exclusion_path).map_err(io_err!(exclusion_path))?;
                     }
                 }
             }

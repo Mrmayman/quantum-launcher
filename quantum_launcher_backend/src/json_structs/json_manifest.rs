@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::file_utils::{self, RequestError};
+use crate::file_utils;
 
 use super::JsonDownloadError;
 

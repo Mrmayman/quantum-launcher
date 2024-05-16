@@ -6,8 +6,9 @@ use std::{
 
 use quantum_launcher_backend::{
     download::progress::DownloadProgress,
-    error::{LauncherError, LauncherResult},
+    error::LauncherResult,
     instance::{instance_launch::GameLaunchResult, instance_mod_installer::fabric::FabricVersion},
+    io_err,
     json_structs::json_instance_config::InstanceConfigJson,
 };
 
@@ -99,16 +100,13 @@ impl Launcher {
     pub fn new() -> LauncherResult<Self> {
         // .config/QuantumLauncher/ OR AppData/Roaming/QuantumLauncher/
         let dir_path = quantum_launcher_backend::file_utils::get_launcher_dir()?;
-        std::fs::create_dir_all(&dir_path)
-            .map_err(|err| LauncherError::IoError(err, dir_path.clone()))?;
+        std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 
         // QuantumLauncher/instances/
         let dir_path = dir_path.join("instances");
-        std::fs::create_dir_all(&dir_path)
-            .map_err(|err| LauncherError::IoError(err, dir_path.clone()))?;
+        std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 
-        let dir =
-            std::fs::read_dir(&dir_path).map_err(|err| LauncherError::IoError(err, dir_path))?;
+        let dir = std::fs::read_dir(&dir_path).map_err(io_err!(dir_path))?;
 
         let subdirectories: Vec<String> = dir
             .filter_map(|entry| {

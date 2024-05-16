@@ -1,17 +1,16 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 use reqwest::Client;
 
-use crate::error::{LauncherError, LauncherResult};
+use crate::error::IoError;
 
-pub fn get_launcher_dir() -> LauncherResult<PathBuf> {
-    let config_directory = match dirs::config_dir() {
-        Some(d) => d,
-        None => return Err(LauncherError::ConfigDirNotFound),
-    };
+pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
+    let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
     let launcher_directory = config_directory.join("QuantumLauncher");
-    std::fs::create_dir_all(&launcher_directory)
-        .map_err(|err| LauncherError::IoError(err, launcher_directory.clone()))?;
+    std::fs::create_dir_all(&launcher_directory).map_err(|err| IoError::Io {
+        error: err,
+        path: launcher_directory.clone(),
+    })?;
 
     Ok(launcher_directory)
 }
@@ -52,5 +51,19 @@ pub enum RequestError {
 impl From<reqwest::Error> for RequestError {
     fn from(value: reqwest::Error) -> Self {
         Self::ReqwestError(value)
+    }
+}
+
+impl Display for RequestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestError::DownloadError { code, url } => write!(
+                f,
+                "could not send request: download error with code {code}, url {url}"
+            ),
+            RequestError::ReqwestError(err) => {
+                write!(f, "could not send request: reqwest library error: {err}")
+            }
+        }
     }
 }

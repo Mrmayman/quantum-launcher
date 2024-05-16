@@ -1,16 +1,15 @@
 use crate::{
     error::{LauncherError, LauncherResult},
-    file_utils,
+    file_utils, io_err,
     java_locate::JavaInstall,
     json_structs::{
         json_fabric::FabricJSON,
         json_instance_config::InstanceConfigJson,
         json_version::{LibraryDownloads, VersionDetails},
+        JsonFileError,
     },
 };
 use std::{
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
     process::{Child, Command},
     sync::{Arc, Mutex},
@@ -62,8 +61,7 @@ pub fn launch_blocking(
 
     let instance_dir = get_instance_dir(instance_name)?;
     let minecraft_dir = instance_dir.join(".minecraft");
-    std::fs::create_dir_all(&minecraft_dir)
-        .map_err(|err| LauncherError::IoError(err, minecraft_dir.clone()))?;
+    std::fs::create_dir_all(&minecraft_dir).map_err(io_err!(minecraft_dir))?;
 
     let config_json = get_config(&instance_dir)?;
 
@@ -142,17 +140,16 @@ pub fn launch_blocking(
     Ok(result)
 }
 
-fn get_fabric_json(instance_dir: &Path) -> LauncherResult<FabricJSON> {
+fn get_fabric_json(instance_dir: &Path) -> Result<FabricJSON, JsonFileError> {
     let json_path = instance_dir.join("fabric.json");
-    let fabric_json = std::fs::read_to_string(&json_path)
-        .map_err(|err| LauncherError::IoError(err, json_path))?;
+    let fabric_json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
     Ok(serde_json::from_str(&fabric_json)?)
 }
 
-fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, LauncherError> {
+fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {
     let config_file_path = instance_dir.join("config.json");
-    let config_json = std::fs::read_to_string(&config_file_path)
-        .map_err(|err| LauncherError::IoError(err, config_file_path))?;
+    let config_json =
+        std::fs::read_to_string(&config_file_path).map_err(io_err!(config_file_path))?;
     Ok(serde_json::from_str(&config_json)?)
 }
 
@@ -271,12 +268,10 @@ fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
     }
 
     let launcher_dir = file_utils::get_launcher_dir()?;
-    std::fs::create_dir_all(&launcher_dir)
-        .map_err(|err| LauncherError::IoError(err, launcher_dir.clone()))?;
+    std::fs::create_dir_all(&launcher_dir).map_err(io_err!(launcher_dir))?;
 
     let instances_dir = launcher_dir.join("instances");
-    std::fs::create_dir_all(&instances_dir)
-        .map_err(|err| LauncherError::IoError(err, instances_dir.clone()))?;
+    std::fs::create_dir_all(&instances_dir).map_err(io_err!(instances_dir))?;
 
     let instance_dir = instances_dir.join(instance_name);
     if !instance_dir.exists() {
@@ -289,15 +284,10 @@ fn replace_var(string: &mut String, var: &str, value: &str) {
     *string = string.replace(&format!("${{{}}}", var), value);
 }
 
-fn read_version_json(instance_dir: &Path) -> LauncherResult<VersionDetails> {
+fn read_version_json(instance_dir: &Path) -> Result<VersionDetails, JsonFileError> {
     let file_path = instance_dir.join("details.json");
-    let mut file =
-        File::open(&file_path).map_err(|err| LauncherError::IoError(err, file_path.clone()))?;
 
-    let mut version_json: String = Default::default();
-    file.read_to_string(&mut version_json)
-        .map_err(|err| LauncherError::IoError(err, file_path))?;
-
+    let version_json: String = std::fs::read_to_string(&file_path).map_err(io_err!(file_path))?;
     let version_json = serde_json::from_str(&version_json)?;
     Ok(version_json)
 }

@@ -1,9 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use crate::{
-    download::{progress::DownloadProgress, GameDownloader},
-    error::LauncherResult,
-};
+use crate::download::{progress::DownloadProgress, DownloadError, GameDownloader};
 
 pub async fn create_instance(
     instance_name: String,
@@ -19,7 +16,7 @@ async fn create(
     instance_name: &str,
     version: String,
     progress_sender: Option<Sender<DownloadProgress>>,
-) -> LauncherResult<()> {
+) -> Result<(), DownloadError> {
     println!("[info] Started creating instance.");
 
     if let Some(ref sender) = progress_sender {

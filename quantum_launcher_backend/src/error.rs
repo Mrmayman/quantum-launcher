@@ -1,19 +1,13 @@
 use std::{fmt::Display, path::PathBuf, string::FromUtf8Error, sync::mpsc::SendError};
 
-use reqwest::Error as ReqwestError;
 use serde_json::Error as SerdeJsonError;
 use zip_extract::ZipExtractError;
 
 use crate::{
     download::progress::DownloadProgress,
     file_utils::RequestError,
-    json_structs::{json_version::VersionDetails, JsonDownloadError},
+    json_structs::{json_version::VersionDetails, JsonDownloadError, JsonFileError},
 };
-
-struct IoError {
-    error: std::io::Error,
-    path: PathBuf,
-}
 
 #[derive(Debug)]
 pub enum LauncherError {
@@ -33,7 +27,7 @@ pub enum LauncherError {
     PathBufToString(PathBuf),
     RequiredJavaVersionNotFound(usize),
     DownloadProgressMspcError(SendError<DownloadProgress>),
-    IoError(std::io::Error, PathBuf),
+    IoError(IoError),
     PathParentError(PathBuf),
     CommandError(std::io::Error),
     LatestFabricVersionNotFound,
@@ -41,6 +35,7 @@ pub enum LauncherError {
     NativesExtractError(ZipExtractError),
     NativesOutsideDirRemove,
     JsonDownloadError(JsonDownloadError),
+    JsonFileError(JsonFileError),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -58,6 +53,8 @@ macro_rules! impl_error {
 impl_error!(JsonDownloadError, JsonDownloadError);
 impl_error!(SerdeJsonError, SerdeJsonError);
 impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
+impl_error!(JsonFileError, JsonFileError);
+impl_error!(IoError, IoError);
 
 type ProgressSendError = SendError<DownloadProgress>;
 impl_error!(ProgressSendError, DownloadProgressMspcError);
@@ -110,7 +107,7 @@ impl Display for LauncherError {
             LauncherError::DownloadProgressMspcError(n) => {
                 write!(f, "could not send download progress: {n}")
             }
-            LauncherError::IoError(n, p) => write!(f, "at path {p:?}, IO error: {n}"),
+            LauncherError::IoError(err) => write!(f, "{err}"),
             LauncherError::CommandError(n) => {
                 write!(f, "IO error while trying to run Java command: {n}")
             }
@@ -125,10 +122,37 @@ impl Display for LauncherError {
                 write!(f, "could not extract natives jar file as zip: {err}")
             }
             LauncherError::NativesOutsideDirRemove => write!(f, "tried to delete natives file outside QuantumLauncher/instances/INSTANCE/libraries/natives. POTENTIAL ATTACK AVOIDED"),
-            LauncherError::RequestError(err) => match err {
-                RequestError::DownloadError { code, url } => write!(f, "error downloading from {}, code: {code}", url),
-                RequestError::ReqwestError(err) => write!(f, "reqwest library error: {err}"),
-            },
+            LauncherError::RequestError(err) => write!(f, "{err}"),
+            LauncherError::JsonDownloadError(err) => write!(f, "{err}"),
+            LauncherError::JsonFileError(err) => write!(f, "{err}"),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum IoError {
+    Io {
+        error: std::io::Error,
+        path: PathBuf,
+    },
+    ConfigDirNotFound,
+}
+
+impl Display for IoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IoError::Io { error, path } => write!(f, "at path {path:?}, error {error}"),
+            IoError::ConfigDirNotFound => write!(f, "config directory not found"),
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! io_err {
+    ($path:expr) => {
+        |err: std::io::Error| $crate::error::IoError::Io {
+            error: err,
+            path: $path.to_owned(),
+        }
+    };
 }
