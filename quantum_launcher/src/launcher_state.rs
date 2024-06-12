@@ -5,11 +5,8 @@ use std::{
 };
 
 use quantum_launcher_backend::{
-    download::progress::DownloadProgress,
-    error::LauncherResult,
-    instance::{instance_launch::GameLaunchResult, instance_mod_installer::fabric::FabricVersion},
-    io_err,
-    json_structs::json_instance_config::InstanceConfigJson,
+    error::LauncherResult, io_err, json_structs::json_instance_config::InstanceConfigJson,
+    DownloadProgress, FabricVersion, GameLaunchResult,
 };
 
 use crate::config::LauncherConfig;

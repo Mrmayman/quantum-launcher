@@ -4,6 +4,7 @@ use crate::{error::IoError, file_utils::RequestError};
 
 pub mod json_fabric;
 pub mod json_instance_config;
+pub mod json_java_files;
 pub mod json_java_list;
 pub mod json_manifest;
 pub mod json_profiles;

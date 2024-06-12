@@ -9,7 +9,7 @@ use iced::{
 };
 use launcher_state::{Launcher, Message, State};
 use message_handler::{format_memory, open_file_explorer};
-use quantum_launcher_backend::{error::LauncherError, instance::instance_mod_installer};
+use quantum_launcher_backend::{error::LauncherError, instance_mod_installer};
 use stylesheet::styles::LauncherTheme;
 
 mod config;

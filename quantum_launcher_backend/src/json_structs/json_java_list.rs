@@ -6,6 +6,7 @@ use super::JsonDownloadError;
 
 pub const JAVA_LIST_URL: &str = "https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
+#[derive(Clone, Copy)]
 pub enum JavaVersion {
     Java16,
     Java17Beta,
@@ -13,6 +14,20 @@ pub enum JavaVersion {
     Java17Gamma,
     Java17GammaSnapshot,
     Java8,
+}
+
+impl ToString for JavaVersion {
+    fn to_string(&self) -> String {
+        match self {
+            JavaVersion::Java16 => "java_16",
+            JavaVersion::Java17Beta => "java_17_beta",
+            JavaVersion::Java21 => "java_21",
+            JavaVersion::Java17Gamma => "java_17_gamma",
+            JavaVersion::Java17GammaSnapshot => "java_17_gamma_snapshot",
+            JavaVersion::Java8 => "java_8",
+        }
+        .to_owned()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -146,8 +161,6 @@ mod tests {
         let response = client.get(JAVA_LIST_URL).send().unwrap();
 
         let text = response.text().unwrap();
-        let json: JavaListJson = serde_json::from_str(&text).unwrap();
-
-        dbg!(json);
+        let _: JavaListJson = serde_json::from_str(&text).unwrap();
     }
 }

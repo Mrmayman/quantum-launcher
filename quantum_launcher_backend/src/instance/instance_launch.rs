@@ -26,7 +26,7 @@ pub enum GameLaunchResult {
     },
 }
 
-pub async fn launch(
+pub async fn launch_async(
     instance_name: String,
     username: String,
     manually_added_java_versions: Vec<String>,
@@ -35,7 +35,7 @@ pub async fn launch(
         required_java_version: None,
     };
 
-    match launch_blocking(&instance_name, &username, &manually_added_java_versions) {
+    match launch(&instance_name, &username, &manually_added_java_versions) {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
         Err(LauncherError::JavaVersionConvertCmdOutputToStringError(_)) => manual_result,
         Err(LauncherError::JavaVersionImproperVersionPlacement(_)) => manual_result,
@@ -50,7 +50,7 @@ pub async fn launch(
     }
 }
 
-pub fn launch_blocking(
+pub fn launch(
     instance_name: &str,
     username: &str,
     manually_added_java_versions: &[String],

@@ -5,9 +5,8 @@ use std::{
 
 use iced::Command;
 use quantum_launcher_backend::{
-    download::progress::DownloadProgress, error::LauncherResult, file_utils,
-    instance::instance_launch::GameLaunchResult, io_err,
-    json_structs::json_instance_config::InstanceConfigJson,
+    error::LauncherResult, file_utils, io_err,
+    json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
 };
 
 use crate::launcher_state::{Launcher, MenuEditInstance, Message, State};
@@ -33,7 +32,7 @@ impl Launcher {
                         self.config.as_ref().unwrap().java_installs.clone();
 
                     return Command::perform(
-                        quantum_launcher_backend::launch(
+                        quantum_launcher_backend::launch_async(
                             selected_instance,
                             username,
                             manually_added_versions,
