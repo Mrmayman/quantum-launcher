@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use iced::{
     executor,
     futures::SinkExt,
@@ -9,7 +7,9 @@ use iced::{
 };
 use launcher_state::{Launcher, Message, State};
 use message_handler::{format_memory, open_file_explorer};
-use quantum_launcher_backend::{error::LauncherError, instance_mod_installer};
+use quantum_launcher_backend::{
+    error::LauncherError, instance_mod_installer, json_structs::json_java_list::JavaVersion,
+};
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -45,9 +45,9 @@ impl Application for Launcher {
                 self.select_launch_instance(selected_instance)
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
-            Message::Launch => return self.launch_game(),
+            Message::LaunchStart => return self.launch_game(),
             Message::LaunchEnd(result) => self.finish_launching(result),
-            Message::CreateInstanceScreen => return self.go_to_create_screen(),
+            Message::CreateInstanceScreenOpen => return self.go_to_create_screen(),
             Message::CreateInstanceVersionsLoaded(result) => {
                 self.create_instance_finish_loading_versions_list(result)
             }
@@ -55,7 +55,7 @@ impl Application for Launcher {
                 self.select_created_instance_version(selected_version)
             }
             Message::CreateInstanceNameInput(name) => self.update_created_instance_name(name),
-            Message::CreateInstance => return self.create_instance(),
+            Message::CreateInstanceStart => return self.create_instance(),
             Message::CreateInstanceEnd(result) => match result {
                 Ok(_) => match Launcher::new() {
                     Ok(launcher) => *self = launcher,
@@ -64,15 +64,11 @@ impl Application for Launcher {
                 Err(n) => self.state = State::Error { error: n },
             },
             Message::CreateInstanceProgressUpdate => self.update_instance_creation_progress_bar(),
-            Message::LocateJavaStart => {
-                return Command::perform(pick_file(), Message::LocateJavaEnd)
-            }
-            Message::LocateJavaEnd(path) => self.add_java_to_config(path),
             Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
             Message::DeleteInstance => self.delete_selected_instance(),
-            Message::GoToLaunchScreen => self.go_to_launch_screen(),
+            Message::LaunchScreenOpen => self.go_to_launch_screen(),
             Message::EditInstance => {
-                if let State::Launch(ref menu_launch) = self.state {
+                if let State::Launch(menu_launch) = &self.state {
                     match self.edit_instance(menu_launch.selected_instance.clone().unwrap()) {
                         Ok(_) => {}
                         Err(err) => self.set_error(err.to_string()),
@@ -80,12 +76,12 @@ impl Application for Launcher {
                 }
             }
             Message::EditInstanceJavaOverride(n) => {
-                if let State::EditInstance(ref mut menu_edit_instance) = self.state {
+                if let State::EditInstance(menu_edit_instance) = &mut self.state {
                     menu_edit_instance.config.java_override = Some(n);
                 }
             }
             Message::EditInstanceMemoryChanged(new_slider_value) => {
-                if let State::EditInstance(ref mut menu_edit_instance) = self.state {
+                if let State::EditInstance(menu_edit_instance) = &mut self.state {
                     menu_edit_instance.slider_value = new_slider_value;
                     menu_edit_instance.config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
                     menu_edit_instance.slider_text =
@@ -93,7 +89,7 @@ impl Application for Launcher {
                 }
             }
             Message::EditInstanceSave => {
-                if let State::EditInstance(ref mut menu_edit_instance) = self.state {
+                if let State::EditInstance(menu_edit_instance) = &self.state {
                     match Launcher::save_config(
                         &menu_edit_instance.selected_instance,
                         &menu_edit_instance.config,
@@ -103,22 +99,19 @@ impl Application for Launcher {
                     }
                 }
             }
-            Message::ManageMods => {
-                if let State::Launch(ref menu_launch) = self.state {
-                    if let Err(err) = self.edit_mods(menu_launch.selected_instance.clone().unwrap())
+            Message::ManageModsScreenOpen => {
+                if let State::Launch(menu_launch) = &self.state {
+                    if let Err(err) =
+                        self.go_to_edit_mods_menu(menu_launch.selected_instance.clone().unwrap())
                     {
                         self.set_error(err.to_string())
                     }
                 }
             }
-            Message::InstallFabric => {
-                if let State::EditMods {
-                    ref selected_instance,
-                    ..
-                } = self.state
-                {
+            Message::InstallFabricScreenOpen => {
+                if let State::EditMods(menu) = &self.state {
                     self.state = State::InstallFabric {
-                        selected_instance: selected_instance.clone(),
+                        selected_instance: menu.selected_instance.clone(),
                         fabric_version: None,
                         fabric_versions: Vec::new(),
                     };
@@ -132,9 +125,8 @@ impl Application for Launcher {
             Message::InstallFabricVersionsLoaded(result) => match result {
                 Ok(list_of_versions) => {
                     if let State::InstallFabric {
-                        ref mut fabric_versions,
-                        ..
-                    } = self.state
+                        fabric_versions, ..
+                    } = &mut self.state
                     {
                         *fabric_versions = list_of_versions
                             .iter()
@@ -145,20 +137,16 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::InstallFabricVersionSelected(selection) => {
-                if let State::InstallFabric {
-                    ref mut fabric_version,
-                    ..
-                } = self.state
-                {
+                if let State::InstallFabric { fabric_version, .. } = &mut self.state {
                     *fabric_version = Some(selection);
                 }
             }
             Message::InstallFabricClicked => {
                 if let State::InstallFabric {
-                    ref selected_instance,
-                    ref fabric_version,
+                    selected_instance,
+                    fabric_version,
                     ..
-                } = self.state
+                } = &self.state
                 {
                     return Command::perform(
                         instance_mod_installer::fabric::install_wrapped(
@@ -186,12 +174,8 @@ impl Application for Launcher {
 
         const MESSAGE_BUFFER_SIZE: usize = 100;
 
-        if let State::Create {
-            progress_reciever: ref progress,
-            ..
-        } = self.state
-        {
-            if progress.is_none() {
+        if let State::Create(menu) = &self.state {
+            if menu.progress_receiver.is_none() {
                 return Subscription::none();
             }
             return subscription::channel(
@@ -211,81 +195,26 @@ impl Application for Launcher {
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
-        match self.state {
-            State::Launch(ref menu_launch) => {
-                menu_launch.view(self.config.as_ref(), self.instances.as_deref())
-            }
-            State::Create {
-                ref instance_name,
-                ref selected_version,
-                ref versions,
-                ref progress_number,
-                ref progress_text,
-                ..
-            } => Launcher::menu_create(
-                progress_number,
-                progress_text,
-                versions,
-                selected_version.as_ref(),
-                instance_name,
-            ),
-            State::Error { ref error } => {
+        match &self.state {
+            State::Launch(menu) => menu.view(self.config.as_ref(), self.instances.as_deref()),
+            State::EditInstance(menu) => menu.view(),
+            State::EditMods(menu) => menu.view(),
+            State::Create(menu) => menu.view(),
+            State::Error { error } => {
                 widget::container(widget::text(format!("Error: {}", error))).into()
             }
-            State::FindJavaVersion {
-                ref required_version,
-                ..
-            } => Launcher::menu_find_java(required_version),
-            State::DeleteInstance {
-                ref selected_instance,
-            } => Launcher::menu_delete(selected_instance),
-            State::EditInstance(ref menu_edit) => menu_edit.view(),
-            State::EditMods { ref config, .. } => {
-                let mod_installer = if config.mod_type == "Vanilla" {
-                    column![
-                        widget::button("Install Fabric").on_press(Message::InstallFabric),
-                        widget::button("Install Quilt"),
-                        widget::button("Install Forge"),
-                        widget::button("Install OptiFine")
-                    ]
-                    .spacing(5)
-                } else {
-                    column![widget::button(
-                        row![
-                            icon_manager::delete(),
-                            widget::text(format!("Uninstall {}", config.mod_type))
-                        ]
-                        .spacing(10)
-                        .padding(5)
-                    )]
-                };
-
-                column![
-                    widget::button(
-                        row![icon_manager::back(), widget::text("Back")]
-                            .spacing(10)
-                            .padding(5)
-                    )
-                    .on_press(Message::GoToLaunchScreen),
-                    mod_installer,
-                    widget::button("Go to mods folder"),
-                    widget::text("Mod management and store coming soon...")
-                ]
-                .padding(10)
-                .spacing(20)
-                .into()
-            }
+            State::DeleteInstance { selected_instance } => Launcher::menu_delete(selected_instance),
             State::InstallFabric {
-                ref selected_instance,
-                ref fabric_version,
-                ref fabric_versions,
+                selected_instance,
+                fabric_version,
+                fabric_versions,
             } => column![
                 widget::button(
                     row![icon_manager::back(), widget::text("Back")]
                         .spacing(10)
                         .padding(5)
                 )
-                .on_press(Message::GoToLaunchScreen),
+                .on_press(Message::LaunchScreenOpen),
                 widget::text(format!(
                     "Select Fabric Version for instance {}",
                     selected_instance
@@ -308,18 +237,24 @@ impl Application for Launcher {
     }
 }
 
-async fn pick_file() -> Option<PathBuf> {
-    const MESSAGE: &str = if cfg!(windows) {
-        "Select the java.exe executable"
-    } else {
-        "Select the java executable"
-    };
+// async fn pick_file() -> Option<PathBuf> {
+//     const MESSAGE: &str = if cfg!(windows) {
+//         "Select the java.exe executable"
+//     } else {
+//         "Select the java executable"
+//     };
 
-    rfd::AsyncFileDialog::new()
-        .set_title(MESSAGE)
-        .pick_file()
-        .await
-        .map(|n| n.path().to_owned())
+//     rfd::AsyncFileDialog::new()
+//         .set_title(MESSAGE)
+//         .pick_file()
+//         .await
+//         .map(|n| n.path().to_owned())
+// }
+
+fn _main() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(quantum_launcher_backend::install_java(JavaVersion::Java8))
+        .unwrap();
 }
 
 fn main() {

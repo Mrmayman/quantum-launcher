@@ -1,8 +1,11 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
 
 use reqwest::Client;
 
-use crate::error::IoError;
+use crate::{error::IoError, io_err};
 
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
@@ -67,3 +70,41 @@ impl Display for RequestError {
         }
     }
 }
+
+#[cfg(target_family = "unix")]
+pub fn set_executable(path: &Path) -> Result<(), IoError> {
+    use std::os::unix::fs::PermissionsExt;
+    let mut perms = std::fs::metadata(path)
+        .map_err(io_err!(path.to_owned()))?
+        .permissions();
+    perms.set_mode(0o755); // rwxr-xr-x
+    std::fs::set_permissions(path, perms).map_err(io_err!(path.to_owned()))
+}
+
+#[cfg(target_family = "windows")]
+pub fn set_executable(_path: &Path) -> Result<(), IoError> {
+    // On Windows, executability is determined by the file extension and content.
+    Ok(())
+}
+
+// #[cfg(unix)]
+// use std::os::unix::fs::symlink;
+
+// #[cfg(windows)]
+// use std::os::windows::fs::{symlink_dir, symlink_file};
+
+// pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
+//     #[cfg(unix)]
+//     {
+//         symlink(src, dest).map_err(io_err!(src.to_owned()))
+//     }
+
+//     #[cfg(windows)]
+//     {
+//         if src.is_dir() {
+//             symlink_dir(src, dest).map_err(io_err!(src.to_owned()))
+//         } else {
+//             symlink_file(src, dest).map_err(io_err!(src.to_owned()))
+//         }
+//     }
+// }

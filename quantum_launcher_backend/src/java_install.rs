@@ -5,13 +5,14 @@ use crate::{
     file_utils::{self, RequestError},
     io_err,
     json_structs::{
-        json_java_files::JavaFilesJson,
+        json_java_files::{JavaFile, JavaFilesJson},
         json_java_list::{JavaListJson, JavaVersion},
         JsonDownloadError,
     },
 };
 
 pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> {
+    println!("[info] Started installing {}", version.to_string());
     let java_list_json = JavaListJson::download().await?;
     let java_files_url = java_list_json
         .get_url(version)
@@ -26,14 +27,35 @@ pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> 
     let java_installs_dir = launcher_dir.join("java_installs");
     std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
 
-    let java_install_dir = java_installs_dir.join(&version.to_string());
+    let java_install_dir = java_installs_dir.join(version.to_string());
     std::fs::create_dir_all(&java_install_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
 
     for (file_name, file) in json.files.iter() {
-        println!("Java install: {file_name}");
+        println!("[info] Installing file: {file_name}");
+        let file_path = java_install_dir.join(file_name);
+        match file {
+            JavaFile::file {
+                downloads,
+                executable,
+            } => {
+                let file_bytes =
+                    file_utils::download_file_to_bytes(&client, &downloads.raw.url).await?;
+                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.to_owned()))?;
+                if *executable {
+                    file_utils::set_executable(&file_path)?;
+                }
+            }
+            JavaFile::directory {} => {
+                std::fs::create_dir_all(&file_path).map_err(io_err!(file_path))?;
+            }
+            JavaFile::link { target } => {
+                println!("[fixme:install_java] Deal with symlink {file_name} -> {target}")
+            }
+        }
     }
 
-    todo!()
+    println!("[info] Finished installing {}", version.to_string());
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -83,13 +105,13 @@ impl Display for JavaInstallError {
 
 impl Error for JavaInstallError {}
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn java_install() {
-//         let rt = tokio::runtime::Runtime::new().unwrap();
-//         rt.block_on(install_java(JavaVersion::Java16)).unwrap();
-//     }
-// }
+    #[test]
+    fn java_install() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(install_java(JavaVersion::Java16)).unwrap();
+    }
+}

@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    sync::{mpsc, Arc},
-};
+use std::sync::{mpsc, Arc};
 
 use iced::Command;
 use quantum_launcher_backend::{
@@ -9,7 +6,9 @@ use quantum_launcher_backend::{
     json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
 };
 
-use crate::launcher_state::{Launcher, MenuEditInstance, Message, State};
+use crate::launcher_state::{
+    Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message, State,
+};
 
 impl Launcher {
     pub fn select_launch_instance(&mut self, instance_name: String) {
@@ -28,15 +27,9 @@ impl Launcher {
                 Ok(_) => {
                     let selected_instance = menu_launch.selected_instance.clone().unwrap();
                     let username = self.config.as_ref().unwrap().username.clone();
-                    let manually_added_versions =
-                        self.config.as_ref().unwrap().java_installs.clone();
 
                     return Command::perform(
-                        quantum_launcher_backend::launch_async(
-                            selected_instance,
-                            username,
-                            manually_added_versions,
-                        ),
+                        quantum_launcher_backend::launch_async(selected_instance, username),
                         Message::LaunchEnd,
                     );
                 }
@@ -50,26 +43,18 @@ impl Launcher {
         match result {
             GameLaunchResult::Ok(child) => self.spawned_process = Some(child),
             GameLaunchResult::Err(err) => self.set_error(err),
-            GameLaunchResult::LocateJavaManually {
-                required_java_version,
-            } => {
-                self.state = State::FindJavaVersion {
-                    version: None,
-                    required_version: required_java_version,
-                }
-            }
         }
     }
 
     pub fn go_to_create_screen(&mut self) -> Command<Message> {
-        self.state = State::Create {
+        self.state = State::Create(MenuCreateInstance {
             instance_name: Default::default(),
             selected_version: None,
             versions: Vec::new(),
-            progress_reciever: None,
+            progress_receiver: None,
             progress_number: None,
             progress_text: None,
-        };
+        });
         Command::perform(
             quantum_launcher_backend::list_versions(),
             Message::CreateInstanceVersionsLoaded,
@@ -82,11 +67,8 @@ impl Launcher {
     ) {
         match result {
             Ok(version_list) => {
-                if let State::Create {
-                    ref mut versions, ..
-                } = self.state
-                {
-                    versions.extend_from_slice(&version_list)
+                if let State::Create(menu) = &mut self.state {
+                    menu.versions.extend_from_slice(&version_list)
                 }
             }
             Err(n) => self.state = State::Error { error: n },
@@ -94,45 +76,29 @@ impl Launcher {
     }
 
     pub fn select_created_instance_version(&mut self, selected_version: String) {
-        if let State::Create {
-            selected_version: ref mut version,
-            ..
-        } = self.state
-        {
-            *version = Some(selected_version)
+        if let State::Create(menu) = &mut self.state {
+            menu.selected_version = Some(selected_version)
         }
     }
 
     pub fn update_created_instance_name(&mut self, name: String) {
-        if let State::Create {
-            ref mut instance_name,
-            ..
-        } = self.state
-        {
-            *instance_name = name
+        if let State::Create(menu) = &mut self.state {
+            menu.instance_name = name
         }
     }
 
     pub fn create_instance(&mut self) -> Command<Message> {
-        if let State::Create {
-            ref instance_name,
-            selected_version: ref version,
-            ref mut progress_reciever,
-            ref mut progress_number,
-            ref mut progress_text,
-            ..
-        } = self.state
-        {
+        if let State::Create(menu) = &mut self.state {
             let (sender, receiver) = mpsc::channel::<DownloadProgress>();
-            *progress_reciever = Some(receiver);
-            *progress_number = Some(0.0);
-            *progress_text = Some("Started download".to_owned());
+            menu.progress_receiver = Some(receiver);
+            menu.progress_number = Some(0.0);
+            menu.progress_text = Some("Started download".to_owned());
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
                 quantum_launcher_backend::create_instance(
-                    instance_name.to_owned(),
-                    version.to_owned().unwrap(),
+                    menu.instance_name.to_owned(),
+                    menu.selected_version.to_owned().unwrap(),
                     Some(sender),
                 ),
                 Message::CreateInstanceEnd,
@@ -180,45 +146,14 @@ impl Launcher {
     }
 
     pub fn update_instance_creation_progress_bar(&mut self) {
-        if let State::Create {
-            ref mut progress_number,
-            ref progress_reciever,
-            ref mut progress_text,
-            ..
-        } = self.state
-        {
-            if let Some(Ok(progress)) = progress_reciever.as_ref().map(|n| n.try_recv()) {
-                if let Some(progress_text) = progress_text {
+        if let State::Create(menu) = &mut self.state {
+            if let Some(Ok(progress)) = menu.progress_receiver.as_ref().map(|n| n.try_recv()) {
+                if let Some(progress_text) = &mut menu.progress_text {
                     *progress_text = progress.to_string()
                 }
-                if let Some(progress_num) = progress_number {
+                if let Some(progress_num) = &mut menu.progress_number {
                     *progress_num = progress.into();
                 }
-            }
-        }
-    }
-
-    pub fn add_java_to_config(&mut self, path: Option<PathBuf>) {
-        match (path.as_ref().map(|n| n.to_str()), &mut self.config) {
-            // Config not loaded.
-            (_, None) => self.set_error(
-                "Could not open launcher config (QuantumLauncher/launcher.config)".to_owned(),
-            ),
-            // Couldn't find path.
-            (None, _) => self.set_error("Selected Java path not found.".to_owned()),
-            // Couldn't convert path to string.
-            (Some(None), _) => {
-                self.set_error("Selected Java path contains invalid characters".to_owned())
-            }
-            (Some(Some(path)), Some(config)) => {
-                // Add java path to list of java installs.
-                config.java_installs.push(path.to_owned());
-                // Save config.
-                match config.save() {
-                    Ok(_) => {}
-                    Err(err) => self.set_error(err.to_string()),
-                }
-                self.go_to_launch_screen()
             }
         }
     }
@@ -257,7 +192,7 @@ impl Launcher {
         Ok(())
     }
 
-    pub fn edit_mods(&mut self, selected_instance: String) -> LauncherResult<()> {
+    pub fn go_to_edit_mods_menu(&mut self, selected_instance: String) -> LauncherResult<()> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
@@ -267,10 +202,10 @@ impl Launcher {
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
-        self.state = State::EditMods {
+        self.state = State::EditMods(MenuEditMods {
             selected_instance,
             config: config_json,
-        };
+        });
         Ok(())
     }
 }

@@ -19,27 +19,25 @@ pub enum Message {
     InstallFabricVersionsLoaded(Result<Vec<FabricVersion>, String>),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
-    Launch,
+    LaunchStart,
     DeleteInstanceMenu,
     DeleteInstance,
-    GoToLaunchScreen,
+    LaunchScreenOpen,
     LaunchEnd(GameLaunchResult),
-    CreateInstanceScreen,
+    CreateInstanceScreenOpen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
     CreateInstanceVersionSelected(String),
     CreateInstanceNameInput(String),
-    CreateInstance,
+    CreateInstanceStart,
     CreateInstanceEnd(Result<(), String>),
     CreateInstanceProgressUpdate,
-    LocateJavaStart,
-    LocateJavaEnd(Option<PathBuf>),
     EditInstance,
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
     EditInstanceSave,
-    ManageMods,
+    ManageModsScreenOpen,
     InstallFabricClicked,
-    InstallFabric,
+    InstallFabricScreenOpen,
 }
 
 #[derive(Default)]
@@ -54,25 +52,25 @@ pub struct MenuEditInstance {
     pub slider_text: String,
 }
 
+pub struct MenuEditMods {
+    pub selected_instance: String,
+    pub config: InstanceConfigJson,
+}
+
+pub struct MenuCreateInstance {
+    pub instance_name: String,
+    pub selected_version: Option<String>,
+    pub versions: Vec<String>,
+    pub progress_receiver: Option<Receiver<DownloadProgress>>,
+    pub progress_number: Option<f32>,
+    pub progress_text: Option<String>,
+}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
-    EditMods {
-        selected_instance: String,
-        config: InstanceConfigJson,
-    },
-    Create {
-        instance_name: String,
-        selected_version: Option<String>,
-        versions: Vec<String>,
-        progress_reciever: Option<Receiver<DownloadProgress>>,
-        progress_number: Option<f32>,
-        progress_text: Option<String>,
-    },
-    FindJavaVersion {
-        version: Option<PathBuf>,
-        required_version: Option<usize>,
-    },
+    EditMods(MenuEditMods),
+    Create(MenuCreateInstance),
     Error {
         error: String,
     },

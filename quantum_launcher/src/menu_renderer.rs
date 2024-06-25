@@ -6,7 +6,9 @@ use quantum_launcher_backend::file_utils;
 use crate::{
     config::LauncherConfig,
     icon_manager,
-    launcher_state::{Launcher, MenuEditInstance, MenuLaunch, Message},
+    launcher_state::{
+        Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuLaunch, Message,
+    },
     stylesheet::styles::LauncherTheme,
 };
 
@@ -36,7 +38,7 @@ impl MenuLaunch {
                 )
                 .width(200),
                 button_with_icon(icon_manager::create(), "New Instance")
-                    .on_press(Message::CreateInstanceScreen),
+                    .on_press(Message::CreateInstanceScreenOpen),
                 button_with_icon(icon_manager::delete(), "Delete Instance").on_press_maybe(
                     (self.selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
                 ),
@@ -44,7 +46,7 @@ impl MenuLaunch {
                     (self.selected_instance.is_some()).then_some(Message::EditInstance)
                 ),
                 button_with_icon(icon_manager::download(), "Manage Mods").on_press_maybe(
-                    (self.selected_instance.is_some()).then_some(Message::ManageMods)
+                    (self.selected_instance.is_some()).then_some(Message::ManageModsScreenOpen)
                 ),
                 button_with_icon(icon_manager::folder(), "Open Files").on_press_maybe(
                     (self.selected_instance.is_some()).then(|| {
@@ -72,7 +74,7 @@ impl MenuLaunch {
             .spacing(5),
             pick_list.spacing(5),
             button_with_icon(icon_manager::play(), "Launch Game")
-                .on_press_maybe((self.selected_instance.is_some()).then_some(Message::Launch))
+                .on_press_maybe((self.selected_instance.is_some()).then_some(Message::LaunchStart))
         ]
         .padding(10)
         .spacing(20)
@@ -92,7 +94,7 @@ impl MenuEditInstance {
                 widget::button(row![icon_manager::back(), widget::text("Back")]
                     .spacing(10)
                     .padding(5)
-                ).on_press(Message::GoToLaunchScreen),
+                ).on_press(Message::LaunchScreenOpen),
                 widget::text(format!("Editing {} instance: {}", self.config.mod_type, self.selected_instance)),
                 widget::container(
                     column![
@@ -132,18 +134,52 @@ impl MenuEditInstance {
     }
 }
 
-impl Launcher {
-    pub fn menu_create<'element>(
-        progress_number: &Option<f32>,
-        progress_text: &Option<String>,
-        versions: &'element Vec<String>,
-        version: Option<&'element String>,
-        instance_name: &str,
-    ) -> Element<'element> {
-        let progress_bar = if let Some(progress_number) = progress_number {
-            if let Some(progress_text) = progress_text {
+impl MenuEditMods {
+    pub fn view(&self) -> Element {
+        let mod_installer = if self.config.mod_type == "Vanilla" {
+            widget::column![
+                widget::button("Install Fabric").on_press(Message::InstallFabricScreenOpen),
+                widget::button("Install Quilt"),
+                widget::button("Install Forge"),
+                widget::button("Install OptiFine")
+            ]
+            .spacing(5)
+        } else {
+            widget::column![
+                widget::button(
+                    widget::row![
+                        icon_manager::delete(),
+                        widget::text(format!("Uninstall {}", self.config.mod_type))
+                    ]
+                    .spacing(10)
+                    .padding(5)
+                ) // TODO: Add uninstall option for fabric.
+            ]
+        };
+
+        widget::column![
+            widget::button(
+                widget::row![icon_manager::back(), widget::text("Back")]
+                    .spacing(10)
+                    .padding(5)
+            )
+            .on_press(Message::LaunchScreenOpen),
+            mod_installer,
+            widget::button("Go to mods folder"),
+            widget::text("Mod management and store coming soon...")
+        ]
+        .padding(10)
+        .spacing(20)
+        .into()
+    }
+}
+
+impl MenuCreateInstance {
+    pub fn view(&self) -> Element {
+        let progress_bar = if let Some(progress_number) = self.progress_number {
+            if let Some(progress_text) = &self.progress_text {
                 column![
-                    widget::progress_bar(RangeInclusive::new(0.0, 10.0), *progress_number),
+                    widget::progress_bar(RangeInclusive::new(0.0, 10.0), progress_number),
                     widget::text(progress_text),
                 ]
             } else {
@@ -159,23 +195,23 @@ impl Launcher {
                     row![icon_manager::back(), widget::text("Back")]
                         .spacing(10)
                         .padding(5)
-                ).on_press(Message::GoToLaunchScreen),
+                ).on_press(Message::LaunchScreenOpen),
                 column![
                     widget::text("Select Version"),
                     widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
                     widget::pick_list(
-                        versions.as_slice(),
-                        version,
+                        self.versions.as_slice(),
+                        self.selected_version.as_ref(),
                         Message::CreateInstanceVersionSelected
                     ),
                 ]
                 .spacing(10),
-                widget::text_input("Enter instance name...", instance_name)
+                widget::text_input("Enter instance name...", &self.instance_name)
                     .on_input(Message::CreateInstanceNameInput),
                 widget::button(row![icon_manager::create(), widget::text("Create Instance")]
                         .spacing(10)
                         .padding(5)
-                ).on_press_maybe((version.is_some() && !instance_name.is_empty()).then(|| Message::CreateInstance)),
+                ).on_press_maybe((self.selected_version.is_some() && !self.instance_name.is_empty()).then(|| Message::CreateInstanceStart)),
                 progress_bar,
             ]
             .spacing(10)
@@ -183,7 +219,9 @@ impl Launcher {
         )
         .into()
     }
+}
 
+impl Launcher {
     pub fn menu_delete(selected_instance: &str) -> Element {
         column![
             widget::text(format!(
@@ -191,24 +229,10 @@ impl Launcher {
             )),
             widget::text("All your data, including worlds will be lost."),
             widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-            widget::button("No").on_press(Message::GoToLaunchScreen),
+            widget::button("No").on_press(Message::LaunchScreenOpen),
         ]
         .padding(10)
         .spacing(10)
-        .into()
-    }
-
-    pub fn menu_find_java(required_version: &Option<usize>) -> Element {
-        column![
-            widget::text(if let Some(ver) = required_version {
-                format!("An installation of Java ({ver}) could not be found",)
-            } else {
-                "Required Java Install not found".to_owned()
-            }),
-            widget::button("Select Java Executable").on_press(Message::LocateJavaStart),
-        ]
-        .padding(10)
-        .spacing(20)
         .into()
     }
 }

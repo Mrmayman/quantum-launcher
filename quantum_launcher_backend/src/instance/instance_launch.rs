@@ -1,7 +1,6 @@
 use crate::{
     error::{LauncherError, LauncherResult},
     file_utils, io_err,
-    java_locate::JavaInstall,
     json_structs::{
         json_fabric::FabricJSON,
         json_instance_config::InstanceConfigJson,
@@ -17,44 +16,16 @@ use std::{
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
-#[derive(Clone, Debug)]
-pub enum GameLaunchResult {
-    Ok(Arc<Mutex<Child>>),
-    Err(String),
-    LocateJavaManually {
-        required_java_version: Option<usize>,
-    },
-}
+pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
-pub async fn launch_async(
-    instance_name: String,
-    username: String,
-    manually_added_java_versions: Vec<String>,
-) -> GameLaunchResult {
-    let manual_result = GameLaunchResult::LocateJavaManually {
-        required_java_version: None,
-    };
-
-    match launch(&instance_name, &username, &manually_added_java_versions) {
+pub async fn launch_async(instance_name: String, username: String) -> GameLaunchResult {
+    match launch(&instance_name, &username) {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
-        Err(LauncherError::JavaVersionConvertCmdOutputToStringError(_)) => manual_result,
-        Err(LauncherError::JavaVersionImproperVersionPlacement(_)) => manual_result,
-        Err(LauncherError::JavaVersionIsEmptyError) => manual_result,
-        Err(LauncherError::JavaVersionParseToNumberError(_)) => manual_result,
-        Err(LauncherError::RequiredJavaVersionNotFound(ver)) => {
-            GameLaunchResult::LocateJavaManually {
-                required_java_version: Some(ver),
-            }
-        }
         Err(err) => GameLaunchResult::Err(err.to_string()),
     }
 }
 
-pub fn launch(
-    instance_name: &str,
-    username: &str,
-    manually_added_java_versions: &[String],
-) -> LauncherResult<Child> {
+pub fn launch(instance_name: &str, username: &str) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
     }
@@ -84,18 +55,69 @@ pub fn launch(
         format!("-Xmx{}", config_json.get_ram_in_string()),
     ];
 
+    let fabric_json = setup_fabric(&config_json, &instance_dir, &mut java_arguments)?;
+
+    setup_logging(&version_json, &instance_dir, &mut java_arguments)?;
+    setup_classpath_and_mainclass(
+        &mut java_arguments,
+        &version_json,
+        instance_dir,
+        fabric_json,
+    )?;
+
+    let mut command = if let Some(java_override) = config_json.java_override {
+        Command::new(java_override)
+    } else {
+        todo!()
+    };
+
+    println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");
+
+    let command = command.args(java_arguments.iter().chain(game_arguments.iter()));
+    let result = command.spawn().map_err(LauncherError::CommandError)?;
+
+    Ok(result)
+}
+
+fn setup_fabric(
+    config_json: &InstanceConfigJson,
+    instance_dir: &Path,
+    java_arguments: &mut Vec<String>,
+) -> Result<Option<FabricJSON>, LauncherError> {
     let fabric_json = if config_json.mod_type == "Fabric" {
-        Some(get_fabric_json(&instance_dir)?)
+        Some(get_fabric_json(instance_dir)?)
     } else {
         None
     };
-
     if let Some(ref fabric_json) = fabric_json {
         fabric_json.arguments.jvm.iter().for_each(|n| {
             java_arguments.push(n.clone());
         });
     }
+    Ok(fabric_json)
+}
 
+fn setup_classpath_and_mainclass(
+    java_arguments: &mut Vec<String>,
+    version_json: &VersionDetails,
+    instance_dir: PathBuf,
+    fabric_json: Option<FabricJSON>,
+) -> Result<(), LauncherError> {
+    java_arguments.push("-cp".to_owned());
+    java_arguments.push(get_class_path(version_json, instance_dir, &fabric_json)?);
+    java_arguments.push(if let Some(ref fabric_json) = fabric_json {
+        fabric_json.mainClass.clone()
+    } else {
+        version_json.mainClass.clone()
+    });
+    Ok(())
+}
+
+fn setup_logging(
+    version_json: &VersionDetails,
+    instance_dir: &Path,
+    java_arguments: &mut Vec<String>,
+) -> Result<(), LauncherError> {
     if let Some(ref logging) = version_json.logging {
         let logging_path = instance_dir.join(format!("logging-{}", logging.client.file.id));
         let logging_path = logging_path
@@ -103,41 +125,7 @@ pub fn launch(
             .ok_or(LauncherError::PathBufToString(logging_path.clone()))?;
         java_arguments.push(format!("-Dlog4j.configurationFile=\"{}\"", logging_path))
     }
-
-    java_arguments.push("-cp".to_owned());
-    java_arguments.push(get_class_path(&version_json, instance_dir, &fabric_json)?);
-    if let Some(ref fabric_json) = fabric_json {
-        java_arguments.push(fabric_json.mainClass.clone());
-    } else {
-        java_arguments.push(version_json.mainClass.clone());
-    }
-
-    let mut command = if let Some(java_override) = config_json.java_override {
-        Command::new(java_override)
-    } else {
-        let java_installations =
-            JavaInstall::find_java_installs(Some(manually_added_java_versions))?;
-        let appropriate_install = java_installations
-            .iter()
-            .find(|n| n.version == version_json.javaVersion.majorVersion)
-            .or_else(|| {
-                java_installations
-                    .iter()
-                    .find(|n| n.version >= version_json.javaVersion.majorVersion)
-            })
-            .ok_or(LauncherError::RequiredJavaVersionNotFound(
-                version_json.javaVersion.majorVersion,
-            ))?;
-
-        appropriate_install.get_command()
-    };
-
-    println!("{java_arguments:?}\n\n{game_arguments:?}\n");
-
-    let command = command.args(java_arguments.iter().chain(game_arguments.iter()));
-    let result = command.spawn().map_err(LauncherError::CommandError)?;
-
-    Ok(result)
+    Ok(())
 }
 
 fn get_fabric_json(instance_dir: &Path) -> Result<FabricJSON, JsonFileError> {
@@ -172,7 +160,6 @@ fn get_class_path(
         })
         .map(|artifact| {
             let library_path = instance_dir.join("libraries").join(&artifact.path);
-            println!("{}", artifact.path);
             if library_path.exists() {
                 let library_path = match library_path.to_str() {
                     Some(n) => n,
