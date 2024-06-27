@@ -7,7 +7,8 @@ use quantum_launcher_backend::{
 };
 
 use crate::launcher_state::{
-    Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message, State,
+    Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods, Message,
+    State,
 };
 
 impl Launcher {
@@ -108,14 +109,11 @@ impl Launcher {
     }
 
     pub fn delete_selected_instance(&mut self) {
-        if let State::DeleteInstance {
-            ref selected_instance,
-        } = self.state
-        {
+        if let State::DeleteInstance(menu) = &self.state {
             match quantum_launcher_backend::file_utils::get_launcher_dir() {
                 Ok(launcher_dir) => {
                     let instances_dir = launcher_dir.join("instances");
-                    let deleted_instance_dir = instances_dir.join(selected_instance);
+                    let deleted_instance_dir = instances_dir.join(&menu.selected_instance);
 
                     if !deleted_instance_dir.starts_with(&instances_dir) {
                         self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned());
@@ -139,9 +137,9 @@ impl Launcher {
 
     pub fn confirm_instance_deletion(&mut self) {
         if let State::Launch(ref mut menu_launch) = self.state {
-            self.state = State::DeleteInstance {
+            self.state = State::DeleteInstance(MenuDeleteInstance {
                 selected_instance: menu_launch.selected_instance.clone().unwrap(),
-            }
+            })
         }
     }
 
@@ -239,5 +237,5 @@ pub fn open_file_explorer(path: &str) {
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    println!("[error] Opening file explorer not supported on this platform.")
+    eprintln!("[error] Opening file explorer not supported on this platform.")
 }

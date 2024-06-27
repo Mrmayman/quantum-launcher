@@ -1,11 +1,7 @@
 use iced::{
-    executor,
-    futures::SinkExt,
-    subscription,
-    widget::{self, column, row},
-    Application, Command, Settings, Subscription,
+    executor, futures::SinkExt, subscription, widget, Application, Command, Settings, Subscription,
 };
-use launcher_state::{Launcher, Message, State};
+use launcher_state::{Launcher, MenuInstallFabric, Message, State};
 use message_handler::{format_memory, open_file_explorer};
 use quantum_launcher_backend::{
     error::LauncherError, instance_mod_installer, json_structs::json_java_list::JavaVersion,
@@ -68,12 +64,7 @@ impl Application for Launcher {
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::LaunchScreenOpen => self.go_to_launch_screen(),
             Message::EditInstance => {
-                if let State::Launch(menu_launch) = &self.state {
-                    match self.edit_instance(menu_launch.selected_instance.clone().unwrap()) {
-                        Ok(_) => {}
-                        Err(err) => self.set_error(err.to_string()),
-                    }
-                }
+                self.edit_instance_wrapped();
             }
             Message::EditInstanceJavaOverride(n) => {
                 if let State::EditInstance(menu_edit_instance) = &mut self.state {
@@ -110,11 +101,11 @@ impl Application for Launcher {
             }
             Message::InstallFabricScreenOpen => {
                 if let State::EditMods(menu) = &self.state {
-                    self.state = State::InstallFabric {
+                    self.state = State::InstallFabric(MenuInstallFabric {
                         selected_instance: menu.selected_instance.clone(),
                         fabric_version: None,
                         fabric_versions: Vec::new(),
-                    };
+                    });
 
                     return Command::perform(
                         instance_mod_installer::fabric::get_list_of_versions(),
@@ -124,11 +115,8 @@ impl Application for Launcher {
             }
             Message::InstallFabricVersionsLoaded(result) => match result {
                 Ok(list_of_versions) => {
-                    if let State::InstallFabric {
-                        fabric_versions, ..
-                    } = &mut self.state
-                    {
-                        *fabric_versions = list_of_versions
+                    if let State::InstallFabric(menu) = &mut self.state {
+                        menu.fabric_versions = list_of_versions
                             .iter()
                             .map(|ver| ver.version.clone())
                             .collect();
@@ -137,21 +125,16 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::InstallFabricVersionSelected(selection) => {
-                if let State::InstallFabric { fabric_version, .. } = &mut self.state {
-                    *fabric_version = Some(selection);
+                if let State::InstallFabric(menu) = &mut self.state {
+                    menu.fabric_version = Some(selection);
                 }
             }
             Message::InstallFabricClicked => {
-                if let State::InstallFabric {
-                    selected_instance,
-                    fabric_version,
-                    ..
-                } = &self.state
-                {
+                if let State::InstallFabric(menu) = &self.state {
                     return Command::perform(
                         instance_mod_installer::fabric::install_wrapped(
-                            fabric_version.clone().unwrap(),
-                            selected_instance.to_owned(),
+                            menu.fabric_version.clone().unwrap(),
+                            menu.selected_instance.to_owned(),
                         ),
                         Message::InstallFabricEnd,
                     );
@@ -200,39 +183,11 @@ impl Application for Launcher {
             State::EditInstance(menu) => menu.view(),
             State::EditMods(menu) => menu.view(),
             State::Create(menu) => menu.view(),
+            State::DeleteInstance(menu) => menu.view(),
             State::Error { error } => {
                 widget::container(widget::text(format!("Error: {}", error))).into()
             }
-            State::DeleteInstance { selected_instance } => Launcher::menu_delete(selected_instance),
-            State::InstallFabric {
-                selected_instance,
-                fabric_version,
-                fabric_versions,
-            } => column![
-                widget::button(
-                    row![icon_manager::back(), widget::text("Back")]
-                        .spacing(10)
-                        .padding(5)
-                )
-                .on_press(Message::LaunchScreenOpen),
-                widget::text(format!(
-                    "Select Fabric Version for instance {}",
-                    selected_instance
-                )),
-                widget::pick_list(
-                    fabric_versions.as_slice(),
-                    fabric_version.as_ref(),
-                    Message::InstallFabricVersionSelected
-                ),
-                widget::button("Install Fabric").on_press_maybe(
-                    fabric_version
-                        .is_some()
-                        .then(|| Message::InstallFabricClicked)
-                ),
-            ]
-            .padding(10)
-            .spacing(20)
-            .into(),
+            State::InstallFabric(menu) => menu.view(),
         }
     }
 }

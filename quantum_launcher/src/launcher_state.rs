@@ -66,22 +66,24 @@ pub struct MenuCreateInstance {
     pub progress_text: Option<String>,
 }
 
+pub struct MenuDeleteInstance {
+    pub selected_instance: String,
+}
+
+pub struct MenuInstallFabric {
+    pub selected_instance: String,
+    pub fabric_version: Option<String>,
+    pub fabric_versions: Vec<String>,
+}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
     EditMods(MenuEditMods),
     Create(MenuCreateInstance),
-    Error {
-        error: String,
-    },
-    DeleteInstance {
-        selected_instance: String,
-    },
-    InstallFabric {
-        selected_instance: String,
-        fabric_version: Option<String>,
-        fabric_versions: Vec<String>,
-    },
+    Error { error: String },
+    DeleteInstance(MenuDeleteInstance),
+    InstallFabric(MenuInstallFabric),
 }
 
 pub struct Launcher {
@@ -141,5 +143,14 @@ impl Launcher {
 
     pub fn go_to_launch_screen(&mut self) {
         self.state = State::Launch(MenuLaunch::default())
+    }
+
+    pub fn edit_instance_wrapped(&mut self) {
+        if let State::Launch(menu_launch) = &self.state {
+            match self.edit_instance(menu_launch.selected_instance.clone().unwrap()) {
+                Ok(_) => {}
+                Err(err) => self.set_error(err.to_string()),
+            }
+        }
     }
 }

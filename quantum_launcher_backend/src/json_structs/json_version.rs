@@ -14,13 +14,13 @@ pub struct VersionDetails {
     pub assetIndex: AssetIndex,
     /// Which version of the assets to be downloaded.
     pub assets: String,
-    pub complianceLevel: usize,
+    pub complianceLevel: Option<usize>,
     /// Where to download the client/server jar.
     pub downloads: Downloads,
     /// Name of the version.
     pub id: String,
     /// Version of java required.
-    pub javaVersion: JavaVersion,
+    pub javaVersion: Option<JavaVersion>,
     /// Library dependencies of the version that need to be downloaded.
     pub libraries: Vec<Library>,
     /// Details regarding console logging with log4j.

@@ -7,7 +7,8 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuLaunch, Message,
+        Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods,
+        MenuInstallFabric, MenuLaunch, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -221,11 +222,12 @@ impl MenuCreateInstance {
     }
 }
 
-impl Launcher {
-    pub fn menu_delete(selected_instance: &str) -> Element {
+impl MenuDeleteInstance {
+    pub fn view(&self) -> Element {
         column![
             widget::text(format!(
-                "Are you SURE you want to DELETE the Instance: {selected_instance}?",
+                "Are you SURE you want to DELETE the Instance: {}?",
+                &self.selected_instance
             )),
             widget::text("All your data, including worlds will be lost."),
             widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
@@ -233,6 +235,36 @@ impl Launcher {
         ]
         .padding(10)
         .spacing(10)
+        .into()
+    }
+}
+
+impl MenuInstallFabric {
+    pub fn view(&self) -> Element {
+        column![
+            widget::button(
+                row![icon_manager::back(), widget::text("Back")]
+                    .spacing(10)
+                    .padding(5)
+            )
+            .on_press(Message::LaunchScreenOpen),
+            widget::text(format!(
+                "Select Fabric Version for instance {}",
+                &self.selected_instance
+            )),
+            widget::pick_list(
+                self.fabric_versions.as_slice(),
+                self.fabric_version.as_ref(),
+                Message::InstallFabricVersionSelected
+            ),
+            widget::button("Install Fabric").on_press_maybe(
+                self.fabric_version
+                    .is_some()
+                    .then(|| Message::InstallFabricClicked)
+            ),
+        ]
+        .padding(10)
+        .spacing(20)
         .into()
     }
 }
