@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display};
+use std::{error::Error, fmt::Display, path::PathBuf};
 
 use crate::{
     error::IoError,
@@ -10,6 +10,26 @@ use crate::{
         JsonDownloadError,
     },
 };
+
+pub async fn get_java(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
+    let launcher_dir = file_utils::get_launcher_dir()?;
+
+    let java_dir = launcher_dir.join("java_installs").join(version.to_string());
+
+    let incomplete_install = java_dir.join("install.lock").exists();
+
+    if !java_dir.exists() || incomplete_install {
+        install_java(version).await?;
+    }
+
+    let java_dir = java_dir.join(if cfg!(windows) {
+        "bin/java.exe"
+    } else {
+        "bin/java"
+    });
+
+    Ok(java_dir.canonicalize().map_err(io_err!(java_dir))?)
+}
 
 pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> {
     println!("[info] Started installing {}", version.to_string());
@@ -27,12 +47,21 @@ pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> 
     let java_installs_dir = launcher_dir.join("java_installs");
     std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
 
-    let java_install_dir = java_installs_dir.join(version.to_string());
-    std::fs::create_dir_all(&java_install_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
+    let install_dir = java_installs_dir.join(version.to_string());
+    std::fs::create_dir_all(&install_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
 
-    for (file_name, file) in json.files.iter() {
-        println!("[info] Installing file: {file_name}");
-        let file_path = java_install_dir.join(file_name);
+    let lock_file = install_dir.join("install.lock");
+    std::fs::write(
+        &lock_file,
+        "If you see this, java hasn't finished installing.",
+    )
+    .map_err(io_err!(lock_file.to_owned()))?;
+
+    let num_files = json.files.len();
+
+    for (file_num, (file_name, file)) in json.files.iter().enumerate() {
+        println!("[info] Installing file ({file_num}/{num_files}): {file_name}");
+        let file_path = install_dir.join(file_name);
         match file {
             JavaFile::file {
                 downloads,
@@ -53,6 +82,8 @@ pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> 
             }
         }
     }
+
+    std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.to_owned()))?;
 
     println!("[info] Finished installing {}", version.to_string());
     Ok(())

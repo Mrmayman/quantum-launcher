@@ -30,7 +30,7 @@ impl Launcher {
                     let username = self.config.as_ref().unwrap().username.clone();
 
                     return Command::perform(
-                        quantum_launcher_backend::launch_async(selected_instance, username),
+                        quantum_launcher_backend::launch_wrapped(selected_instance, username),
                         Message::LaunchEnd,
                     );
                 }

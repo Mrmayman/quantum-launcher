@@ -6,6 +6,7 @@ use zip_extract::ZipExtractError;
 use crate::{
     download::progress::DownloadProgress,
     file_utils::RequestError,
+    java_install::JavaInstallError,
     json_structs::{json_version::VersionDetails, JsonDownloadError, JsonFileError},
 };
 
@@ -36,6 +37,7 @@ pub enum LauncherError {
     NativesOutsideDirRemove,
     JsonDownloadError(JsonDownloadError),
     JsonFileError(JsonFileError),
+    JavaInstall(JavaInstallError),
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -55,6 +57,7 @@ impl_error!(SerdeJsonError, SerdeJsonError);
 impl_error!(FromUtf8Error, JavaVersionConvertCmdOutputToStringError);
 impl_error!(JsonFileError, JsonFileError);
 impl_error!(IoError, IoError);
+impl_error!(JavaInstallError, JavaInstall);
 
 type ProgressSendError = SendError<DownloadProgress>;
 impl_error!(ProgressSendError, DownloadProgressMspcError);
@@ -125,6 +128,7 @@ impl Display for LauncherError {
             LauncherError::RequestError(err) => write!(f, "{err}"),
             LauncherError::JsonDownloadError(err) => write!(f, "{err}"),
             LauncherError::JsonFileError(err) => write!(f, "{err}"),
+            LauncherError::JavaInstall(err) => write!(f, "{err}"),
         }
     }
 }

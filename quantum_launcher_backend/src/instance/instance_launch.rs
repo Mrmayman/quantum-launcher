@@ -1,9 +1,10 @@
 use crate::{
     error::{LauncherError, LauncherResult},
-    file_utils, io_err,
+    file_utils, io_err, java_install,
     json_structs::{
         json_fabric::FabricJSON,
         json_instance_config::InstanceConfigJson,
+        json_java_list::JavaVersion,
         json_version::{LibraryDownloads, VersionDetails},
         JsonFileError,
     },
@@ -18,14 +19,14 @@ const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
-pub async fn launch_async(instance_name: String, username: String) -> GameLaunchResult {
-    match launch(&instance_name, &username) {
+pub async fn launch_wrapped(instance_name: String, username: String) -> GameLaunchResult {
+    match launch(&instance_name, &username).await {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
         Err(err) => GameLaunchResult::Err(err.to_string()),
     }
 }
 
-pub fn launch(instance_name: &str, username: &str) -> LauncherResult<Child> {
+pub async fn launch(instance_name: &str, username: &str) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
     }
@@ -68,7 +69,18 @@ pub fn launch(instance_name: &str, username: &str) -> LauncherResult<Child> {
     let mut command = if let Some(java_override) = config_json.java_override {
         Command::new(java_override)
     } else {
-        todo!()
+        let version = if let Some(version) = version_json.javaVersion {
+            match version.majorVersion {
+                8 => JavaVersion::Java8,
+                16 => JavaVersion::Java16,
+                17 => JavaVersion::Java17Gamma,
+                21 => JavaVersion::Java21,
+                _ => JavaVersion::Java17Gamma,
+            }
+        } else {
+            JavaVersion::Java8
+        };
+        Command::new(java_install::get_java(version).await?)
     };
 
     println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");

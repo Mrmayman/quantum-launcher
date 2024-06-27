@@ -184,9 +184,11 @@ impl Application for Launcher {
             State::EditMods(menu) => menu.view(),
             State::Create(menu) => menu.view(),
             State::DeleteInstance(menu) => menu.view(),
-            State::Error { error } => {
-                widget::container(widget::text(format!("Error: {}", error))).into()
-            }
+            State::Error { error } => widget::column!(
+                widget::text(format!("Error: {}", error)),
+                widget::button("Back").on_press(Message::LaunchScreenOpen)
+            )
+            .into(),
             State::InstallFabric(menu) => menu.view(),
         }
     }
