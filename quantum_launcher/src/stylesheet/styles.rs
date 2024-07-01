@@ -359,3 +359,47 @@ impl iced::application::StyleSheet for LauncherTheme {
         }
     }
 }
+
+impl iced::widget::checkbox::StyleSheet for LauncherTheme {
+    type Style = LauncherTheme;
+
+    fn active(&self, style: &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => iced::widget::checkbox::Appearance {
+                background: if is_checked {
+                    DARK_PURPLE.get_bg(Color::Light)
+                } else {
+                    DARK_PURPLE.get_bg(Color::Dark)
+                },
+                icon_color: if is_checked {
+                    DARK_PURPLE.get(Color::Dark)
+                } else {
+                    DARK_PURPLE.get(Color::Light)
+                },
+                border: DARK_PURPLE.get_border(Color::SecondLight),
+                text_color: None,
+            },
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => iced::widget::checkbox::Appearance {
+                background: if is_checked {
+                    DARK_PURPLE.get_bg(Color::White)
+                } else {
+                    DARK_PURPLE.get_bg(Color::SecondDark)
+                },
+                icon_color: if is_checked {
+                    DARK_PURPLE.get(Color::SecondDark)
+                } else {
+                    DARK_PURPLE.get(Color::White)
+                },
+                border: DARK_PURPLE.get_border(Color::Light),
+                text_color: None,
+            },
+        }
+    }
+}

@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display, path::PathBuf};
+use std::{error::Error, fmt::Display, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
     error::IoError,
@@ -11,15 +11,44 @@ use crate::{
     },
 };
 
-pub async fn get_java(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
+pub enum JavaInstallMessage {
+    P1Started,
+    P2 {
+        progress: usize,
+        out_of: usize,
+        name: String,
+    },
+    P3Done,
+}
+
+/// Returns a `PathBuf` pointing to the Java executable.
+/// You can select which Java version you want through the `version` argument.
+///
+/// This downloads and installs Java if not already installed,
+/// and if already installed, uses the existing installation.
+///
+/// If you want, you can hook this up to a progress bar, by using a
+/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
+/// sender to this function and polling the receiver frequently.
+/// If not needed, simply pass `None` to the function.
+pub async fn get_java(
+    version: JavaVersion,
+    java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
+) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
 
     let java_dir = launcher_dir.join("java_installs").join(version.to_string());
 
-    let incomplete_install = java_dir.join("install.lock").exists();
+    let is_incomplete_install = java_dir.join("install.lock").exists();
 
-    if !java_dir.exists() || incomplete_install {
-        install_java(version).await?;
+    if let Some(java_install_progress_sender) = &java_install_progress_sender {
+        java_install_progress_sender
+            .send(JavaInstallMessage::P1Started)
+            .unwrap();
+    }
+
+    if !java_dir.exists() || is_incomplete_install {
+        install_java(version, java_install_progress_sender.as_ref()).await?;
     }
 
     let java_dir = java_dir.join(if cfg!(windows) {
@@ -28,10 +57,19 @@ pub async fn get_java(version: JavaVersion) -> Result<PathBuf, JavaInstallError>
         "bin/java"
     });
 
+    if let Some(java_install_progress_sender) = java_install_progress_sender {
+        java_install_progress_sender
+            .send(JavaInstallMessage::P3Done)
+            .unwrap();
+    }
+
     Ok(java_dir.canonicalize().map_err(io_err!(java_dir))?)
 }
 
-pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> {
+async fn install_java(
+    version: JavaVersion,
+    java_install_progress_sender: Option<&Sender<JavaInstallMessage>>,
+) -> Result<(), JavaInstallError> {
     println!("[info] Started installing {}", version.to_string());
     let java_list_json = JavaListJson::download().await?;
     let java_files_url = java_list_json
@@ -61,6 +99,17 @@ pub async fn install_java(version: JavaVersion) -> Result<(), JavaInstallError> 
 
     for (file_num, (file_name, file)) in json.files.iter().enumerate() {
         println!("[info] Installing file ({file_num}/{num_files}): {file_name}");
+
+        if let Some(java_install_progress_sender) = java_install_progress_sender {
+            java_install_progress_sender
+                .send(JavaInstallMessage::P2 {
+                    progress: file_num,
+                    out_of: num_files,
+                    name: file_name.clone(),
+                })
+                .unwrap();
+        }
+
         let file_path = install_dir.join(file_name);
         match file {
             JavaFile::file {
@@ -135,14 +184,3 @@ impl Display for JavaInstallError {
 }
 
 impl Error for JavaInstallError {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn java_install() {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(install_java(JavaVersion::Java16)).unwrap();
-    }
-}

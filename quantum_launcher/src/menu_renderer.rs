@@ -198,8 +198,8 @@ impl MenuCreateInstance {
                         .padding(5)
                 ).on_press(Message::LaunchScreenOpen),
                 column![
-                    widget::text("Select Version"),
                     widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
+                    widget::text("Select Version"),
                     widget::pick_list(
                         self.versions.as_slice(),
                         self.selected_version.as_ref(),
@@ -209,6 +209,8 @@ impl MenuCreateInstance {
                 .spacing(10),
                 widget::text_input("Enter instance name...", &self.instance_name)
                     .on_input(Message::CreateInstanceNameInput),
+                widget::text("Download assets? If disabled, creating instance will be MUCH faster, but no sound or music will play in-game"),
+                widget::checkbox("Download assets?", self.download_assets).on_toggle(Message::CreateInstanceChangeAssetToggle),
                 widget::button(row![icon_manager::create(), widget::text("Create Instance")]
                         .spacing(10)
                         .padding(5)

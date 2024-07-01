@@ -26,10 +26,16 @@ pub struct InstanceConfigJson {
 }
 
 impl InstanceConfigJson {
-    /// Returns the amount of RAM in megabytes as a string.
+    /// Returns the amount of RAM in megabytes as a String.
     ///
     /// This is the format that the Java arguments understand.
     pub fn get_ram_in_string(&self) -> String {
         format!("{}M", self.ram_in_mb)
+    }
+
+    /// Returns a String containing the Java argument to
+    /// allocate the configured amount of RAM.
+    pub fn get_ram_argument(&self) -> String {
+        format!("-Xmx{}", self.get_ram_in_string())
     }
 }

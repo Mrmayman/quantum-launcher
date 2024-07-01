@@ -6,7 +6,7 @@ use std::{
 
 use quantum_launcher_backend::{
     error::LauncherResult, io_err, json_structs::json_instance_config::InstanceConfigJson,
-    DownloadProgress, FabricVersion, GameLaunchResult,
+    DownloadProgress, FabricVersion, GameLaunchResult, JavaInstallMessage,
 };
 
 use crate::config::LauncherConfig;
@@ -24,12 +24,14 @@ pub enum Message {
     DeleteInstance,
     LaunchScreenOpen,
     LaunchEnd(GameLaunchResult),
+    LaunchJavaInstallProgressUpdate,
     CreateInstanceScreenOpen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
     CreateInstanceVersionSelected(String),
     CreateInstanceNameInput(String),
     CreateInstanceStart,
     CreateInstanceEnd(Result<(), String>),
+    CreateInstanceChangeAssetToggle(bool),
     CreateInstanceProgressUpdate,
     EditInstance,
     EditInstanceJavaOverride(String),
@@ -43,6 +45,13 @@ pub enum Message {
 #[derive(Default)]
 pub struct MenuLaunch {
     pub selected_instance: Option<String>,
+    pub java_install_progress: Option<JavaInstallProgress>,
+}
+
+pub struct JavaInstallProgress {
+    pub num: f32,
+    pub recv: Receiver<JavaInstallMessage>,
+    pub message: String,
 }
 
 pub struct MenuEditInstance {
@@ -64,6 +73,7 @@ pub struct MenuCreateInstance {
     pub progress_receiver: Option<Receiver<DownloadProgress>>,
     pub progress_number: Option<f32>,
     pub progress_text: Option<String>,
+    pub download_assets: bool,
 }
 
 pub struct MenuDeleteInstance {

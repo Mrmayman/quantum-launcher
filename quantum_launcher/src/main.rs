@@ -1,11 +1,9 @@
-use iced::{
-    executor, futures::SinkExt, subscription, widget, Application, Command, Settings, Subscription,
-};
-use launcher_state::{Launcher, MenuInstallFabric, Message, State};
+use std::time::Duration;
+
+use iced::{executor, widget, Application, Command, Settings, Subscription};
+use launcher_state::{Launcher, MenuInstallFabric, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
-use quantum_launcher_backend::{
-    error::LauncherError, instance_mod_installer, json_structs::json_java_list::JavaVersion,
-};
+use quantum_launcher_backend::{error::LauncherError, instance_mod_installer};
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -148,32 +146,63 @@ impl Application for Launcher {
                 Some(dir) => open_file_explorer(dir),
                 None => self.set_error(LauncherError::PathBufToString(dir).to_string()),
             },
+            Message::LaunchJavaInstallProgressUpdate => {
+                if let State::Launch(MenuLaunch {
+                    java_install_progress: Some(java_install_progress),
+                    ..
+                }) = &mut self.state
+                {
+                    match java_install_progress.recv.try_recv() {
+                        Ok(message) => match message {
+                            quantum_launcher_backend::JavaInstallMessage::P1Started => {
+                                java_install_progress.num = 0.0;
+                                java_install_progress.message = "Starting up (2/2)".to_owned();
+                            },
+                            quantum_launcher_backend::JavaInstallMessage::P2 { progress, out_of, name } => {
+                                java_install_progress.num = (progress as f32) / (out_of as f32);
+                                java_install_progress.message = format!("Downloading ({progress}/{out_of}): {name}");
+                            },
+                            quantum_launcher_backend::JavaInstallMessage::P3Done => {
+                                java_install_progress.num = 1.0;
+                                java_install_progress.message = "Done!".to_owned()
+                            },
+                        },
+                        Err(err) => match err {
+                            std::sync::mpsc::TryRecvError::Empty => {},
+                            std::sync::mpsc::TryRecvError::Disconnected => self.set_error("Error in LaunchJavaInstallProgressUpdate:\n\nProgress receiver disconnected".to_owned()),
+                        },
+                    }
+                }
+            }
+            Message::CreateInstanceChangeAssetToggle(toggle) => {
+                if let State::Create(menu) = &mut self.state {
+                    menu.download_assets = toggle;
+                }
+            }
         }
         Command::none()
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
-        struct Sub;
-
-        const MESSAGE_BUFFER_SIZE: usize = 100;
+        const UPDATES_PER_SECOND: u64 = 10;
 
         if let State::Create(menu) = &self.state {
             if menu.progress_receiver.is_none() {
                 return Subscription::none();
             }
-            return subscription::channel(
-                std::any::TypeId::of::<Sub>(),
-                MESSAGE_BUFFER_SIZE,
-                |mut output| async move {
-                    loop {
-                        output
-                            .send(Message::CreateInstanceProgressUpdate)
-                            .await
-                            .unwrap();
-                    }
-                },
-            );
+            return iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
+                .map(|_| Message::CreateInstanceProgressUpdate);
         }
+
+        if let State::Launch(MenuLaunch {
+            java_install_progress: Some(_),
+            ..
+        }) = &self.state
+        {
+            return iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
+                .map(|_| Message::LaunchJavaInstallProgressUpdate);
+        }
+
         Subscription::none()
     }
 
@@ -207,12 +236,6 @@ impl Application for Launcher {
 //         .await
 //         .map(|n| n.path().to_owned())
 // }
-
-fn _main() {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(quantum_launcher_backend::install_java(JavaVersion::Java8))
-        .unwrap();
-}
 
 fn main() {
     const WINDOW_HEIGHT: f32 = 450.0;

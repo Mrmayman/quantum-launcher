@@ -7,8 +7,8 @@ use quantum_launcher_backend::{
 };
 
 use crate::launcher_state::{
-    Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods, Message,
-    State,
+    JavaInstallProgress, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
+    MenuEditMods, Message, State,
 };
 
 impl Launcher {
@@ -29,8 +29,19 @@ impl Launcher {
                     let selected_instance = menu_launch.selected_instance.clone().unwrap();
                     let username = self.config.as_ref().unwrap().username.clone();
 
+                    let (sender, receiver) = std::sync::mpsc::channel();
+                    menu_launch.java_install_progress = Some(JavaInstallProgress {
+                        num: 0.0,
+                        recv: receiver,
+                        message: "Starting up (1/2)".to_owned(),
+                    });
+
                     return Command::perform(
-                        quantum_launcher_backend::launch_wrapped(selected_instance, username),
+                        quantum_launcher_backend::launch_wrapped(
+                            selected_instance,
+                            username,
+                            Some(sender),
+                        ),
                         Message::LaunchEnd,
                     );
                 }
@@ -48,6 +59,8 @@ impl Launcher {
     }
 
     pub fn go_to_create_screen(&mut self) -> Command<Message> {
+        const SKIP_LISTING_VERSIONS: bool = false;
+
         self.state = State::Create(MenuCreateInstance {
             instance_name: Default::default(),
             selected_version: None,
@@ -55,11 +68,17 @@ impl Launcher {
             progress_receiver: None,
             progress_number: None,
             progress_text: None,
+            download_assets: true,
         });
-        Command::perform(
-            quantum_launcher_backend::list_versions(),
-            Message::CreateInstanceVersionsLoaded,
-        )
+
+        if SKIP_LISTING_VERSIONS {
+            Command::none()
+        } else {
+            Command::perform(
+                quantum_launcher_backend::list_versions(),
+                Message::CreateInstanceVersionsLoaded,
+            )
+        }
     }
 
     pub fn create_instance_finish_loading_versions_list(
@@ -101,6 +120,7 @@ impl Launcher {
                     menu.instance_name.to_owned(),
                     menu.selected_version.to_owned().unwrap(),
                     Some(sender),
+                    menu.download_assets,
                 ),
                 Message::CreateInstanceEnd,
             );

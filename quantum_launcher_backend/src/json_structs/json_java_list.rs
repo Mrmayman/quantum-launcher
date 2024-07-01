@@ -30,6 +30,18 @@ impl ToString for JavaVersion {
     }
 }
 
+impl From<crate::json_structs::json_version::JavaVersion> for JavaVersion {
+    fn from(version: crate::json_structs::json_version::JavaVersion) -> Self {
+        match version.majorVersion {
+            8 => JavaVersion::Java8,
+            16 => JavaVersion::Java16,
+            17 => JavaVersion::Java17Gamma,
+            21 => JavaVersion::Java21,
+            _ => JavaVersion::Java21,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct JavaListJson {

@@ -1,6 +1,7 @@
 use crate::{
     error::{LauncherError, LauncherResult},
-    file_utils, io_err, java_install,
+    file_utils, io_err,
+    java_install::{self, JavaInstallMessage},
     json_structs::{
         json_fabric::FabricJSON,
         json_instance_config::InstanceConfigJson,
@@ -12,21 +13,55 @@ use crate::{
 use std::{
     path::{Path, PathBuf},
     process::{Child, Command},
-    sync::{Arc, Mutex},
+    sync::{mpsc::Sender, Arc, Mutex},
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
-pub async fn launch_wrapped(instance_name: String, username: String) -> GameLaunchResult {
-    match launch(&instance_name, &username).await {
+/// Wraps the [`launch`] function to give a `Result<Arc<Mutex<Child>>, String`
+/// instead of a `Result<Child, LauncherError>` to make it easier to
+/// use with the iced GUI toolkit.
+///
+/// Launches the specified instance with the specified username.
+/// Will error if instance isn't created.
+///
+/// This auto downloads the required version of Java
+/// if it's not already installed.
+///
+/// If you want, you can hook this up to a progress bar
+/// (since installing Java takes a while), by using a
+/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
+/// sender to this function and polling the receiver frequently.
+/// If not needed, simply pass `None` to the function.
+pub async fn launch_wrapped(
+    instance_name: String,
+    username: String,
+    java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
+) -> GameLaunchResult {
+    match launch(&instance_name, &username, java_install_progress_sender).await {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
         Err(err) => GameLaunchResult::Err(err.to_string()),
     }
 }
 
-pub async fn launch(instance_name: &str, username: &str) -> LauncherResult<Child> {
+/// Launches the specified instance with the specified username.
+/// Will error if instance isn't created.
+///
+/// This auto downloads the required version of Java
+/// if it's not already installed.
+///
+/// If you want, you can hook this up to a progress bar
+/// (since installing Java takes a while), by using a
+/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
+/// sender to this function and polling the receiver frequently.
+/// If not needed, simply pass `None` to the function.
+pub async fn launch(
+    instance_name: &str,
+    username: &str,
+    java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
+) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
     }
@@ -53,7 +88,7 @@ pub async fn launch(instance_name: &str, username: &str) -> LauncherResult<Child
                 .to_str()
                 .ok_or(LauncherError::PathBufToString(natives_path.clone()))?
         ),
-        format!("-Xmx{}", config_json.get_ram_in_string()),
+        config_json.get_ram_argument(),
     ];
 
     let fabric_json = setup_fabric(&config_json, &instance_dir, &mut java_arguments)?;
@@ -70,17 +105,11 @@ pub async fn launch(instance_name: &str, username: &str) -> LauncherResult<Child
         Command::new(java_override)
     } else {
         let version = if let Some(version) = version_json.javaVersion {
-            match version.majorVersion {
-                8 => JavaVersion::Java8,
-                16 => JavaVersion::Java16,
-                17 => JavaVersion::Java17Gamma,
-                21 => JavaVersion::Java21,
-                _ => JavaVersion::Java17Gamma,
-            }
+            version.into()
         } else {
             JavaVersion::Java8
         };
-        Command::new(java_install::get_java(version).await?)
+        Command::new(java_install::get_java(version, java_install_progress_sender).await?)
     };
 
     println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");

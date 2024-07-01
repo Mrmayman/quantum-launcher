@@ -13,4 +13,4 @@ pub use instance::instance_launch::GameLaunchResult;
 pub use instance::instance_list_versions::list_versions;
 pub use instance::instance_mod_installer;
 pub use instance_mod_installer::fabric::FabricVersion;
-pub use java_install::install_java;
+pub use java_install::JavaInstallMessage;
