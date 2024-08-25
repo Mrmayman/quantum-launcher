@@ -121,20 +121,37 @@ impl GameDownloader {
 
         println!("[info] Downloading assets.");
 
-        let assets_indexes_path = self.instance_dir.join("assets").join("indexes");
+        let launcher_dir = file_utils::get_launcher_dir()?;
+
+        let assets_dir = launcher_dir.join("assets");
+        std::fs::create_dir_all(&assets_dir).map_err(io_err!(assets_dir))?;
+
+        let current_assets_dir = assets_dir.join(self.version_json.assetIndex.id.to_owned());
+        let current_assets_dir_exists = current_assets_dir.exists();
+        std::fs::create_dir_all(&current_assets_dir).map_err(io_err!(current_assets_dir))?;
+
+        let assets_indexes_path = current_assets_dir.join("indexes");
         std::fs::create_dir_all(&assets_indexes_path).map_err(io_err!(assets_indexes_path))?;
-        let assets_objects_path = self.instance_dir.join("assets").join("objects");
+        let assets_objects_path = current_assets_dir.join("objects");
         std::fs::create_dir_all(&assets_objects_path).map_err(io_err!(assets_objects_path))?;
+
+        let lock_path = current_assets_dir.join("download.lock");
+        let lock_exists = lock_path.exists();
+
+        if current_assets_dir_exists && !lock_exists {
+            // Assets have already been downloaded.
+            return Ok(());
+        }
+
+        let lock_contents = "If you see this, the asset downloading hasn't finished. This will be deleted once finished.";
+        std::fs::write(&lock_path, lock_contents).map_err(io_err!(lock_path))?;
 
         let asset_index =
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
                 .await?;
 
-        let assets_indexes_json_path = self
-            .instance_dir
-            .join("assets")
-            .join("indexes")
-            .join(format!("{}.json", self.version_json.assetIndex.id));
+        let assets_indexes_json_path =
+            assets_indexes_path.join(format!("{}.json", self.version_json.assetIndex.id));
 
         std::fs::write(
             &assets_indexes_json_path,
@@ -179,6 +196,8 @@ impl GameDownloader {
 
             std::fs::write(&obj_file_path, &obj_data).map_err(io_err!(obj_file_path))?;
         }
+
+        std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
         Ok(())
     }
 

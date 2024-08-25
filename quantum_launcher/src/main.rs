@@ -79,12 +79,11 @@ impl Application for Launcher {
             }
             Message::EditInstanceSave => {
                 if let State::EditInstance(menu_edit_instance) = &self.state {
-                    match Launcher::save_config(
+                    if let Err(err) = Launcher::save_config(
                         &menu_edit_instance.selected_instance,
                         &menu_edit_instance.config,
                     ) {
-                        Ok(_) => self.go_to_launch_screen(),
-                        Err(err) => self.set_error(err.to_string()),
+                        self.set_error(err.to_string())
                     }
                 }
             }
@@ -148,29 +147,14 @@ impl Application for Launcher {
             },
             Message::LaunchJavaInstallProgressUpdate => {
                 if let State::Launch(MenuLaunch {
-                    java_install_progress: Some(java_install_progress),
+                    java_install_progress,
                     ..
                 }) = &mut self.state
                 {
-                    match java_install_progress.recv.try_recv() {
-                        Ok(message) => match message {
-                            quantum_launcher_backend::JavaInstallMessage::P1Started => {
-                                java_install_progress.num = 0.0;
-                                java_install_progress.message = "Starting up (2/2)".to_owned();
-                            },
-                            quantum_launcher_backend::JavaInstallMessage::P2 { progress, out_of, name } => {
-                                java_install_progress.num = (progress as f32) / (out_of as f32);
-                                java_install_progress.message = format!("Downloading ({progress}/{out_of}): {name}");
-                            },
-                            quantum_launcher_backend::JavaInstallMessage::P3Done => {
-                                java_install_progress.num = 1.0;
-                                java_install_progress.message = "Done!".to_owned()
-                            },
-                        },
-                        Err(err) => match err {
-                            std::sync::mpsc::TryRecvError::Empty => {},
-                            std::sync::mpsc::TryRecvError::Disconnected => self.set_error("Error in LaunchJavaInstallProgressUpdate:\n\nProgress receiver disconnected".to_owned()),
-                        },
+                    let install_finished = receive_java_install_progress(java_install_progress);
+
+                    if install_finished {
+                        *java_install_progress = None;
                     }
                 }
             }
@@ -179,12 +163,17 @@ impl Application for Launcher {
                     menu.download_assets = toggle;
                 }
             }
+            Message::ErrorCopy => {
+                if let State::Error { error } = &self.state {
+                    return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
+                }
+            }
         }
         Command::none()
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
-        const UPDATES_PER_SECOND: u64 = 10;
+        const UPDATES_PER_SECOND: u64 = 15;
 
         if let State::Create(menu) = &self.state {
             if menu.progress_receiver.is_none() {
@@ -203,6 +192,11 @@ impl Application for Launcher {
                 .map(|_| Message::LaunchJavaInstallProgressUpdate);
         }
 
+        if let State::EditInstance(_) = &self.state {
+            return iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
+                .map(|_| Message::EditInstanceSave);
+        }
+
         Subscription::none()
     }
 
@@ -215,12 +209,46 @@ impl Application for Launcher {
             State::DeleteInstance(menu) => menu.view(),
             State::Error { error } => widget::column!(
                 widget::text(format!("Error: {}", error)),
-                widget::button("Back").on_press(Message::LaunchScreenOpen)
+                widget::button("Back").on_press(Message::LaunchScreenOpen),
+                widget::button("Copy Error").on_press(Message::ErrorCopy),
             )
             .into(),
             State::InstallFabric(menu) => menu.view(),
         }
     }
+}
+
+fn receive_java_install_progress(
+    java_install_progress: &mut Option<launcher_state::JavaInstallProgress>,
+) -> bool {
+    let Some(java_install_progress) = java_install_progress else {
+        return true;
+    };
+
+    match java_install_progress.recv.try_recv() {
+        Ok(message) => match message {
+            quantum_launcher_backend::JavaInstallMessage::P1Started => {
+                java_install_progress.num = 0.0;
+                java_install_progress.message = "Starting up (2/2)".to_owned();
+            }
+            quantum_launcher_backend::JavaInstallMessage::P2 {
+                progress,
+                out_of,
+                name,
+            } => {
+                java_install_progress.num = (progress as f32) / (out_of as f32);
+                java_install_progress.message =
+                    format!("Downloading ({progress}/{out_of}): {name}");
+            }
+            quantum_launcher_backend::JavaInstallMessage::P3Done => {
+                java_install_progress.num = 1.0;
+                java_install_progress.message = "Done!".to_owned();
+                return true;
+            }
+        },
+        Err(_) => {}
+    }
+    false
 }
 
 // async fn pick_file() -> Option<PathBuf> {
@@ -238,7 +266,7 @@ impl Application for Launcher {
 // }
 
 fn main() {
-    const WINDOW_HEIGHT: f32 = 450.0;
+    const WINDOW_HEIGHT: f32 = 550.0;
     const WINDOW_WIDTH: f32 = 220.0;
 
     Launcher::run(Settings {

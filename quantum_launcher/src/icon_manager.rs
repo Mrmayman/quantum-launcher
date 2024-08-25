@@ -21,4 +21,4 @@ icon_define!(play, '\u{e803}');
 icon_define!(folder, '\u{e800}');
 icon_define!(download, '\u{e805}');
 icon_define!(settings, '\u{e806}');
-icon_define!(save, '\u{e807}');
+// icon_define!(save, '\u{e807}');

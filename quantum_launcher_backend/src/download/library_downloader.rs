@@ -161,12 +161,27 @@ impl GameDownloader {
                 if let Some(ref os) = rule.os {
                     if os.name == OS_NAME {
                         allowed = rule.action == "allow";
+                        if rule.action == "disallow" {
+                            break;
+                        }
                     }
                 } else {
                     allowed = rule.action == "allow";
+                    if rule.action == "disallow" {
+                        break;
+                    }
                 }
             }
         }
+
+        if !allowed {
+            if let Some(LibraryDownloads::Native { classifiers }) = &library.downloads {
+                if classifiers.contains_key(&format!("natives-{OS_NAME}")) {
+                    allowed = true;
+                }
+            }
+        }
+
         allowed
     }
 }

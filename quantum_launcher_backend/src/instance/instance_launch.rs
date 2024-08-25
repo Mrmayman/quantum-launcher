@@ -1,5 +1,5 @@
 use crate::{
-    error::{LauncherError, LauncherResult},
+    error::{IoError, LauncherError, LauncherResult},
     file_utils, io_err,
     java_install::{self, JavaInstallMessage},
     json_structs::{
@@ -90,6 +90,10 @@ pub async fn launch(
         ),
         config_json.get_ram_argument(),
     ];
+
+    if version_json.r#type == "old_beta" || version_json.r#type == "old_alpha" {
+        java_arguments.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
+    }
 
     let fabric_json = setup_fabric(&config_json, &instance_dir, &mut java_arguments)?;
 
@@ -189,7 +193,7 @@ fn get_class_path(
 ) -> LauncherResult<String> {
     let mut class_path: String = "".to_owned();
     if cfg!(windows) {
-        class_path.push('"');
+        // class_path.push('"');
     }
 
     version_json
@@ -233,7 +237,7 @@ fn get_class_path(
     class_path.push_str(jar_path);
 
     if cfg!(windows) {
-        class_path.push('"');
+        // class_path.push('"');
     }
     Ok(class_path)
 }
@@ -268,11 +272,21 @@ fn get_arguments(
         };
         replace_var(argument, "game_directory", minecraft_dir_path);
 
-        let assets_path = instance_dir.join("assets");
+        let assets_path = file_utils::get_launcher_dir()?
+            .join("assets")
+            .join(&version_json.assetIndex.id);
+
+        let old_assets_path = instance_dir.join("assets");
+
+        if old_assets_path.exists() {
+            migrate_to_new_assets_path(&old_assets_path, &assets_path)?;
+        }
+
         let assets_path = match assets_path.to_str() {
             Some(n) => n,
             None => return Err(LauncherError::PathBufToString(assets_path)),
         };
+
         replace_var(argument, "assets_root", assets_path);
         replace_var(argument, "game_assets", assets_path);
         replace_var(argument, "auth_xuid", "0");
@@ -286,8 +300,44 @@ fn get_arguments(
         replace_var(argument, "user_type", "legacy");
         replace_var(argument, "version_type", "release");
         replace_var(argument, "assets_index_name", &version_json.assetIndex.id);
+        replace_var(argument, "user_properties", "{}");
     }
     Ok(game_arguments)
+}
+
+fn migrate_to_new_assets_path(
+    old_assets_path: &PathBuf,
+    assets_path: &PathBuf,
+) -> Result<(), LauncherError> {
+    println!("[info] Migrating old assets to new path...");
+    copy_dir_recursive(&old_assets_path, &assets_path)?;
+    std::fs::remove_dir_all(&old_assets_path).map_err(io_err!(old_assets_path))?;
+    println!("[info] Finished");
+    Ok(())
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
+    // Create the destination directory if it doesn't exist
+    if !dst.exists() {
+        std::fs::create_dir_all(dst).map_err(io_err!(dst))?;
+    }
+
+    // Iterate over the directory entries
+    for entry in std::fs::read_dir(src).map_err(io_err!(src))? {
+        let entry = entry.map_err(io_err!(src))?;
+        let path = entry.path();
+        let dest_path = dst.join(entry.file_name());
+
+        if path.is_dir() {
+            // Recursively copy the subdirectory
+            copy_dir_recursive(&path, &dest_path)?;
+        } else {
+            // Copy the file to the destination directory
+            std::fs::copy(&path, &dest_path).map_err(io_err!(path))?;
+        }
+    }
+
+    Ok(())
 }
 
 fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {

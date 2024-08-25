@@ -40,6 +40,7 @@ pub enum Message {
     ManageModsScreenOpen,
     InstallFabricClicked,
     InstallFabricScreenOpen,
+    ErrorCopy,
 }
 
 #[derive(Default)]

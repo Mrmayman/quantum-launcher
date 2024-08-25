@@ -43,7 +43,7 @@ impl MenuLaunch {
                 button_with_icon(icon_manager::delete(), "Delete Instance").on_press_maybe(
                     (self.selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
                 ),
-                button_with_icon(icon_manager::settings(), "Settings").on_press_maybe(
+                button_with_icon(icon_manager::settings(), "Edit Instance").on_press_maybe(
                     (self.selected_instance.is_some()).then_some(Message::EditInstance)
                 ),
                 button_with_icon(icon_manager::download(), "Manage Mods").on_press_maybe(
@@ -65,6 +65,15 @@ impl MenuLaunch {
             column![widget::text("Loading instances...")]
         };
 
+        let java_progress_bar = if let Some(progress) = &self.java_install_progress {
+            widget::column!(
+                widget::progress_bar(0.0..=1.0, progress.num),
+                widget::text(&progress.message)
+            )
+        } else {
+            widget::column!(widget::text("A Minecraft Launcher\nby Mrmayman"))
+        };
+
         column![
             column![
                 widget::text("Username:"),
@@ -75,7 +84,8 @@ impl MenuLaunch {
             .spacing(5),
             pick_list.spacing(5),
             button_with_icon(icon_manager::play(), "Launch Game")
-                .on_press_maybe((self.selected_instance.is_some()).then_some(Message::LaunchStart))
+                .on_press_maybe((self.selected_instance.is_some()).then_some(Message::LaunchStart)),
+            java_progress_bar
         ]
         .padding(10)
         .spacing(20)
@@ -124,10 +134,6 @@ impl MenuEditInstance {
                     .padding(10)
                     .spacing(5),
                 ),
-                widget::button(row![icon_manager::save(), widget::text("Save")]
-                    .spacing(10)
-                    .padding(5)
-                ).on_press(Message::EditInstanceSave),
             ]
             .padding(10)
             .spacing(20)
