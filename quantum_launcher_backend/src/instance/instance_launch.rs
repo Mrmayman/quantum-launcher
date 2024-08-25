@@ -306,12 +306,12 @@ fn get_arguments(
 }
 
 fn migrate_to_new_assets_path(
-    old_assets_path: &PathBuf,
-    assets_path: &PathBuf,
+    old_assets_path: &Path,
+    assets_path: &Path,
 ) -> Result<(), LauncherError> {
     println!("[info] Migrating old assets to new path...");
-    copy_dir_recursive(&old_assets_path, &assets_path)?;
-    std::fs::remove_dir_all(&old_assets_path).map_err(io_err!(old_assets_path))?;
+    copy_dir_recursive(old_assets_path, assets_path)?;
+    std::fs::remove_dir_all(old_assets_path).map_err(io_err!(old_assets_path))?;
     println!("[info] Finished");
     Ok(())
 }

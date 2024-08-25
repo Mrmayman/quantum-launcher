@@ -225,8 +225,8 @@ fn receive_java_install_progress(
         return true;
     };
 
-    match java_install_progress.recv.try_recv() {
-        Ok(message) => match message {
+    if let Ok(message) = java_install_progress.recv.try_recv() {
+        match message {
             quantum_launcher_backend::JavaInstallMessage::P1Started => {
                 java_install_progress.num = 0.0;
                 java_install_progress.message = "Starting up (2/2)".to_owned();
@@ -245,8 +245,7 @@ fn receive_java_install_progress(
                 java_install_progress.message = "Done!".to_owned();
                 return true;
             }
-        },
-        Err(_) => {}
+        }
     }
     false
 }

@@ -126,7 +126,7 @@ impl GameDownloader {
         let assets_dir = launcher_dir.join("assets");
         std::fs::create_dir_all(&assets_dir).map_err(io_err!(assets_dir))?;
 
-        let current_assets_dir = assets_dir.join(self.version_json.assetIndex.id.to_owned());
+        let current_assets_dir = assets_dir.join(&self.version_json.assetIndex.id);
         let current_assets_dir_exists = current_assets_dir.exists();
         std::fs::create_dir_all(&current_assets_dir).map_err(io_err!(current_assets_dir))?;
 
