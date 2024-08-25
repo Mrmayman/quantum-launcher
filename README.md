@@ -7,8 +7,10 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - Instances to isolate different installations. No more conflicts between versions!
 - Install fabric with one click.
 - Create or delete an Instance easily.
-- Remembers your username across sessions.
-- Can't autodetect java? Add it manually with a simple file picker.
+- Autoinstalls Java for you.
+## Assets
+- Choose not to download assets (saving space)
+- Download assets to a centralized location, never downloading them twice.
 
 # Location
 - On *Windows*, the launcher files are at `AppData/Roaming/QuantumLauncher/`.
@@ -19,7 +21,6 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 
 # Todo
 - Add java installs dropdown list for Java override selection.
-- Add java autoinstall.
 - Add ability to enable and disable mods.
 - Add menu to see logs.
 - Fix the weird freeze when downloading assets on Windows.
@@ -31,4 +32,4 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 # Note on Piracy
 (For legal reasons) I do not encourage or promote piracy in any way. Authentication is not implemented for ease of development and use. If you use this launcher and pirate the game, you are playing at your own risk.
 
-If anyone has any complaint, open an issue in the repo and I will address it.
+If anyone has any complaint, open an issue in the repo and I will try my best to address it.
