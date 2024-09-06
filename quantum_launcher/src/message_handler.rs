@@ -24,36 +24,35 @@ impl Launcher {
 
     pub fn launch_game(&mut self) -> Command<Message> {
         if let State::Launch(ref mut menu_launch) = self.state {
-            match self.config.as_ref().unwrap().save() {
-                Ok(_) => {
-                    let selected_instance = menu_launch.selected_instance.clone().unwrap();
-                    let username = self.config.as_ref().unwrap().username.clone();
+            let selected_instance = menu_launch.selected_instance.clone().unwrap();
+            let username = self.config.as_ref().unwrap().username.clone();
 
-                    let (sender, receiver) = std::sync::mpsc::channel();
-                    menu_launch.java_install_progress = Some(JavaInstallProgress {
-                        num: 0.0,
-                        recv: receiver,
-                        message: "Starting up (1/2)".to_owned(),
-                    });
+            let (sender, receiver) = std::sync::mpsc::channel();
+            menu_launch.java_install_progress = Some(JavaInstallProgress {
+                num: 0.0,
+                recv: receiver,
+                message: "Starting up (1/2)".to_owned(),
+            });
 
-                    return Command::perform(
-                        quantum_launcher_backend::launch_wrapped(
-                            selected_instance,
-                            username,
-                            Some(sender),
-                        ),
-                        Message::LaunchEnd,
-                    );
-                }
-                Err(err) => self.set_error(err.to_string()),
-            };
+            return Command::perform(
+                quantum_launcher_backend::launch_wrapped(selected_instance, username, Some(sender)),
+                Message::LaunchEnd,
+            );
         }
         Command::none()
     }
 
     pub fn finish_launching(&mut self, result: GameLaunchResult) {
         match result {
-            GameLaunchResult::Ok(child) => self.spawned_process = Some(child),
+            GameLaunchResult::Ok(child) => {
+                if let State::Launch(menu_launch) = &self.state {
+                    if let Some(selected_instance) = menu_launch.selected_instance.to_owned() {
+                        self.processes.insert(selected_instance, child);
+                    } else {
+                        eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.")
+                    }
+                }
+            }
             GameLaunchResult::Err(err) => self.set_error(err),
         }
     }
@@ -163,9 +162,9 @@ impl Launcher {
         }
     }
 
-    pub fn update_instance_creation_progress_bar(&mut self) {
-        if let State::Create(menu) = &mut self.state {
-            if let Some(Ok(progress)) = menu.progress_receiver.as_ref().map(|n| n.try_recv()) {
+    pub fn update_instance_creation_progress_bar(menu: &mut MenuCreateInstance) {
+        if let Some(receiver) = &menu.progress_receiver {
+            if let Ok(progress) = receiver.try_recv() {
                 if let Some(progress_text) = &mut menu.progress_text {
                     *progress_text = progress.to_string()
                 }

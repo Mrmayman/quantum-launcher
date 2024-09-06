@@ -9,3 +9,4 @@ edition = "2021"
 reqwest = "0.12.7"
 serde = { version = "1.0.209", features = ["derive"] }
 serde_json = "1.0.127"
+quantum_launcher_backend = { path = "../quantum_launcher_backend" }

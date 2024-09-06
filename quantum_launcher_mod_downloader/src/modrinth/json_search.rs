@@ -1,3 +1,4 @@
+use quantum_launcher_backend::file_utils::{self, RequestError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -81,10 +82,31 @@ impl Search {
         url
     }
 
-    pub fn search(query: SearchQuery) -> Result<Self, ()> {
+    pub async fn search(query: SearchQuery) -> Result<Self, ModDownloadError> {
         let url = Search::get_search_url(query);
 
-        todo!()
+        let client = reqwest::Client::new();
+        let json = file_utils::download_file_to_string(&client, &url).await?;
+        let json: Self = serde_json::from_str(&json)?;
+
+        Ok(json)
+    }
+}
+
+pub enum ModDownloadError {
+    RequestError(RequestError),
+    Serde(serde_json::Error),
+}
+
+impl From<RequestError> for ModDownloadError {
+    fn from(value: RequestError) -> Self {
+        Self::RequestError(value)
+    }
+}
+
+impl From<serde_json::Error> for ModDownloadError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serde(value)
     }
 }
 

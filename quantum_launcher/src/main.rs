@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use iced::{executor, widget, Application, Command, Settings, Subscription};
+use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{Launcher, MenuInstallFabric, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
 use quantum_launcher_backend::{error::LauncherError, instance_mod_installer};
@@ -57,7 +57,6 @@ impl Application for Launcher {
                 },
                 Err(n) => self.state = State::Error { error: n },
             },
-            Message::CreateInstanceProgressUpdate => self.update_instance_creation_progress_bar(),
             Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::LaunchScreenOpen => self.go_to_launch_screen(),
@@ -75,16 +74,6 @@ impl Application for Launcher {
                     menu_edit_instance.config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
                     menu_edit_instance.slider_text =
                         format_memory(menu_edit_instance.config.ram_in_mb);
-                }
-            }
-            Message::EditInstanceSave => {
-                if let State::EditInstance(menu_edit_instance) = &self.state {
-                    if let Err(err) = Launcher::save_config(
-                        &menu_edit_instance.selected_instance,
-                        &menu_edit_instance.config,
-                    ) {
-                        self.set_error(err.to_string())
-                    }
                 }
             }
             Message::ManageModsScreenOpen => {
@@ -145,19 +134,6 @@ impl Application for Launcher {
                 Some(dir) => open_file_explorer(dir),
                 None => self.set_error(LauncherError::PathBufToString(dir).to_string()),
             },
-            Message::LaunchJavaInstallProgressUpdate => {
-                if let State::Launch(MenuLaunch {
-                    java_install_progress,
-                    ..
-                }) = &mut self.state
-                {
-                    let install_finished = receive_java_install_progress(java_install_progress);
-
-                    if install_finished {
-                        *java_install_progress = None;
-                    }
-                }
-            }
             Message::CreateInstanceChangeAssetToggle(toggle) => {
                 if let State::Create(menu) = &mut self.state {
                     menu.download_assets = toggle;
@@ -168,41 +144,64 @@ impl Application for Launcher {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
                 }
             }
+            Message::Tick => match &mut self.state {
+                State::Launch(MenuLaunch {
+                    java_install_progress,
+                    ..
+                }) => {
+                    let install_finished = receive_java_install_progress(java_install_progress);
+                    if install_finished {
+                        *java_install_progress = None;
+                    }
+
+                    let mut killed_processes = Vec::new();
+                    for (name, process) in self.processes.iter() {
+                        if let Ok(Some(_)) = process.lock().unwrap().try_wait() {
+                            // Game process has exited.
+                            killed_processes.push(name.to_owned())
+                        }
+                    }
+                    for name in killed_processes {
+                        self.processes.remove(&name);
+                    }
+
+                    if let Some(config) = self.config.clone() {
+                        return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
+                    }
+                }
+                State::EditInstance(menu) => {
+                    if let Err(err) = Launcher::save_config(&menu.selected_instance, &menu.config) {
+                        self.set_error(err.to_string())
+                    }
+                }
+                State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
+                State::EditMods(_) => {}
+                State::Error { .. } => {}
+                State::DeleteInstance(_) => {}
+                State::InstallFabric(_) => {}
+            },
+            Message::TickConfigSaved(result) => {
+                if let Err(err) = result {
+                    self.set_error(err)
+                }
+            }
         }
         Command::none()
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
-        const UPDATES_PER_SECOND: u64 = 15;
+        const UPDATES_PER_SECOND: u64 = 12;
 
-        if let State::Create(menu) = &self.state {
-            if menu.progress_receiver.is_none() {
-                return Subscription::none();
-            }
-            return iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
-                .map(|_| Message::CreateInstanceProgressUpdate);
-        }
-
-        if let State::Launch(MenuLaunch {
-            java_install_progress: Some(_),
-            ..
-        }) = &self.state
-        {
-            return iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
-                .map(|_| Message::LaunchJavaInstallProgressUpdate);
-        }
-
-        if let State::EditInstance(_) = &self.state {
-            return iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
-                .map(|_| Message::EditInstanceSave);
-        }
-
-        Subscription::none()
+        iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND)).map(|_| Message::Tick)
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
         match &self.state {
-            State::Launch(menu) => menu.view(self.config.as_ref(), self.instances.as_deref()),
+            State::Launch(menu) => menu.view(
+                self.config.as_ref(),
+                self.instances.as_deref(),
+                &self.processes,
+            ),
             State::EditInstance(menu) => menu.view(),
             State::EditMods(menu) => menu.view(),
             State::Create(menu) => menu.view(),
@@ -265,8 +264,8 @@ fn receive_java_install_progress(
 // }
 
 fn main() {
-    const WINDOW_HEIGHT: f32 = 550.0;
-    const WINDOW_WIDTH: f32 = 220.0;
+    const WINDOW_HEIGHT: f32 = 400.0;
+    const WINDOW_WIDTH: f32 = 400.0;
 
     Launcher::run(Settings {
         window: iced::window::Settings {

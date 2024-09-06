@@ -1,1 +1,1 @@
-mod modrinth;
+pub mod modrinth;

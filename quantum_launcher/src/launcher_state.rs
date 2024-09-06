@@ -1,7 +1,8 @@
 use std::{
+    collections::HashMap,
     path::PathBuf,
     process::Child,
-    sync::{mpsc::Receiver, Arc},
+    sync::{mpsc::Receiver, Arc, Mutex},
 };
 
 use quantum_launcher_backend::{
@@ -24,7 +25,6 @@ pub enum Message {
     DeleteInstance,
     LaunchScreenOpen,
     LaunchEnd(GameLaunchResult),
-    LaunchJavaInstallProgressUpdate,
     CreateInstanceScreenOpen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
     CreateInstanceVersionSelected(String),
@@ -32,15 +32,15 @@ pub enum Message {
     CreateInstanceStart,
     CreateInstanceEnd(Result<(), String>),
     CreateInstanceChangeAssetToggle(bool),
-    CreateInstanceProgressUpdate,
     EditInstance,
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
-    EditInstanceSave,
     ManageModsScreenOpen,
     InstallFabricClicked,
     InstallFabricScreenOpen,
     ErrorCopy,
+    Tick,
+    TickConfigSaved(Result<(), String>),
 }
 
 #[derive(Default)]
@@ -101,7 +101,7 @@ pub struct Launcher {
     pub state: State,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
-    pub spawned_process: Option<Arc<std::sync::Mutex<Child>>>,
+    pub processes: HashMap<String, Arc<Mutex<Child>>>,
 }
 
 impl Launcher {
@@ -116,6 +116,7 @@ impl Launcher {
 
         let dir = std::fs::read_dir(&dir_path).map_err(io_err!(dir_path))?;
 
+        println!("[info] Starting Launcher");
         let subdirectories: Vec<String> = dir
             .filter_map(|entry| {
                 if let Ok(entry) = entry {
@@ -132,7 +133,7 @@ impl Launcher {
         Ok(Self {
             instances: Some(subdirectories),
             state: State::Launch(MenuLaunch::default()),
-            spawned_process: None,
+            processes: HashMap::new(),
             config: Some(LauncherConfig::load()?),
         })
     }
@@ -144,7 +145,7 @@ impl Launcher {
             },
             instances: None,
             config: LauncherConfig::load().ok(),
-            spawned_process: None,
+            processes: HashMap::new(),
         }
     }
 

@@ -14,6 +14,8 @@ readme = "../README.md"
 
 [dependencies]
 quantum_launcher_backend = { path = "../quantum_launcher_backend" }
+quantum_launcher_mod_downloader = { path = "../quantum_launcher_mod_downloader" }
+
 iced = { version = "*", features = ["highlighter", "tokio"] }
 # rfd = "0.14"
 serde = { version = "1", features = ["derive"] }

@@ -1,7 +1,7 @@
 use quantum_launcher_backend::{error::LauncherError, file_utils, io_err};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LauncherConfig {
     pub java_installs: Vec<String>,
     pub username: String,
@@ -32,5 +32,9 @@ impl LauncherConfig {
 
         std::fs::write(&config_path, config.as_bytes()).map_err(io_err!(config_path))?;
         Ok(())
+    }
+
+    pub async fn save_wrapped(self) -> Result<(), String> {
+        self.save().map_err(|err| err.to_string())
     }
 }

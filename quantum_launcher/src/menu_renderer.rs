@@ -1,4 +1,9 @@
-use std::ops::RangeInclusive;
+use std::{
+    collections::HashMap,
+    ops::RangeInclusive,
+    process::Child,
+    sync::{Arc, Mutex},
+};
 
 use iced::widget::{self, column, row};
 use quantum_launcher_backend::file_utils;
@@ -28,6 +33,7 @@ impl MenuLaunch {
         &'element self,
         config: Option<&'element LauncherConfig>,
         instances: Option<&'element [String]>,
+        processes: &'element HashMap<String, Arc<Mutex<Child>>>,
     ) -> Element<'element> {
         let pick_list = if let Some(instances) = instances {
             column![
@@ -38,28 +44,32 @@ impl MenuLaunch {
                     Message::LaunchInstanceSelected,
                 )
                 .width(200),
-                button_with_icon(icon_manager::create(), "New Instance")
-                    .on_press(Message::CreateInstanceScreenOpen),
-                button_with_icon(icon_manager::delete(), "Delete Instance").on_press_maybe(
-                    (self.selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
-                ),
-                button_with_icon(icon_manager::settings(), "Edit Instance").on_press_maybe(
-                    (self.selected_instance.is_some()).then_some(Message::EditInstance)
-                ),
-                button_with_icon(icon_manager::download(), "Manage Mods").on_press_maybe(
-                    (self.selected_instance.is_some()).then_some(Message::ManageModsScreenOpen)
-                ),
-                button_with_icon(icon_manager::folder(), "Open Files").on_press_maybe(
-                    (self.selected_instance.is_some()).then(|| {
-                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                        Message::OpenDir(
-                            launcher_dir
-                                .join("instances")
-                                .join(self.selected_instance.as_ref().unwrap())
-                                .join(".minecraft"),
+                widget::row![
+                    button_with_icon(icon_manager::create(), "New")
+                        .on_press(Message::CreateInstanceScreenOpen)
+                        .width(97),
+                    button_with_icon(icon_manager::delete(), "Delete")
+                        .on_press_maybe(
+                            (self.selected_instance.is_some())
+                                .then_some(Message::DeleteInstanceMenu)
                         )
-                    })
-                )
+                        .width(98),
+                ]
+                .spacing(5),
+                widget::row![
+                    button_with_icon(icon_manager::settings(), "Edit")
+                        .on_press_maybe(
+                            (self.selected_instance.is_some()).then_some(Message::EditInstance)
+                        )
+                        .width(97),
+                    button_with_icon(icon_manager::download(), "Mods")
+                        .on_press_maybe(
+                            (self.selected_instance.is_some())
+                                .then_some(Message::ManageModsScreenOpen)
+                        )
+                        .width(98),
+                ]
+                .spacing(5),
             ]
         } else {
             column![widget::text("Loading instances...")]
@@ -83,8 +93,32 @@ impl MenuLaunch {
             ]
             .spacing(5),
             pick_list.spacing(5),
-            button_with_icon(icon_manager::play(), "Launch Game")
-                .on_press_maybe((self.selected_instance.is_some()).then_some(Message::LaunchStart)),
+            widget::row![
+                button_with_icon(icon_manager::folder(), "Files")
+                    .on_press_maybe((self.selected_instance.is_some()).then(|| {
+                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                        Message::OpenDir(
+                            launcher_dir
+                                .join("instances")
+                                .join(self.selected_instance.as_ref().unwrap())
+                                .join(".minecraft"),
+                        )
+                    }))
+                    .width(97),
+                button_with_icon(icon_manager::play(), "Play")
+                    .on_press_maybe(
+                        {
+                            if let Some(selected_instance) = &self.selected_instance {
+                                !processes.contains_key(selected_instance)
+                            } else {
+                                false
+                            }
+                        }
+                        .then_some(Message::LaunchStart)
+                    )
+                    .width(98),
+            ]
+            .spacing(5),
             java_progress_bar
         ]
         .padding(10)
