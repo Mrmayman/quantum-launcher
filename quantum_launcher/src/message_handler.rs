@@ -144,7 +144,7 @@ impl Launcher {
                         return;
                     }
 
-                    match Launcher::new() {
+                    match Launcher::new(Some("Deleted Instance".to_owned())) {
                         Ok(launcher) => *self = launcher,
                         Err(err) => self.set_error(err.to_string()),
                     }

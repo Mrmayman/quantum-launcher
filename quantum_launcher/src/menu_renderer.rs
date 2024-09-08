@@ -81,7 +81,17 @@ impl MenuLaunch {
                 widget::text(&progress.message)
             )
         } else {
-            widget::column!(widget::text("A Minecraft Launcher\nby Mrmayman"))
+            let version_message =
+                widget::text("QuantumLauncher v0.1\nA Minecraft Launcher\nby Mrmayman");
+            if self.message.is_empty() {
+                widget::column!(version_message)
+            } else {
+                widget::column!(
+                    widget::container(widget::text(&self.message)).padding(10),
+                    version_message
+                )
+            }
+            .spacing(10)
         };
 
         column![
@@ -139,7 +149,7 @@ impl MenuEditInstance {
                 widget::button(row![icon_manager::back(), widget::text("Back")]
                     .spacing(10)
                     .padding(5)
-                ).on_press(Message::LaunchScreenOpen),
+                ).on_press(Message::LaunchScreenOpen(None)),
                 widget::text(format!("Editing {} instance: {}", self.config.mod_type, self.selected_instance)),
                 widget::container(
                     column![
@@ -186,16 +196,17 @@ impl MenuEditMods {
             ]
             .spacing(5)
         } else {
-            widget::column![
-                widget::button(
-                    widget::row![
-                        icon_manager::delete(),
-                        widget::text(format!("Uninstall {}", self.config.mod_type))
-                    ]
-                    .spacing(10)
-                    .padding(5)
-                ) // TODO: Add uninstall option for fabric.
-            ]
+            widget::column![widget::button(
+                widget::row![
+                    icon_manager::delete(),
+                    widget::text(format!("Uninstall {}", self.config.mod_type))
+                ]
+                .spacing(10)
+                .padding(5)
+            )
+            .on_press_maybe(
+                (self.config.mod_type == "Fabric").then_some(Message::UninstallLoaderStart)
+            )]
         };
 
         widget::column![
@@ -204,7 +215,7 @@ impl MenuEditMods {
                     .spacing(10)
                     .padding(5)
             )
-            .on_press(Message::LaunchScreenOpen),
+            .on_press(Message::LaunchScreenOpen(None)),
             mod_installer,
             widget::button("Go to mods folder"),
             widget::text("Mod management and store coming soon...")
@@ -236,7 +247,7 @@ impl MenuCreateInstance {
                     row![icon_manager::back(), widget::text("Back")]
                         .spacing(10)
                         .padding(5)
-                ).on_press(Message::LaunchScreenOpen),
+                ).on_press(Message::LaunchScreenOpen(None)),
                 column![
                     widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
                     widget::text("Select Version"),
@@ -273,7 +284,7 @@ impl MenuDeleteInstance {
             )),
             widget::text("All your data, including worlds will be lost."),
             widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-            widget::button("No").on_press(Message::LaunchScreenOpen),
+            widget::button("No").on_press(Message::LaunchScreenOpen(None)),
         ]
         .padding(10)
         .spacing(10)
@@ -283,30 +294,40 @@ impl MenuDeleteInstance {
 
 impl MenuInstallFabric {
     pub fn view(&self) -> Element {
-        column![
-            widget::button(
-                row![icon_manager::back(), widget::text("Back")]
-                    .spacing(10)
-                    .padding(5)
+        if self.progress_receiver.is_some() {
+            column!(
+                widget::text("Installing Fabric..."),
+                widget::progress_bar(0.0..=1.0, self.progress_num)
             )
-            .on_press(Message::LaunchScreenOpen),
-            widget::text(format!(
-                "Select Fabric Version for instance {}",
-                &self.selected_instance
-            )),
-            widget::pick_list(
-                self.fabric_versions.as_slice(),
-                self.fabric_version.as_ref(),
-                Message::InstallFabricVersionSelected
-            ),
-            widget::button("Install Fabric").on_press_maybe(
-                self.fabric_version
-                    .is_some()
-                    .then(|| Message::InstallFabricClicked)
-            ),
-        ]
-        .padding(10)
-        .spacing(20)
-        .into()
+            .padding(10)
+            .spacing(20)
+            .into()
+        } else {
+            column![
+                widget::button(
+                    row![icon_manager::back(), widget::text("Back")]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press(Message::LaunchScreenOpen(None)),
+                widget::text(format!(
+                    "Select Fabric Version for instance {}",
+                    &self.selected_instance
+                )),
+                widget::pick_list(
+                    self.fabric_versions.as_slice(),
+                    self.fabric_version.as_ref(),
+                    Message::InstallFabricVersionSelected
+                ),
+                widget::button("Install Fabric").on_press_maybe(
+                    self.fabric_version
+                        .is_some()
+                        .then(|| Message::InstallFabricClicked)
+                ),
+            ]
+            .padding(10)
+            .spacing(20)
+            .into()
+        }
     }
 }

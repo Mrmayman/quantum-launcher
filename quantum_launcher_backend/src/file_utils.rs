@@ -7,6 +7,7 @@ use reqwest::Client;
 
 use crate::{error::IoError, io_err};
 
+/// Returns the path to the QuantumLauncher root folder.
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
     let launcher_directory = config_directory.join("QuantumLauncher");

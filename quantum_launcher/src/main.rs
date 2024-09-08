@@ -3,7 +3,10 @@ use std::time::Duration;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{Launcher, MenuInstallFabric, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
-use quantum_launcher_backend::{error::LauncherError, instance_mod_installer};
+use quantum_launcher_backend::{
+    error::LauncherError,
+    instance_mod_installer::{self, fabric::FabricInstallProgress},
+};
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -21,7 +24,7 @@ impl Application for Launcher {
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         (
-            match Launcher::new() {
+            match Launcher::new(None) {
                 Ok(launcher) => launcher,
                 Err(error) => Launcher::with_error(error.to_string()),
             },
@@ -51,7 +54,7 @@ impl Application for Launcher {
             Message::CreateInstanceNameInput(name) => self.update_created_instance_name(name),
             Message::CreateInstanceStart => return self.create_instance(),
             Message::CreateInstanceEnd(result) => match result {
-                Ok(_) => match Launcher::new() {
+                Ok(_) => match Launcher::new(Some("Created New Instance".to_owned())) {
                     Ok(launcher) => *self = launcher,
                     Err(err) => self.set_error(err.to_string()),
                 },
@@ -59,7 +62,13 @@ impl Application for Launcher {
             },
             Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
             Message::DeleteInstance => self.delete_selected_instance(),
-            Message::LaunchScreenOpen => self.go_to_launch_screen(),
+            Message::LaunchScreenOpen(message) => {
+                if let Some(message) = message {
+                    self.go_to_launch_screen_with_message(message);
+                } else {
+                    self.go_to_launch_screen()
+                }
+            }
             Message::EditInstance => {
                 self.edit_instance_wrapped();
             }
@@ -91,6 +100,8 @@ impl Application for Launcher {
                         selected_instance: menu.selected_instance.clone(),
                         fabric_version: None,
                         fabric_versions: Vec::new(),
+                        progress_receiver: None,
+                        progress_num: 0.0,
                     });
 
                     return Command::perform(
@@ -116,18 +127,22 @@ impl Application for Launcher {
                 }
             }
             Message::InstallFabricClicked => {
-                if let State::InstallFabric(menu) = &self.state {
+                if let State::InstallFabric(menu) = &mut self.state {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+                    menu.progress_receiver = Some(receiver);
+
                     return Command::perform(
                         instance_mod_installer::fabric::install_wrapped(
                             menu.fabric_version.clone().unwrap(),
                             menu.selected_instance.to_owned(),
+                            Some(sender),
                         ),
                         Message::InstallFabricEnd,
                     );
                 }
             }
             Message::InstallFabricEnd(result) => match result {
-                Ok(_) => self.go_to_launch_screen(),
+                Ok(_) => self.go_to_launch_screen_with_message("Installed Fabric".to_owned()),
                 Err(err) => self.set_error(err),
             },
             Message::OpenDir(dir) => match dir.to_str() {
@@ -178,11 +193,42 @@ impl Application for Launcher {
                 State::EditMods(_) => {}
                 State::Error { .. } => {}
                 State::DeleteInstance(_) => {}
-                State::InstallFabric(_) => {}
+                State::InstallFabric(menu) => {
+                    if let Some(receiver) = &menu.progress_receiver {
+                        if let Ok(progress) = receiver.try_recv() {
+                            menu.progress_num = match progress {
+                                FabricInstallProgress::P1Start => 0.0,
+                                FabricInstallProgress::P2Library { done, out_of } => {
+                                    done as f32 / out_of as f32
+                                }
+                                FabricInstallProgress::P3Done => 1.0,
+                            }
+                        }
+                    }
+                }
             },
             Message::TickConfigSaved(result) => {
                 if let Err(err) = result {
                     self.set_error(err)
+                }
+            }
+            Message::UninstallLoaderStart => {
+                if let State::EditMods(menu) = &self.state {
+                    if menu.config.mod_type == "Fabric" {
+                        return Command::perform(
+                            instance_mod_installer::fabric::uninstall_wrapped(
+                                menu.selected_instance.to_owned(),
+                            ),
+                            Message::UninstallLoaderEnd,
+                        );
+                    }
+                }
+            }
+            Message::UninstallLoaderEnd(result) => {
+                if let Err(err) = result {
+                    self.set_error(err)
+                } else {
+                    self.go_to_launch_screen_with_message("Uninstalled Fabric".to_owned());
                 }
             }
         }
@@ -208,7 +254,7 @@ impl Application for Launcher {
             State::DeleteInstance(menu) => menu.view(),
             State::Error { error } => widget::column!(
                 widget::text(format!("Error: {}", error)),
-                widget::button("Back").on_press(Message::LaunchScreenOpen),
+                widget::button("Back").on_press(Message::LaunchScreenOpen(None)),
                 widget::button("Copy Error").on_press(Message::ErrorCopy),
             )
             .into(),

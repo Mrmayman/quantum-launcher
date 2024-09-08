@@ -6,8 +6,9 @@ use std::{
 };
 
 use quantum_launcher_backend::{
-    error::LauncherResult, io_err, json_structs::json_instance_config::InstanceConfigJson,
-    DownloadProgress, FabricVersion, GameLaunchResult, JavaInstallMessage,
+    error::LauncherResult, instance_mod_installer::fabric::FabricInstallProgress, io_err,
+    json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, FabricVersion,
+    GameLaunchResult, JavaInstallMessage,
 };
 
 use crate::config::LauncherConfig;
@@ -23,7 +24,7 @@ pub enum Message {
     LaunchStart,
     DeleteInstanceMenu,
     DeleteInstance,
-    LaunchScreenOpen,
+    LaunchScreenOpen(Option<String>),
     LaunchEnd(GameLaunchResult),
     CreateInstanceScreenOpen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
@@ -38,6 +39,8 @@ pub enum Message {
     ManageModsScreenOpen,
     InstallFabricClicked,
     InstallFabricScreenOpen,
+    UninstallLoaderStart,
+    UninstallLoaderEnd(Result<(), String>),
     ErrorCopy,
     Tick,
     TickConfigSaved(Result<(), String>),
@@ -47,6 +50,17 @@ pub enum Message {
 pub struct MenuLaunch {
     pub selected_instance: Option<String>,
     pub java_install_progress: Option<JavaInstallProgress>,
+    pub message: String,
+}
+
+impl MenuLaunch {
+    pub fn with_message(message: String) -> Self {
+        Self {
+            selected_instance: Default::default(),
+            java_install_progress: Default::default(),
+            message,
+        }
+    }
 }
 
 pub struct JavaInstallProgress {
@@ -85,6 +99,8 @@ pub struct MenuInstallFabric {
     pub selected_instance: String,
     pub fabric_version: Option<String>,
     pub fabric_versions: Vec<String>,
+    pub progress_receiver: Option<Receiver<FabricInstallProgress>>,
+    pub progress_num: f32,
 }
 
 pub enum State {
@@ -105,7 +121,7 @@ pub struct Launcher {
 }
 
 impl Launcher {
-    pub fn new() -> LauncherResult<Self> {
+    pub fn new(message: Option<String>) -> LauncherResult<Self> {
         // .config/QuantumLauncher/ OR AppData/Roaming/QuantumLauncher/
         let dir_path = quantum_launcher_backend::file_utils::get_launcher_dir()?;
         std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
@@ -132,7 +148,11 @@ impl Launcher {
 
         Ok(Self {
             instances: Some(subdirectories),
-            state: State::Launch(MenuLaunch::default()),
+            state: State::Launch(if let Some(message) = message {
+                MenuLaunch::with_message(message)
+            } else {
+                MenuLaunch::default()
+            }),
             processes: HashMap::new(),
             config: Some(LauncherConfig::load()?),
         })
@@ -155,6 +175,10 @@ impl Launcher {
 
     pub fn go_to_launch_screen(&mut self) {
         self.state = State::Launch(MenuLaunch::default())
+    }
+
+    pub fn go_to_launch_screen_with_message(&mut self, message: String) {
+        self.state = State::Launch(MenuLaunch::with_message(message))
     }
 
     pub fn edit_instance_wrapped(&mut self) {
