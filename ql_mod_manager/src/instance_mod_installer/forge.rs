@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     string::FromUtf8Error,
+    sync::mpsc::Sender,
 };
 
 use ql_instances::{
@@ -18,22 +19,47 @@ use ql_instances::{
         json_version::VersionDetails,
         JsonDownloadError,
     },
+    JavaInstallProgress,
 };
 
 use crate::instance_mod_installer::change_instance_type;
 
 use super::ChangeConfigError;
 
-pub async fn install_wrapped(instance_name: String) -> Result<(), String> {
-    install(&instance_name).await.map_err(|err| err.to_string())
+pub async fn install_wrapped(
+    instance_name: String,
+    f_progress: Option<Sender<ForgeInstallProgress>>,
+    j_progress: Option<Sender<JavaInstallProgress>>,
+) -> Result<(), String> {
+    install(&instance_name, f_progress, j_progress)
+        .await
+        .map_err(|err| err.to_string())
 }
 
-pub async fn install(instance_name: &str) -> Result<(), ForgeInstallError> {
+pub enum ForgeInstallProgress {
+    P1Start,
+    P2DownloadingJson,
+    P3DownloadingInstaller,
+    P4RunningInstaller,
+    P5DownloadingLibrary { num: usize, out_of: usize },
+    P6Done,
+}
+
+pub async fn install(
+    instance_name: &str,
+    f_progress: Option<Sender<ForgeInstallProgress>>,
+    j_progress: Option<Sender<JavaInstallProgress>>,
+) -> Result<(), ForgeInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
 
     let lock_path = instance_dir.join("forge.lock");
     println!("[info] Started installing forge");
+
+    if let Some(progress) = &f_progress {
+        progress.send(ForgeInstallProgress::P1Start).unwrap();
+    }
+
     std::fs::write(
         &lock_path,
         "If you see this, forge was not installed correctly.",
@@ -47,6 +73,11 @@ pub async fn install(instance_name: &str) -> Result<(), ForgeInstallError> {
 
     let minecraft_version = version_json.id;
     println!("[info] Installing forge: Downloading JSON");
+    if let Some(progress) = &f_progress {
+        progress
+            .send(ForgeInstallProgress::P2DownloadingJson)
+            .unwrap();
+    }
     let forge_versions_json = JsonForgeVersions::download().await?;
     let forge_version = forge_versions_json
         .get_forge_version(&minecraft_version)
@@ -61,14 +92,22 @@ pub async fn install(instance_name: &str) -> Result<(), ForgeInstallError> {
         installer_file,
         installer_name,
         installer_path,
-    ) = download_forge_installer(&minecraft_version, &forge_version, &instance_dir).await?;
+    ) = download_forge_installer(
+        &minecraft_version,
+        &forge_version,
+        &instance_dir,
+        f_progress.as_ref(),
+    )
+    .await?;
 
-    let (libraries_dir, mut classpath) = get_initial_classpath(
+    let (libraries_dir, mut classpath) = run_installer_and_get_classpath(
         &short_forge_version,
         &forge_dir,
         forge_major_version,
         &installer_name,
         installer_path,
+        f_progress.as_ref(),
+        j_progress,
     )
     .await?;
 
@@ -281,17 +320,20 @@ fn get_filename_and_path(
     Ok((file, path))
 }
 
-async fn get_initial_classpath(
+async fn run_installer_and_get_classpath(
     short_forge_version: &str,
     forge_dir: &Path,
     forge_major_version: usize,
     installer_name: &str,
     installer_path: PathBuf,
+    f_progress: Option<&Sender<ForgeInstallProgress>>,
+    j_progress: Option<Sender<JavaInstallProgress>>,
 ) -> Result<(PathBuf, String), ForgeInstallError> {
     let libraries_dir = forge_dir.join("libraries");
     std::fs::create_dir_all(&libraries_dir).map_err(io_err!(libraries_dir))?;
     let classpath = if forge_major_version >= 27 {
-        let javac_path = java_install::get_java_binary(JavaVersion::Java21, "javac", None).await?;
+        let javac_path =
+            java_install::get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
         let java_source_file = include_str!("../../../assets/ClientInstaller.java");
 
         let source_path = forge_dir.join("ClientInstaller.java");
@@ -306,6 +348,11 @@ async fn get_initial_classpath(
             .map_err(io_err!(launcher_profiles_json_microsoft_store_path))?;
 
         println!("[info] Installing forge: Compiling Installer");
+        if let Some(progress) = &f_progress {
+            progress
+                .send(ForgeInstallProgress::P4RunningInstaller)
+                .unwrap();
+        }
         let output = Command::new(&javac_path)
             .args(["-cp", &installer_name, "ClientInstaller.java", "-d", "."])
             .current_dir(forge_dir)
@@ -355,6 +402,7 @@ async fn download_forge_installer(
     minecraft_version: &str,
     forge_version: &str,
     instance_dir: &Path,
+    progress: Option<&Sender<ForgeInstallProgress>>,
 ) -> Result<
     (
         String,
@@ -391,6 +439,11 @@ async fn download_forge_installer(
         "installer"
     };
     println!("[info] Installing forge: Downloading Installer");
+    if let Some(progress) = &progress {
+        progress
+            .send(ForgeInstallProgress::P3DownloadingInstaller)
+            .unwrap();
+    }
     let url = format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}-{file_type}.jar");
     let installer_file = match file_utils::download_file_to_bytes(&client, &url).await {
         Ok(file) => file,

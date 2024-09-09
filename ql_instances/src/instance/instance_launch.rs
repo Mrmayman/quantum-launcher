@@ -1,7 +1,7 @@
 use crate::{
     error::{IoError, LauncherError, LauncherResult},
     file_utils, io_err,
-    java_install::{self, JavaInstallMessage},
+    java_install::{self, JavaInstallProgress},
     json_structs::{
         json_fabric::FabricJSON,
         json_forge::JsonForgeDetails,
@@ -39,7 +39,7 @@ pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 pub async fn launch_wrapped(
     instance_name: String,
     username: String,
-    java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
+    java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
 ) -> GameLaunchResult {
     match launch(&instance_name, &username, java_install_progress_sender).await {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
@@ -61,7 +61,7 @@ pub async fn launch_wrapped(
 pub async fn launch(
     instance_name: &str,
     username: &str,
-    java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
+    java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
 ) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));

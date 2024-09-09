@@ -7,7 +7,7 @@ use ql_instances::{
 };
 
 use crate::launcher_state::{
-    JavaInstallProgress, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
+    JavaInstallProgressData, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
     MenuEditMods, Message, State,
 };
 
@@ -28,7 +28,7 @@ impl Launcher {
             let username = self.config.as_ref().unwrap().username.clone();
 
             let (sender, receiver) = std::sync::mpsc::channel();
-            menu_launch.java_install_progress = Some(JavaInstallProgress {
+            menu_launch.java_install_progress = Some(JavaInstallProgressData {
                 num: 0.0,
                 recv: receiver,
                 message: "Starting up (1/2)".to_owned(),

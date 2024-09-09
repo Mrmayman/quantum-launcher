@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-pub enum JavaInstallMessage {
+pub enum JavaInstallProgress {
     P1Started,
     P2 {
         progress: usize,
@@ -37,7 +37,7 @@ pub enum JavaInstallMessage {
 pub async fn get_java_binary(
     version: JavaVersion,
     name: &str,
-    java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
+    java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
 ) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
 
@@ -47,7 +47,7 @@ pub async fn get_java_binary(
 
     if let Some(java_install_progress_sender) = &java_install_progress_sender {
         java_install_progress_sender
-            .send(JavaInstallMessage::P1Started)
+            .send(JavaInstallProgress::P1Started)
             .unwrap();
     }
 
@@ -64,7 +64,7 @@ pub async fn get_java_binary(
 
     if let Some(java_install_progress_sender) = java_install_progress_sender {
         java_install_progress_sender
-            .send(JavaInstallMessage::P3Done)
+            .send(JavaInstallProgress::P3Done)
             .unwrap();
     }
 
@@ -73,7 +73,7 @@ pub async fn get_java_binary(
 
 async fn install_java(
     version: JavaVersion,
-    java_install_progress_sender: Option<&Sender<JavaInstallMessage>>,
+    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
 ) -> Result<(), JavaInstallError> {
     println!("[info] Started installing {}", version.to_string());
     let java_list_json = JavaListJson::download().await?;
@@ -107,7 +107,7 @@ async fn install_java(
 
         if let Some(java_install_progress_sender) = java_install_progress_sender {
             java_install_progress_sender
-                .send(JavaInstallMessage::P2 {
+                .send(JavaInstallProgress::P2 {
                     progress: file_num,
                     out_of: num_files,
                     name: file_name.clone(),

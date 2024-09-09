@@ -11,4 +11,4 @@ pub use instance::instance_launch::launch;
 pub use instance::instance_launch::launch_wrapped;
 pub use instance::instance_launch::GameLaunchResult;
 pub use instance::instance_list_versions::list_versions;
-pub use java_install::JavaInstallMessage;
+pub use java_install::JavaInstallProgress;

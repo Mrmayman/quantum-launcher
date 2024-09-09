@@ -1,12 +1,13 @@
 use std::time::Duration;
 
 use iced::{executor, widget, Application, Command, Settings};
-use launcher_state::{Launcher, MenuInstallFabric, MenuLaunch, Message, State};
+use launcher_state::{Launcher, MenuInstallFabric, MenuInstallForge, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
 use ql_instances::error::LauncherError;
-use ql_instances::JavaInstallMessage;
+use ql_instances::JavaInstallProgress;
 use ql_mod_manager::instance_mod_installer;
 use ql_mod_manager::instance_mod_installer::fabric::FabricInstallProgress;
+use ql_mod_manager::instance_mod_installer::forge::ForgeInstallProgress;
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -206,6 +207,60 @@ impl Application for Launcher {
                         }
                     }
                 }
+                State::InstallForge(menu) => {
+                    if let Ok(message) = menu.forge_progress_receiver.try_recv() {
+                        menu.forge_progress_num = match message {
+                            ForgeInstallProgress::P1Start => 0.0,
+                            ForgeInstallProgress::P2DownloadingJson => 1.0,
+                            ForgeInstallProgress::P3DownloadingInstaller => 2.0,
+                            ForgeInstallProgress::P4RunningInstaller => 3.0,
+                            ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
+                                3.0 + (num as f32 / out_of as f32)
+                            }
+                            ForgeInstallProgress::P6Done => 4.0,
+                        };
+
+                        menu.forge_message = match message {
+                            ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
+                            ForgeInstallProgress::P2DownloadingJson => {
+                                "Downloading JSON".to_owned()
+                            }
+                            ForgeInstallProgress::P3DownloadingInstaller => {
+                                "Downloading installer".to_owned()
+                            }
+                            ForgeInstallProgress::P4RunningInstaller => {
+                                "Running Installer".to_owned()
+                            }
+                            ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
+                                format!("Downloading Library ({num}/{out_of})")
+                            }
+                            ForgeInstallProgress::P6Done => "Done!".to_owned(),
+                        };
+                    }
+
+                    if let Ok(message) = menu.java_progress_receiver.try_recv() {
+                        match message {
+                            JavaInstallProgress::P1Started => {
+                                menu.is_java_getting_installed = true;
+                                menu.java_progress_num = 0.0;
+                                menu.java_message = Some("Started...".to_owned());
+                            }
+                            JavaInstallProgress::P2 {
+                                progress,
+                                out_of,
+                                name,
+                            } => {
+                                menu.java_progress_num = progress as f32 / out_of as f32;
+                                menu.java_message =
+                                    Some(format!("Downloading ({progress}/{out_of}): {name}"));
+                            }
+                            JavaInstallProgress::P3Done => {
+                                menu.is_java_getting_installed = false;
+                                menu.java_message = None;
+                            }
+                        }
+                    }
+                }
             },
             Message::TickConfigSaved(result) => {
                 if let Err(err) = result {
@@ -231,6 +286,37 @@ impl Application for Launcher {
                     self.go_to_launch_screen_with_message("Uninstalled Fabric".to_owned());
                 }
             }
+            Message::InstallForgeStart => {
+                if let State::EditMods(menu) = &self.state {
+                    let (f_sender, f_receiver) = std::sync::mpsc::channel();
+                    let (j_sender, j_receiver) = std::sync::mpsc::channel();
+
+                    let command = Command::perform(
+                        instance_mod_installer::forge::install_wrapped(
+                            menu.selected_instance.to_owned(),
+                            Some(f_sender),
+                            Some(j_sender),
+                        ),
+                        Message::InstallForgeEnd,
+                    );
+
+                    self.state = State::InstallForge(MenuInstallForge {
+                        forge_progress_receiver: f_receiver,
+                        forge_progress_num: 0.0,
+                        java_progress_receiver: j_receiver,
+                        java_progress_num: 0.0,
+                        is_java_getting_installed: false,
+                        forge_message: "Installing Forge".to_owned(),
+                        java_message: None,
+                    });
+
+                    return command;
+                }
+            }
+            Message::InstallForgeEnd(result) => match result {
+                Ok(_) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
+                Err(err) => self.set_error(err),
+            },
         }
         Command::none()
     }
@@ -259,12 +345,13 @@ impl Application for Launcher {
             )
             .into(),
             State::InstallFabric(menu) => menu.view(),
+            State::InstallForge(menu) => menu.view(),
         }
     }
 }
 
 fn receive_java_install_progress(
-    java_install_progress: &mut Option<launcher_state::JavaInstallProgress>,
+    java_install_progress: &mut Option<launcher_state::JavaInstallProgressData>,
 ) -> bool {
     let Some(java_install_progress) = java_install_progress else {
         return true;
@@ -272,11 +359,11 @@ fn receive_java_install_progress(
 
     if let Ok(message) = java_install_progress.recv.try_recv() {
         match message {
-            JavaInstallMessage::P1Started => {
+            JavaInstallProgress::P1Started => {
                 java_install_progress.num = 0.0;
                 java_install_progress.message = "Starting up (2/2)".to_owned();
             }
-            JavaInstallMessage::P2 {
+            JavaInstallProgress::P2 {
                 progress,
                 out_of,
                 name,
@@ -285,7 +372,7 @@ fn receive_java_install_progress(
                 java_install_progress.message =
                     format!("Downloading ({progress}/{out_of}): {name}");
             }
-            JavaInstallMessage::P3Done => {
+            JavaInstallProgress::P3Done => {
                 java_install_progress.num = 1.0;
                 java_install_progress.message = "Done!".to_owned();
                 return true;

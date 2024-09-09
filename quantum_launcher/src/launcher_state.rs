@@ -8,9 +8,12 @@ use std::{
 use ql_instances::{
     error::LauncherResult, file_utils, io_err,
     json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
-    JavaInstallMessage,
+    JavaInstallProgress,
 };
-use ql_mod_manager::instance_mod_installer::fabric::{FabricInstallProgress, FabricVersion};
+use ql_mod_manager::instance_mod_installer::{
+    fabric::{FabricInstallProgress, FabricVersion},
+    forge::ForgeInstallProgress,
+};
 
 use crate::config::LauncherConfig;
 
@@ -40,6 +43,8 @@ pub enum Message {
     ManageModsScreenOpen,
     InstallFabricClicked,
     InstallFabricScreenOpen,
+    InstallForgeStart,
+    InstallForgeEnd(Result<(), String>),
     UninstallLoaderStart,
     UninstallLoaderEnd(Result<(), String>),
     ErrorCopy,
@@ -50,7 +55,7 @@ pub enum Message {
 #[derive(Default)]
 pub struct MenuLaunch {
     pub selected_instance: Option<String>,
-    pub java_install_progress: Option<JavaInstallProgress>,
+    pub java_install_progress: Option<JavaInstallProgressData>,
     pub message: String,
 }
 
@@ -64,9 +69,9 @@ impl MenuLaunch {
     }
 }
 
-pub struct JavaInstallProgress {
+pub struct JavaInstallProgressData {
     pub num: f32,
-    pub recv: Receiver<JavaInstallMessage>,
+    pub recv: Receiver<JavaInstallProgress>,
     pub message: String,
 }
 
@@ -104,6 +109,16 @@ pub struct MenuInstallFabric {
     pub progress_num: f32,
 }
 
+pub struct MenuInstallForge {
+    pub forge_progress_receiver: Receiver<ForgeInstallProgress>,
+    pub forge_progress_num: f32,
+    pub forge_message: String,
+    pub java_progress_receiver: Receiver<JavaInstallProgress>,
+    pub java_progress_num: f32,
+    pub java_message: Option<String>,
+    pub is_java_getting_installed: bool,
+}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
@@ -112,6 +127,7 @@ pub enum State {
     Error { error: String },
     DeleteInstance(MenuDeleteInstance),
     InstallFabric(MenuInstallFabric),
+    InstallForge(MenuInstallForge),
 }
 
 pub struct Launcher {

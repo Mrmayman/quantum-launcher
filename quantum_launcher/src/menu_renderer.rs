@@ -13,7 +13,7 @@ use crate::{
     icon_manager,
     launcher_state::{
         Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods,
-        MenuInstallFabric, MenuLaunch, Message,
+        MenuInstallFabric, MenuInstallForge, MenuLaunch, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -190,8 +190,8 @@ impl MenuEditMods {
         let mod_installer = if self.config.mod_type == "Vanilla" {
             widget::column![
                 widget::button("Install Fabric").on_press(Message::InstallFabricScreenOpen),
+                widget::button("Install Forge").on_press(Message::InstallForgeStart),
                 widget::button("Install Quilt"),
-                widget::button("Install Forge"),
                 widget::button("Install OptiFine")
             ]
             .spacing(5)
@@ -329,5 +329,36 @@ impl MenuInstallFabric {
             .spacing(20)
             .into()
         }
+    }
+}
+
+impl MenuInstallForge {
+    pub fn view(&self) -> Element {
+        let progress_bar = column!(
+            iced::widget::progress_bar(0.0..=4.0, self.forge_progress_num),
+            iced::widget::text(&self.forge_message)
+        );
+
+        if self.is_java_getting_installed {
+            if let Some(message) = &self.java_message {
+                column!(
+                    iced::widget::text("Installing forge..."),
+                    progress_bar,
+                    iced::widget::progress_bar(0.0..=1.0, self.java_progress_num),
+                    iced::widget::text(message)
+                )
+            } else {
+                column!(
+                    iced::widget::text("Installing forge..."),
+                    progress_bar,
+                    iced::widget::progress_bar(0.0..=1.0, self.java_progress_num),
+                )
+            }
+        } else {
+            column!(iced::widget::text("Installing forge..."), progress_bar)
+        }
+        .padding(20)
+        .spacing(20)
+        .into()
     }
 }
