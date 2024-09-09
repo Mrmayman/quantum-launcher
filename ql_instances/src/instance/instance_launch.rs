@@ -113,7 +113,9 @@ pub async fn launch(
         } else {
             JavaVersion::Java8
         };
-        Command::new(java_install::get_java(version, java_install_progress_sender).await?)
+        Command::new(
+            java_install::get_java_binary(version, "java", java_install_progress_sender).await?,
+        )
     };
 
     println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");

@@ -30,6 +30,13 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - A local server hosting system (without port forwarding).
 - macOS support.
 
+# Licensing and Credits
+A lot of this launcher's design, including the code for creating and launching the game, and installing forge, is inspired by https://github.com/alexivkin/minecraft-launcher/.
+
+Nearly all of this launcher is licensed under the GNU General Public License v3.
+
+However, the file in `assets/ClientInstaller.java` (required for installing forge) is licensed under the Apache 2.0 license. It's taken from the above Minecraft launcher.
+
 # Note on Piracy
 If you pirate the game, it's at your own risk. I am not responsible for any issues caused. I recommend that you buy the game, but if you don't have the means, feel free to use this launcher.
 If anyone has any issues/complaints, just open an issue in the repo.

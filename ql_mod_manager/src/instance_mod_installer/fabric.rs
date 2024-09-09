@@ -4,10 +4,7 @@ use std::{
     sync::mpsc::{SendError, Sender},
 };
 
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-
-use crate::{
+use ql_instances::{
     error::IoError,
     file_utils::{self, RequestError},
     io_err,
@@ -16,6 +13,8 @@ use crate::{
         json_version::VersionDetails,
     },
 };
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 const FABRIC_URL: &str = "https://meta.fabricmc.net";
 

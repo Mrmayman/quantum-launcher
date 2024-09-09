@@ -24,6 +24,9 @@ pub enum JavaInstallMessage {
 /// Returns a `PathBuf` pointing to the Java executable.
 /// You can select which Java version you want through the `version` argument.
 ///
+/// The name argument can be made "java" for launching the game, unless you want something else like "javac"
+/// (the java compiler).
+///
 /// This downloads and installs Java if not already installed,
 /// and if already installed, uses the existing installation.
 ///
@@ -31,8 +34,9 @@ pub enum JavaInstallMessage {
 /// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
 /// sender to this function and polling the receiver frequently.
 /// If not needed, simply pass `None` to the function.
-pub async fn get_java(
+pub async fn get_java_binary(
     version: JavaVersion,
+    name: &str,
     java_install_progress_sender: Option<Sender<JavaInstallMessage>>,
 ) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -52,9 +56,9 @@ pub async fn get_java(
     }
 
     let java_dir = java_dir.join(if cfg!(windows) {
-        "bin/java.exe"
+        format!("bin/{name}.exe")
     } else {
-        "bin/java"
+        format!("bin/{name}")
     });
 
     if let Some(java_install_progress_sender) = java_install_progress_sender {

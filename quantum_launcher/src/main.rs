@@ -3,11 +3,10 @@ use std::time::Duration;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{Launcher, MenuInstallFabric, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
+use ql_instances::error::LauncherError;
 use ql_instances::JavaInstallMessage;
-use ql_instances::{
-    error::LauncherError,
-    instance_mod_installer::{self, fabric::FabricInstallProgress},
-};
+use ql_mod_manager::instance_mod_installer;
+use ql_mod_manager::instance_mod_installer::fabric::FabricInstallProgress;
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -314,14 +313,13 @@ fn main() {
     const WINDOW_HEIGHT: f32 = 400.0;
     const WINDOW_WIDTH: f32 = 400.0;
 
-    // let rt = tokio::runtime::Runtime::new().unwrap();
-    // let result = rt
-    //     .block_on(
-    //         quantum_launcher_backend::instance_mod_installer::forge::install("1.20.1 forge test"),
-    //     )
-    //     .unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(ql_mod_manager::instance_mod_installer::forge::install(
+        "1.20.1 forge test",
+    ))
+    .unwrap();
 
-    // return;
+    return;
 
     Launcher::run(Settings {
         window: iced::window::Settings {

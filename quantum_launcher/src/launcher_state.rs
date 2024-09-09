@@ -6,10 +6,11 @@ use std::{
 };
 
 use ql_instances::{
-    error::LauncherResult, file_utils, instance_mod_installer::fabric::FabricInstallProgress,
-    io_err, json_structs::json_instance_config::InstanceConfigJson, DownloadProgress,
-    FabricVersion, GameLaunchResult, JavaInstallMessage,
+    error::LauncherResult, file_utils, io_err,
+    json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
+    JavaInstallMessage,
 };
+use ql_mod_manager::instance_mod_installer::fabric::{FabricInstallProgress, FabricVersion};
 
 use crate::config::LauncherConfig;
 
