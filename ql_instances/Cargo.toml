@@ -1,5 +1,5 @@
 [package]
-name = "quantum_launcher_backend"
+name = "ql_instances"
 version = "0.1.0"
 edition = "2021"
 

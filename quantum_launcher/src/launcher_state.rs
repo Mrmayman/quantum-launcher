@@ -5,10 +5,10 @@ use std::{
     sync::{mpsc::Receiver, Arc, Mutex},
 };
 
-use quantum_launcher_backend::{
-    error::LauncherResult, instance_mod_installer::fabric::FabricInstallProgress, io_err,
-    json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, FabricVersion,
-    GameLaunchResult, JavaInstallMessage,
+use ql_instances::{
+    error::LauncherResult, file_utils, instance_mod_installer::fabric::FabricInstallProgress,
+    io_err, json_structs::json_instance_config::InstanceConfigJson, DownloadProgress,
+    FabricVersion, GameLaunchResult, JavaInstallMessage,
 };
 
 use crate::config::LauncherConfig;
@@ -123,7 +123,7 @@ pub struct Launcher {
 impl Launcher {
     pub fn new(message: Option<String>) -> LauncherResult<Self> {
         // .config/QuantumLauncher/ OR AppData/Roaming/QuantumLauncher/
-        let dir_path = quantum_launcher_backend::file_utils::get_launcher_dir()?;
+        let dir_path = file_utils::get_launcher_dir()?;
         std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 
         // QuantumLauncher/instances/

@@ -1,7 +1,7 @@
 use std::sync::{mpsc, Arc};
 
 use iced::Command;
-use quantum_launcher_backend::{
+use ql_instances::{
     error::LauncherResult, file_utils, io_err,
     json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
 };
@@ -35,7 +35,7 @@ impl Launcher {
             });
 
             return Command::perform(
-                quantum_launcher_backend::launch_wrapped(selected_instance, username, Some(sender)),
+                ql_instances::launch_wrapped(selected_instance, username, Some(sender)),
                 Message::LaunchEnd,
             );
         }
@@ -74,7 +74,7 @@ impl Launcher {
             Command::none()
         } else {
             Command::perform(
-                quantum_launcher_backend::list_versions(),
+                ql_instances::list_versions(),
                 Message::CreateInstanceVersionsLoaded,
             )
         }
@@ -115,7 +115,7 @@ impl Launcher {
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
-                quantum_launcher_backend::create_instance(
+                ql_instances::create_instance(
                     menu.instance_name.to_owned(),
                     menu.selected_version.to_owned().unwrap(),
                     Some(sender),
@@ -129,7 +129,7 @@ impl Launcher {
 
     pub fn delete_selected_instance(&mut self) {
         if let State::DeleteInstance(menu) = &self.state {
-            match quantum_launcher_backend::file_utils::get_launcher_dir() {
+            match file_utils::get_launcher_dir() {
                 Ok(launcher_dir) => {
                     let instances_dir = launcher_dir.join("instances");
                     let deleted_instance_dir = instances_dir.join(&menu.selected_instance);

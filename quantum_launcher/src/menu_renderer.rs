@@ -6,7 +6,7 @@ use std::{
 };
 
 use iced::widget::{self, column, row};
-use quantum_launcher_backend::file_utils;
+use ql_instances::file_utils;
 
 use crate::{
     config::LauncherConfig,

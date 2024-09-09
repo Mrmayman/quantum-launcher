@@ -13,8 +13,8 @@ readme = "../README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-quantum_launcher_backend = { path = "../quantum_launcher_backend" }
-quantum_launcher_mod_downloader = { path = "../quantum_launcher_mod_downloader" }
+ql_instances = { path = "../ql_instances" }
+ql_mod_manager = { path = "../ql_mod_manager" }
 
 iced = { version = "*", features = ["highlighter", "tokio"] }
 # rfd = "0.14"

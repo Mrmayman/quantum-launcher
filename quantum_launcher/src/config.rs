@@ -1,4 +1,4 @@
-use quantum_launcher_backend::{error::LauncherError, file_utils, io_err};
+use ql_instances::{error::LauncherError, file_utils, io_err};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

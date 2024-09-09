@@ -50,8 +50,8 @@ pub async fn install(instance_name: &str) -> Result<(), ForgeInstallError> {
         .unwrap_or(&forge_version)
         .parse()?;
 
-    let version_dir = instance_dir.join(format!(".minecraft/versions/{minecraft_version}-forge"));
-    std::fs::create_dir_all(&version_dir).map_err(io_err!(version_dir))?;
+    let forge_dir = instance_dir.join("forge");
+    std::fs::create_dir_all(&forge_dir).map_err(io_err!(forge_dir))?;
 
     let client = reqwest::Client::new();
 
@@ -70,12 +70,16 @@ pub async fn install(instance_name: &str) -> Result<(), ForgeInstallError> {
         }
     };
     let file_name = format!("forge-{short_forge_version}-{file_type}.jar");
-    let file_path = version_dir.join(&file_name);
+    let file_path = forge_dir.join(&file_name);
     std::fs::write(&file_path, &file).map_err(io_err!(file_path))?;
+
+    let libraries_dir = forge_dir.join("libraries");
+    std::fs::create_dir_all(&libraries_dir).map_err(io_err!(libraries_dir))?;
 
     todo!()
 }
 
+#[derive(Debug)]
 pub enum ForgeInstallError {
     Io(IoError),
     Request(RequestError),

@@ -3,7 +3,8 @@ use std::time::Duration;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{Launcher, MenuInstallFabric, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
-use quantum_launcher_backend::{
+use ql_instances::JavaInstallMessage;
+use ql_instances::{
     error::LauncherError,
     instance_mod_installer::{self, fabric::FabricInstallProgress},
 };
@@ -272,11 +273,11 @@ fn receive_java_install_progress(
 
     if let Ok(message) = java_install_progress.recv.try_recv() {
         match message {
-            quantum_launcher_backend::JavaInstallMessage::P1Started => {
+            JavaInstallMessage::P1Started => {
                 java_install_progress.num = 0.0;
                 java_install_progress.message = "Starting up (2/2)".to_owned();
             }
-            quantum_launcher_backend::JavaInstallMessage::P2 {
+            JavaInstallMessage::P2 {
                 progress,
                 out_of,
                 name,
@@ -285,7 +286,7 @@ fn receive_java_install_progress(
                 java_install_progress.message =
                     format!("Downloading ({progress}/{out_of}): {name}");
             }
-            quantum_launcher_backend::JavaInstallMessage::P3Done => {
+            JavaInstallMessage::P3Done => {
                 java_install_progress.num = 1.0;
                 java_install_progress.message = "Done!".to_owned();
                 return true;
@@ -312,6 +313,15 @@ fn receive_java_install_progress(
 fn main() {
     const WINDOW_HEIGHT: f32 = 400.0;
     const WINDOW_WIDTH: f32 = 400.0;
+
+    // let rt = tokio::runtime::Runtime::new().unwrap();
+    // let result = rt
+    //     .block_on(
+    //         quantum_launcher_backend::instance_mod_installer::forge::install("1.20.1 forge test"),
+    //     )
+    //     .unwrap();
+
+    // return;
 
     Launcher::run(Settings {
         window: iced::window::Settings {
