@@ -4,6 +4,7 @@ use crate::{
     java_install::{self, JavaInstallMessage},
     json_structs::{
         json_fabric::FabricJSON,
+        json_forge::JsonForgeDetails,
         json_instance_config::InstanceConfigJson,
         json_java_list::JavaVersion,
         json_version::{LibraryDownloads, VersionDetails},
@@ -74,7 +75,7 @@ pub async fn launch(
 
     let version_json = read_version_json(&instance_dir)?;
 
-    let game_arguments = get_arguments(&version_json, username, minecraft_dir, &instance_dir)?;
+    let mut game_arguments = get_arguments(&version_json, username, minecraft_dir, &instance_dir)?;
 
     let natives_path = instance_dir.join("libraries").join("natives");
 
@@ -96,6 +97,29 @@ pub async fn launch(
     }
 
     let fabric_json = setup_fabric(&config_json, &instance_dir, &mut java_arguments)?;
+    let forge_json = setup_forge(
+        &config_json,
+        &instance_dir,
+        &mut java_arguments,
+        &mut game_arguments,
+    )?;
+
+    for argument in java_arguments.iter_mut() {
+        replace_var(
+            argument,
+            "classpath_separator",
+            &CLASSPATH_SEPARATOR.to_string(),
+        );
+        let library_directory = instance_dir.join("forge/libraries");
+        replace_var(
+            argument,
+            "library_directory",
+            library_directory
+                .to_str()
+                .ok_or(LauncherError::PathBufToString(library_directory.to_owned()))?,
+        );
+        replace_var(argument, "version_name", &version_json.id);
+    }
 
     setup_logging(&version_json, &instance_dir, &mut java_arguments)?;
     setup_classpath_and_mainclass(
@@ -103,6 +127,7 @@ pub async fn launch(
         &version_json,
         instance_dir,
         fabric_json,
+        forge_json,
     )?;
 
     let mut command = if let Some(java_override) = config_json.java_override {
@@ -144,16 +169,46 @@ fn setup_fabric(
     Ok(fabric_json)
 }
 
+fn setup_forge(
+    config_json: &InstanceConfigJson,
+    instance_dir: &Path,
+    java_arguments: &mut Vec<String>,
+    game_arguments: &mut Vec<String>,
+) -> Result<Option<JsonForgeDetails>, LauncherError> {
+    let json = if config_json.mod_type == "Forge" {
+        Some(get_forge_json(instance_dir)?)
+    } else {
+        None
+    };
+    if let Some(ref json) = json {
+        json.arguments.jvm.iter().for_each(|n| {
+            java_arguments.push(n.clone());
+        });
+        json.arguments.game.iter().for_each(|n| {
+            game_arguments.push(n.clone());
+        });
+    }
+    Ok(json)
+}
+
 fn setup_classpath_and_mainclass(
     java_arguments: &mut Vec<String>,
     version_json: &VersionDetails,
     instance_dir: PathBuf,
     fabric_json: Option<FabricJSON>,
+    forge_json: Option<JsonForgeDetails>,
 ) -> Result<(), LauncherError> {
     java_arguments.push("-cp".to_owned());
-    java_arguments.push(get_class_path(version_json, instance_dir, &fabric_json)?);
-    java_arguments.push(if let Some(ref fabric_json) = fabric_json {
-        fabric_json.mainClass.clone()
+    java_arguments.push(get_class_path(
+        version_json,
+        instance_dir,
+        fabric_json.as_ref(),
+        forge_json.as_ref(),
+    )?);
+    java_arguments.push(if let Some(fabric_json) = fabric_json {
+        fabric_json.mainClass
+    } else if let Some(forge_json) = forge_json {
+        forge_json.mainClass.clone()
     } else {
         version_json.mainClass.clone()
     });
@@ -181,6 +236,12 @@ fn get_fabric_json(instance_dir: &Path) -> Result<FabricJSON, JsonFileError> {
     Ok(serde_json::from_str(&fabric_json)?)
 }
 
+fn get_forge_json(instance_dir: &Path) -> Result<JsonForgeDetails, JsonFileError> {
+    let json_path = instance_dir.join("forge/details.json");
+    let json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
+    Ok(serde_json::from_str(&json)?)
+}
+
 fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {
     let config_file_path = instance_dir.join("config.json");
     let config_json =
@@ -191,11 +252,16 @@ fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> 
 fn get_class_path(
     version_json: &VersionDetails,
     instance_dir: PathBuf,
-    fabric_json: &Option<FabricJSON>,
+    fabric_json: Option<&FabricJSON>,
+    forge_json: Option<&JsonForgeDetails>,
 ) -> LauncherResult<String> {
     let mut class_path: String = "".to_owned();
-    if cfg!(windows) {
-        // class_path.push('"');
+
+    if forge_json.is_some() {
+        let classpath_path = instance_dir.join("forge/classpath.txt");
+        let forge_classpath =
+            std::fs::read_to_string(&classpath_path).map_err(io_err!(classpath_path))?;
+        class_path.push_str(&forge_classpath);
     }
 
     version_json
@@ -220,7 +286,7 @@ fn get_class_path(
         .find(|n| n.is_err())
         .unwrap_or(Ok(()))?;
 
-    if let Some(ref fabric_json) = fabric_json {
+    if let Some(fabric_json) = fabric_json {
         for library in fabric_json.libraries.iter() {
             let library_path = instance_dir.join("libraries").join(library.get_path());
             class_path.push_str(library_path.to_str().unwrap());
@@ -238,9 +304,6 @@ fn get_class_path(
         .ok_or(LauncherError::PathBufToString(jar_path.clone()))?;
     class_path.push_str(jar_path);
 
-    if cfg!(windows) {
-        // class_path.push('"');
-    }
     Ok(class_path)
 }
 

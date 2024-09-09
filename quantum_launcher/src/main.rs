@@ -313,13 +313,13 @@ fn main() {
     const WINDOW_HEIGHT: f32 = 400.0;
     const WINDOW_WIDTH: f32 = 400.0;
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(ql_mod_manager::instance_mod_installer::forge::install(
-        "1.20.1 forge test",
-    ))
-    .unwrap();
+    // let rt = tokio::runtime::Runtime::new().unwrap();
+    // rt.block_on(ql_mod_manager::instance_mod_installer::forge::install(
+    //     "1.20.1 fresh test",
+    // ))
+    // .unwrap();
 
-    return;
+    // return;
 
     Launcher::run(Settings {
         window: iced::window::Settings {

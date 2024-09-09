@@ -52,6 +52,7 @@ pub async fn get_java_binary(
     }
 
     if !java_dir.exists() || is_incomplete_install {
+        println!("[info] Installing {}", version.to_string());
         install_java(version, java_install_progress_sender.as_ref()).await?;
     }
 

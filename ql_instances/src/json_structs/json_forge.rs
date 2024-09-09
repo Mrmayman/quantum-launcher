@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-use ql_instances::{file_utils, json_structs::JsonDownloadError};
 use serde::{Deserialize, Serialize};
+
+use crate::file_utils;
+
+use super::JsonDownloadError;
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonForgeVersions {

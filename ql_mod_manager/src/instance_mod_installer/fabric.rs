@@ -1,6 +1,5 @@
 use std::{
     fmt::Display,
-    path::Path,
     sync::mpsc::{SendError, Sender},
 };
 
@@ -8,13 +7,12 @@ use ql_instances::{
     error::IoError,
     file_utils::{self, RequestError},
     io_err,
-    json_structs::{
-        json_fabric::FabricJSON, json_instance_config::InstanceConfigJson,
-        json_version::VersionDetails,
-    },
+    json_structs::{json_fabric::FabricJSON, json_version::VersionDetails},
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+
+use super::{change_instance_type, ChangeConfigError};
 
 const FABRIC_URL: &str = "https://meta.fabricmc.net";
 
@@ -160,21 +158,6 @@ pub async fn uninstall_wrapped(instance_name: String) -> Result<(), String> {
         .map_err(|err| err.to_string())
 }
 
-fn change_instance_type(
-    instance_dir: &Path,
-    instance_type: String,
-) -> Result<(), FabricInstallError> {
-    let config_path = instance_dir.join("config.json");
-    let config = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
-    let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
-
-    config.mod_type = instance_type;
-
-    let config = serde_json::to_string(&config)?;
-    std::fs::write(&config_path, config).map_err(io_err!(config_path))?;
-    Ok(())
-}
-
 pub async fn install_wrapped(
     loader_version: String,
     instance_name: String,
@@ -200,6 +183,7 @@ pub enum FabricInstallError {
     Json(serde_json::Error),
     RequestError(RequestError),
     Send(SendError<FabricInstallProgress>),
+    ChangeConfigError(ChangeConfigError),
 }
 
 impl From<IoError> for FabricInstallError {
@@ -226,6 +210,12 @@ impl From<SendError<FabricInstallProgress>> for FabricInstallError {
     }
 }
 
+impl From<ChangeConfigError> for FabricInstallError {
+    fn from(value: ChangeConfigError) -> Self {
+        Self::ChangeConfigError(value)
+    }
+}
+
 impl Display for FabricInstallError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -239,6 +229,9 @@ impl Display for FabricInstallError {
             }
             FabricInstallError::Send(err) => {
                 write!(f, "error installing fabric (sending message): {err}")
+            }
+            FabricInstallError::ChangeConfigError(err) => {
+                write!(f, "error changing instance config: {err}")
             }
         }
     }
