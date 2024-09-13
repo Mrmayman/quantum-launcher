@@ -75,7 +75,7 @@ pub async fn launch(
 
     let version_json = read_version_json(&instance_dir)?;
 
-    let mut game_arguments = get_arguments(&version_json, username, minecraft_dir, &instance_dir)?;
+    let mut game_arguments = get_arguments(&version_json, username, &minecraft_dir, &instance_dir)?;
 
     let natives_path = instance_dir.join("libraries").join("natives");
 
@@ -102,6 +102,9 @@ pub async fn launch(
         &instance_dir,
         &mut java_arguments,
         &mut game_arguments,
+        username,
+        &version_json,
+        &minecraft_dir,
     )?;
 
     for argument in java_arguments.iter_mut() {
@@ -174,19 +177,35 @@ fn setup_forge(
     instance_dir: &Path,
     java_arguments: &mut Vec<String>,
     game_arguments: &mut Vec<String>,
+    username: &str,
+    version_json: &VersionDetails,
+    minecraft_dir: &Path,
 ) -> Result<Option<JsonForgeDetails>, LauncherError> {
     let json = if config_json.mod_type == "Forge" {
         Some(get_forge_json(instance_dir)?)
     } else {
         None
     };
-    if let Some(ref json) = json {
-        json.arguments.jvm.iter().for_each(|n| {
-            java_arguments.push(n.clone());
-        });
-        json.arguments.game.iter().for_each(|n| {
-            game_arguments.push(n.clone());
-        });
+    if let Some(json) = &json {
+        if let Some(arguments) = &json.arguments {
+            if let Some(jvm) = &arguments.jvm {
+                jvm.iter().for_each(|n| {
+                    java_arguments.push(n.clone());
+                });
+            }
+            arguments.game.iter().for_each(|n| {
+                game_arguments.push(n.clone());
+            });
+        } else if let Some(arguments) = &json.minecraftArguments {
+            *game_arguments = arguments.split(' ').map(|n| n.to_owned()).collect();
+            fill_game_arguments(
+                game_arguments,
+                username,
+                version_json,
+                minecraft_dir,
+                instance_dir,
+            )?;
+        }
     }
     Ok(json)
 }
@@ -225,7 +244,7 @@ fn setup_logging(
         let logging_path = logging_path
             .to_str()
             .ok_or(LauncherError::PathBufToString(logging_path.clone()))?;
-        java_arguments.push(format!("-Dlog4j.configurationFile=\"{}\"", logging_path))
+        java_arguments.push(format!("-Dlog4j.configurationFile={}", logging_path))
     }
     Ok(())
 }
@@ -310,7 +329,7 @@ fn get_class_path(
 fn get_arguments(
     version_json: &VersionDetails,
     username: &str,
-    minecraft_dir: PathBuf,
+    minecraft_dir: &Path,
     instance_dir: &Path,
 ) -> LauncherResult<Vec<String>> {
     let mut game_arguments: Vec<String> =
@@ -328,12 +347,29 @@ fn get_arguments(
                 version_json.clone(),
             ));
         };
+    fill_game_arguments(
+        &mut game_arguments,
+        username,
+        version_json,
+        minecraft_dir,
+        instance_dir,
+    )?;
+    Ok(game_arguments)
+}
+
+fn fill_game_arguments(
+    game_arguments: &mut [String],
+    username: &str,
+    version_json: &VersionDetails,
+    minecraft_dir: &Path,
+    instance_dir: &Path,
+) -> Result<(), LauncherError> {
     for argument in game_arguments.iter_mut() {
         replace_var(argument, "auth_player_name", username);
         replace_var(argument, "version_name", &version_json.id);
         let minecraft_dir_path = match minecraft_dir.to_str() {
             Some(n) => n,
-            None => return Err(LauncherError::PathBufToString(minecraft_dir)),
+            None => return Err(LauncherError::PathBufToString(minecraft_dir.to_owned())),
         };
         replace_var(argument, "game_directory", minecraft_dir_path);
 
@@ -342,14 +378,19 @@ fn get_arguments(
             .join(&version_json.assetIndex.id);
 
         let old_assets_path = instance_dir.join("assets");
-
         if old_assets_path.exists() {
             migrate_to_new_assets_path(&old_assets_path, &assets_path)?;
         }
 
-        let assets_path = match assets_path.to_str() {
+        let assets_path_fixed = if assets_path.exists() {
+            assets_path
+        } else {
+            file_utils::get_launcher_dir()?.join("assets/null")
+        };
+
+        let assets_path = match assets_path_fixed.to_str() {
             Some(n) => n,
-            None => return Err(LauncherError::PathBufToString(assets_path)),
+            None => return Err(LauncherError::PathBufToString(assets_path_fixed)),
         };
 
         replace_var(argument, "assets_root", assets_path);
@@ -367,7 +408,7 @@ fn get_arguments(
         replace_var(argument, "assets_index_name", &version_json.assetIndex.id);
         replace_var(argument, "user_properties", "{}");
     }
-    Ok(game_arguments)
+    Ok(())
 }
 
 fn migrate_to_new_assets_path(

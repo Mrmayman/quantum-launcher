@@ -1,30 +1,31 @@
 use std::{
-    fmt::Display,
     io::{Read, Seek},
-    num::ParseIntError,
     path::{Path, PathBuf},
     process::Command,
-    string::FromUtf8Error,
     sync::mpsc::Sender,
 };
 
+use error::ForgeInstallError;
 use ql_instances::{
-    error::IoError,
     file_utils::{self, RequestError},
     io_err,
-    java_install::{self, JavaInstallError},
+    java_install::{self},
     json_structs::{
-        json_forge::{JsonForgeDetails, JsonForgeDetailsLibrary, JsonForgeVersions},
+        json_forge::{
+            JsonForgeDetails, JsonForgeDetailsLibrary, JsonForgeInstallProfile, JsonForgeVersions,
+        },
         json_java_list::JavaVersion,
         json_version::VersionDetails,
-        JsonDownloadError,
     },
     JavaInstallProgress,
 };
 
 use crate::instance_mod_installer::change_instance_type;
 
-use super::ChangeConfigError;
+mod error;
+mod uninstall;
+
+pub use uninstall::{uninstall, uninstall_wrapped};
 
 pub async fn install_wrapped(
     instance_name: String,
@@ -52,6 +53,9 @@ pub async fn install(
 ) -> Result<(), ForgeInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
+
+    let mods_dir_path = instance_dir.join(".minecraft/mods");
+    std::fs::create_dir_all(&mods_dir_path).map_err(io_err!(mods_dir_path))?;
 
     let lock_path = instance_dir.join("forge.lock");
     println!("[info] Started installing forge");
@@ -132,6 +136,7 @@ pub async fn install(
             &client,
             &libraries_dir,
             &mut classpath,
+            f_progress.as_ref(),
         )
         .await?
         {
@@ -154,9 +159,24 @@ pub async fn install(
 fn get_forge_json(installer_file: Vec<u8>) -> Result<JsonForgeDetails, ForgeInstallError> {
     let temp_dir = extract_zip_file(&installer_file)?;
     let forge_json_path = temp_dir.path().join("version.json");
-    let forge_json = std::fs::read_to_string(&forge_json_path).map_err(io_err!(forge_json_path))?;
-    let forge_json: JsonForgeDetails = serde_json::from_str(&forge_json)?;
-    Ok(forge_json)
+    if forge_json_path.exists() {
+        let forge_json =
+            std::fs::read_to_string(&forge_json_path).map_err(io_err!(forge_json_path))?;
+
+        let forge_json: JsonForgeDetails = serde_json::from_str(&forge_json)?;
+        Ok(forge_json)
+    } else {
+        let forge_json_path = temp_dir.path().join("install_profile.json");
+        if forge_json_path.exists() {
+            let forge_json =
+                std::fs::read_to_string(&forge_json_path).map_err(io_err!(forge_json_path))?;
+
+            let forge_json: JsonForgeInstallProfile = serde_json::from_str(&forge_json)?;
+            Ok(forge_json.versionInfo)
+        } else {
+            Err(ForgeInstallError::NoInstallJson)
+        }
+    }
 }
 
 async fn download_library(
@@ -166,6 +186,7 @@ async fn download_library(
     client: &reqwest::Client,
     libraries_dir: &Path,
     classpath: &mut String,
+    f_progress: Option<&Sender<ForgeInstallProgress>>,
 ) -> Result<bool, ForgeInstallError> {
     let parts: Vec<&str> = library.name.split(':').collect();
     let class = parts[0];
@@ -178,13 +199,13 @@ async fn download_library(
 
     let (file, path) = get_filename_and_path(lib, ver, library, class)?;
 
-    let url = if let Some(url) = &library.downloads.artifact.url {
-        url.to_owned()
+    let url = if let Some(downloads) = &library.downloads {
+        downloads.artifact.url.to_owned()
     } else {
         let baseurl = if let Some(url) = &library.url {
-            url
+            url.to_owned()
         } else {
-            "https://libraries.minecraft.net/"
+            "https://libraries.minecraft.net/".to_owned()
         };
         format!("{baseurl}{path}/{file}")
     };
@@ -203,6 +224,15 @@ async fn download_library(
         library.name
     );
 
+    if let Some(progress) = &f_progress {
+        progress
+            .send(ForgeInstallProgress::P5DownloadingLibrary {
+                num: library_i + 1,
+                out_of: num_libraries,
+            })
+            .unwrap();
+    }
+
     if dest.exists() {
         println!("[info] Library already exists.");
     } else {
@@ -210,8 +240,17 @@ async fn download_library(
             Ok(bytes) => {
                 std::fs::write(&dest, bytes).map_err(io_err!(dest))?;
             }
-            Err(_) => {
-                unpack_augmented_library(client, dest_str, &url).await?;
+            Err(err) => {
+                eprintln!(
+                    "[error] Error downloading library: {err}\n        Trying pack.xz version"
+                );
+                let result = unpack_augmented_library(client, dest_str, &url).await;
+                if result.is_not_found() {
+                    eprintln!("[error] Error 404 not found. Skipping...");
+                    return Ok(true);
+                } else {
+                    result?;
+                }
             }
         };
     }
@@ -294,13 +333,13 @@ fn get_filename_and_path(
     library: &JsonForgeDetailsLibrary,
     class: &str,
 ) -> Result<(String, String), ForgeInstallError> {
-    let (file, path) = if let Some(full_path) = &library.downloads.artifact.path {
-        let parent = PathBuf::from(full_path)
+    let (file, path) = if let Some(downloads) = &library.downloads {
+        let parent = PathBuf::from(&downloads.artifact.path)
             .parent()
             .ok_or(ForgeInstallError::LibraryParentError)?
             .to_owned();
         (
-            PathBuf::from(full_path)
+            PathBuf::from(&downloads.artifact.path)
                 .file_name()
                 .unwrap()
                 .to_str()
@@ -331,10 +370,11 @@ async fn run_installer_and_get_classpath(
 ) -> Result<(PathBuf, String), ForgeInstallError> {
     let libraries_dir = forge_dir.join("libraries");
     std::fs::create_dir_all(&libraries_dir).map_err(io_err!(libraries_dir))?;
-    let classpath = if forge_major_version >= 27 {
+
+    let classpath = if forge_major_version >= 14 {
         let javac_path =
             java_install::get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
-        let java_source_file = include_str!("../../../assets/ClientInstaller.java");
+        let java_source_file = include_str!("../../../../assets/ClientInstaller.java");
 
         let source_path = forge_dir.join("ClientInstaller.java");
         std::fs::write(&source_path, java_source_file).map_err(io_err!(source_path))?;
@@ -383,7 +423,7 @@ async fn run_installer_and_get_classpath(
         }
 
         if forge_major_version < 39 {
-            format!("libraries/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}.jar:")
+            format!("{}/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}.jar:", libraries_dir.to_str().ok_or(ForgeInstallError::PathBufToStr(libraries_dir.to_owned()))?)
         } else {
             String::new()
         }
@@ -430,28 +470,38 @@ async fn download_forge_installer(
         .next()
         .unwrap_or(forge_version)
         .parse()?;
+
     let forge_dir = instance_dir.join("forge");
     std::fs::create_dir_all(&forge_dir).map_err(io_err!(forge_dir))?;
+
     let client = reqwest::Client::new();
-    let file_type = if forge_major_version < 27 {
+
+    let file_type = if forge_major_version < 14 {
         "universal"
     } else {
         "installer"
     };
+
+    let file_type_flipped = if forge_major_version < 14 {
+        "installer"
+    } else {
+        "universal"
+    };
+
     println!("[info] Installing forge: Downloading Installer");
     if let Some(progress) = &progress {
         progress
             .send(ForgeInstallProgress::P3DownloadingInstaller)
             .unwrap();
     }
-    let url = format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}-{file_type}.jar");
-    let installer_file = match file_utils::download_file_to_bytes(&client, &url).await {
-        Ok(file) => file,
-        Err(_) => {
-            let url = format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{norm_forge_version}/forge-{norm_forge_version}-{file_type}.jar");
-            file_utils::download_file_to_bytes(&client, &url).await?
-        }
-    };
+
+    let installer_file = try_downloading_from_urls(&client, &[
+        &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}-{file_type}.jar"),
+        &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{norm_forge_version}/forge-{norm_forge_version}-{file_type}.jar"),
+        &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}-{file_type_flipped}.jar"),
+        &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{norm_forge_version}/forge-{norm_forge_version}-{file_type_flipped}.jar"),
+    ]).await?;
+
     let installer_name = format!("forge-{short_forge_version}-{file_type}.jar");
     let installer_path = forge_dir.join(&installer_name);
     std::fs::write(&installer_path, &installer_file).map_err(io_err!(installer_path))?;
@@ -483,115 +533,49 @@ pub fn extract_zip_file(archive: &[u8]) -> Result<tempfile::TempDir, ForgeInstal
     Ok(temp_dir)
 }
 
-#[derive(Debug)]
-pub enum ForgeInstallError {
-    Io(IoError),
-    Request(RequestError),
-    Serde(serde_json::Error),
-    NoForgeVersionFound,
-    ParseIntError(ParseIntError),
-    TempFile(std::io::Error),
-    JavaInstallError(JavaInstallError),
-    PathBufToStr(PathBuf),
-    CompileError(String, String),
-    InstallerError(String, String),
-    Unpack200Error(String, String),
-    FromUtf8Error(FromUtf8Error),
-    LibraryParentError,
-    ChangeConfigError(ChangeConfigError),
+trait Is404NotFound {
+    fn is_not_found(&self) -> bool;
 }
 
-impl Display for ForgeInstallError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ForgeInstallError::Io(err) => write!(f, "error installing forge: {err}"),
-            ForgeInstallError::Request(err) => write!(f, "error installing forge: {err}"),
-            ForgeInstallError::Serde(err) => write!(f, "error installing forge: {err}"),
-            ForgeInstallError::NoForgeVersionFound => {
-                write!(f, "error installing forge: no matching forge version found")
-            }
-            ForgeInstallError::ParseIntError(err) => write!(f, "error installing forge: {err}"),
-            ForgeInstallError::TempFile(err) => {
-                write!(f, "error installing forge (tempfile): {err}")
-            }
-            ForgeInstallError::JavaInstallError(err) => {
-                write!(f, "error installing forge (java install): {err}")
-            }
-            ForgeInstallError::PathBufToStr(err) => {
-                write!(f, "error installing forge (pathbuf to str): {err:?}")
-            }
-            ForgeInstallError::CompileError(stdout, stderr) => {
-                write!(f, "error installing forge (compile error): STDOUT = {stdout}), STDERR = ({stderr})")
-            }
-            ForgeInstallError::InstallerError(stdout, stderr) => write!(
-                f,
-                "error installing forge (compile error): STDOUT = {stdout}), STDERR = ({stderr})"
-            ),
-            ForgeInstallError::Unpack200Error(stdout, stderr) => write!(
-                f,
-                "error installing forge (compile error): STDOUT = {stdout}), STDERR = ({stderr})"
-            ),
-            ForgeInstallError::FromUtf8Error(err) => {
-                write!(f, "error installing forge (from utf8 error): {err}")
-            }
-            ForgeInstallError::LibraryParentError => write!(
-                f,
-                "error installing forge: could not find parent directory of library"
-            ),
-            ForgeInstallError::ChangeConfigError(err) => {
-                write!(f, "error installing forge (change config): {err}")
-            }
+impl<T> Is404NotFound for Result<T, ForgeInstallError> {
+    fn is_not_found(&self) -> bool {
+        if let Err(ForgeInstallError::Request(RequestError::DownloadError { code, .. })) = &self {
+            code.as_u16() == 404
+        } else {
+            false
         }
     }
 }
 
-impl From<IoError> for ForgeInstallError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<RequestError> for ForgeInstallError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
-}
-
-impl From<serde_json::Error> for ForgeInstallError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
-    }
-}
-
-impl From<ParseIntError> for ForgeInstallError {
-    fn from(value: ParseIntError) -> Self {
-        Self::ParseIntError(value)
-    }
-}
-
-impl From<JavaInstallError> for ForgeInstallError {
-    fn from(value: JavaInstallError) -> Self {
-        Self::JavaInstallError(value)
-    }
-}
-
-impl From<FromUtf8Error> for ForgeInstallError {
-    fn from(value: FromUtf8Error) -> Self {
-        Self::FromUtf8Error(value)
-    }
-}
-
-impl From<ChangeConfigError> for ForgeInstallError {
-    fn from(value: ChangeConfigError) -> Self {
-        Self::ChangeConfigError(value)
-    }
-}
-
-impl From<JsonDownloadError> for ForgeInstallError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Serde(err),
+impl Is404NotFound for RequestError {
+    fn is_not_found(&self) -> bool {
+        if let RequestError::DownloadError { code, .. } = &self {
+            code.as_u16() == 404
+        } else {
+            false
         }
     }
+}
+
+async fn try_downloading_from_urls(
+    client: &reqwest::Client,
+    urls: &[&str],
+) -> Result<Vec<u8>, ForgeInstallError> {
+    let num_urls = urls.len();
+    for (i, url) in urls.iter().enumerate() {
+        let result = file_utils::download_file_to_bytes(client, url).await;
+
+        match result {
+            Ok(file) => return Ok(file),
+            Err(err) => {
+                let is_last_url = i + 1 == num_urls;
+                if err.is_not_found() && !is_last_url {
+                    continue;
+                } else {
+                    Err(err)?
+                }
+            }
+        }
+    }
+    unreachable!()
 }

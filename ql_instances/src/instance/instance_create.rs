@@ -1,6 +1,9 @@
 use std::sync::mpsc::Sender;
 
-use crate::download::{progress::DownloadProgress, DownloadError, GameDownloader};
+use crate::{
+    download::{progress::DownloadProgress, DownloadError, GameDownloader},
+    file_utils, io_err,
+};
 
 pub async fn create_instance(
     instance_name: String,
@@ -20,6 +23,11 @@ async fn create(
     download_assets: bool,
 ) -> Result<(), DownloadError> {
     println!("[info] Started creating instance.");
+
+    // An empty asset directory.
+    let launcher_dir = file_utils::get_launcher_dir()?;
+    let assets_dir = launcher_dir.join("assets/null");
+    std::fs::create_dir_all(&assets_dir).map_err(io_err!(assets_dir))?;
 
     if let Some(ref sender) = progress_sender {
         sender.send(DownloadProgress::Started)?;

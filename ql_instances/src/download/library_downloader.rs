@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use zip_extract::ZipExtractError;
+
 use crate::{
     download::progress::DownloadProgress,
     error::IoError,
@@ -60,12 +62,34 @@ impl GameDownloader {
         if let Some(downloads) = library.downloads.as_ref() {
             match downloads {
                 LibraryDownloads::Normal { artifact, .. } => {
-                    self.download_library_normal(
-                        artifact,
-                        &libraries_dir,
-                        (library_number, number_of_libraries),
-                    )
-                    .await?
+                    let jar_file = self
+                        .download_library_normal(
+                            artifact,
+                            &libraries_dir,
+                            (library_number, number_of_libraries),
+                        )
+                        .await?;
+
+                    if let Some(natives) = &library.natives {
+                        if let Some(natives_name) = natives.get(OS_NAME) {
+                            println!("[info] Extracting natives: Extracting main jar");
+                            let natives_path = self.instance_dir.join("libraries/natives");
+
+                            extract_zip_file(&jar_file, &natives_path)
+                                .map_err(DownloadError::NativesExtractError)?;
+
+                            let url = &artifact.url[..artifact.url.len() - 4];
+                            let url = format!("{}-{}.jar", url, natives_name);
+                            println!("[info] Extracting natives: Downloading native jar");
+                            let native_jar =
+                                file_utils::download_file_to_bytes(&self.network_client, &url)
+                                    .await?;
+
+                            println!("[info] Extracting natives: Extracting native jar");
+                            extract_zip_file(&native_jar, &natives_path)
+                                .map_err(DownloadError::NativesExtractError)?;
+                        }
+                    }
                 }
                 LibraryDownloads::Native { classifiers } => {
                     self.download_library_native(
@@ -85,7 +109,7 @@ impl GameDownloader {
         artifact: &LibraryDownloadArtifact,
         libraries_dir: &Path,
         (library_number, number_of_libraries): (usize, usize),
-    ) -> Result<(), DownloadError> {
+    ) -> Result<Vec<u8>, DownloadError> {
         let lib_file_path = libraries_dir.join(PathBuf::from(&artifact.path));
 
         let lib_dir_path = lib_file_path
@@ -104,9 +128,9 @@ impl GameDownloader {
         let library_downloaded =
             file_utils::download_file_to_bytes(&self.network_client, &artifact.url).await?;
 
-        std::fs::write(&lib_file_path, library_downloaded).map_err(io_err!(lib_file_path))?;
+        std::fs::write(&lib_file_path, &library_downloaded).map_err(io_err!(lib_file_path))?;
 
-        Ok(())
+        Ok(library_downloaded)
     }
 
     async fn download_library_native(
@@ -184,4 +208,9 @@ impl GameDownloader {
 
         allowed
     }
+}
+
+pub fn extract_zip_file(archive: &[u8], target_dir: &Path) -> Result<(), ZipExtractError> {
+    zip_extract::extract(std::io::Cursor::new(archive), target_dir, true)?;
+    Ok(())
 }

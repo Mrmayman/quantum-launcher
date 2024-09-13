@@ -32,29 +32,37 @@ impl JsonForgeVersions {
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
+pub struct JsonForgeInstallProfile {
+    pub install: serde_json::Value,
+    pub versionInfo: JsonForgeDetails,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize)]
 pub struct JsonForgeDetails {
     pub id: String,
     pub time: String,
     pub releaseTime: String,
     pub r#type: String,
     pub mainClass: String,
-    pub inheritsFrom: String,
-    pub logging: serde_json::Value,
-    pub arguments: JsonForgeDetailsArguments,
+    pub inheritsFrom: Option<String>,
+    pub logging: Option<serde_json::Value>,
+    pub arguments: Option<JsonForgeDetailsArguments>,
     pub libraries: Vec<JsonForgeDetailsLibrary>,
+    pub minecraftArguments: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonForgeDetailsArguments {
     pub game: Vec<String>,
-    pub jvm: Vec<String>,
+    pub jvm: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonForgeDetailsLibrary {
     pub name: String,
     pub url: Option<String>,
-    pub downloads: JsonForgeDetailsDownloads,
+    pub downloads: Option<JsonForgeDetailsDownloads>,
     pub clientreq: Option<bool>,
 }
 
@@ -65,8 +73,8 @@ pub struct JsonForgeDetailsDownloads {
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonForgeDetailsArtifact {
-    pub path: Option<String>,
-    pub url: Option<String>,
+    pub path: String,
+    pub url: String,
     pub sha1: String,
     pub size: usize,
 }

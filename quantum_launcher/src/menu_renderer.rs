@@ -205,7 +205,8 @@ impl MenuEditMods {
                 .padding(5)
             )
             .on_press_maybe(
-                (self.config.mod_type == "Fabric").then_some(Message::UninstallLoaderStart)
+                (self.config.mod_type == "Fabric" || self.config.mod_type == "Forge")
+                    .then_some(Message::UninstallLoaderStart)
             )]
         };
 

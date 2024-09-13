@@ -277,6 +277,14 @@ impl Application for Launcher {
                             Message::UninstallLoaderEnd,
                         );
                     }
+                    if menu.config.mod_type == "Forge" {
+                        return Command::perform(
+                            instance_mod_installer::forge::uninstall_wrapped(
+                                menu.selected_instance.to_owned(),
+                            ),
+                            Message::UninstallLoaderEnd,
+                        );
+                    }
                 }
             }
             Message::UninstallLoaderEnd(result) => {
