@@ -3,7 +3,6 @@ use std::{
     path::PathBuf,
     process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
-    thread::JoinHandle,
 };
 
 use ql_instances::{
@@ -33,7 +32,7 @@ pub enum Message {
     LaunchScreenOpen(Option<String>),
     LaunchEnd(GameLaunchResult),
     LaunchKill,
-    LaunchKillEnd()
+    LaunchKillEnd(Result<(), String>),
     CreateInstanceScreenOpen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
     CreateInstanceVersionSelected(String),

@@ -32,12 +32,6 @@ pub async fn read_logs(
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
 
-    // println!("start special read");
-    // for line in stderr_reader {
-    //     println!("{}", line?);
-    // }
-    // println!("stop special read");
-
     loop {
         let status = {
             let mut child = child.lock().unwrap();
@@ -48,16 +42,18 @@ pub async fn read_logs(
             return Ok(status);
         }
 
-        println!("starting read");
-        // if let Some(line) = stdout_reader.next() {
-        //     sender.send(line?)?;
-        // }
-        println!("finished stdout, starting stderr");
-        // if let Some(line) = stderr_reader.next() {
-        //     println!("sending stderr");
-        //     sender.send(line?)?;
-        // }
-        println!("stopping read");
+        tokio::select! {
+            line = stdout_reader.next_line() => {
+                if let Some(line) = line? {
+                    sender.send(format!("{line}\n"))?;
+                } // else EOF
+            },
+            line = stderr_reader.next_line() => {
+                if let Some(line) = line? {
+                    sender.send(format!("{line}\n"))?;
+                }
+            }
+        }
     }
 }
 

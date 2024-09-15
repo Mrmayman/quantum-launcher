@@ -349,9 +349,22 @@ impl Application for Launcher {
                     ..
                 }) = &self.state
                 {
-                    // if let Some(process) = self.processes.take(selected_instance) {
-                    //     return Command::perform(fun_name(process), Message::LaunchKillEnd);
-                    // }
+                    if let Some(process) = self.processes.remove(selected_instance) {
+                        return Command::perform(
+                            {
+                                async move {
+                                    let mut child = process.child.lock().unwrap();
+                                    child.start_kill().map_err(|err| err.to_string())
+                                }
+                            },
+                            Message::LaunchKillEnd,
+                        );
+                    }
+                }
+            }
+            Message::LaunchKillEnd(result) => {
+                if let Err(err) = result {
+                    self.set_error(err)
                 }
             }
         }
@@ -386,16 +399,6 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
         }
     }
-}
-
-async fn fun_name(process: launcher_state::GameProcess) -> Result<(), String> {
-    process
-        .child
-        .lock()
-        .unwrap()
-        .kill()
-        .await
-        .map_err(|err| err.to_string())
 }
 
 fn receive_java_install_progress(
