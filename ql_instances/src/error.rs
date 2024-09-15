@@ -4,7 +4,7 @@ use serde_json::Error as SerdeJsonError;
 use zip_extract::ZipExtractError;
 
 use crate::{
-    download::progress::DownloadProgress,
+    download::{progress::DownloadProgress, DownloadError},
     file_utils::RequestError,
     java_install::JavaInstallError,
     json_structs::{json_version::VersionDetails, JsonDownloadError, JsonFileError},
@@ -18,7 +18,7 @@ pub enum LauncherError {
     InstanceAlreadyExists,
     RequestError(RequestError),
     SerdeJsonError(serde_json::Error),
-    SerdeFieldNotFound(&'static str),
+    SerdeFieldNotFound(String),
     VersionNotFoundInManifest(String),
     JavaVersionIsEmptyError,
     JavaVersionConvertCmdOutputToStringError(FromUtf8Error),
@@ -38,6 +38,23 @@ pub enum LauncherError {
     JsonDownloadError(JsonDownloadError),
     JsonFileError(JsonFileError),
     JavaInstall(JavaInstallError),
+    Semver(semver::Error),
+}
+
+impl From<DownloadError> for LauncherError {
+    fn from(value: DownloadError) -> Self {
+        match value {
+            DownloadError::Json(err) => Self::SerdeJsonError(err),
+            DownloadError::Request(err) => Self::RequestError(err),
+            DownloadError::Io(err) => Self::IoError(err),
+            DownloadError::InstanceAlreadyExists => Self::InstanceAlreadyExists,
+            DownloadError::SendProgress(err) => Self::DownloadProgressMspcError(err),
+            DownloadError::VersionNotFoundInManifest(err) => Self::VersionNotFoundInManifest(err),
+            DownloadError::SerdeFieldNotFound(err) => Self::SerdeFieldNotFound(err),
+            DownloadError::NativesExtractError(err) => Self::NativesExtractError(err),
+            DownloadError::NativesOutsideDirRemove => Self::NativesOutsideDirRemove,
+        }
+    }
 }
 
 pub type LauncherResult<T> = Result<T, LauncherError>;
@@ -61,6 +78,9 @@ impl_error!(JavaInstallError, JavaInstall);
 
 type ProgressSendError = SendError<DownloadProgress>;
 impl_error!(ProgressSendError, DownloadProgressMspcError);
+
+type SemverError = semver::Error;
+impl_error!(SemverError, Semver);
 
 impl Display for LauncherError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -129,6 +149,7 @@ impl Display for LauncherError {
             LauncherError::JsonDownloadError(err) => write!(f, "{err}"),
             LauncherError::JsonFileError(err) => write!(f, "{err}"),
             LauncherError::JavaInstall(err) => write!(f, "{err}"),
+            LauncherError::Semver(err) => write!(f, "{err}"),
         }
     }
 }

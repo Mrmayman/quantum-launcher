@@ -44,7 +44,9 @@ impl Application for Launcher {
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
             Message::LaunchStart => return self.launch_game(),
-            Message::LaunchEnd(result) => self.finish_launching(result),
+            Message::LaunchEnd(result) => {
+                return self.finish_launching(result);
+            }
             Message::CreateInstanceScreenOpen => return self.go_to_create_screen(),
             Message::CreateInstanceVersionsLoaded(result) => {
                 self.create_instance_finish_loading_versions_list(result)
@@ -172,9 +174,19 @@ impl Application for Launcher {
 
                     let mut killed_processes = Vec::new();
                     for (name, process) in self.processes.iter() {
-                        if let Ok(Some(_)) = process.lock().unwrap().try_wait() {
+                        if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
                             // Game process has exited.
                             killed_processes.push(name.to_owned())
+                        } else {
+                            if let Ok(message) = process.receiver.try_recv() {
+                                if !self.logs.contains_key(name) {
+                                    self.logs.insert(name.to_owned(), message);
+                                } else {
+                                    if let Some(log) = self.logs.get_mut(name) {
+                                        log.push_str(&message);
+                                    }
+                                }
+                            }
                         }
                     }
                     for name in killed_processes {
@@ -325,6 +337,23 @@ impl Application for Launcher {
                 Ok(_) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
                 Err(err) => self.set_error(err),
             },
+            Message::LaunchEndedLog(result) => match result {
+                Ok(status) => {
+                    println!("[info] Game exited with status: {status}")
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::LaunchKill => {
+                if let State::Launch(MenuLaunch {
+                    selected_instance: Some(selected_instance),
+                    ..
+                }) = &self.state
+                {
+                    // if let Some(process) = self.processes.take(selected_instance) {
+                    //     return Command::perform(fun_name(process), Message::LaunchKillEnd);
+                    // }
+                }
+            }
         }
         Command::none()
     }
@@ -341,6 +370,7 @@ impl Application for Launcher {
                 self.config.as_ref(),
                 self.instances.as_deref(),
                 &self.processes,
+                &self.logs,
             ),
             State::EditInstance(menu) => menu.view(),
             State::EditMods(menu) => menu.view(),
@@ -356,6 +386,16 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
         }
     }
+}
+
+async fn fun_name(process: launcher_state::GameProcess) -> Result<(), String> {
+    process
+        .child
+        .lock()
+        .unwrap()
+        .kill()
+        .await
+        .map_err(|err| err.to_string())
 }
 
 fn receive_java_install_progress(
@@ -405,7 +445,7 @@ fn receive_java_install_progress(
 // }
 
 fn main() {
-    const WINDOW_HEIGHT: f32 = 400.0;
+    const WINDOW_HEIGHT: f32 = 450.0;
     const WINDOW_WIDTH: f32 = 400.0;
 
     // let rt = tokio::runtime::Runtime::new().unwrap();

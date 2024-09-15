@@ -7,8 +7,8 @@ use ql_instances::{
 };
 
 use crate::launcher_state::{
-    JavaInstallProgressData, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
-    MenuEditMods, Message, State,
+    GameProcess, JavaInstallProgressData, Launcher, MenuCreateInstance, MenuDeleteInstance,
+    MenuEditInstance, MenuEditMods, Message, State,
 };
 
 impl Launcher {
@@ -34,6 +34,10 @@ impl Launcher {
                 message: "Starting up (1/2)".to_owned(),
             });
 
+            if let Some(log) = self.logs.get_mut(&selected_instance) {
+                log.clear();
+            }
+
             return Command::perform(
                 ql_instances::launch_wrapped(selected_instance, username, Some(sender)),
                 Message::LaunchEnd,
@@ -42,12 +46,30 @@ impl Launcher {
         Command::none()
     }
 
-    pub fn finish_launching(&mut self, result: GameLaunchResult) {
+    pub fn finish_launching(&mut self, result: GameLaunchResult) -> Command<Message> {
         match result {
             GameLaunchResult::Ok(child) => {
                 if let State::Launch(menu_launch) = &self.state {
                     if let Some(selected_instance) = menu_launch.selected_instance.to_owned() {
-                        self.processes.insert(selected_instance, child);
+                        if let (Some(stdout), Some(stderr)) = {
+                            let mut child = child.lock().unwrap();
+                            (child.stdout.take(), child.stderr.take())
+                        } {
+                            let (sender, receiver) = std::sync::mpsc::channel();
+
+                            self.processes.insert(
+                                selected_instance,
+                                GameProcess {
+                                    child: child.clone(),
+                                    receiver,
+                                },
+                            );
+
+                            return Command::perform(
+                                ql_instances::read_logs_wrapped(stdout, stderr, child, sender),
+                                Message::LaunchEndedLog,
+                            );
+                        }
                     } else {
                         eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.")
                     }
@@ -55,6 +77,7 @@ impl Launcher {
             }
             GameLaunchResult::Err(err) => self.set_error(err),
         }
+        Command::none()
     }
 
     pub fn go_to_create_screen(&mut self) -> Command<Message> {

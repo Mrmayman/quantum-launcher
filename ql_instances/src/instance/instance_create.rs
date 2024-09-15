@@ -2,7 +2,7 @@ use std::sync::mpsc::Sender;
 
 use crate::{
     download::{progress::DownloadProgress, DownloadError, GameDownloader},
-    file_utils, io_err,
+    file_utils, io_err, LAUNCHER_VERSION_NAME,
 };
 
 pub async fn create_instance(
@@ -46,6 +46,13 @@ async fn create(
     game_downloader.create_version_json()?;
     game_downloader.create_profiles_json()?;
     game_downloader.create_config_json()?;
+
+    let version_file_path = launcher_dir
+        .join("instances")
+        .join(instance_name)
+        .join("launcher_version.txt");
+    std::fs::write(&version_file_path, LAUNCHER_VERSION_NAME)
+        .map_err(io_err!(version_file_path))?;
 
     Ok(())
 }

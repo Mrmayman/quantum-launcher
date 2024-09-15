@@ -1,8 +1,9 @@
 use std::{
     collections::HashMap,
     path::PathBuf,
-    process::Child,
+    process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
+    thread::JoinHandle,
 };
 
 use ql_instances::{
@@ -14,6 +15,7 @@ use ql_mod_manager::instance_mod_installer::{
     fabric::{FabricInstallProgress, FabricVersion},
     forge::ForgeInstallProgress,
 };
+use tokio::process::Child;
 
 use crate::config::LauncherConfig;
 
@@ -30,6 +32,8 @@ pub enum Message {
     DeleteInstance,
     LaunchScreenOpen(Option<String>),
     LaunchEnd(GameLaunchResult),
+    LaunchKill,
+    LaunchKillEnd()
     CreateInstanceScreenOpen,
     CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
     CreateInstanceVersionSelected(String),
@@ -50,6 +54,7 @@ pub enum Message {
     ErrorCopy,
     Tick,
     TickConfigSaved(Result<(), String>),
+    LaunchEndedLog(Result<ExitStatus, String>),
 }
 
 #[derive(Default)]
@@ -134,7 +139,13 @@ pub struct Launcher {
     pub state: State,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
-    pub processes: HashMap<String, Arc<Mutex<Child>>>,
+    pub processes: HashMap<String, GameProcess>,
+    pub logs: HashMap<String, String>,
+}
+
+pub struct GameProcess {
+    pub child: Arc<Mutex<Child>>,
+    pub receiver: Receiver<String>,
 }
 
 impl Launcher {
@@ -172,6 +183,7 @@ impl Launcher {
             }),
             processes: HashMap::new(),
             config: Some(LauncherConfig::load()?),
+            logs: HashMap::new(),
         })
     }
 
@@ -183,6 +195,7 @@ impl Launcher {
             instances: None,
             config: LauncherConfig::load().ok(),
             processes: HashMap::new(),
+            logs: HashMap::new(),
         }
     }
 

@@ -1,6 +1,10 @@
+use tokio::process::{Child, Command};
+
 use crate::{
     error::{IoError, LauncherError, LauncherResult},
-    file_utils, io_err,
+    file_utils,
+    instance::migrate::migrate_old_instances,
+    io_err,
     java_install::{self, JavaInstallProgress},
     json_structs::{
         json_fabric::FabricJSON,
@@ -13,7 +17,7 @@ use crate::{
 };
 use std::{
     path::{Path, PathBuf},
-    process::{Child, Command},
+    process::Stdio,
     sync::{mpsc::Sender, Arc, Mutex},
 };
 
@@ -68,6 +72,9 @@ pub async fn launch(
     }
 
     let instance_dir = get_instance_dir(instance_name)?;
+
+    migrate_old_instances(&instance_dir).await?;
+
     let minecraft_dir = instance_dir.join(".minecraft");
     std::fs::create_dir_all(&minecraft_dir).map_err(io_err!(minecraft_dir))?;
 
@@ -148,7 +155,11 @@ pub async fn launch(
 
     println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");
 
-    let command = command.args(java_arguments.iter().chain(game_arguments.iter()));
+    let command = command
+        .args(java_arguments.iter().chain(game_arguments.iter()))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    // Comment the above 2 lines to disable launcher log viewing.
     let result = command.spawn().map_err(LauncherError::CommandError)?;
 
     Ok(result)

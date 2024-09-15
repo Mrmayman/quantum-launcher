@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use reqwest::Client;
 use zip_extract::ZipExtractError;
 
 use crate::{
@@ -70,26 +71,14 @@ impl GameDownloader {
                         )
                         .await?;
 
-                    if let Some(natives) = &library.natives {
-                        if let Some(natives_name) = natives.get(OS_NAME) {
-                            println!("[info] Extracting natives: Extracting main jar");
-                            let natives_path = self.instance_dir.join("libraries/natives");
-
-                            extract_zip_file(&jar_file, &natives_path)
-                                .map_err(DownloadError::NativesExtractError)?;
-
-                            let url = &artifact.url[..artifact.url.len() - 4];
-                            let url = format!("{}-{}.jar", url, natives_name);
-                            println!("[info] Extracting natives: Downloading native jar");
-                            let native_jar =
-                                file_utils::download_file_to_bytes(&self.network_client, &url)
-                                    .await?;
-
-                            println!("[info] Extracting natives: Extracting native jar");
-                            extract_zip_file(&native_jar, &natives_path)
-                                .map_err(DownloadError::NativesExtractError)?;
-                        }
-                    }
+                    GameDownloader::extract_native_library(
+                        &self.instance_dir,
+                        &self.network_client,
+                        library,
+                        &jar_file,
+                        artifact,
+                    )
+                    .await?;
                 }
                 LibraryDownloads::Native { classifiers } => {
                     self.download_library_native(
@@ -102,6 +91,33 @@ impl GameDownloader {
             }
         }
         Ok(())
+    }
+
+    pub async fn extract_native_library(
+        instance_dir: &Path,
+        client: &Client,
+        library: &Library,
+        jar_file: &[u8],
+        artifact: &LibraryDownloadArtifact,
+    ) -> Result<(), DownloadError> {
+        Ok(if let Some(natives) = &library.natives {
+            if let Some(natives_name) = natives.get(OS_NAME) {
+                println!("[info] Extracting natives: Extracting main jar");
+                let natives_path = instance_dir.join("libraries/natives");
+
+                extract_zip_file(&jar_file, &natives_path)
+                    .map_err(DownloadError::NativesExtractError)?;
+
+                let url = &artifact.url[..artifact.url.len() - 4];
+                let url = format!("{}-{}.jar", url, natives_name);
+                println!("[info] Extracting natives: Downloading native jar");
+                let native_jar = file_utils::download_file_to_bytes(client, &url).await?;
+
+                println!("[info] Extracting natives: Extracting native jar");
+                extract_zip_file(&native_jar, &natives_path)
+                    .map_err(DownloadError::NativesExtractError)?;
+            }
+        })
     }
 
     async fn download_library_normal(

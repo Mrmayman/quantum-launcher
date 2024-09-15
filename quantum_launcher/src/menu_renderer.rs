@@ -1,19 +1,14 @@
-use std::{
-    collections::HashMap,
-    ops::RangeInclusive,
-    process::Child,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, ops::RangeInclusive};
 
-use iced::widget::{self, column, row};
+use iced::widget;
 use ql_instances::file_utils;
 
 use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods,
-        MenuInstallFabric, MenuInstallForge, MenuLaunch, Message,
+        GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
+        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuLaunch, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -25,7 +20,7 @@ fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
 ) -> iced::widget::Button<'element, Message, LauncherTheme> {
-    widget::button(row![icon, text].spacing(10).padding(5))
+    widget::button(widget::row![icon, text].spacing(10).padding(5))
 }
 
 impl MenuLaunch {
@@ -33,10 +28,11 @@ impl MenuLaunch {
         &'element self,
         config: Option<&'element LauncherConfig>,
         instances: Option<&'element [String]>,
-        processes: &'element HashMap<String, Arc<Mutex<Child>>>,
+        processes: &'element HashMap<String, GameProcess>,
+        logs: &'element HashMap<String, String>,
     ) -> Element<'element> {
         let pick_list = if let Some(instances) = instances {
-            column![
+            widget::column![
                 widget::text("Instances:"),
                 widget::pick_list(
                     instances,
@@ -72,7 +68,7 @@ impl MenuLaunch {
                 .spacing(5),
             ]
         } else {
-            column![widget::text("Loading instances...")]
+            widget::column![widget::text("Loading instances...")]
         };
 
         let java_progress_bar = if let Some(progress) = &self.java_install_progress {
@@ -94,8 +90,8 @@ impl MenuLaunch {
             .spacing(10)
         };
 
-        column![
-            column![
+        let left_elements = widget::column![
+            widget::column![
                 widget::text("Username:"),
                 widget::text_input("Enter username...", &config.as_ref().unwrap().username)
                     .on_input(Message::LaunchUsernameSet)
@@ -115,25 +111,38 @@ impl MenuLaunch {
                         )
                     }))
                     .width(97),
-                button_with_icon(icon_manager::play(), "Play")
-                    .on_press_maybe(
-                        {
-                            if let Some(selected_instance) = &self.selected_instance {
-                                !processes.contains_key(selected_instance)
-                            } else {
-                                false
-                            }
-                        }
-                        .then_some(Message::LaunchStart)
-                    )
-                    .width(98),
+                if let Some(selected_instance) = &self.selected_instance {
+                    if processes.contains_key(selected_instance) {
+                        button_with_icon(icon_manager::play(), "Kill").on_press(Message::LaunchKill)
+                    } else {
+                        button_with_icon(icon_manager::play(), "Play")
+                            .on_press(Message::LaunchStart)
+                    }
+                } else {
+                    button_with_icon(icon_manager::play(), "Play")
+                }
+                .width(98),
             ]
             .spacing(5),
             java_progress_bar
         ]
         .padding(10)
-        .spacing(20)
-        .into()
+        .spacing(20);
+
+        let log = if let Some(Some(log)) = self
+            .selected_instance
+            .as_ref()
+            .map(|selection| logs.get(selection))
+        {
+            widget::column!(widget::scrollable(widget::text(log)))
+        } else {
+            widget::column!(widget::text("Select an instance to view its logs"))
+        };
+
+        widget::row!(left_elements, log)
+            .padding(10)
+            .spacing(20)
+            .into()
     }
 }
 
@@ -145,14 +154,14 @@ impl MenuEditInstance {
         const MEM_8192_MB_IN_TWOS_EXPONENT: f32 = 13.0;
 
         widget::scrollable(
-            column![
-                widget::button(row![icon_manager::back(), widget::text("Back")]
+            widget::column![
+                widget::button(widget::row![icon_manager::back(), widget::text("Back")]
                     .spacing(10)
                     .padding(5)
                 ).on_press(Message::LaunchScreenOpen(None)),
                 widget::text(format!("Editing {} instance: {}", self.config.mod_type, self.selected_instance)),
                 widget::container(
-                    column![
+                    widget::column![
                         widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
                         widget::text_input(
                             "Enter Java override",
@@ -167,7 +176,7 @@ impl MenuEditInstance {
                     .spacing(10)
                 ),
                 widget::container(
-                    column![
+                    widget::column![
                         widget::text("Allocated memory"),
                         widget::text("For normal Minecraft, allocate 2 - 3 GB"),
                         widget::text("For old versions, allocate 512 MB - 1 GB"),
@@ -231,25 +240,25 @@ impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         let progress_bar = if let Some(progress_number) = self.progress_number {
             if let Some(progress_text) = &self.progress_text {
-                column![
+                widget::column![
                     widget::progress_bar(RangeInclusive::new(0.0, 10.0), progress_number),
                     widget::text(progress_text),
                 ]
             } else {
-                column![]
+                widget::column![]
             }
         } else {
-            column![]
+            widget::column![]
         };
 
         widget::scrollable(
-            column![
+            widget::column![
                 widget::button(
-                    row![icon_manager::back(), widget::text("Back")]
+                    widget::row![icon_manager::back(), widget::text("Back")]
                         .spacing(10)
                         .padding(5)
                 ).on_press(Message::LaunchScreenOpen(None)),
-                column![
+                widget::column![
                     widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
                     widget::text("Select Version"),
                     widget::pick_list(
@@ -263,7 +272,7 @@ impl MenuCreateInstance {
                     .on_input(Message::CreateInstanceNameInput),
                 widget::text("Download assets? If disabled, creating instance will be MUCH faster, but no sound or music will play in-game"),
                 widget::checkbox("Download assets?", self.download_assets).on_toggle(Message::CreateInstanceChangeAssetToggle),
-                widget::button(row![icon_manager::create(), widget::text("Create Instance")]
+                widget::button(widget::row![icon_manager::create(), widget::text("Create Instance")]
                         .spacing(10)
                         .padding(5)
                 ).on_press_maybe((self.selected_version.is_some() && !self.instance_name.is_empty()).then(|| Message::CreateInstanceStart)),
@@ -278,7 +287,7 @@ impl MenuCreateInstance {
 
 impl MenuDeleteInstance {
     pub fn view(&self) -> Element {
-        column![
+        widget::column![
             widget::text(format!(
                 "Are you SURE you want to DELETE the Instance: {}?",
                 &self.selected_instance
@@ -296,7 +305,7 @@ impl MenuDeleteInstance {
 impl MenuInstallFabric {
     pub fn view(&self) -> Element {
         if self.progress_receiver.is_some() {
-            column!(
+            widget::column!(
                 widget::text("Installing Fabric..."),
                 widget::progress_bar(0.0..=1.0, self.progress_num)
             )
@@ -304,9 +313,9 @@ impl MenuInstallFabric {
             .spacing(20)
             .into()
         } else {
-            column![
+            widget::column![
                 widget::button(
-                    row![icon_manager::back(), widget::text("Back")]
+                    widget::row![icon_manager::back(), widget::text("Back")]
                         .spacing(10)
                         .padding(5)
                 )
@@ -335,28 +344,28 @@ impl MenuInstallFabric {
 
 impl MenuInstallForge {
     pub fn view(&self) -> Element {
-        let progress_bar = column!(
+        let progress_bar = widget::column!(
             iced::widget::progress_bar(0.0..=4.0, self.forge_progress_num),
             iced::widget::text(&self.forge_message)
         );
 
         if self.is_java_getting_installed {
             if let Some(message) = &self.java_message {
-                column!(
+                widget::column!(
                     iced::widget::text("Installing forge..."),
                     progress_bar,
                     iced::widget::progress_bar(0.0..=1.0, self.java_progress_num),
                     iced::widget::text(message)
                 )
             } else {
-                column!(
+                widget::column!(
                     iced::widget::text("Installing forge..."),
                     progress_bar,
                     iced::widget::progress_bar(0.0..=1.0, self.java_progress_num),
                 )
             }
         } else {
-            column!(iced::widget::text("Installing forge..."), progress_bar)
+            widget::column!(iced::widget::text("Installing forge..."), progress_bar)
         }
         .padding(20)
         .spacing(20)
