@@ -100,12 +100,12 @@ impl GameDownloader {
         jar_file: &[u8],
         artifact: &LibraryDownloadArtifact,
     ) -> Result<(), DownloadError> {
-        Ok(if let Some(natives) = &library.natives {
+        if let Some(natives) = &library.natives {
             if let Some(natives_name) = natives.get(OS_NAME) {
                 println!("[info] Extracting natives: Extracting main jar");
                 let natives_path = instance_dir.join("libraries/natives");
 
-                extract_zip_file(&jar_file, &natives_path)
+                extract_zip_file(jar_file, &natives_path)
                     .map_err(DownloadError::NativesExtractError)?;
 
                 let url = &artifact.url[..artifact.url.len() - 4];
@@ -117,7 +117,8 @@ impl GameDownloader {
                 extract_zip_file(&native_jar, &natives_path)
                     .map_err(DownloadError::NativesExtractError)?;
             }
-        })
+        }
+        Ok(())
     }
 
     async fn download_library_normal(
@@ -191,7 +192,7 @@ impl GameDownloader {
         Ok(())
     }
 
-    fn download_libraries_library_is_allowed(library: &Library) -> bool {
+    pub fn download_libraries_library_is_allowed(library: &Library) -> bool {
         let mut allowed: bool = true;
 
         if let Some(ref rules) = library.rules {

@@ -26,6 +26,7 @@ async fn create(
 
     // An empty asset directory.
     let launcher_dir = file_utils::get_launcher_dir()?;
+
     let assets_dir = launcher_dir.join("assets/null");
     std::fs::create_dir_all(&assets_dir).map_err(io_err!(assets_dir))?;
 
@@ -53,6 +54,12 @@ async fn create(
         .join("launcher_version.txt");
     std::fs::write(&version_file_path, LAUNCHER_VERSION_NAME)
         .map_err(io_err!(version_file_path))?;
+
+    let mods_dir = launcher_dir
+        .join("instances")
+        .join(instance_name)
+        .join(".minecraft/mods");
+    std::fs::create_dir_all(&mods_dir).map_err(io_err!(mods_dir))?;
 
     Ok(())
 }

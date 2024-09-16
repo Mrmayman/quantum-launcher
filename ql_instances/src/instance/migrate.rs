@@ -39,6 +39,10 @@ async fn migrate_download_missing_native_libs(
     let json: VersionDetails = serde_json::from_str(&json)?;
 
     for library in json.libraries.iter() {
+        if !GameDownloader::download_libraries_library_is_allowed(library) {
+            continue;
+        }
+
         if let Some(LibraryDownloads::Normal { artifact, .. }) = &library.downloads {
             let library_path = instance_dir.join("libraries").join(&artifact.path);
             let library_file = std::fs::read(&library_path).map_err(io_err!(library_path))?;

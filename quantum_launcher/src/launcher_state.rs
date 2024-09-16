@@ -6,9 +6,10 @@ use std::{
 };
 
 use ql_instances::{
-    error::LauncherResult, file_utils, io_err,
-    json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
-    JavaInstallProgress,
+    error::{LauncherError, LauncherResult},
+    file_utils, io_err,
+    json_structs::json_instance_config::InstanceConfigJson,
+    DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine,
 };
 use ql_mod_manager::instance_mod_installer::{
     fabric::{FabricInstallProgress, FabricVersion},
@@ -54,6 +55,7 @@ pub enum Message {
     Tick,
     TickConfigSaved(Result<(), String>),
     LaunchEndedLog(Result<ExitStatus, String>),
+    LaunchCopyLog,
 }
 
 #[derive(Default)]
@@ -144,34 +146,12 @@ pub struct Launcher {
 
 pub struct GameProcess {
     pub child: Arc<Mutex<Child>>,
-    pub receiver: Receiver<String>,
+    pub receiver: Receiver<LogLine>,
 }
 
 impl Launcher {
     pub fn new(message: Option<String>) -> LauncherResult<Self> {
-        // .config/QuantumLauncher/ OR AppData/Roaming/QuantumLauncher/
-        let dir_path = file_utils::get_launcher_dir()?;
-        std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
-
-        // QuantumLauncher/instances/
-        let dir_path = dir_path.join("instances");
-        std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
-
-        let dir = std::fs::read_dir(&dir_path).map_err(io_err!(dir_path))?;
-
-        println!("[info] Starting Launcher");
-        let subdirectories: Vec<String> = dir
-            .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    if entry.path().is_dir() {
-                        if let Some(file_name) = entry.file_name().to_str() {
-                            return Some(file_name.to_owned());
-                        }
-                    }
-                }
-                None
-            })
-            .collect();
+        let subdirectories = reload_instances()?;
 
         Ok(Self {
             instances: Some(subdirectories),
@@ -203,11 +183,21 @@ impl Launcher {
     }
 
     pub fn go_to_launch_screen(&mut self) {
-        self.state = State::Launch(MenuLaunch::default())
+        self.state = State::Launch(MenuLaunch::default());
+        if let Ok(list) = reload_instances() {
+            self.instances = Some(list);
+        } else {
+            eprintln!("[error] Failed to reload instances list.")
+        }
     }
 
     pub fn go_to_launch_screen_with_message(&mut self, message: String) {
-        self.state = State::Launch(MenuLaunch::with_message(message))
+        self.state = State::Launch(MenuLaunch::with_message(message));
+        if let Ok(list) = reload_instances() {
+            self.instances = Some(list);
+        } else {
+            eprintln!("[error] Failed to reload instances list.")
+        }
     }
 
     pub fn edit_instance_wrapped(&mut self) {
@@ -218,4 +208,28 @@ impl Launcher {
             }
         }
     }
+}
+
+fn reload_instances() -> Result<Vec<String>, LauncherError> {
+    let dir_path = file_utils::get_launcher_dir()?;
+    std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
+
+    let dir_path = dir_path.join("instances");
+    std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
+
+    let dir = std::fs::read_dir(&dir_path).map_err(io_err!(dir_path))?;
+
+    let subdirectories: Vec<String> = dir
+        .filter_map(|entry| {
+            if let Ok(entry) = entry {
+                if entry.path().is_dir() {
+                    if let Some(file_name) = entry.file_name().to_str() {
+                        return Some(file_name.to_owned());
+                    }
+                }
+            }
+            None
+        })
+        .collect();
+    Ok(subdirectories)
 }

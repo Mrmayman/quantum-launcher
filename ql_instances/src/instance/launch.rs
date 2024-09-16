@@ -78,6 +78,9 @@ pub async fn launch(
     let minecraft_dir = instance_dir.join(".minecraft");
     std::fs::create_dir_all(&minecraft_dir).map_err(io_err!(minecraft_dir))?;
 
+    let mods_dir = minecraft_dir.join("mods");
+    std::fs::create_dir_all(&mods_dir).map_err(io_err!(mods_dir))?;
+
     let config_json = get_config(&instance_dir)?;
 
     let version_json = read_version_json(&instance_dir)?;
@@ -155,11 +158,16 @@ pub async fn launch(
 
     println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");
 
-    let command = command
-        .args(java_arguments.iter().chain(game_arguments.iter()))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    // Comment the above 2 lines to disable launcher log viewing.
+    const ENABLE_LOGGING: bool = true;
+
+    let mut command = command.args(java_arguments.iter().chain(game_arguments.iter()));
+    command = if ENABLE_LOGGING {
+        command.stdout(Stdio::piped()).stderr(Stdio::piped())
+    } else {
+        command
+    }
+    .current_dir(&minecraft_dir);
+
     let result = command.spawn().map_err(LauncherError::CommandError)?;
 
     Ok(result)

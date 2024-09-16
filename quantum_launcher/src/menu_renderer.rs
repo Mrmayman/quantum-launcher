@@ -83,7 +83,7 @@ impl MenuLaunch {
                 widget::column!(version_message)
             } else {
                 widget::column!(
-                    widget::container(widget::text(&self.message)).padding(10),
+                    widget::container(widget::text(&self.message).width(200)).padding(10),
                     version_message
                 )
             }
@@ -129,20 +129,38 @@ impl MenuLaunch {
         .padding(10)
         .spacing(20);
 
-        let log = if let Some(Some(log)) = self
+        let log = self.get_log_pane(logs);
+
+        widget::row!(widget::scrollable(left_elements), log)
+            .padding(10)
+            .spacing(20)
+            .into()
+    }
+
+    fn get_log_pane<'element>(
+        &'element self,
+        logs: &HashMap<String, String>,
+    ) -> widget::Column<'element, Message, LauncherTheme> {
+        const LOG_VIEW_LIMIT: usize = 10000;
+        if let Some(Some(log)) = self
             .selected_instance
             .as_ref()
             .map(|selection| logs.get(selection))
         {
-            widget::column!(widget::scrollable(widget::text(log)))
+            let log_length = log.len();
+            let slice = if log_length > LOG_VIEW_LIMIT {
+                &log[log_length - LOG_VIEW_LIMIT..log_length]
+            } else {
+                log
+            };
+            widget::column!(
+                widget::text("If you have any problems with the game, copy the log (and send it) for full support. (The full log is not shown, copy it to get the full thing)"),
+                widget::button("Copy Log").on_press(Message::LaunchCopyLog),
+                widget::scrollable(widget::text(slice))
+            )
         } else {
             widget::column!(widget::text("Select an instance to view its logs"))
-        };
-
-        widget::row!(left_elements, log)
-            .padding(10)
-            .spacing(20)
-            .into()
+        }.padding(10).spacing(10)
     }
 }
 
@@ -227,7 +245,15 @@ impl MenuEditMods {
             )
             .on_press(Message::LaunchScreenOpen(None)),
             mod_installer,
-            widget::button("Go to mods folder"),
+            widget::button("Go to mods folder").on_press({
+                let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                Message::OpenDir(
+                    launcher_dir
+                        .join("instances")
+                        .join(&self.selected_instance)
+                        .join(".minecraft/mods"),
+                )
+            }),
             widget::text("Mod management and store coming soon...")
         ]
         .padding(10)

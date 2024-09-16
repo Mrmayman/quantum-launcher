@@ -4,10 +4,7 @@ use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{Launcher, MenuInstallFabric, MenuInstallForge, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
 use ql_instances::error::LauncherError;
-use ql_instances::JavaInstallProgress;
 use ql_mod_manager::instance_mod_installer;
-use ql_mod_manager::instance_mod_installer::fabric::FabricInstallProgress;
-use ql_mod_manager::instance_mod_installer::forge::ForgeInstallProgress;
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -16,6 +13,7 @@ mod launcher_state;
 mod menu_renderer;
 mod message_handler;
 mod stylesheet;
+mod tick;
 
 impl Application for Launcher {
     type Executor = executor::Default;
@@ -162,118 +160,11 @@ impl Application for Launcher {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
                 }
             }
-            Message::Tick => match &mut self.state {
-                State::Launch(MenuLaunch {
-                    java_install_progress,
-                    ..
-                }) => {
-                    let install_finished = receive_java_install_progress(java_install_progress);
-                    if install_finished {
-                        *java_install_progress = None;
-                    }
-
-                    let mut killed_processes = Vec::new();
-                    for (name, process) in self.processes.iter() {
-                        if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
-                            // Game process has exited.
-                            killed_processes.push(name.to_owned())
-                        } else {
-                            if let Ok(message) = process.receiver.try_recv() {
-                                if !self.logs.contains_key(name) {
-                                    self.logs.insert(name.to_owned(), message);
-                                } else {
-                                    if let Some(log) = self.logs.get_mut(name) {
-                                        log.push_str(&message);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    for name in killed_processes {
-                        self.processes.remove(&name);
-                    }
-
-                    if let Some(config) = self.config.clone() {
-                        return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
-                    }
+            Message::Tick => {
+                if let Some(value) = self.tick() {
+                    return value;
                 }
-                State::EditInstance(menu) => {
-                    if let Err(err) = Launcher::save_config(&menu.selected_instance, &menu.config) {
-                        self.set_error(err.to_string())
-                    }
-                }
-                State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
-                State::EditMods(_) => {}
-                State::Error { .. } => {}
-                State::DeleteInstance(_) => {}
-                State::InstallFabric(menu) => {
-                    if let Some(receiver) = &menu.progress_receiver {
-                        if let Ok(progress) = receiver.try_recv() {
-                            menu.progress_num = match progress {
-                                FabricInstallProgress::P1Start => 0.0,
-                                FabricInstallProgress::P2Library { done, out_of } => {
-                                    done as f32 / out_of as f32
-                                }
-                                FabricInstallProgress::P3Done => 1.0,
-                            }
-                        }
-                    }
-                }
-                State::InstallForge(menu) => {
-                    if let Ok(message) = menu.forge_progress_receiver.try_recv() {
-                        menu.forge_progress_num = match message {
-                            ForgeInstallProgress::P1Start => 0.0,
-                            ForgeInstallProgress::P2DownloadingJson => 1.0,
-                            ForgeInstallProgress::P3DownloadingInstaller => 2.0,
-                            ForgeInstallProgress::P4RunningInstaller => 3.0,
-                            ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
-                                3.0 + (num as f32 / out_of as f32)
-                            }
-                            ForgeInstallProgress::P6Done => 4.0,
-                        };
-
-                        menu.forge_message = match message {
-                            ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
-                            ForgeInstallProgress::P2DownloadingJson => {
-                                "Downloading JSON".to_owned()
-                            }
-                            ForgeInstallProgress::P3DownloadingInstaller => {
-                                "Downloading installer".to_owned()
-                            }
-                            ForgeInstallProgress::P4RunningInstaller => {
-                                "Running Installer".to_owned()
-                            }
-                            ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
-                                format!("Downloading Library ({num}/{out_of})")
-                            }
-                            ForgeInstallProgress::P6Done => "Done!".to_owned(),
-                        };
-                    }
-
-                    if let Ok(message) = menu.java_progress_receiver.try_recv() {
-                        match message {
-                            JavaInstallProgress::P1Started => {
-                                menu.is_java_getting_installed = true;
-                                menu.java_progress_num = 0.0;
-                                menu.java_message = Some("Started...".to_owned());
-                            }
-                            JavaInstallProgress::P2 {
-                                progress,
-                                out_of,
-                                name,
-                            } => {
-                                menu.java_progress_num = progress as f32 / out_of as f32;
-                                menu.java_message =
-                                    Some(format!("Downloading ({progress}/{out_of}): {name}"));
-                            }
-                            JavaInstallProgress::P3Done => {
-                                menu.is_java_getting_installed = false;
-                                menu.java_message = None;
-                            }
-                        }
-                    }
-                }
-            },
+            }
             Message::TickConfigSaved(result) => {
                 if let Err(err) = result {
                     self.set_error(err)
@@ -337,12 +228,19 @@ impl Application for Launcher {
                 Ok(_) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
                 Err(err) => self.set_error(err),
             },
-            Message::LaunchEndedLog(result) => match result {
-                Ok(status) => {
-                    println!("[info] Game exited with status: {status}")
+            Message::LaunchEndedLog(result) => {
+                match result {
+                    Ok(status) => {
+                        println!("[info] Game exited with status: {status}");
+                        if !status.success() {
+                            if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
+                                *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
+                            }
+                        }
+                    }
+                    Err(err) => self.set_error(err),
                 }
-                Err(err) => self.set_error(err),
-            },
+            }
             Message::LaunchKill => {
                 if let State::Launch(MenuLaunch {
                     selected_instance: Some(selected_instance),
@@ -365,6 +263,17 @@ impl Application for Launcher {
             Message::LaunchKillEnd(result) => {
                 if let Err(err) = result {
                     self.set_error(err)
+                }
+            }
+            Message::LaunchCopyLog => {
+                if let State::Launch(MenuLaunch {
+                    selected_instance: Some(selected_instance),
+                    ..
+                }) = &self.state
+                {
+                    if let Some(log) = self.logs.get(selected_instance) {
+                        return iced::clipboard::write(log.to_owned());
+                    }
                 }
             }
         }
@@ -401,38 +310,6 @@ impl Application for Launcher {
     }
 }
 
-fn receive_java_install_progress(
-    java_install_progress: &mut Option<launcher_state::JavaInstallProgressData>,
-) -> bool {
-    let Some(java_install_progress) = java_install_progress else {
-        return true;
-    };
-
-    if let Ok(message) = java_install_progress.recv.try_recv() {
-        match message {
-            JavaInstallProgress::P1Started => {
-                java_install_progress.num = 0.0;
-                java_install_progress.message = "Starting up (2/2)".to_owned();
-            }
-            JavaInstallProgress::P2 {
-                progress,
-                out_of,
-                name,
-            } => {
-                java_install_progress.num = (progress as f32) / (out_of as f32);
-                java_install_progress.message =
-                    format!("Downloading ({progress}/{out_of}): {name}");
-            }
-            JavaInstallProgress::P3Done => {
-                java_install_progress.num = 1.0;
-                java_install_progress.message = "Done!".to_owned();
-                return true;
-            }
-        }
-    }
-    false
-}
-
 // async fn pick_file() -> Option<PathBuf> {
 //     const MESSAGE: &str = if cfg!(windows) {
 //         "Select the java.exe executable"
@@ -449,7 +326,7 @@ fn receive_java_install_progress(
 
 fn main() {
     const WINDOW_HEIGHT: f32 = 450.0;
-    const WINDOW_WIDTH: f32 = 400.0;
+    const WINDOW_WIDTH: f32 = 600.0;
 
     // let rt = tokio::runtime::Runtime::new().unwrap();
     // rt.block_on(ql_mod_manager::instance_mod_installer::forge::install(

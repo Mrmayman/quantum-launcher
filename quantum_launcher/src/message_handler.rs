@@ -58,7 +58,7 @@ impl Launcher {
                             let (sender, receiver) = std::sync::mpsc::channel();
 
                             self.processes.insert(
-                                selected_instance,
+                                selected_instance.clone(),
                                 GameProcess {
                                     child: child.clone(),
                                     receiver,
@@ -66,7 +66,13 @@ impl Launcher {
                             );
 
                             return Command::perform(
-                                ql_instances::read_logs_wrapped(stdout, stderr, child, sender),
+                                ql_instances::read_logs_wrapped(
+                                    stdout,
+                                    stderr,
+                                    child,
+                                    sender,
+                                    selected_instance,
+                                ),
                                 Message::LaunchEndedLog,
                             );
                         }

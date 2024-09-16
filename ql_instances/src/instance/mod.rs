@@ -1,5 +1,5 @@
-pub mod instance_create;
-pub mod instance_launch;
-pub mod instance_list_versions;
-pub mod instance_read_logs;
+pub mod create;
+pub mod launch;
+pub mod list_versions;
 mod migrate;
+pub mod read_log;
