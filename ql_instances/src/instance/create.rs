@@ -2,7 +2,7 @@ use std::sync::mpsc::Sender;
 
 use crate::{
     download::{progress::DownloadProgress, DownloadError, GameDownloader},
-    file_utils, io_err, LAUNCHER_VERSION_NAME,
+    file_utils, info, io_err, LAUNCHER_VERSION_NAME,
 };
 
 pub async fn create_instance(
@@ -22,7 +22,7 @@ async fn create(
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
 ) -> Result<(), DownloadError> {
-    println!("[info] Started creating instance.");
+    info!("Started creating instance.");
 
     // An empty asset directory.
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -60,6 +60,8 @@ async fn create(
         .join(instance_name)
         .join(".minecraft/mods");
     std::fs::create_dir_all(&mods_dir).map_err(io_err!(mods_dir))?;
+
+    info!("Finished creating instance: {instance_name}");
 
     Ok(())
 }

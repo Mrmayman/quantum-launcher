@@ -3,7 +3,7 @@ use std::{error::Error, fmt::Display, path::PathBuf, sync::mpsc::Sender};
 use crate::{
     error::IoError,
     file_utils::{self, RequestError},
-    io_err,
+    info, io_err,
     json_structs::{
         json_java_files::{JavaFile, JavaFilesJson},
         json_java_list::{JavaListJson, JavaVersion},
@@ -52,7 +52,7 @@ pub async fn get_java_binary(
     }
 
     if !java_dir.exists() || is_incomplete_install {
-        println!("[info] Installing {}", version.to_string());
+        info!("Installing {}", version.to_string());
         install_java(version, java_install_progress_sender.as_ref()).await?;
     }
 
@@ -75,7 +75,7 @@ async fn install_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
 ) -> Result<(), JavaInstallError> {
-    println!("[info] Started installing {}", version.to_string());
+    info!("Started installing {}", version.to_string());
     let java_list_json = JavaListJson::download().await?;
     let java_files_url = java_list_json
         .get_url(version)
@@ -103,7 +103,7 @@ async fn install_java(
     let num_files = json.files.len();
 
     for (file_num, (file_name, file)) in json.files.iter().enumerate() {
-        println!("[info] Installing file ({file_num}/{num_files}): {file_name}");
+        info!("Installing file ({file_num}/{num_files}): {file_name}");
 
         if let Some(java_install_progress_sender) = java_install_progress_sender {
             java_install_progress_sender
@@ -139,7 +139,7 @@ async fn install_java(
 
     std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.to_owned()))?;
 
-    println!("[info] Finished installing {}", version.to_string());
+    info!("Finished installing {}", version.to_string());
     Ok(())
 }
 

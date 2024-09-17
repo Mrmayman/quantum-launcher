@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::{
     download::GameDownloader,
     error::LauncherError,
-    io_err,
+    info, io_err,
     json_structs::json_version::{LibraryDownloads, VersionDetails},
     LAUNCHER_VERSION,
 };
@@ -38,6 +38,9 @@ async fn migrate_download_missing_native_libs(
     let json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
     let json: VersionDetails = serde_json::from_str(&json)?;
 
+    info!("Downloading missing native libraries");
+    let bar = indicatif::ProgressBar::new(json.libraries.len() as u64);
+
     for library in json.libraries.iter() {
         if !GameDownloader::download_libraries_library_is_allowed(library) {
             continue;
@@ -53,6 +56,7 @@ async fn migrate_download_missing_native_libs(
                 library,
                 &library_file,
                 artifact,
+                &bar,
             )
             .await?;
         }

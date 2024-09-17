@@ -9,7 +9,7 @@ use zip_extract::ZipExtractError;
 use crate::{
     download::progress::DownloadProgress,
     error::IoError,
-    file_utils, io_err,
+    file_utils, info, io_err,
     json_structs::json_version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
@@ -19,11 +19,13 @@ use super::{constants::OS_NAME, DownloadError, GameDownloader};
 
 impl GameDownloader {
     pub async fn download_libraries(&self) -> Result<(), DownloadError> {
-        println!("[info] Starting download of libraries.");
+        info!("Starting download of libraries.");
 
         self.prepare_library_directories()?;
 
         let total_libraries = self.version_json.libraries.len();
+
+        let bar = indicatif::ProgressBar::new(total_libraries as u64);
 
         for (library_number, library) in self.version_json.libraries.iter().enumerate() {
             self.send_progress(DownloadProgress::DownloadingLibraries {
@@ -32,15 +34,16 @@ impl GameDownloader {
             })?;
 
             if !GameDownloader::download_libraries_library_is_allowed(library) {
-                println!(
-                    "[info] Skipping library {}",
+                bar.println(format!(
+                    "Skipping library {}",
                     serde_json::to_string_pretty(&library)?
-                );
+                ));
                 continue;
             }
 
-            self.download_library(library, (library_number, total_libraries))
-                .await?;
+            self.download_library(library, &bar).await?;
+
+            bar.inc(1);
         }
         Ok(())
     }
@@ -56,7 +59,7 @@ impl GameDownloader {
     async fn download_library(
         &self,
         library: &Library,
-        (library_number, number_of_libraries): (usize, usize),
+        bar: &indicatif::ProgressBar,
     ) -> Result<(), DownloadError> {
         let libraries_dir = self.instance_dir.join("libraries");
 
@@ -64,11 +67,7 @@ impl GameDownloader {
             match downloads {
                 LibraryDownloads::Normal { artifact, .. } => {
                     let jar_file = self
-                        .download_library_normal(
-                            artifact,
-                            &libraries_dir,
-                            (library_number, number_of_libraries),
-                        )
+                        .download_library_normal(artifact, &libraries_dir, bar)
                         .await?;
 
                     GameDownloader::extract_native_library(
@@ -77,6 +76,7 @@ impl GameDownloader {
                         library,
                         &jar_file,
                         artifact,
+                        bar,
                     )
                     .await?;
                 }
@@ -99,10 +99,11 @@ impl GameDownloader {
         library: &Library,
         jar_file: &[u8],
         artifact: &LibraryDownloadArtifact,
+        bar: &indicatif::ProgressBar,
     ) -> Result<(), DownloadError> {
         if let Some(natives) = &library.natives {
             if let Some(natives_name) = natives.get(OS_NAME) {
-                println!("[info] Extracting natives: Extracting main jar");
+                bar.println("- Extracting natives: Extracting main jar");
                 let natives_path = instance_dir.join("libraries/natives");
 
                 extract_zip_file(jar_file, &natives_path)
@@ -110,10 +111,10 @@ impl GameDownloader {
 
                 let url = &artifact.url[..artifact.url.len() - 4];
                 let url = format!("{}-{}.jar", url, natives_name);
-                println!("[info] Extracting natives: Downloading native jar");
+                bar.println("- Extracting natives: Downloading native jar");
                 let native_jar = file_utils::download_file_to_bytes(client, &url).await?;
 
-                println!("[info] Extracting natives: Extracting native jar");
+                bar.println("- Extracting natives: Extracting native jar");
                 extract_zip_file(&native_jar, &natives_path)
                     .map_err(DownloadError::NativesExtractError)?;
             }
@@ -125,7 +126,7 @@ impl GameDownloader {
         &self,
         artifact: &LibraryDownloadArtifact,
         libraries_dir: &Path,
-        (library_number, number_of_libraries): (usize, usize),
+        bar: &indicatif::ProgressBar,
     ) -> Result<Vec<u8>, DownloadError> {
         let lib_file_path = libraries_dir.join(PathBuf::from(&artifact.path));
 
@@ -136,10 +137,7 @@ impl GameDownloader {
             )
             .to_path_buf();
 
-        println!(
-            "[info] Downloading library {library_number}/{number_of_libraries}: {}",
-            artifact.path
-        );
+        bar.println(format!("Downloading library: {}", artifact.path));
 
         std::fs::create_dir_all(&lib_dir_path).map_err(io_err!(lib_dir_path))?;
         let library_downloaded =

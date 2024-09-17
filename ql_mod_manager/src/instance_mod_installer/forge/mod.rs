@@ -8,7 +8,7 @@ use std::{
 use error::ForgeInstallError;
 use ql_instances::{
     file_utils::{self, RequestError},
-    io_err,
+    info, io_err,
     java_install::{self},
     json_structs::{
         json_forge::{
@@ -58,7 +58,7 @@ pub async fn install(
     std::fs::create_dir_all(&mods_dir_path).map_err(io_err!(mods_dir_path))?;
 
     let lock_path = instance_dir.join("forge.lock");
-    println!("[info] Started installing forge");
+    info!("Started installing forge");
 
     if let Some(progress) = &f_progress {
         progress.send(ForgeInstallProgress::P1Start).unwrap();
@@ -76,7 +76,7 @@ pub async fn install(
     let version_json = serde_json::from_str::<VersionDetails>(&version_json)?;
 
     let minecraft_version = version_json.id;
-    println!("[info] Installing forge: Downloading JSON");
+    println!("- Downloading JSON");
     if let Some(progress) = &f_progress {
         progress
             .send(ForgeInstallProgress::P2DownloadingJson)
@@ -86,7 +86,7 @@ pub async fn install(
     let forge_version = forge_versions_json
         .get_forge_version(&minecraft_version)
         .ok_or(ForgeInstallError::NoForgeVersionFound)?;
-    println!("[info] Forge version {forge_version} is being installed");
+    info!("Forge version {forge_version} is being installed");
 
     let (
         short_forge_version,
@@ -218,8 +218,8 @@ async fn download_library(
         .to_str()
         .ok_or(ForgeInstallError::PathBufToStr(dest.to_owned()))?;
 
-    println!(
-        "[info] Installing forge: Downloading library ({}/{num_libraries}): {}",
+    info!(
+        "Installing forge: Downloading library ({}/{num_libraries}): {}",
         library_i + 1,
         library.name
     );
@@ -234,7 +234,7 @@ async fn download_library(
     }
 
     if dest.exists() {
-        println!("[info] Library already exists.");
+        info!("Library already exists.");
     } else {
         match file_utils::download_file_to_bytes(client, &url).await {
             Ok(bytes) => {
@@ -273,13 +273,13 @@ async fn unpack_augmented_library(
     dest_str: &str,
     url: &str,
 ) -> Result<(), ForgeInstallError> {
-    println!("[info] Installing forge: Unpacking augmented library");
-    println!("[info] Installing forge: Downloading File");
+    println!("- Unpacking augmented library");
+    println!("- Downloading File");
     let bytes = file_utils::download_file_to_bytes(client, &format!("{url}.pack.xz")).await?;
-    println!("[info] Installing forge: Extracting pack.xz");
+    println!("- Extracting pack.xz");
     let temp_extract_xz = extract_zip_file(&bytes)?;
 
-    println!("[info] Installing forge: Reading signature");
+    println!("- Reading signature");
     let extracted_pack_path = temp_extract_xz.path().join(format!("{dest_str}.pack"));
     let mut extracted_pack =
         std::fs::File::open(&extracted_pack_path).map_err(io_err!(extracted_pack_path))?;
@@ -310,7 +310,7 @@ async fn unpack_augmented_library(
         .join(format!("{dest_str}.pack.crop",));
     std::fs::write(&cropped_pack_path, &pack_crop).map_err(io_err!(cropped_pack_path))?;
 
-    println!("[info] Installing forge: Unpacking extracted file");
+    println!("- Unpacking extracted file");
     let unpack200_path =
         java_install::get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
     let output = Command::new(&unpack200_path)
@@ -387,7 +387,7 @@ async fn run_installer_and_get_classpath(
         std::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
             .map_err(io_err!(launcher_profiles_json_microsoft_store_path))?;
 
-        println!("[info] Installing forge: Compiling Installer");
+        println!("- Compiling Installer");
         if let Some(progress) = &f_progress {
             progress
                 .send(ForgeInstallProgress::P4RunningInstaller)
@@ -407,7 +407,7 @@ async fn run_installer_and_get_classpath(
         }
         let java_path = java_install::get_java_binary(JavaVersion::Java21, "java", None).await?;
 
-        println!("[info] Installing forge: Running Installer");
+        println!("- Running Installer");
         let output = Command::new(&java_path)
             .args(["-cp", &format!("{}:.", installer_name), "ClientInstaller"])
             .current_dir(forge_dir)
@@ -488,7 +488,7 @@ async fn download_forge_installer(
         "universal"
     };
 
-    println!("[info] Installing forge: Downloading Installer");
+    println!("- Downloading Installer");
     if let Some(progress) = &progress {
         progress
             .send(ForgeInstallProgress::P3DownloadingInstaller)

@@ -2,7 +2,7 @@ use tokio::process::{Child, Command};
 
 use crate::{
     error::{IoError, LauncherError, LauncherResult},
-    file_utils,
+    file_utils, info,
     instance::migrate::migrate_old_instances,
     io_err,
     java_install::{self, JavaInstallProgress},
@@ -156,7 +156,8 @@ pub async fn launch(
         )
     };
 
-    println!("[info] Java args: {java_arguments:?}\n\n[info] Game args: {game_arguments:?}\n");
+    info!("Java args: {java_arguments:?}\n");
+    info!("Game args: {game_arguments:?}\n");
 
     const ENABLE_LOGGING: bool = true;
 
@@ -434,10 +435,10 @@ fn migrate_to_new_assets_path(
     old_assets_path: &Path,
     assets_path: &Path,
 ) -> Result<(), LauncherError> {
-    println!("[info] Migrating old assets to new path...");
+    info!("Migrating old assets to new path...");
     copy_dir_recursive(old_assets_path, assets_path)?;
     std::fs::remove_dir_all(old_assets_path).map_err(io_err!(old_assets_path))?;
-    println!("[info] Finished");
+    info!("Finished");
     Ok(())
 }
 

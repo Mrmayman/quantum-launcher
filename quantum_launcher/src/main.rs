@@ -1,9 +1,10 @@
 use std::time::Duration;
 
+use colored::Colorize;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{Launcher, MenuInstallFabric, MenuInstallForge, MenuLaunch, Message, State};
 use message_handler::{format_memory, open_file_explorer};
-use ql_instances::error::LauncherError;
+use ql_instances::{error::LauncherError, info};
 use ql_mod_manager::instance_mod_installer;
 use stylesheet::styles::LauncherTheme;
 
@@ -231,7 +232,7 @@ impl Application for Launcher {
             Message::LaunchEndedLog(result) => {
                 match result {
                     Ok(status) => {
-                        println!("[info] Game exited with status: {status}");
+                        info!("Game exited with status: {status}");
                         if !status.success() {
                             if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
                                 *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
@@ -325,8 +326,11 @@ impl Application for Launcher {
 // }
 
 fn main() {
+    let args = std::env::args();
+    process_args(args);
+
     const WINDOW_HEIGHT: f32 = 450.0;
-    const WINDOW_WIDTH: f32 = 600.0;
+    const WINDOW_WIDTH: f32 = 650.0;
 
     // let rt = tokio::runtime::Runtime::new().unwrap();
     // rt.block_on(ql_mod_manager::instance_mod_installer::forge::install(
@@ -352,9 +356,28 @@ fn main() {
             include_bytes!("../../assets/launcher-icons.ttf")
                 .as_slice()
                 .into(),
+            include_bytes!("../../assets/JetBrainsMono-Regular.ttf")
+                .as_slice()
+                .into(),
         ],
         default_font: iced::Font::with_name("Inter"),
         ..Default::default()
     })
     .unwrap();
+}
+
+fn process_args(mut args: std::env::Args) -> Option<()> {
+    let program = args.next()?;
+    loop {
+        let command = args.next()?;
+        match command {
+            _ => {
+                eprintln!(
+                    "{} Unknown flag! Type {} to see all the command-line flags.",
+                    "[error]".red(),
+                    format!("{program} --help").yellow()
+                )
+            }
+        }
+    }
 }

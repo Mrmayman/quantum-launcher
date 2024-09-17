@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::RangeInclusive};
 
 use iced::widget;
-use ql_instances::file_utils;
+use ql_instances::{file_utils, LAUNCHER_VERSION_NAME};
 
 use crate::{
     config::LauncherConfig,
@@ -77,13 +77,16 @@ impl MenuLaunch {
                 widget::text(&progress.message)
             )
         } else {
-            let version_message =
-                widget::text("QuantumLauncher v0.1\nA Minecraft Launcher\nby Mrmayman");
+            let version_message = widget::text(format!(
+                "QuantumLauncher v{}\nA Minecraft Launcher by Mrmayman",
+                LAUNCHER_VERSION_NAME
+            ))
+            .size(12);
             if self.message.is_empty() {
                 widget::column!(version_message)
             } else {
                 widget::column!(
-                    widget::container(widget::text(&self.message).width(200)).padding(10),
+                    widget::container(widget::text(&self.message).size(14).width(200)).padding(10),
                     version_message
                 )
             }
@@ -154,13 +157,19 @@ impl MenuLaunch {
                 log
             };
             widget::column!(
-                widget::text("If you have any problems with the game, copy the log (and send it) for full support. (The full log is not shown, copy it to get the full thing)"),
+                widget::text("Having issues? Copy and send the game log for support"),
                 widget::button("Copy Log").on_press(Message::LaunchCopyLog),
-                widget::scrollable(widget::text(slice))
+                widget::scrollable(
+                    widget::text(slice)
+                        .size(12)
+                        .font(iced::Font::with_name("JetBrains Mono"))
+                )
             )
         } else {
             widget::column!(widget::text("Select an instance to view its logs"))
-        }.padding(10).spacing(10)
+        }
+        .padding(10)
+        .spacing(10)
     }
 }
 

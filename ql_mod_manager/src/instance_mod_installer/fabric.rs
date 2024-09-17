@@ -88,7 +88,7 @@ pub async fn install(
     let number_of_libraries = json.libraries.len();
     for (i, library) in json.libraries.iter().enumerate() {
         println!(
-            "[info] Downloading fabric library ({} / {number_of_libraries}) {}",
+            "Downloading fabric library ({} / {number_of_libraries}) {}",
             i + 1,
             library.name
         );

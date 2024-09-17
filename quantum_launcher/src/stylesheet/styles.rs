@@ -403,3 +403,65 @@ impl iced::widget::checkbox::StyleSheet for LauncherTheme {
         }
     }
 }
+
+impl iced::widget::text_editor::StyleSheet for LauncherTheme {
+    type Style = LauncherTheme;
+
+    fn active(&self, style: &Self::Style) -> widget::text_editor::Appearance {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => widget::text_editor::Appearance {
+                background: DARK_PURPLE.get_bg(Color::Dark),
+                border: DARK_PURPLE.get_border(Color::SecondDark),
+            },
+        }
+    }
+
+    fn focused(&self, style: &Self::Style) -> widget::text_editor::Appearance {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => widget::text_editor::Appearance {
+                background: DARK_PURPLE.get_bg(Color::SecondDark),
+                border: DARK_PURPLE.get_border(Color::Mid),
+            },
+        }
+    }
+
+    fn placeholder_color(&self, style: &Self::Style) -> iced::Color {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => DARK_PURPLE.get(Color::Light),
+        }
+    }
+
+    fn value_color(&self, style: &Self::Style) -> iced::Color {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => DARK_PURPLE.get(Color::White),
+        }
+    }
+
+    fn disabled_color(&self, style: &Self::Style) -> iced::Color {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => DARK_PURPLE.get(Color::Dark),
+        }
+    }
+
+    fn selection_color(&self, style: &Self::Style) -> iced::Color {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => DARK_PURPLE.get(Color::Dark),
+        }
+    }
+
+    fn disabled(&self, style: &Self::Style) -> widget::text_editor::Appearance {
+        match style {
+            LauncherTheme::Light => todo!(),
+            LauncherTheme::Dark => widget::text_editor::Appearance {
+                background: DARK_PURPLE.get_bg(Color::Mid),
+                border: DARK_PURPLE.get_border(Color::SecondLight),
+            },
+        }
+    }
+}

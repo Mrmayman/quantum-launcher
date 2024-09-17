@@ -4,6 +4,8 @@ pub mod file_utils;
 mod instance;
 pub mod java_install;
 pub mod json_structs;
+mod launcher_update_detector;
+pub mod print;
 
 pub use download::progress::DownloadProgress;
 pub use instance::create::create_instance;
@@ -13,6 +15,7 @@ pub use instance::read_log::{
     read_logs, read_logs_wrapped, LogEvent, LogLine, LogMessage, ReadError,
 };
 pub use java_install::JavaInstallProgress;
+pub use launcher_update_detector::{check_for_updates, UpdateCheckError, UpdateCheckInfo};
 
 use semver::{BuildMetadata, Prerelease};
 
@@ -24,4 +27,4 @@ const LAUNCHER_VERSION: semver::Version = semver::Version {
     build: BuildMetadata::EMPTY,
 };
 
-const LAUNCHER_VERSION_NAME: &str = "0.2";
+pub const LAUNCHER_VERSION_NAME: &str = "0.2";

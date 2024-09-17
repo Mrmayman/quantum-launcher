@@ -15,7 +15,7 @@ use zip_extract::ZipExtractError;
 use crate::{
     error::IoError,
     file_utils::{self, RequestError},
-    io_err,
+    info, io_err,
     json_structs::{
         json_instance_config::InstanceConfigJson, json_manifest::Manifest,
         json_profiles::ProfileJson, json_version::VersionDetails, JsonDownloadError,
@@ -77,7 +77,7 @@ impl GameDownloader {
     }
 
     pub async fn download_jar(&self) -> Result<(), DownloadError> {
-        println!("[info] Downloading game jar file.");
+        info!("Downloading game jar file.");
         self.send_progress(DownloadProgress::DownloadingJar)?;
 
         let jar_bytes = file_utils::download_file_to_bytes(
@@ -101,7 +101,7 @@ impl GameDownloader {
 
     pub async fn download_logging_config(&self) -> Result<(), DownloadError> {
         if let Some(ref logging) = self.version_json.logging {
-            println!("[info] Downloading logging configuration.");
+            info!("Downloading logging configuration.");
             self.send_progress(DownloadProgress::DownloadingLoggingConfig)?;
 
             let log_config_name = format!("logging-{}", logging.client.file.id);
@@ -119,7 +119,7 @@ impl GameDownloader {
     pub async fn download_assets(&self) -> Result<(), DownloadError> {
         const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 
-        println!("[info] Downloading assets.");
+        info!("Downloading assets.");
 
         let launcher_dir = file_utils::get_launcher_dir()?;
 
@@ -167,6 +167,7 @@ impl GameDownloader {
                 ))?;
         let objects_len = objects.len();
 
+        let bar = indicatif::ProgressBar::new(objects_len as u64);
         for (object_number, (_, object_data)) in objects.iter().enumerate() {
             let obj_hash =
                 object_data["hash"]
@@ -177,7 +178,6 @@ impl GameDownloader {
 
             let obj_id = &obj_hash[0..2];
 
-            println!("[info] Downloading asset {object_number}/{objects_len}");
             self.send_progress(DownloadProgress::DownloadingAssets {
                 progress: object_number,
                 out_of: objects_len,
@@ -195,6 +195,8 @@ impl GameDownloader {
             let obj_file_path = obj_folder.join(obj_hash);
 
             std::fs::write(&obj_file_path, &obj_data).map_err(io_err!(obj_file_path))?;
+
+            bar.inc(1);
         }
 
         std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
@@ -252,7 +254,7 @@ impl GameDownloader {
         version: &str,
         sender: &Option<Sender<DownloadProgress>>,
     ) -> Result<VersionDetails, DownloadError> {
-        println!("[info] Started downloading version manifest JSON.");
+        info!("Started downloading version manifest JSON.");
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingJsonManifest)?;
         }
@@ -263,7 +265,7 @@ impl GameDownloader {
             None => return Err(DownloadError::VersionNotFoundInManifest(version.to_owned())),
         };
 
-        println!("[info] Started downloading version details JSON.");
+        info!("Started downloading version details JSON.");
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingVersionJson)?;
         }
@@ -274,7 +276,7 @@ impl GameDownloader {
     }
 
     fn new_get_instance_dir(instance_name: &str) -> Result<Option<PathBuf>, IoError> {
-        println!("[info] Initializing instance folder.");
+        info!("Initializing instance folder.");
         let launcher_dir = file_utils::get_launcher_dir()?;
         let instances_dir = launcher_dir.join("instances");
         std::fs::create_dir_all(&instances_dir).map_err(io_err!(instances_dir))?;
