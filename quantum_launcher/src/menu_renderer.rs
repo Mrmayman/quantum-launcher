@@ -8,7 +8,7 @@ use crate::{
     icon_manager,
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
-        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuLaunch, Message,
+        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -16,7 +16,7 @@ use crate::{
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
 
-fn button_with_icon<'element>(
+pub fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
 ) -> iced::widget::Button<'element, Message, LauncherTheme> {
@@ -404,6 +404,32 @@ impl MenuInstallForge {
         }
         .padding(20)
         .spacing(20)
+        .into()
+    }
+}
+
+impl MenuLauncherUpdate {
+    pub fn view(&self) -> Element {
+        if let Some(message) = &self.progress_message {
+            widget::column!(
+                widget::text("Updating QuantumLauncher..."),
+                widget::progress_bar(0.0..=4.0, self.progress),
+                widget::text(message)
+            )
+        } else {
+            widget::column!(
+                widget::text("A new launcher update has been found! Do you want to download it?"),
+                widget::row!(
+                    button_with_icon(icon_manager::download(), "Download")
+                        .on_press(Message::UpdateDownloadStart),
+                    button_with_icon(icon_manager::back(), "Back")
+                        .on_press(Message::LaunchScreenOpen(None))
+                )
+                .spacing(5),
+            )
+        }
+        .padding(10)
+        .spacing(10)
         .into()
     }
 }

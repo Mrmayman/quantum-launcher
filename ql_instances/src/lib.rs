@@ -15,7 +15,10 @@ pub use instance::read_log::{
     read_logs, read_logs_wrapped, LogEvent, LogLine, LogMessage, ReadError,
 };
 pub use java_install::JavaInstallProgress;
-pub use launcher_update_detector::{check_for_updates, UpdateCheckError, UpdateCheckInfo};
+pub use launcher_update_detector::{
+    check_for_updates, check_for_updates_wrapped, install_update, install_update_wrapped,
+    UpdateCheckInfo, UpdateError, UpdateProgress,
+};
 
 use semver::{BuildMetadata, Prerelease};
 

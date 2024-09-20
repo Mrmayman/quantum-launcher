@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LauncherConfig {
     pub username: String,
+    /// Filler implementation, to not break older versions of the launcher.
+    pub java_installs: Vec<String>,
 }
 
 impl LauncherConfig {
@@ -41,6 +43,7 @@ impl LauncherConfig {
     fn create(path: &Path) -> Result<Self, LauncherError> {
         let config = LauncherConfig {
             username: Default::default(),
+            java_installs: Default::default(),
         };
 
         std::fs::write(path, serde_json::to_string(&config)?.as_bytes()).map_err(io_err!(path))?;

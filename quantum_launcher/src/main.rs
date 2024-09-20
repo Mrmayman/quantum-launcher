@@ -2,9 +2,12 @@ use std::time::Duration;
 
 use colored::Colorize;
 use iced::{executor, widget, Application, Command, Settings};
-use launcher_state::{Launcher, MenuInstallFabric, MenuInstallForge, MenuLaunch, Message, State};
+use launcher_state::{
+    Launcher, MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate, Message, State,
+};
+
 use message_handler::{format_memory, open_file_explorer};
-use ql_instances::{error::LauncherError, info};
+use ql_instances::{error::LauncherError, info, UpdateCheckInfo};
 use ql_mod_manager::instance_mod_installer;
 use stylesheet::styles::LauncherTheme;
 
@@ -28,7 +31,10 @@ impl Application for Launcher {
                 Ok(launcher) => launcher,
                 Err(error) => Launcher::with_error(error.to_string()),
             },
-            Command::none(),
+            Command::perform(
+                ql_instances::check_for_updates_wrapped(),
+                Message::UpdateCheckResult,
+            ),
         )
     }
 
@@ -277,6 +283,52 @@ impl Application for Launcher {
                     }
                 }
             }
+            Message::UpdateCheckResult(update_check_info) => match update_check_info {
+                Ok(info) => match info {
+                    UpdateCheckInfo::UpToDate => {
+                        info!("Launcher is latest version. No new updates")
+                    }
+                    UpdateCheckInfo::NewVersion { url } => {
+                        self.state = State::UpdateFound(MenuLauncherUpdate {
+                            url,
+                            receiver: None,
+                            progress: 0.0,
+                            progress_message: None,
+                        });
+                    }
+                },
+                Err(err) => {
+                    eprintln!("[error] Could not check for updates: {err}")
+                }
+            },
+            Message::UpdateDownloadStart => {
+                if let State::UpdateFound(MenuLauncherUpdate {
+                    url,
+                    receiver,
+                    progress_message,
+                    ..
+                }) = &mut self.state
+                {
+                    let (sender, update_receiver) = std::sync::mpsc::channel();
+                    *receiver = Some(update_receiver);
+                    *progress_message = Some("Starting Update".to_owned());
+
+                    return Command::perform(
+                        ql_instances::install_update_wrapped(url.clone(), sender),
+                        Message::UpdateDownloadEnd,
+                    );
+                }
+            }
+            Message::UpdateDownloadEnd(err) => {
+                if let Err(err) = err {
+                    self.set_error(err);
+                } else {
+                    self.go_to_launch_screen_with_message(
+                        "Updated launcher! Close and reopen the launcher to see the new update"
+                            .to_owned(),
+                    );
+                }
+            }
         }
         Command::none()
     }
@@ -299,14 +351,19 @@ impl Application for Launcher {
             State::EditMods(menu) => menu.view(),
             State::Create(menu) => menu.view(),
             State::DeleteInstance(menu) => menu.view(),
-            State::Error { error } => widget::column!(
-                widget::text(format!("Error: {}", error)),
-                widget::button("Back").on_press(Message::LaunchScreenOpen(None)),
-                widget::button("Copy Error").on_press(Message::ErrorCopy),
+            State::Error { error } => widget::scrollable(
+                widget::column!(
+                    widget::text(format!("Error: {}", error)),
+                    widget::button("Back").on_press(Message::LaunchScreenOpen(None)),
+                    widget::button("Copy Error").on_press(Message::ErrorCopy),
+                )
+                .padding(10)
+                .spacing(10),
             )
             .into(),
             State::InstallFabric(menu) => menu.view(),
             State::InstallForge(menu) => menu.view(),
+            State::UpdateFound(menu) => menu.view(),
         }
     }
 }

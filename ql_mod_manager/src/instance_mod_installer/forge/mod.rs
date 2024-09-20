@@ -20,6 +20,8 @@ use ql_instances::{
     JavaInstallProgress,
 };
 
+const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
+
 use crate::instance_mod_installer::change_instance_type;
 
 mod error;
@@ -255,8 +257,6 @@ async fn download_library(
         };
     }
 
-    const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
-
     let classpath_item = libraries_dir.join(format!("{path}/{file}{CLASSPATH_SEPARATOR}"));
 
     classpath.push_str(
@@ -423,13 +423,13 @@ async fn run_installer_and_get_classpath(
         }
 
         if forge_major_version < 39 {
-            format!("{}/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}.jar:", libraries_dir.to_str().ok_or(ForgeInstallError::PathBufToStr(libraries_dir.to_owned()))?)
+            format!("{}/net/minecraftforge/forge/{short_forge_version}/forge-{short_forge_version}.jar{CLASSPATH_SEPARATOR}", libraries_dir.to_str().ok_or(ForgeInstallError::PathBufToStr(libraries_dir.to_owned()))?)
         } else {
             String::new()
         }
     } else {
         format!(
-            "{}:",
+            "{}{CLASSPATH_SEPARATOR}",
             installer_path
                 .to_str()
                 .ok_or(ForgeInstallError::PathBufToStr(installer_path.to_owned()))?

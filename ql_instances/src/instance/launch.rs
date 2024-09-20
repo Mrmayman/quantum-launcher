@@ -159,7 +159,7 @@ pub async fn launch(
     info!("Java args: {java_arguments:?}\n");
     info!("Game args: {game_arguments:?}\n");
 
-    const ENABLE_LOGGING: bool = true;
+    const ENABLE_LOGGING: bool = false;
 
     let mut command = command.args(java_arguments.iter().chain(game_arguments.iter()));
     command = if ENABLE_LOGGING {

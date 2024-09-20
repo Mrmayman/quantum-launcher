@@ -9,7 +9,8 @@ use ql_instances::{
     error::{LauncherError, LauncherResult},
     file_utils, io_err,
     json_structs::json_instance_config::InstanceConfigJson,
-    DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine,
+    DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine, UpdateCheckInfo,
+    UpdateProgress,
 };
 use ql_mod_manager::instance_mod_installer::{
     fabric::{FabricInstallProgress, FabricVersion},
@@ -56,6 +57,9 @@ pub enum Message {
     TickConfigSaved(Result<(), String>),
     LaunchEndedLog(Result<ExitStatus, String>),
     LaunchCopyLog,
+    UpdateCheckResult(Result<UpdateCheckInfo, String>),
+    UpdateDownloadStart,
+    UpdateDownloadEnd(Result<(), String>),
 }
 
 #[derive(Default)]
@@ -125,6 +129,13 @@ pub struct MenuInstallForge {
     pub is_java_getting_installed: bool,
 }
 
+pub struct MenuLauncherUpdate {
+    pub url: String,
+    pub receiver: Option<Receiver<UpdateProgress>>,
+    pub progress: f32,
+    pub progress_message: Option<String>,
+}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
@@ -134,6 +145,7 @@ pub enum State {
     DeleteInstance(MenuDeleteInstance),
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
+    UpdateFound(MenuLauncherUpdate),
 }
 
 pub struct Launcher {

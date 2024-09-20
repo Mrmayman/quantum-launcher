@@ -28,46 +28,45 @@ pub enum ForgeInstallError {
 
 impl Display for ForgeInstallError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")?;
         match self {
-            ForgeInstallError::Io(err) => write!(f, "error installing forge: {err}"),
-            ForgeInstallError::Request(err) => write!(f, "error installing forge: {err}"),
-            ForgeInstallError::Serde(err) => write!(f, "error installing forge: {err}"),
+            ForgeInstallError::Io(err) => write!(f, "{err}"),
+            ForgeInstallError::Request(err) => write!(f, "{err}"),
+            ForgeInstallError::Serde(err) => write!(f, "{err}"),
             ForgeInstallError::NoForgeVersionFound => {
-                write!(f, "error installing forge: no matching forge version found")
+                write!(f, "no matching forge version found")
             }
-            ForgeInstallError::ParseIntError(err) => write!(f, "error installing forge: {err}"),
+            ForgeInstallError::ParseIntError(err) => write!(f, "{err}"),
             ForgeInstallError::TempFile(err) => {
-                write!(f, "error installing forge (tempfile): {err}")
+                write!(f, "(tempfile): {err}")
             }
             ForgeInstallError::JavaInstallError(err) => {
-                write!(f, "error installing forge (java install): {err}")
+                write!(f, "(java install): {err}")
             }
             ForgeInstallError::PathBufToStr(err) => {
-                write!(f, "error installing forge (pathbuf to str): {err:?}")
+                write!(f, "(pathbuf to str): {err:?}")
             }
             ForgeInstallError::CompileError(stdout, stderr) => {
-                write!(f, "error installing forge (compile error): STDOUT = {stdout}), STDERR = ({stderr})")
+                write!(f, "(compile error)\nSTDOUT = {stdout}\nSTDERR = {stderr}")
             }
-            ForgeInstallError::InstallerError(stdout, stderr) => write!(
-                f,
-                "error installing forge (compile error): STDOUT = {stdout}), STDERR = ({stderr})"
-            ),
-            ForgeInstallError::Unpack200Error(stdout, stderr) => write!(
-                f,
-                "error installing forge (compile error): STDOUT = {stdout}), STDERR = ({stderr})"
-            ),
+            ForgeInstallError::InstallerError(stdout, stderr) => {
+                write!(f, "(installer error)\nSTDOUT = {stdout}\nSTDERR = {stderr}")
+            }
+            ForgeInstallError::Unpack200Error(stdout, stderr) => {
+                write!(f, "(unpack200 error)\nSTDOUT = {stdout}\nSTDERR = {stderr}")
+            }
             ForgeInstallError::FromUtf8Error(err) => {
-                write!(f, "error installing forge (from utf8 error): {err}")
+                write!(f, "(from utf8 error): {err}")
             }
             ForgeInstallError::LibraryParentError => write!(
                 f,
                 "error installing forge: could not find parent directory of library"
             ),
             ForgeInstallError::ChangeConfigError(err) => {
-                write!(f, "error installing forge (change config): {err}")
+                write!(f, "(change config): {err}")
             }
             ForgeInstallError::NoInstallJson => {
-                write!(f, "error installing forge: no install json found")
+                write!(f, "no install json found")
             }
         }
     }

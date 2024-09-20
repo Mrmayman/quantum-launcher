@@ -40,7 +40,6 @@ pub async fn read_logs(
     let mut stderr_reader = BufReader::new(stderr).lines();
 
     let mut xml_cache = String::new();
-    let mut error_cache = String::new();
 
     loop {
         let status = {
@@ -55,12 +54,7 @@ pub async fn read_logs(
         tokio::select! {
             line = stdout_reader.next_line() => {
                 if let Some(line) = line? {
-                    if !error_cache.is_empty() {
-                        sender.send(LogLine::Error(error_cache.to_owned()))?;
-                        error_cache.clear();
-                    }
-
-                    if uses_xml {
+                    if uses_xml && line.contains("log4j:") {
                         if line.starts_with("  </log4j:Event>") {
                             xml_cache.push_str(&line);
                             let xml = xml_cache.replace("<log4j:", "<").replace("</log4j:", "</");
@@ -78,7 +72,7 @@ pub async fn read_logs(
             },
             line = stderr_reader.next_line() => {
                 if let Some(line) = line? {
-                    error_cache.push_str(&format!("{line}\n"));
+                    sender.send(LogLine::Error(format!("{line}\n")))?;
                 }
             }
         }

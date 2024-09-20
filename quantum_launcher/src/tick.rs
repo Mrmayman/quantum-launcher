@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
 use iced::Command;
-use ql_instances::{JavaInstallProgress, LogEvent, LogLine};
+use ql_instances::{JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::instance_mod_installer::{
     fabric::FabricInstallProgress, forge::ForgeInstallProgress,
 };
 
-use crate::launcher_state::{JavaInstallProgressData, Launcher, MenuLaunch, Message, State};
+use crate::launcher_state::{
+    JavaInstallProgressData, Launcher, MenuLaunch, MenuLauncherUpdate, Message, State,
+};
 
 impl Launcher {
     pub fn tick(&mut self) -> Option<Command<Message>> {
@@ -105,6 +107,30 @@ impl Launcher {
                         JavaInstallProgress::P3Done => {
                             menu.is_java_getting_installed = false;
                             menu.java_message = None;
+                        }
+                    }
+                }
+            }
+            State::UpdateFound(MenuLauncherUpdate {
+                receiver,
+                progress,
+                progress_message,
+                ..
+            }) => {
+                if let Some(Ok(message)) = receiver.as_ref().map(|n| n.try_recv()) {
+                    match message {
+                        UpdateProgress::P1Start => {}
+                        UpdateProgress::P2Backup => {
+                            *progress = 1.0;
+                            *progress_message = Some("Backing up current version".to_owned())
+                        }
+                        UpdateProgress::P3Download => {
+                            *progress = 2.0;
+                            *progress_message = Some("Downloading new version".to_owned())
+                        }
+                        UpdateProgress::P4Extract => {
+                            *progress = 3.0;
+                            *progress_message = Some("Extracting new version".to_owned())
                         }
                     }
                 }
