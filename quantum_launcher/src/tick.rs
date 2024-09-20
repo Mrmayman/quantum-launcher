@@ -153,10 +153,8 @@ impl Launcher {
                     thread,
                     message,
                 }) => {
-                    format!(
-                        "[{timestamp}:{thread}.{logger}] [{level}] {}\n",
-                        message.content
-                    )
+                    let date = get_date(&timestamp).unwrap_or(timestamp);
+                    format!("[{date}:{thread}.{logger}] [{level}] {}\n", message.content)
                 }
                 LogLine::Error(error) => format!("! {error}"),
                 LogLine::Message(message) => message,
@@ -169,6 +167,15 @@ impl Launcher {
             }
         }
     }
+}
+
+fn get_date(timestamp: &str) -> Option<String> {
+    let time: i64 = timestamp.parse().ok()?;
+    let seconds = time / 1000;
+    let milliseconds = time % 1000;
+    let nanoseconds = milliseconds * 1000000;
+    let datetime = chrono::DateTime::from_timestamp(seconds, nanoseconds as u32)?;
+    Some(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
 }
 
 fn check_java_install_progress(java_install_progress: &mut Option<JavaInstallProgressData>) {

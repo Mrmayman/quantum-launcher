@@ -139,6 +139,7 @@ pub async fn install(
             &libraries_dir,
             &mut classpath,
             f_progress.as_ref(),
+            forge_major_version,
         )
         .await?
         {
@@ -189,17 +190,22 @@ async fn download_library(
     libraries_dir: &Path,
     classpath: &mut String,
     f_progress: Option<&Sender<ForgeInstallProgress>>,
+    forge_major_version: usize,
 ) -> Result<bool, ForgeInstallError> {
     let parts: Vec<&str> = library.name.split(':').collect();
     let class = parts[0];
     let lib = parts[1];
     let ver = parts[2];
 
+    let (file, path) = get_filename_and_path(lib, ver, library, class)?;
+
     if class == "net.minecraftforge" && lib == "forge" {
+        if forge_major_version > 48 {
+            add_to_classpath(libraries_dir, classpath, &path, &file)?;
+        }
+        info!("Built in forge library, skipping...");
         return Ok(false);
     }
-
-    let (file, path) = get_filename_and_path(lib, ver, library, class)?;
 
     let url = if let Some(downloads) = &library.downloads {
         downloads.artifact.url.to_owned()
@@ -257,15 +263,25 @@ async fn download_library(
         };
     }
 
-    let classpath_item = libraries_dir.join(format!("{path}/{file}{CLASSPATH_SEPARATOR}"));
+    add_to_classpath(libraries_dir, classpath, &path, &file)?;
 
+    Ok(true)
+}
+
+fn add_to_classpath(
+    libraries_dir: &Path,
+    classpath: &mut String,
+    path: &str,
+    file: &str,
+) -> Result<(), ForgeInstallError> {
+    let classpath_item = libraries_dir.join(format!("{path}/{file}{CLASSPATH_SEPARATOR}"));
+    println!("adding library to classpath {classpath_item:?}");
     classpath.push_str(
         classpath_item
             .to_str()
             .ok_or(ForgeInstallError::PathBufToStr(classpath_item.to_owned()))?,
     );
-
-    Ok(true)
+    Ok(())
 }
 
 async fn unpack_augmented_library(

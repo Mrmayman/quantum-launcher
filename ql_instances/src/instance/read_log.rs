@@ -54,14 +54,34 @@ pub async fn read_logs(
         tokio::select! {
             line = stdout_reader.next_line() => {
                 if let Some(line) = line? {
-                    if uses_xml && line.contains("log4j:") {
+                    if uses_xml {
                         if line.starts_with("  </log4j:Event>") {
                             xml_cache.push_str(&line);
                             let xml = xml_cache.replace("<log4j:", "<").replace("</log4j:", "</");
-                            let log_event: LogEvent = serde_xml_rs::from_str(&xml).unwrap();
-                            sender.send(LogLine::Info(log_event))?;
+                            let start = xml.find("<Event");
 
-                            xml_cache.clear();
+                            let text = if let Some(start) = start {
+                                if start > 0 {
+                                    let other_text = &xml[..start];
+                                    sender.send(LogLine::Message(other_text.to_owned()))?;
+                                    &xml[start..]
+                                } else {
+                                    &xml
+                                }
+                            } else {
+                                &xml
+                            };
+
+                            match serde_xml_rs::from_str(&text) {
+                                Ok(log_event) => {
+                                    sender.send(LogLine::Info(log_event))?;
+                                    xml_cache.clear();
+                                },
+                                Err(err) => {
+                                    println!("[error] Could not parse XML: {err}\n{text}\n")
+                                }
+                            }
+
                         } else {
                             xml_cache.push_str(&format!("{line}\n"));
                         }
