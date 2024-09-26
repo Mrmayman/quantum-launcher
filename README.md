@@ -11,10 +11,9 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - Lightweight and responsive. The launcher opens pretty much instantly (unlike some minute-long loading screens on _other launchers_).
 
 # Location
-- On *Windows*, the launcher files are at `C:/Users/YOURUSERNAME/AppData/Roaming/QuantumLauncher/`.
+- On *Windows*, the launcher files are at `C:/Users/YOUR_USERNAME/AppData/Roaming/QuantumLauncher/`.
 - You probably won't see the `AppData` folder. Press Windows + R and paste this path, and hit enter.
 - On *Linux*, the launcher files are at `~/.config/QuantumLauncher/`. (`~` refers to your home directory).
-- The launcher configuration, including manually added Java versions and default username, is at `QuantumLauncher/config.json`.
 - Instances located at `QuantumLauncher/instances/YOUR_INSTANCE/`
 - `.minecraft` located at `YOUR_INSTANCE/.minecraft/`.
 
