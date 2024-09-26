@@ -8,9 +8,7 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - Install fabric with one click.
 - Create or delete an Instance easily.
 - Autoinstalls Java for you.
-## Assets
-- Choose not to download assets (saving space)
-- Download assets to a centralized location, never downloading them twice.
+- Lightweight and responsive. The launcher opens pretty much instantly (unlike some minute-long loading screens on _other launchers_).
 
 # Location
 - On *Windows*, the launcher files are at `C:/Users/YOURUSERNAME/AppData/Roaming/QuantumLauncher/`.
@@ -20,13 +18,11 @@ A minimalistic Minecraft launcher written in *Rust* with the *iced* framework fo
 - Instances located at `QuantumLauncher/instances/YOUR_INSTANCE/`
 - `.minecraft` located at `YOUR_INSTANCE/.minecraft/`.
 
-# Todo
-- Add java installs dropdown list for Java override selection.
+# Todo (in the future)
 - Add ability to enable and disable mods.
-- Add menu to see logs.
-- Autodownload for Forge, Quilt and OptiFine.
+- Autodownload for NeoForge, Quilt and OptiFine.
 - A built in mod store using the Modrinth API.
-- Managing your aternos servers from within the launcher.
+- Integration with Omniarchive, special support for old and rare Minecraft versions (with fixes for skins/sounds)
 - A local server hosting system (without port forwarding).
 - macOS support.
 
