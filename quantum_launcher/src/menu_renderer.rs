@@ -9,7 +9,7 @@ use crate::{
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
         MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
-        MenuLauncherUpdate, Message,
+        MenuLauncherUpdate, MenuModsDownload, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -228,18 +228,21 @@ impl MenuEditMods {
             ]
             .spacing(5)
         } else {
-            widget::column![widget::button(
-                widget::row![
-                    icon_manager::delete(),
-                    widget::text(format!("Uninstall {}", self.config.mod_type))
-                ]
-                .spacing(10)
-                .padding(5)
-            )
-            .on_press_maybe(
-                (self.config.mod_type == "Fabric" || self.config.mod_type == "Forge")
-                    .then_some(Message::UninstallLoaderStart)
-            )]
+            widget::column![
+                widget::button(
+                    widget::row![
+                        icon_manager::delete(),
+                        widget::text(format!("Uninstall {}", self.config.mod_type))
+                    ]
+                    .spacing(10)
+                    .padding(5)
+                )
+                .on_press_maybe(
+                    (self.config.mod_type == "Fabric" || self.config.mod_type == "Forge")
+                        .then_some(Message::UninstallLoaderStart)
+                ),
+                widget::button("Download Mods").on_press(Message::InstallModsOpen)
+            ]
         };
 
         widget::column![
@@ -440,5 +443,18 @@ impl MenuInstallJava {
         .padding(10)
         .spacing(10)
         .into()
+    }
+}
+
+impl MenuModsDownload {
+    pub fn view(&self) -> Element {
+        let mods_list =
+            match self.results.as_ref() {
+                Some(results) => widget::column(results.hits.iter().map(|hit| {
+                    widget::container(widget::column!(widget::text(&hit.title))).into()
+                })),
+                None => widget::column!(widget::text("Search something to get started...")),
+            };
+        widget::scrollable(widget::column!(mods_list).padding(10).spacing(10)).into()
     }
 }

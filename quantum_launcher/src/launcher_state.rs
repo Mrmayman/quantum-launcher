@@ -8,13 +8,16 @@ use std::{
 use ql_instances::{
     error::{LauncherError, LauncherResult},
     file_utils, io_err,
-    json_structs::json_instance_config::InstanceConfigJson,
+    json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
     DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine, UpdateCheckInfo,
     UpdateProgress,
 };
-use ql_mod_manager::instance_mod_installer::{
-    fabric::{FabricInstallProgress, FabricVersion},
-    forge::ForgeInstallProgress,
+use ql_mod_manager::{
+    instance_mod_installer::{
+        fabric::{FabricInstallProgress, FabricVersion},
+        forge::ForgeInstallProgress,
+    },
+    modrinth::Search,
 };
 use tokio::process::Child;
 
@@ -60,6 +63,8 @@ pub enum Message {
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
+    InstallModsSearchResult(Result<Search, String>),
+    InstallModsOpen,
 }
 
 #[derive(Default)]
@@ -129,6 +134,13 @@ pub struct MenuInstallJava {
     pub message: String,
 }
 
+pub struct MenuModsDownload {
+    pub query: String,
+    pub results: Option<Search>,
+    pub config: InstanceConfigJson,
+    pub json: VersionDetails,
+}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
@@ -140,6 +152,7 @@ pub enum State {
     InstallForge(MenuInstallForge),
     InstallJava(MenuInstallJava),
     UpdateFound(MenuLauncherUpdate),
+    ModsDownload(MenuModsDownload),
 }
 
 pub struct Launcher {

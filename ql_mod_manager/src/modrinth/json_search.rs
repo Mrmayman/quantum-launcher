@@ -1,20 +1,24 @@
+use std::fmt::Display;
+
 use ql_instances::file_utils::{self, RequestError};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
-    hits: Vec<SearchEntry>,
-    offset: usize,
-    limit: usize,
-    total_hits: usize,
+    pub hits: Vec<SearchEntry>,
+    pub offset: usize,
+    pub limit: usize,
+    pub total_hits: usize,
 }
 
 impl Search {
     fn get_search_url(query: SearchQuery) -> String {
-        let mut url = format!(
-            "https://api.modrinth.com/v2/search?index=relevance&query={}",
-            query.name
-        );
+        let mut url = "https://api.modrinth.com/v2/search?index=relevance".to_owned();
+        if !query.name.is_empty() {
+            url.push_str("?query=");
+            url.push_str(&query.name);
+        }
+
         let mut filters: Vec<Vec<String>> = Vec::new();
 
         filters.push(vec!["project_type:mod".to_owned()]);
@@ -77,7 +81,6 @@ impl Search {
 
             url.push(if idx + 1 < num_filters { ',' } else { ']' });
         }
-        url.push(']');
 
         url
     }
@@ -91,11 +94,25 @@ impl Search {
 
         Ok(json)
     }
+
+    pub async fn search_wrapped(query: SearchQuery) -> Result<Self, String> {
+        Self::search(query).await.map_err(|err| err.to_string())
+    }
 }
 
 pub enum ModDownloadError {
     RequestError(RequestError),
     Serde(serde_json::Error),
+}
+
+impl Display for ModDownloadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "could not send modrinth request: ")?;
+        match self {
+            ModDownloadError::RequestError(err) => write!(f, "(request) {err}"),
+            ModDownloadError::Serde(err) => write!(f, "(json) {err}"),
+        }
+    }
 }
 
 impl From<RequestError> for ModDownloadError {
@@ -111,12 +128,12 @@ impl From<serde_json::Error> for ModDownloadError {
 }
 
 pub struct SearchQuery {
-    name: String,
-    versions: Vec<String>,
-    loaders: Vec<Loader>,
-    client_side: bool,
-    server_side: bool,
-    open_source: bool,
+    pub name: String,
+    pub versions: Vec<String>,
+    pub loaders: Vec<Loader>,
+    pub client_side: bool,
+    pub server_side: bool,
+    pub open_source: bool,
 }
 
 pub enum Loader {
@@ -144,29 +161,29 @@ impl ToString for Loader {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SearchEntry {
-    slug: String,
-    title: String,
-    description: String,
-    categories: Vec<String>,
-    client_side: String,
-    server_side: String,
-    project_type: String,
-    downloads: usize,
-    icon_url: String,
-    color: usize,
-    thread_id: String,
-    monetization_status: String,
-    project_id: String,
-    author: String,
-    display_categories: Vec<String>,
-    versions: Vec<String>,
-    follows: usize,
-    date_created: String,
-    date_modified: String,
-    latest_version: String,
-    license: String,
-    gallery: Vec<String>,
-    featured_gallery: String,
+    pub project_id: String,
+    pub project_type: String,
+    pub slug: String,
+    pub author: String,
+    pub title: String,
+    pub description: String,
+    pub categories: Vec<String>,
+    pub display_categories: Vec<String>,
+    pub versions: Vec<String>,
+    pub downloads: usize,
+    pub follows: usize,
+    pub icon_url: String,
+    pub date_created: String,
+    pub date_modified: String,
+    pub latest_version: String,
+    pub license: String,
+    pub client_side: String,
+    pub server_side: String,
+    pub gallery: Vec<String>,
+    pub featured_gallery: Option<String>,
+    pub color: usize,
+    pub thread_id: Option<String>,
+    pub monetization_status: Option<String>,
 }

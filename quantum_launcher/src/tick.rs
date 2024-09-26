@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use iced::Command;
 use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
-use ql_mod_manager::instance_mod_installer::{
-    fabric::FabricInstallProgress, forge::ForgeInstallProgress,
+use ql_mod_manager::{
+    instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
+    modrinth::{Loader, Search, SearchQuery},
 };
 
 use crate::launcher_state::{
@@ -157,6 +158,27 @@ impl Launcher {
                         eprintln!("[error] Failed to reload instances list.")
                     }
                 }
+            }
+            State::ModsDownload(menu) => {
+                let Some(loaders) = (match menu.config.mod_type.as_str() {
+                    "Forge" => Some(vec![Loader::Forge]),
+                    "Fabric" => Some(vec![Loader::Fabric]),
+                    _ => None,
+                }) else {
+                    return Command::none();
+                };
+
+                return Command::perform(
+                    Search::search_wrapped(SearchQuery {
+                        name: menu.query.clone(),
+                        versions: vec![menu.json.id.clone()],
+                        loaders,
+                        client_side: true,
+                        server_side: false,
+                        open_source: false, // TODO: Add Open Source filter
+                    }),
+                    Message::InstallModsSearchResult,
+                );
             }
         }
         Command::none()

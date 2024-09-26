@@ -17,6 +17,7 @@ mod icon_manager;
 mod launcher_state;
 mod menu_renderer;
 mod message_handler;
+mod mods_store;
 mod stylesheet;
 mod tick;
 
@@ -310,6 +311,19 @@ impl Application for Launcher {
                     );
                 }
             }
+            Message::InstallModsSearchResult(search) => match search {
+                Ok(search) => {
+                    if let State::ModsDownload(menu) = &mut self.state {
+                        menu.results = Some(search)
+                    }
+                }
+                Err(err) => self.set_error(err.to_string()),
+            },
+            Message::InstallModsOpen => {
+                if let Err(err) = self.open_mods_screen() {
+                    self.set_error(err);
+                }
+            }
         }
         Command::none()
     }
@@ -347,6 +361,7 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
+            State::ModsDownload(menu) => menu.view(),
         }
     }
 }
