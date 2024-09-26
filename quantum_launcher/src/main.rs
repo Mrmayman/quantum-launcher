@@ -366,6 +366,8 @@ impl Application for Launcher {
 // }
 
 fn main() {
+    info!("Welcome to QuantumLauncher! This terminal window just outputs some debug info. You can ignore it.");
+
     let args = std::env::args();
     process_args(args);
 
@@ -400,8 +402,17 @@ fn main() {
 
 fn process_args(mut args: std::env::Args) -> Option<()> {
     let program = args.next()?;
+    let mut first_argument = true;
     loop {
-        let command = args.next()?;
+        let Some(command) = args.next() else {
+            if first_argument {
+                info!(
+                    "You can run {} to see the possible command line arguments",
+                    format!("{program} --help").yellow()
+                )
+            }
+            return None;
+        };
         match command.as_str() {
             "--help" => {
                 println!(
@@ -413,7 +424,10 @@ fn process_args(mut args: std::env::Args) -> Option<()> {
                 )
             }
             "--version" => {
-                println!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman")
+                println!(
+                    "{}",
+                    format!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman").bold()
+                )
             }
             _ => {
                 eprintln!(
@@ -423,5 +437,6 @@ fn process_args(mut args: std::env::Args) -> Option<()> {
                 )
             }
         }
+        first_argument = false;
     }
 }
