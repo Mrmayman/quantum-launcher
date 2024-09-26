@@ -45,12 +45,6 @@ pub async fn get_java_binary(
 
     let is_incomplete_install = java_dir.join("install.lock").exists();
 
-    if let Some(java_install_progress_sender) = &java_install_progress_sender {
-        java_install_progress_sender
-            .send(JavaInstallProgress::P1Started)
-            .unwrap();
-    }
-
     if !java_dir.exists() || is_incomplete_install {
         info!("Installing {}", version.to_string());
         install_java(version, java_install_progress_sender.as_ref()).await?;
@@ -62,12 +56,6 @@ pub async fn get_java_binary(
         format!("bin/{name}")
     });
 
-    if let Some(java_install_progress_sender) = java_install_progress_sender {
-        java_install_progress_sender
-            .send(JavaInstallProgress::P3Done)
-            .unwrap();
-    }
-
     Ok(java_dir.canonicalize().map_err(io_err!(java_dir))?)
 }
 
@@ -75,6 +63,12 @@ async fn install_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
 ) -> Result<(), JavaInstallError> {
+    if let Some(java_install_progress_sender) = &java_install_progress_sender {
+        if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P1Started) {
+            eprintln!("[error] Error sending java install progress: {err}\nThis should probably be safe to ignore");
+        }
+    }
+
     info!("Started installing {}", version.to_string());
     let java_list_json = JavaListJson::download().await?;
     let java_files_url = java_list_json
@@ -106,13 +100,13 @@ async fn install_java(
         info!("Installing file ({file_num}/{num_files}): {file_name}");
 
         if let Some(java_install_progress_sender) = java_install_progress_sender {
-            java_install_progress_sender
-                .send(JavaInstallProgress::P2 {
-                    progress: file_num,
-                    out_of: num_files,
-                    name: file_name.clone(),
-                })
-                .unwrap();
+            if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P2 {
+                progress: file_num,
+                out_of: num_files,
+                name: file_name.clone(),
+            }) {
+                eprintln!("[error] Error sending java install progress: {err}\nThis should probably be safe to ignore");
+            }
         }
 
         let file_path = install_dir.join(file_name);
@@ -140,6 +134,12 @@ async fn install_java(
     std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.to_owned()))?;
 
     info!("Finished installing {}", version.to_string());
+
+    if let Some(java_install_progress_sender) = java_install_progress_sender {
+        if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P3Done) {
+            eprintln!("[error] Error sending java install progress: {err}\nThis should probably be safe to ignore");
+        }
+    }
     Ok(())
 }
 

@@ -64,36 +64,26 @@ pub enum Message {
 
 #[derive(Default)]
 pub struct MenuLaunch {
-    pub selected_instance: Option<String>,
-    pub java_install_progress: Option<JavaInstallProgressData>,
     pub message: String,
+    pub recv: Option<Receiver<JavaInstallProgress>>,
 }
 
 impl MenuLaunch {
     pub fn with_message(message: String) -> Self {
         Self {
-            selected_instance: Default::default(),
-            java_install_progress: Default::default(),
             message,
+            recv: None,
         }
     }
 }
 
-pub struct JavaInstallProgressData {
-    pub num: f32,
-    pub recv: Receiver<JavaInstallProgress>,
-    pub message: String,
-}
-
 pub struct MenuEditInstance {
-    pub selected_instance: String,
     pub config: InstanceConfigJson,
     pub slider_value: f32,
     pub slider_text: String,
 }
 
 pub struct MenuEditMods {
-    pub selected_instance: String,
     pub config: InstanceConfigJson,
 }
 
@@ -107,12 +97,9 @@ pub struct MenuCreateInstance {
     pub download_assets: bool,
 }
 
-pub struct MenuDeleteInstance {
-    pub selected_instance: String,
-}
+pub struct MenuDeleteInstance {}
 
 pub struct MenuInstallFabric {
-    pub selected_instance: String,
     pub fabric_version: Option<String>,
     pub fabric_versions: Vec<String>,
     pub progress_receiver: Option<Receiver<FabricInstallProgress>>,
@@ -136,6 +123,12 @@ pub struct MenuLauncherUpdate {
     pub progress_message: Option<String>,
 }
 
+pub struct MenuInstallJava {
+    pub num: f32,
+    pub recv: Receiver<JavaInstallProgress>,
+    pub message: String,
+}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
@@ -145,11 +138,13 @@ pub enum State {
     DeleteInstance(MenuDeleteInstance),
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
+    InstallJava(MenuInstallJava),
     UpdateFound(MenuLauncherUpdate),
 }
 
 pub struct Launcher {
     pub state: State,
+    pub selected_instance: Option<String>,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
     pub processes: HashMap<String, GameProcess>,
@@ -175,6 +170,7 @@ impl Launcher {
             processes: HashMap::new(),
             config: Some(LauncherConfig::load()?),
             logs: HashMap::new(),
+            selected_instance: None,
         })
     }
 
@@ -187,6 +183,7 @@ impl Launcher {
             config: LauncherConfig::load().ok(),
             processes: HashMap::new(),
             logs: HashMap::new(),
+            selected_instance: None,
         }
     }
 
@@ -213,16 +210,14 @@ impl Launcher {
     }
 
     pub fn edit_instance_wrapped(&mut self) {
-        if let State::Launch(menu_launch) = &self.state {
-            match self.edit_instance(menu_launch.selected_instance.clone().unwrap()) {
-                Ok(_) => {}
-                Err(err) => self.set_error(err.to_string()),
-            }
+        match self.edit_instance(self.selected_instance.clone().unwrap()) {
+            Ok(_) => {}
+            Err(err) => self.set_error(err.to_string()),
         }
     }
 }
 
-fn reload_instances() -> Result<Vec<String>, LauncherError> {
+pub fn reload_instances() -> Result<Vec<String>, LauncherError> {
     let dir_path = file_utils::get_launcher_dir()?;
     std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 

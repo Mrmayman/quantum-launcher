@@ -328,7 +328,11 @@ fn get_class_path(
     if let Some(fabric_json) = fabric_json {
         for library in fabric_json.libraries.iter() {
             let library_path = instance_dir.join("libraries").join(library.get_path());
-            class_path.push_str(library_path.to_str().unwrap());
+            class_path.push_str(
+                library_path
+                    .to_str()
+                    .ok_or(LauncherError::PathBufToString(library_path.to_owned()))?,
+            );
             class_path.push(CLASSPATH_SEPARATOR);
         }
     }

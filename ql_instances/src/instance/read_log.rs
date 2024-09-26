@@ -72,7 +72,7 @@ pub async fn read_logs(
                                 &xml
                             };
 
-                            match serde_xml_rs::from_str(&text) {
+                            match serde_xml_rs::from_str(text) {
                                 Ok(log_event) => {
                                     sender.send(LogLine::Info(log_event))?;
                                     xml_cache.clear();

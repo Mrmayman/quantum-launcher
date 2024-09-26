@@ -8,7 +8,8 @@ use crate::{
     icon_manager,
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
-        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate, Message,
+        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
+        MenuLauncherUpdate, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -30,13 +31,14 @@ impl MenuLaunch {
         instances: Option<&'element [String]>,
         processes: &'element HashMap<String, GameProcess>,
         logs: &'element HashMap<String, String>,
+        selected_instance: Option<&'element String>,
     ) -> Element<'element> {
         let pick_list = if let Some(instances) = instances {
             widget::column![
                 widget::text("Instances:"),
                 widget::pick_list(
                     instances,
-                    self.selected_instance.as_ref(),
+                    selected_instance,
                     Message::LaunchInstanceSelected,
                 )
                 .width(200),
@@ -46,8 +48,7 @@ impl MenuLaunch {
                         .width(97),
                     button_with_icon(icon_manager::delete(), "Delete")
                         .on_press_maybe(
-                            (self.selected_instance.is_some())
-                                .then_some(Message::DeleteInstanceMenu)
+                            (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
                         )
                         .width(98),
                 ]
@@ -55,13 +56,12 @@ impl MenuLaunch {
                 widget::row![
                     button_with_icon(icon_manager::settings(), "Edit")
                         .on_press_maybe(
-                            (self.selected_instance.is_some()).then_some(Message::EditInstance)
+                            (selected_instance.is_some()).then_some(Message::EditInstance)
                         )
                         .width(97),
                     button_with_icon(icon_manager::download(), "Mods")
                         .on_press_maybe(
-                            (self.selected_instance.is_some())
-                                .then_some(Message::ManageModsScreenOpen)
+                            (selected_instance.is_some()).then_some(Message::ManageModsScreenOpen)
                         )
                         .width(98),
                 ]
@@ -71,17 +71,13 @@ impl MenuLaunch {
             widget::column![widget::text("Loading instances...")]
         };
 
-        let java_progress_bar = if let Some(progress) = &self.java_install_progress {
-            widget::column!(
-                widget::progress_bar(0.0..=1.0, progress.num),
-                widget::text(&progress.message)
-            )
-        } else {
+        let footer_text = {
             let version_message = widget::text(format!(
                 "QuantumLauncher v{}\nA Minecraft Launcher by Mrmayman",
                 LAUNCHER_VERSION_NAME
             ))
             .size(12);
+
             if self.message.is_empty() {
                 widget::column!(version_message)
             } else {
@@ -104,17 +100,17 @@ impl MenuLaunch {
             pick_list.spacing(5),
             widget::row![
                 button_with_icon(icon_manager::folder(), "Files")
-                    .on_press_maybe((self.selected_instance.is_some()).then(|| {
+                    .on_press_maybe((selected_instance.is_some()).then(|| {
                         let launcher_dir = file_utils::get_launcher_dir().unwrap();
                         Message::OpenDir(
                             launcher_dir
                                 .join("instances")
-                                .join(self.selected_instance.as_ref().unwrap())
+                                .join(selected_instance.as_ref().unwrap())
                                 .join(".minecraft"),
                         )
                     }))
                     .width(97),
-                if let Some(selected_instance) = &self.selected_instance {
+                if let Some(selected_instance) = selected_instance {
                     if processes.contains_key(selected_instance) {
                         button_with_icon(icon_manager::play(), "Kill").on_press(Message::LaunchKill)
                     } else {
@@ -127,12 +123,12 @@ impl MenuLaunch {
                 .width(98),
             ]
             .spacing(5),
-            java_progress_bar
+            footer_text
         ]
         .padding(10)
         .spacing(20);
 
-        let log = self.get_log_pane(logs);
+        let log = self.get_log_pane(logs, selected_instance);
 
         widget::row!(widget::scrollable(left_elements), log)
             .padding(10)
@@ -143,12 +139,12 @@ impl MenuLaunch {
     fn get_log_pane<'element>(
         &'element self,
         logs: &HashMap<String, String>,
+        selected_instance: Option<&'element String>,
     ) -> widget::Column<'element, Message, LauncherTheme> {
         const LOG_VIEW_LIMIT: usize = 10000;
-        if let Some(Some(log)) = self
-            .selected_instance
+        if let Some(Some(log)) = selected_instance
             .as_ref()
-            .map(|selection| logs.get(selection))
+            .map(|selection| logs.get(*selection))
         {
             let log_length = log.len();
             let slice = if log_length > LOG_VIEW_LIMIT {
@@ -174,7 +170,7 @@ impl MenuLaunch {
 }
 
 impl MenuEditInstance {
-    pub fn view<'element>(&self) -> Element<'element> {
+    pub fn view<'element>(&self, selected_instance: &str) -> Element<'element> {
         // 2 ^ 8 = 256 MB
         const MEM_256_MB_IN_TWOS_EXPONENT: f32 = 8.0;
         // 2 ^ 13 = 8192 MB
@@ -186,7 +182,7 @@ impl MenuEditInstance {
                     .spacing(10)
                     .padding(5)
                 ).on_press(Message::LaunchScreenOpen(None)),
-                widget::text(format!("Editing {} instance: {}", self.config.mod_type, self.selected_instance)),
+                widget::text(format!("Editing {} instance: {}", self.config.mod_type, selected_instance)),
                 widget::container(
                     widget::column![
                         widget::text("Use a special Java install instead of the default one. (Enter path, leave blank if none)"),
@@ -222,7 +218,7 @@ impl MenuEditInstance {
 }
 
 impl MenuEditMods {
-    pub fn view(&self) -> Element {
+    pub fn view(&self, selected_instance: &str) -> Element {
         let mod_installer = if self.config.mod_type == "Vanilla" {
             widget::column![
                 widget::button("Install Fabric").on_press(Message::InstallFabricScreenOpen),
@@ -259,7 +255,7 @@ impl MenuEditMods {
                 Message::OpenDir(
                     launcher_dir
                         .join("instances")
-                        .join(&self.selected_instance)
+                        .join(selected_instance)
                         .join(".minecraft/mods"),
                 )
             }),
@@ -292,7 +288,7 @@ impl MenuCreateInstance {
                     widget::row![icon_manager::back(), widget::text("Back")]
                         .spacing(10)
                         .padding(5)
-                ).on_press(Message::LaunchScreenOpen(None)),
+                ).on_press_maybe((self.progress_receiver.is_none()).then_some(Message::LaunchScreenOpen(None))),
                 widget::column![
                     widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance"),
                     widget::text("Select Version"),
@@ -321,11 +317,11 @@ impl MenuCreateInstance {
 }
 
 impl MenuDeleteInstance {
-    pub fn view(&self) -> Element {
+    pub fn view(&self, selected_instance: &str) -> Element {
         widget::column![
             widget::text(format!(
                 "Are you SURE you want to DELETE the Instance: {}?",
-                &self.selected_instance
+                &selected_instance
             )),
             widget::text("All your data, including worlds will be lost."),
             widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
@@ -338,7 +334,7 @@ impl MenuDeleteInstance {
 }
 
 impl MenuInstallFabric {
-    pub fn view(&self) -> Element {
+    pub fn view(&self, selected_instance: &str) -> Element {
         if self.progress_receiver.is_some() {
             widget::column!(
                 widget::text("Installing Fabric..."),
@@ -357,7 +353,7 @@ impl MenuInstallFabric {
                 .on_press(Message::LaunchScreenOpen(None)),
                 widget::text(format!(
                     "Select Fabric Version for instance {}",
-                    &self.selected_instance
+                    &selected_instance
                 )),
                 widget::pick_list(
                     self.fabric_versions.as_slice(),
@@ -428,6 +424,19 @@ impl MenuLauncherUpdate {
                 .spacing(5),
             )
         }
+        .padding(10)
+        .spacing(10)
+        .into()
+    }
+}
+
+impl MenuInstallJava {
+    pub fn view(&self) -> Element {
+        widget::column!(
+            widget::text("Downloading Java").size(20),
+            widget::progress_bar(0.0..=1.0, self.num),
+            widget::text(&self.message)
+        )
         .padding(10)
         .spacing(10)
         .into()

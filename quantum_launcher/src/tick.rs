@@ -1,23 +1,32 @@
 use std::collections::HashMap;
 
 use iced::Command;
-use ql_instances::{JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
+use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::instance_mod_installer::{
     fabric::FabricInstallProgress, forge::ForgeInstallProgress,
 };
 
 use crate::launcher_state::{
-    JavaInstallProgressData, Launcher, MenuLaunch, MenuLauncherUpdate, Message, State,
+    reload_instances, Launcher, MenuInstallJava, MenuLaunch, MenuLauncherUpdate, Message, State,
 };
 
 impl Launcher {
-    pub fn tick(&mut self) -> Option<Command<Message>> {
+    pub fn tick(&mut self) -> Command<Message> {
         match &mut self.state {
-            State::Launch(MenuLaunch {
-                java_install_progress,
-                ..
-            }) => {
-                check_java_install_progress(java_install_progress);
+            State::Launch(MenuLaunch { recv, .. }) => {
+                if let Some(receiver) = recv.take() {
+                    if let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
+                        info!("Started install of Java");
+                        self.state = State::InstallJava(MenuInstallJava {
+                            num: 0.0,
+                            recv: receiver,
+                            message: "Starting...".to_owned(),
+                        });
+                        return Command::none();
+                    } else {
+                        *recv = Some(receiver);
+                    }
+                }
 
                 let mut killed_processes = Vec::new();
                 for (name, process) in self.processes.iter() {
@@ -33,14 +42,13 @@ impl Launcher {
                 }
 
                 if let Some(config) = self.config.clone() {
-                    return Some(Command::perform(
-                        config.save_wrapped(),
-                        Message::TickConfigSaved,
-                    ));
+                    return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
                 }
             }
             State::EditInstance(menu) => {
-                if let Err(err) = Launcher::save_config(&menu.selected_instance, &menu.config) {
+                if let Err(err) =
+                    Launcher::save_config(self.selected_instance.as_ref().unwrap(), &menu.config)
+                {
                     self.set_error(err.to_string())
                 }
             }
@@ -135,8 +143,23 @@ impl Launcher {
                     }
                 }
             }
+            State::InstallJava(menu) => {
+                let finished_install = menu.tick();
+                if finished_install {
+                    let message = "Installed Java".to_owned();
+                    self.state = State::Launch(MenuLaunch {
+                        message,
+                        recv: None,
+                    });
+                    if let Ok(list) = reload_instances() {
+                        self.instances = Some(list);
+                    } else {
+                        eprintln!("[error] Failed to reload instances list.")
+                    }
+                }
+            }
         }
-        None
+        Command::none()
     }
 
     fn read_game_logs(
@@ -161,8 +184,23 @@ impl Launcher {
             };
 
             if !logs.contains_key(name) {
-                logs.insert(name.to_owned(), message);
+                logs.insert(
+                    name.to_owned(),
+                    format!(
+                        "Launching Minecraft ({})\nOS: {}\n\n{}",
+                        Self::get_current_date_formatted(),
+                        ql_instances::OS_NAME,
+                        message
+                    ),
+                );
             } else if let Some(log) = logs.get_mut(name) {
+                if log.is_empty() {
+                    log.push_str(&format!(
+                        "Launching Minecraft ({})\nOS: {}\n\n",
+                        Self::get_current_date_formatted(),
+                        ql_instances::OS_NAME
+                    ));
+                }
                 log.push_str(&message);
             }
         }
@@ -175,44 +213,32 @@ fn get_date(timestamp: &str) -> Option<String> {
     let milliseconds = time % 1000;
     let nanoseconds = milliseconds * 1000000;
     let datetime = chrono::DateTime::from_timestamp(seconds, nanoseconds as u32)?;
-    Some(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
+    let datetime = datetime.with_timezone(&chrono::Local);
+    Some(datetime.format("%H:%M:%S").to_string())
 }
 
-fn check_java_install_progress(java_install_progress: &mut Option<JavaInstallProgressData>) {
-    let install_finished = receive_java_install_progress(java_install_progress);
-    if install_finished {
-        *java_install_progress = None;
-    }
-}
-
-fn receive_java_install_progress(
-    java_install_progress: &mut Option<JavaInstallProgressData>,
-) -> bool {
-    let Some(java_install_progress) = java_install_progress else {
-        return true;
-    };
-
-    if let Ok(message) = java_install_progress.recv.try_recv() {
-        match message {
-            JavaInstallProgress::P1Started => {
-                java_install_progress.num = 0.0;
-                java_install_progress.message = "Starting up (2/2)".to_owned();
-            }
-            JavaInstallProgress::P2 {
-                progress,
-                out_of,
-                name,
-            } => {
-                java_install_progress.num = (progress as f32) / (out_of as f32);
-                java_install_progress.message =
-                    format!("Downloading ({progress}/{out_of}): {name}");
-            }
-            JavaInstallProgress::P3Done => {
-                java_install_progress.num = 1.0;
-                java_install_progress.message = "Done!".to_owned();
-                return true;
+impl MenuInstallJava {
+    /// Returns true if Java installation has finished.
+    pub fn tick(&mut self) -> bool {
+        if let Ok(message) = self.recv.try_recv() {
+            match message {
+                JavaInstallProgress::P1Started => {
+                    self.num = 0.0;
+                    self.message = "Starting up (2/2)".to_owned();
+                }
+                JavaInstallProgress::P2 {
+                    progress,
+                    out_of,
+                    name,
+                } => {
+                    self.num = (progress as f32) / (out_of as f32);
+                    self.message = format!("Downloading ({progress}/{out_of}): {name}");
+                }
+                JavaInstallProgress::P3Done => {
+                    return true;
+                }
             }
         }
+        false
     }
-    false
 }

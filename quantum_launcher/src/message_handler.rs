@@ -1,5 +1,6 @@
 use std::sync::{mpsc, Arc};
 
+use chrono::Datelike;
 use iced::Command;
 use ql_instances::{
     error::LauncherResult, file_utils, io_err,
@@ -7,15 +8,12 @@ use ql_instances::{
 };
 
 use crate::launcher_state::{
-    GameProcess, JavaInstallProgressData, Launcher, MenuCreateInstance, MenuDeleteInstance,
-    MenuEditInstance, MenuEditMods, Message, State,
+    GameProcess, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message, State,
 };
 
 impl Launcher {
     pub fn select_launch_instance(&mut self, instance_name: String) {
-        if let State::Launch(ref mut menu_launch) = self.state {
-            menu_launch.selected_instance = Some(instance_name)
-        }
+        self.selected_instance = Some(instance_name)
     }
 
     pub fn set_username(&mut self, username: String) {
@@ -24,15 +22,11 @@ impl Launcher {
 
     pub fn launch_game(&mut self) -> Command<Message> {
         if let State::Launch(ref mut menu_launch) = self.state {
-            let selected_instance = menu_launch.selected_instance.clone().unwrap();
+            let selected_instance = self.selected_instance.clone().unwrap();
             let username = self.config.as_ref().unwrap().username.clone();
 
             let (sender, receiver) = std::sync::mpsc::channel();
-            menu_launch.java_install_progress = Some(JavaInstallProgressData {
-                num: 0.0,
-                recv: receiver,
-                message: "Starting up (1/2)".to_owned(),
-            });
+            menu_launch.recv = Some(receiver);
 
             if let Some(log) = self.logs.get_mut(&selected_instance) {
                 log.clear();
@@ -46,39 +40,50 @@ impl Launcher {
         Command::none()
     }
 
+    pub fn get_current_date_formatted() -> String {
+        // Get the current date and time in UTC
+        let now = chrono::Local::now();
+
+        // Extract the day, month, and year
+        let day = now.day();
+        let month = now.format("%B").to_string(); // Full month name (e.g., "September")
+        let year = now.year();
+
+        // Return the formatted string
+        format!("{} {} {}", day, month, year)
+    }
+
     pub fn finish_launching(&mut self, result: GameLaunchResult) -> Command<Message> {
         match result {
             GameLaunchResult::Ok(child) => {
-                if let State::Launch(menu_launch) = &self.state {
-                    if let Some(selected_instance) = menu_launch.selected_instance.to_owned() {
-                        if let (Some(stdout), Some(stderr)) = {
-                            let mut child = child.lock().unwrap();
-                            (child.stdout.take(), child.stderr.take())
-                        } {
-                            let (sender, receiver) = std::sync::mpsc::channel();
+                if let Some(selected_instance) = self.selected_instance.to_owned() {
+                    if let (Some(stdout), Some(stderr)) = {
+                        let mut child = child.lock().unwrap();
+                        (child.stdout.take(), child.stderr.take())
+                    } {
+                        let (sender, receiver) = std::sync::mpsc::channel();
 
-                            self.processes.insert(
-                                selected_instance.clone(),
-                                GameProcess {
-                                    child: child.clone(),
-                                    receiver,
-                                },
-                            );
+                        self.processes.insert(
+                            selected_instance.clone(),
+                            GameProcess {
+                                child: child.clone(),
+                                receiver,
+                            },
+                        );
 
-                            return Command::perform(
-                                ql_instances::read_logs_wrapped(
-                                    stdout,
-                                    stderr,
-                                    child,
-                                    sender,
-                                    selected_instance,
-                                ),
-                                Message::LaunchEndedLog,
-                            );
-                        }
-                    } else {
-                        eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.")
+                        return Command::perform(
+                            ql_instances::read_logs_wrapped(
+                                stdout,
+                                stderr,
+                                child,
+                                sender,
+                                selected_instance,
+                            ),
+                            Message::LaunchEndedLog,
+                        );
                     }
+                } else {
+                    eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.")
                 }
             }
             GameLaunchResult::Err(err) => self.set_error(err),
@@ -157,11 +162,12 @@ impl Launcher {
     }
 
     pub fn delete_selected_instance(&mut self) {
-        if let State::DeleteInstance(menu) = &self.state {
+        if let State::DeleteInstance(_) = &self.state {
             match file_utils::get_launcher_dir() {
                 Ok(launcher_dir) => {
                     let instances_dir = launcher_dir.join("instances");
-                    let deleted_instance_dir = instances_dir.join(&menu.selected_instance);
+                    let deleted_instance_dir =
+                        instances_dir.join(self.selected_instance.as_ref().unwrap());
 
                     if !deleted_instance_dir.starts_with(&instances_dir) {
                         self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned());
@@ -183,14 +189,6 @@ impl Launcher {
         }
     }
 
-    pub fn confirm_instance_deletion(&mut self) {
-        if let State::Launch(ref mut menu_launch) = self.state {
-            self.state = State::DeleteInstance(MenuDeleteInstance {
-                selected_instance: menu_launch.selected_instance.clone().unwrap(),
-            })
-        }
-    }
-
     pub fn update_instance_creation_progress_bar(menu: &mut MenuCreateInstance) {
         if let Some(receiver) = &menu.progress_receiver {
             if let Ok(progress) = receiver.try_recv() {
@@ -208,7 +206,7 @@ impl Launcher {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
-            .join(&selected_instance)
+            .join(selected_instance)
             .join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
@@ -218,7 +216,6 @@ impl Launcher {
         let memory_mb = config_json.ram_in_mb;
 
         self.state = State::EditInstance(MenuEditInstance {
-            selected_instance,
             config: config_json,
             slider_value,
             slider_text: format_memory(memory_mb),
@@ -238,18 +235,17 @@ impl Launcher {
         Ok(())
     }
 
-    pub fn go_to_edit_mods_menu(&mut self, selected_instance: String) -> LauncherResult<()> {
+    pub fn go_to_edit_mods_menu(&mut self) -> LauncherResult<()> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
-            .join(&selected_instance)
+            .join(self.selected_instance.as_ref().unwrap())
             .join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         self.state = State::EditMods(MenuEditMods {
-            selected_instance,
             config: config_json,
         });
         Ok(())

@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    path::PathBuf,
     sync::mpsc::{SendError, Sender},
 };
 
@@ -105,7 +106,9 @@ pub async fn install(
 
         let bytes = file_utils::download_file_to_bytes(&client, &url).await?;
 
-        let parent_dir = path.parent().unwrap();
+        let parent_dir = path
+            .parent()
+            .ok_or(FabricInstallError::PathBufParentError(path.to_owned()))?;
         std::fs::create_dir_all(parent_dir).map_err(io_err!(parent_dir))?;
         std::fs::write(&path, &bytes).map_err(io_err!(path))?;
     }
@@ -184,6 +187,7 @@ pub enum FabricInstallError {
     RequestError(RequestError),
     Send(SendError<FabricInstallProgress>),
     ChangeConfigError(ChangeConfigError),
+    PathBufParentError(PathBuf),
 }
 
 impl From<IoError> for FabricInstallError {
@@ -218,20 +222,24 @@ impl From<ChangeConfigError> for FabricInstallError {
 
 impl Display for FabricInstallError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error installing fabric: ")?;
         match self {
             // Look, I'm not the best at programming.
-            FabricInstallError::Io(err) => write!(f, "error installing fabric (system io): {err}"),
+            FabricInstallError::Io(err) => write!(f, "(system io) {err}"),
             FabricInstallError::Json(err) => {
-                write!(f, "error installing fabric (parsing json): {err}")
+                write!(f, "(parsing json) {err}")
             }
             FabricInstallError::RequestError(err) => {
-                write!(f, "error installing fabric (downloading file): {err}")
+                write!(f, "(downloading file) {err}")
             }
             FabricInstallError::Send(err) => {
-                write!(f, "error installing fabric (sending message): {err}")
+                write!(f, "(sending message) {err}")
             }
             FabricInstallError::ChangeConfigError(err) => {
-                write!(f, "error changing instance config: {err}")
+                write!(f, "could not change instance config: {err}")
+            }
+            FabricInstallError::PathBufParentError(path_buf) => {
+                write!(f, "could not get parent of pathbuf: {path_buf:?}")
             }
         }
     }

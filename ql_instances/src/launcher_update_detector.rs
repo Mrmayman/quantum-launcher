@@ -64,42 +64,38 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
 
     let version = semver::Version::parse(&version)?;
 
-    if version > LAUNCHER_VERSION
-    // If you want to test the update mechanism but
-    // there aren't any new versions to test it on:
-    /*|| version < LAUNCHER_VERSION*/
-    {
-        let arch = if cfg!(target_arch = "x86_64") {
-            "x86_64"
-        } else {
-            eprintln!("[error] Update checking: Unsupported architecture");
-            return Err(UpdateError::UnsupportedArchitecture);
-        };
+    match version.cmp(&LAUNCHER_VERSION) {
+        std::cmp::Ordering::Less => Err(UpdateError::AheadOfLatestVersion),
+        std::cmp::Ordering::Equal => Ok(UpdateCheckInfo::UpToDate),
+        std::cmp::Ordering::Greater => {
+            let arch = if cfg!(target_arch = "x86_64") {
+                "x86_64"
+            } else {
+                eprintln!("[error] Update checking: Unsupported architecture");
+                return Err(UpdateError::UnsupportedArchitecture);
+            };
 
-        let os = if cfg!(target_os = "windows") {
-            "windows"
-        } else if cfg!(target_os = "linux") {
-            "linux"
-        } else {
-            eprintln!("[error] Update checking: Unsupported OS");
-            return Err(UpdateError::UnsupportedOS);
-        };
+            let os = if cfg!(target_os = "windows") {
+                "windows"
+            } else if cfg!(target_os = "linux") {
+                "linux"
+            } else {
+                eprintln!("[error] Update checking: Unsupported OS");
+                return Err(UpdateError::UnsupportedOS);
+            };
 
-        let name = format!("quantum_launcher_{os}_{arch}.");
+            let name = format!("quantum_launcher_{os}_{arch}.");
 
-        let matching_release = latest
-            .assets
-            .iter()
-            .find(|asset| asset.name.starts_with(&name))
-            .ok_or(UpdateError::NoMatchingDownloadFound)?;
+            let matching_release = latest
+                .assets
+                .iter()
+                .find(|asset| asset.name.starts_with(&name))
+                .ok_or(UpdateError::NoMatchingDownloadFound)?;
 
-        Ok(UpdateCheckInfo::NewVersion {
-            url: matching_release.browser_download_url.to_owned(),
-        })
-    } else if version < LAUNCHER_VERSION {
-        Err(UpdateError::AheadOfLatestVersion)
-    } else {
-        Ok(UpdateCheckInfo::UpToDate)
+            Ok(UpdateCheckInfo::NewVersion {
+                url: matching_release.browser_download_url.to_owned(),
+            })
+        }
     }
 }
 
@@ -153,7 +149,7 @@ pub async fn install_update(
 
     info!("Extracting launcher");
     progress.send(UpdateProgress::P4Extract)?;
-    zip_extract::extract(std::io::Cursor::new(download_zip), &exe_location, true)?;
+    zip_extract::extract(std::io::Cursor::new(download_zip), exe_location, true)?;
     let extract_name = if cfg!(target_os = "windows") {
         "quantum_launcher.exe"
     } else {

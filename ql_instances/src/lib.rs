@@ -7,6 +7,7 @@ pub mod json_structs;
 mod launcher_update_detector;
 pub mod print;
 
+pub use download::constants::OS_NAME;
 pub use download::progress::DownloadProgress;
 pub use instance::create::create_instance;
 pub use instance::launch::{launch, launch_wrapped, GameLaunchResult};

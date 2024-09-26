@@ -3,11 +3,12 @@ use std::time::Duration;
 use colored::Colorize;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
-    Launcher, MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate, Message, State,
+    Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge, MenuLaunch,
+    MenuLauncherUpdate, Message, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
-use ql_instances::{error::LauncherError, info, UpdateCheckInfo};
+use ql_instances::{error::LauncherError, info, UpdateCheckInfo, LAUNCHER_VERSION_NAME};
 use ql_mod_manager::instance_mod_installer;
 use stylesheet::styles::LauncherTheme;
 
@@ -68,7 +69,9 @@ impl Application for Launcher {
                 },
                 Err(n) => self.state = State::Error { error: n },
             },
-            Message::DeleteInstanceMenu => self.confirm_instance_deletion(),
+            Message::DeleteInstanceMenu => {
+                self.state = State::DeleteInstance(MenuDeleteInstance {})
+            }
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::LaunchScreenOpen(message) => {
                 if let Some(message) = message {
@@ -94,29 +97,22 @@ impl Application for Launcher {
                 }
             }
             Message::ManageModsScreenOpen => {
-                if let State::Launch(menu_launch) = &self.state {
-                    if let Err(err) =
-                        self.go_to_edit_mods_menu(menu_launch.selected_instance.clone().unwrap())
-                    {
-                        self.set_error(err.to_string())
-                    }
+                if let Err(err) = self.go_to_edit_mods_menu() {
+                    self.set_error(err.to_string())
                 }
             }
             Message::InstallFabricScreenOpen => {
-                if let State::EditMods(menu) = &self.state {
-                    self.state = State::InstallFabric(MenuInstallFabric {
-                        selected_instance: menu.selected_instance.clone(),
-                        fabric_version: None,
-                        fabric_versions: Vec::new(),
-                        progress_receiver: None,
-                        progress_num: 0.0,
-                    });
+                self.state = State::InstallFabric(MenuInstallFabric {
+                    fabric_version: None,
+                    fabric_versions: Vec::new(),
+                    progress_receiver: None,
+                    progress_num: 0.0,
+                });
 
-                    return Command::perform(
-                        instance_mod_installer::fabric::get_list_of_versions(),
-                        Message::InstallFabricVersionsLoaded,
-                    );
-                }
+                return Command::perform(
+                    instance_mod_installer::fabric::get_list_of_versions(),
+                    Message::InstallFabricVersionsLoaded,
+                );
             }
             Message::InstallFabricVersionsLoaded(result) => match result {
                 Ok(list_of_versions) => {
@@ -142,7 +138,7 @@ impl Application for Launcher {
                     return Command::perform(
                         instance_mod_installer::fabric::install_wrapped(
                             menu.fabric_version.clone().unwrap(),
-                            menu.selected_instance.to_owned(),
+                            self.selected_instance.to_owned().unwrap(),
                             Some(sender),
                         ),
                         Message::InstallFabricEnd,
@@ -167,11 +163,7 @@ impl Application for Launcher {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
                 }
             }
-            Message::Tick => {
-                if let Some(value) = self.tick() {
-                    return value;
-                }
-            }
+            Message::Tick => return self.tick(),
             Message::TickConfigSaved(result) => {
                 if let Err(err) = result {
                     self.set_error(err)
@@ -182,7 +174,7 @@ impl Application for Launcher {
                     if menu.config.mod_type == "Fabric" {
                         return Command::perform(
                             instance_mod_installer::fabric::uninstall_wrapped(
-                                menu.selected_instance.to_owned(),
+                                self.selected_instance.to_owned().unwrap(),
                             ),
                             Message::UninstallLoaderEnd,
                         );
@@ -190,7 +182,7 @@ impl Application for Launcher {
                     if menu.config.mod_type == "Forge" {
                         return Command::perform(
                             instance_mod_installer::forge::uninstall_wrapped(
-                                menu.selected_instance.to_owned(),
+                                self.selected_instance.to_owned().unwrap(),
                             ),
                             Message::UninstallLoaderEnd,
                         );
@@ -205,31 +197,29 @@ impl Application for Launcher {
                 }
             }
             Message::InstallForgeStart => {
-                if let State::EditMods(menu) = &self.state {
-                    let (f_sender, f_receiver) = std::sync::mpsc::channel();
-                    let (j_sender, j_receiver) = std::sync::mpsc::channel();
+                let (f_sender, f_receiver) = std::sync::mpsc::channel();
+                let (j_sender, j_receiver) = std::sync::mpsc::channel();
 
-                    let command = Command::perform(
-                        instance_mod_installer::forge::install_wrapped(
-                            menu.selected_instance.to_owned(),
-                            Some(f_sender),
-                            Some(j_sender),
-                        ),
-                        Message::InstallForgeEnd,
-                    );
+                let command = Command::perform(
+                    instance_mod_installer::forge::install_wrapped(
+                        self.selected_instance.to_owned().unwrap(),
+                        Some(f_sender),
+                        Some(j_sender),
+                    ),
+                    Message::InstallForgeEnd,
+                );
 
-                    self.state = State::InstallForge(MenuInstallForge {
-                        forge_progress_receiver: f_receiver,
-                        forge_progress_num: 0.0,
-                        java_progress_receiver: j_receiver,
-                        java_progress_num: 0.0,
-                        is_java_getting_installed: false,
-                        forge_message: "Installing Forge".to_owned(),
-                        java_message: None,
-                    });
+                self.state = State::InstallForge(MenuInstallForge {
+                    forge_progress_receiver: f_receiver,
+                    forge_progress_num: 0.0,
+                    java_progress_receiver: j_receiver,
+                    java_progress_num: 0.0,
+                    is_java_getting_installed: false,
+                    forge_message: "Installing Forge".to_owned(),
+                    java_message: None,
+                });
 
-                    return command;
-                }
+                return command;
             }
             Message::InstallForgeEnd(result) => match result {
                 Ok(_) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
@@ -249,22 +239,19 @@ impl Application for Launcher {
                 }
             }
             Message::LaunchKill => {
-                if let State::Launch(MenuLaunch {
-                    selected_instance: Some(selected_instance),
-                    ..
-                }) = &self.state
+                if let Some(process) = self
+                    .processes
+                    .remove(self.selected_instance.as_ref().unwrap())
                 {
-                    if let Some(process) = self.processes.remove(selected_instance) {
-                        return Command::perform(
-                            {
-                                async move {
-                                    let mut child = process.child.lock().unwrap();
-                                    child.start_kill().map_err(|err| err.to_string())
-                                }
-                            },
-                            Message::LaunchKillEnd,
-                        );
-                    }
+                    return Command::perform(
+                        {
+                            async move {
+                                let mut child = process.child.lock().unwrap();
+                                child.start_kill().map_err(|err| err.to_string())
+                            }
+                        },
+                        Message::LaunchKillEnd,
+                    );
                 }
             }
             Message::LaunchKillEnd(result) => {
@@ -273,14 +260,8 @@ impl Application for Launcher {
                 }
             }
             Message::LaunchCopyLog => {
-                if let State::Launch(MenuLaunch {
-                    selected_instance: Some(selected_instance),
-                    ..
-                }) = &self.state
-                {
-                    if let Some(log) = self.logs.get(selected_instance) {
-                        return iced::clipboard::write(log.to_owned());
-                    }
+                if let Some(log) = self.logs.get(self.selected_instance.as_ref().unwrap()) {
+                    return iced::clipboard::write(log.to_owned());
                 }
             }
             Message::UpdateCheckResult(update_check_info) => match update_check_info {
@@ -346,11 +327,12 @@ impl Application for Launcher {
                 self.instances.as_deref(),
                 &self.processes,
                 &self.logs,
+                self.selected_instance.as_ref(),
             ),
-            State::EditInstance(menu) => menu.view(),
-            State::EditMods(menu) => menu.view(),
+            State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Create(menu) => menu.view(),
-            State::DeleteInstance(menu) => menu.view(),
+            State::DeleteInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Error { error } => widget::scrollable(
                 widget::column!(
                     widget::text(format!("Error: {}", error)),
@@ -361,9 +343,10 @@ impl Application for Launcher {
                 .spacing(10),
             )
             .into(),
-            State::InstallFabric(menu) => menu.view(),
+            State::InstallFabric(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
+            State::InstallJava(menu) => menu.view(),
         }
     }
 }
@@ -388,14 +371,6 @@ fn main() {
 
     const WINDOW_HEIGHT: f32 = 450.0;
     const WINDOW_WIDTH: f32 = 650.0;
-
-    // let rt = tokio::runtime::Runtime::new().unwrap();
-    // rt.block_on(ql_mod_manager::instance_mod_installer::forge::install(
-    //     "1.20.1 fresh test",
-    // ))
-    // .unwrap();
-
-    // return;
 
     Launcher::run(Settings {
         window: iced::window::Settings {
@@ -427,7 +402,19 @@ fn process_args(mut args: std::env::Args) -> Option<()> {
     let program = args.next()?;
     loop {
         let command = args.next()?;
-        match command {
+        match command.as_str() {
+            "--help" => {
+                println!(
+                    r#"Usage: {}
+    --help    : Print a list of valid command line flags
+    --version : Print the launcher version
+"#,
+                    format!("{program} [FLAGS]").yellow()
+                )
+            }
+            "--version" => {
+                println!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman")
+            }
             _ => {
                 eprintln!(
                     "{} Unknown flag! Type {} to see all the command-line flags.",

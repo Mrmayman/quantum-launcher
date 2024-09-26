@@ -425,7 +425,11 @@ async fn run_installer_and_get_classpath(
 
         println!("- Running Installer");
         let output = Command::new(&java_path)
-            .args(["-cp", &format!("{}:.", installer_name), "ClientInstaller"])
+            .args([
+                "-cp",
+                &format!("{installer_name}{CLASSPATH_SEPARATOR}."),
+                "ClientInstaller",
+            ])
             .current_dir(forge_dir)
             .output()
             // .spawn()
