@@ -1,12 +1,14 @@
+use iced::Command;
 use ql_instances::{
     file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
 };
+use ql_mod_manager::modrinth::{Loader, Search, SearchQuery};
 
-use crate::launcher_state::{Launcher, MenuModsDownload, State};
+use crate::launcher_state::{Launcher, MenuModsDownload, Message, State};
 
 impl Launcher {
-    pub fn open_mods_screen(&mut self) -> Result<(), String> {
+    pub fn open_mods_screen(&mut self) -> Result<Command<Message>, String> {
         let launcher_dir = file_utils::get_launcher_dir().map_err(|err| err.to_string())?;
 
         let selected_instance = self
@@ -30,12 +32,37 @@ impl Launcher {
         let version: VersionDetails =
             serde_json::from_str(&version).map_err(|err| err.to_string())?;
 
-        self.state = State::ModsDownload(MenuModsDownload {
+        let mut menu = MenuModsDownload {
             query: String::new(),
             results: None,
             config,
             json: version,
-        });
-        Ok(())
+        };
+        let command = menu.search_modrinth();
+        self.state = State::ModsDownload(menu);
+        Ok(command)
+    }
+}
+
+impl MenuModsDownload {
+    pub fn search_modrinth(&mut self) -> Command<Message> {
+        let Some(loaders) = (match self.config.mod_type.as_str() {
+            "Forge" => Some(vec![Loader::Forge]),
+            "Fabric" => Some(vec![Loader::Fabric]),
+            _ => None,
+        }) else {
+            return Command::none();
+        };
+        Command::perform(
+            Search::search_wrapped(SearchQuery {
+                name: self.query.clone(),
+                versions: vec![self.json.id.clone()],
+                loaders,
+                client_side: true,
+                server_side: false,
+                open_source: false, // TODO: Add Open Source filter
+            }),
+            Message::InstallModsSearchResult,
+        )
     }
 }

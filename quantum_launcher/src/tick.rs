@@ -4,7 +4,7 @@ use iced::Command;
 use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
-    modrinth::{Loader, Search, SearchQuery},
+    modrinth::Search,
 };
 
 use crate::launcher_state::{
@@ -160,25 +160,32 @@ impl Launcher {
                 }
             }
             State::ModsDownload(menu) => {
-                let Some(loaders) = (match menu.config.mod_type.as_str() {
-                    "Forge" => Some(vec![Loader::Forge]),
-                    "Fabric" => Some(vec![Loader::Fabric]),
-                    _ => None,
-                }) else {
-                    return Command::none();
-                };
+                if let (Some(results), Some(image_dir)) = (&menu.results, &self.icon_dir) {
+                    let mut commands = Vec::new();
+                    for result in &results.hits {
+                        let path_name = format!(
+                            "{}.{}",
+                            result.title,
+                            result.icon_url.rsplit('.').next().unwrap_or_default()
+                        );
+                        let path = image_dir.path().join(&path_name);
 
-                return Command::perform(
-                    Search::search_wrapped(SearchQuery {
-                        name: menu.query.clone(),
-                        versions: vec![menu.json.id.clone()],
-                        loaders,
-                        client_side: true,
-                        server_side: false,
-                        open_source: false, // TODO: Add Open Source filter
-                    }),
-                    Message::InstallModsSearchResult,
-                );
+                        if !(path.exists() || self.icons_in_progress.contains(&result.title)) {
+                            self.icons_in_progress.insert(result.title.to_owned());
+                            commands.push(Command::perform(
+                                Search::download_icon(
+                                    result.icon_url.to_owned(),
+                                    path,
+                                    path_name,
+                                    result.title.to_owned(),
+                                ),
+                                Message::InstallModsIconDownloaded,
+                            ));
+                        }
+                    }
+
+                    return Command::batch(commands);
+                }
             }
         }
         Command::none()

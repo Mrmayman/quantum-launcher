@@ -13,3 +13,4 @@ ql_instances = { path = "../ql_instances" }
 tempfile = "3"
 zip-extract = "0.2"
 colored = "2.1.0"
+image = "0.25.2"

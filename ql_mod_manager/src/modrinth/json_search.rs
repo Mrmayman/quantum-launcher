@@ -1,5 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, path::PathBuf};
 
+use image::ImageReader;
 use ql_instances::file_utils::{self, RequestError};
 use serde::{Deserialize, Serialize};
 
@@ -13,9 +14,9 @@ pub struct Search {
 
 impl Search {
     fn get_search_url(query: SearchQuery) -> String {
-        let mut url = "https://api.modrinth.com/v2/search?index=relevance".to_owned();
+        let mut url = "https://api.modrinth.com/v2/search?index=relevance&limit=100".to_owned();
         if !query.name.is_empty() {
-            url.push_str("?query=");
+            url.push_str("&query=");
             url.push_str(&query.name);
         }
 
@@ -87,6 +88,7 @@ impl Search {
 
     pub async fn search(query: SearchQuery) -> Result<Self, ModDownloadError> {
         let url = Search::get_search_url(query);
+        // println!("{url}");
 
         let client = reqwest::Client::new();
         let json = file_utils::download_file_to_string(&client, &url).await?;
@@ -97,6 +99,30 @@ impl Search {
 
     pub async fn search_wrapped(query: SearchQuery) -> Result<Self, String> {
         Self::search(query).await.map_err(|err| err.to_string())
+    }
+
+    pub async fn download_icon(
+        url: String,
+        path: PathBuf,
+        name_with_extension: String,
+        name: String,
+    ) -> Option<(String, String)> {
+        let client = reqwest::Client::new();
+        // println!("Downloading icon {name_with_extension}");
+        let icon = file_utils::download_file_to_bytes(&client, &url)
+            .await
+            .ok()?;
+        let img = ImageReader::new(std::io::Cursor::new(icon))
+            .with_guessed_format()
+            .ok()?
+            .decode()
+            .ok()?;
+
+        let img = img.resize(32, 32, image::imageops::FilterType::Nearest);
+
+        img.save(&path).ok()?;
+
+        Some((name_with_extension, name))
     }
 }
 
@@ -183,7 +209,7 @@ pub struct SearchEntry {
     pub server_side: String,
     pub gallery: Vec<String>,
     pub featured_gallery: Option<String>,
-    pub color: usize,
+    pub color: Option<usize>,
     pub thread_id: Option<String>,
     pub monetization_status: Option<String>,
 }

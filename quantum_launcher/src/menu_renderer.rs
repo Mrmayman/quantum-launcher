@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::{collections::HashMap, ops::RangeInclusive, path::PathBuf};
 
 use iced::widget;
 use ql_instances::{file_utils, LAUNCHER_VERSION_NAME};
@@ -447,14 +447,34 @@ impl MenuInstallJava {
 }
 
 impl MenuModsDownload {
-    pub fn view(&self) -> Element {
-        let mods_list =
-            match self.results.as_ref() {
-                Some(results) => widget::column(results.hits.iter().map(|hit| {
-                    widget::container(widget::column!(widget::text(&hit.title))).into()
-                })),
-                None => widget::column!(widget::text("Search something to get started...")),
-            };
-        widget::scrollable(widget::column!(mods_list).padding(10).spacing(10)).into()
+    pub fn view(&self, icons: &HashMap<String, PathBuf>) -> Element {
+        let mods_list = match self.results.as_ref() {
+            Some(results) => widget::column(results.hits.iter().map(|hit| {
+                widget::container(
+                    widget::row!(
+                        if let Some(icon) = icons.get(&hit.title) {
+                            widget::column!(widget::image(&icon))
+                        } else {
+                            widget::column!(widget::text(""))
+                        },
+                        widget::text(&hit.title).size(16),
+                    )
+                    .padding(10)
+                    .spacing(10),
+                )
+                .into()
+            })),
+            None => widget::column!(widget::text("Search something to get started...")),
+        };
+        widget::scrollable(
+            widget::column!(
+                widget::text_input("Search...", &self.query)
+                    .on_input(Message::InstallModsSearchInput),
+                mods_list.spacing(10)
+            )
+            .padding(10)
+            .spacing(10),
+        )
+        .into()
     }
 }

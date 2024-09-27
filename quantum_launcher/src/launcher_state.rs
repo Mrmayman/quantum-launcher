@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -7,7 +7,7 @@ use std::{
 
 use ql_instances::{
     error::{LauncherError, LauncherResult},
-    file_utils, io_err,
+    file_utils, info, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
     DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine, UpdateCheckInfo,
     UpdateProgress,
@@ -19,6 +19,7 @@ use ql_mod_manager::{
     },
     modrinth::Search,
 };
+use tempfile::TempDir;
 use tokio::process::Child;
 
 use crate::config::LauncherConfig;
@@ -65,6 +66,8 @@ pub enum Message {
     UpdateDownloadEnd(Result<(), String>),
     InstallModsSearchResult(Result<Search, String>),
     InstallModsOpen,
+    InstallModsSearchInput(String),
+    InstallModsIconDownloaded(Option<(String, String)>),
 }
 
 #[derive(Default)]
@@ -162,6 +165,9 @@ pub struct Launcher {
     pub config: Option<LauncherConfig>,
     pub processes: HashMap<String, GameProcess>,
     pub logs: HashMap<String, String>,
+    pub icon_dir: Option<TempDir>,
+    pub icons: HashMap<String, PathBuf>,
+    pub icons_in_progress: HashSet<String>,
 }
 
 pub struct GameProcess {
@@ -172,6 +178,15 @@ pub struct GameProcess {
 impl Launcher {
     pub fn new(message: Option<String>) -> LauncherResult<Self> {
         let subdirectories = reload_instances()?;
+
+        let image_dir = TempDir::new().ok();
+        if let Some(image) = &image_dir {
+            info!(
+                "Mod icons will be temporarily stored in: {:?}",
+                image.path()
+            );
+            std::env::set_current_dir(image.path()).map_err(io_err!(image.path().to_owned()))?;
+        }
 
         Ok(Self {
             instances: Some(subdirectories),
@@ -184,10 +199,15 @@ impl Launcher {
             config: Some(LauncherConfig::load()?),
             logs: HashMap::new(),
             selected_instance: None,
+            icon_dir: image_dir,
+            icons: Default::default(),
+            icons_in_progress: Default::default(),
         })
     }
 
     pub fn with_error(error: String) -> Self {
+        let image_dir = TempDir::new().ok();
+
         Self {
             state: State::Error {
                 error: format!("Error: {error}"),
@@ -197,6 +217,9 @@ impl Launcher {
             processes: HashMap::new(),
             logs: HashMap::new(),
             selected_instance: None,
+            icon_dir: image_dir,
+            icons: Default::default(),
+            icons_in_progress: Default::default(),
         }
     }
 

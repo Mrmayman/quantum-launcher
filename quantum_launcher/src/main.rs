@@ -324,6 +324,19 @@ impl Application for Launcher {
                     self.set_error(err);
                 }
             }
+            Message::InstallModsSearchInput(input) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.query = input;
+
+                    return menu.search_modrinth();
+                }
+            }
+            Message::InstallModsIconDownloaded(icon) => {
+                if let (Some(temp_dir), Some((path_name, name))) = (&self.icon_dir, icon) {
+                    let path = temp_dir.path().join(path_name);
+                    self.icons.insert(name, path);
+                }
+            }
         }
         Command::none()
     }
@@ -361,7 +374,7 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
-            State::ModsDownload(menu) => menu.view(),
+            State::ModsDownload(menu) => menu.view(&self.icons),
         }
     }
 }
