@@ -170,25 +170,54 @@ impl Launcher {
                         );
                         let path = image_dir.path().join(&path_name);
 
-                        if !(path.exists() || self.icons_in_progress.contains(&result.title)) {
-                            self.icons_in_progress.insert(result.title.to_owned());
-                            commands.push(Command::perform(
-                                Search::download_icon(
-                                    result.icon_url.to_owned(),
-                                    path,
-                                    path_name,
-                                    result.title.to_owned(),
-                                ),
-                                Message::InstallModsIconDownloaded,
-                            ));
+                        if !self.icons_in_progress.contains(&result.title) {
+                            if !path.exists() {
+                                self.icons_in_progress.insert(result.title.to_owned());
+                                commands.push(Command::perform(
+                                    Search::download_icon(
+                                        result.icon_url.to_owned(),
+                                        path,
+                                        path_name,
+                                        result.title.to_owned(),
+                                    ),
+                                    Message::InstallModsIconDownloaded,
+                                ));
+                            }
                         }
                     }
 
-                    return Command::batch(commands);
+                    if !commands.is_empty() {
+                        return Command::batch(commands);
+                    }
                 }
             }
         }
-        Command::none()
+
+        let mut commands = Vec::new();
+        {
+            let mut images_to_load = self.images_to_load.lock().unwrap();
+            for url in images_to_load.iter() {
+                if let (Some(dir), Some(name)) = (&self.icon_dir, url.rsplit('/').next()) {
+                    let path = dir.path().join(name);
+                    if !self.icons_in_progress.contains(name) {
+                        if !path.exists() {
+                            self.icons_in_progress.insert(name.to_owned());
+                            commands.push(Command::perform(
+                                Search::download_image(url.to_owned(), path, name.to_owned()),
+                                Message::InstallModsImageDownloaded,
+                            ));
+                        }
+                    }
+                }
+            }
+            images_to_load.clear();
+        }
+
+        if !commands.is_empty() {
+            Command::batch(commands)
+        } else {
+            Command::none()
+        }
     }
 
     fn read_game_logs(

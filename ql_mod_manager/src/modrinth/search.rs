@@ -124,6 +124,29 @@ impl Search {
 
         Some((name_with_extension, name))
     }
+
+    pub async fn download_image(
+        url: String,
+        path: PathBuf,
+        name: String,
+    ) -> Option<(String, PathBuf)> {
+        let client = reqwest::Client::new();
+        let image = file_utils::download_file_to_bytes(&client, &url)
+            .await
+            .ok()?;
+
+        let img = ImageReader::new(std::io::Cursor::new(image))
+            .with_guessed_format()
+            .ok()?
+            .decode()
+            .ok()?;
+
+        let img = img.thumbnail(240, 426);
+        // let img = img.resize(32, 32, image::imageops::FilterType::Nearest);
+
+        img.save(&path).ok()?;
+        Some((name, path))
+    }
 }
 
 pub enum ModDownloadError {

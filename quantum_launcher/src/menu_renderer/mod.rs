@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::RangeInclusive, path::PathBuf};
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use iced::widget;
 use ql_instances::{file_utils, LAUNCHER_VERSION_NAME};
@@ -9,10 +9,12 @@ use crate::{
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
         MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
-        MenuLauncherUpdate, MenuModsDownload, Message,
+        MenuLauncherUpdate, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
+
+pub mod mods_store;
 
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
@@ -106,7 +108,10 @@ impl MenuLaunch {
                             launcher_dir
                                 .join("instances")
                                 .join(selected_instance.as_ref().unwrap())
-                                .join(".minecraft"),
+                                .join(".minecraft")
+                                .to_str()
+                                .unwrap()
+                                .to_owned(),
                         )
                     }))
                     .width(97),
@@ -259,7 +264,10 @@ impl MenuEditMods {
                     launcher_dir
                         .join("instances")
                         .join(selected_instance)
-                        .join(".minecraft/mods"),
+                        .join(".minecraft/mods")
+                        .to_str()
+                        .unwrap()
+                        .to_owned(),
                 )
             }),
             widget::text("Mod management and store coming soon...")
@@ -442,39 +450,6 @@ impl MenuInstallJava {
         )
         .padding(10)
         .spacing(10)
-        .into()
-    }
-}
-
-impl MenuModsDownload {
-    pub fn view(&self, icons: &HashMap<String, PathBuf>) -> Element {
-        let mods_list = match self.results.as_ref() {
-            Some(results) => widget::column(results.hits.iter().map(|hit| {
-                widget::container(
-                    widget::row!(
-                        if let Some(icon) = icons.get(&hit.title) {
-                            widget::column!(widget::image(&icon))
-                        } else {
-                            widget::column!(widget::text(""))
-                        },
-                        widget::text(&hit.title).size(16),
-                    )
-                    .padding(10)
-                    .spacing(10),
-                )
-                .into()
-            })),
-            None => widget::column!(widget::text("Search something to get started...")),
-        };
-        widget::scrollable(
-            widget::column!(
-                widget::text_input("Search...", &self.query)
-                    .on_input(Message::InstallModsSearchInput),
-                mods_list.spacing(10)
-            )
-            .padding(10)
-            .spacing(10),
-        )
         .into()
     }
 }

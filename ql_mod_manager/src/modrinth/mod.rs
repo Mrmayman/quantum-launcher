@@ -1,3 +1,5 @@
-mod json_search;
+mod get_project;
+mod search;
 
-pub use json_search::{Loader, ModDownloadError, Search, SearchQuery};
+pub use get_project::{DonationLink, GalleryItem, License, ProjectInfo};
+pub use search::{Loader, ModDownloadError, Search, SearchQuery};

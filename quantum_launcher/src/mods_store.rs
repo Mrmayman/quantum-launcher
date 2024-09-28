@@ -37,6 +37,8 @@ impl Launcher {
             results: None,
             config,
             json: version,
+            opened_mod: None,
+            result_data: Default::default(),
         };
         let command = menu.search_modrinth();
         self.state = State::ModsDownload(menu);

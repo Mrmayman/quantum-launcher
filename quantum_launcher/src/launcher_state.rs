@@ -17,7 +17,7 @@ use ql_mod_manager::{
         fabric::{FabricInstallProgress, FabricVersion},
         forge::ForgeInstallProgress,
     },
-    modrinth::Search,
+    modrinth::{ProjectInfo, Search},
 };
 use tempfile::TempDir;
 use tokio::process::Child;
@@ -26,7 +26,7 @@ use crate::config::LauncherConfig;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    OpenDir(PathBuf),
+    OpenDir(String),
     InstallFabricEnd(Result<(), String>),
     InstallFabricVersionSelected(String),
     InstallFabricVersionsLoaded(Result<Vec<FabricVersion>, String>),
@@ -68,6 +68,10 @@ pub enum Message {
     InstallModsOpen,
     InstallModsSearchInput(String),
     InstallModsIconDownloaded(Option<(String, String)>),
+    InstallModsImageDownloaded(Option<(String, PathBuf)>),
+    InstallModsClick(usize),
+    InstallModsBackToMainScreen,
+    InstallModsLoadData(Result<ProjectInfo, String>),
 }
 
 #[derive(Default)]
@@ -140,8 +144,10 @@ pub struct MenuInstallJava {
 pub struct MenuModsDownload {
     pub query: String,
     pub results: Option<Search>,
+    pub result_data: HashMap<String, ProjectInfo>,
     pub config: InstanceConfigJson,
     pub json: VersionDetails,
+    pub opened_mod: Option<usize>,
 }
 
 pub enum State {
@@ -168,6 +174,7 @@ pub struct Launcher {
     pub icon_dir: Option<TempDir>,
     pub icons: HashMap<String, PathBuf>,
     pub icons_in_progress: HashSet<String>,
+    pub images_to_load: Mutex<HashSet<String>>,
 }
 
 pub struct GameProcess {
@@ -202,6 +209,7 @@ impl Launcher {
             icon_dir: image_dir,
             icons: Default::default(),
             icons_in_progress: Default::default(),
+            images_to_load: Default::default(),
         })
     }
 
@@ -220,6 +228,7 @@ impl Launcher {
             icon_dir: image_dir,
             icons: Default::default(),
             icons_in_progress: Default::default(),
+            images_to_load: Default::default(),
         }
     }
 

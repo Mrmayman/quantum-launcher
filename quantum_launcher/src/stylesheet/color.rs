@@ -1,6 +1,7 @@
 use super::styles::{BORDER_RADIUS, BORDER_WIDTH};
 
 pub struct Pallete {
+    bg: [u8; 3],
     dark: [u8; 3],
     second_dark: [u8; 3],
     mid: [u8; 3],
@@ -9,6 +10,7 @@ pub struct Pallete {
 }
 
 pub const DARK_PURPLE: Pallete = Pallete {
+    bg: [0x0, 0x0, 0x0],
     dark: [0x2f, 0x32, 0x3a],
     second_dark: [0x77, 0x56, 0x7a],
     mid: [0xc4, 0x7a, 0xc0],
@@ -19,6 +21,7 @@ pub const DARK_PURPLE: Pallete = Pallete {
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub enum Color {
+    Black,
     Dark,
     SecondDark,
     Light,
@@ -45,6 +48,7 @@ impl Pallete {
             Color::SecondLight => self.second_light.into_color(),
             Color::Mid => self.mid.into_color(),
             Color::White => [255u8, 255u8, 255u8].into_color(),
+            Color::Black => self.bg.into_color(),
         }
     }
 

@@ -8,8 +8,8 @@ use launcher_state::{
 };
 
 use message_handler::{format_memory, open_file_explorer};
-use ql_instances::{error::LauncherError, info, UpdateCheckInfo, LAUNCHER_VERSION_NAME};
-use ql_mod_manager::instance_mod_installer;
+use ql_instances::{info, UpdateCheckInfo, LAUNCHER_VERSION_NAME};
+use ql_mod_manager::{instance_mod_installer, modrinth::ProjectInfo};
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -150,10 +150,7 @@ impl Application for Launcher {
                 Ok(_) => self.go_to_launch_screen_with_message("Installed Fabric".to_owned()),
                 Err(err) => self.set_error(err),
             },
-            Message::OpenDir(dir) => match dir.to_str() {
-                Some(dir) => open_file_explorer(dir),
-                None => self.set_error(LauncherError::PathBufToString(dir).to_string()),
-            },
+            Message::OpenDir(dir) => open_file_explorer(&dir),
             Message::CreateInstanceChangeAssetToggle(toggle) => {
                 if let State::Create(menu) = &mut self.state {
                     menu.download_assets = toggle;
@@ -337,6 +334,37 @@ impl Application for Launcher {
                     self.icons.insert(name, path);
                 }
             }
+            Message::InstallModsClick(i) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.opened_mod = Some(i);
+                    if let Some(results) = &menu.results {
+                        let hit = results.hits.get(i).unwrap();
+                        if !menu.result_data.contains_key(&hit.project_id) {
+                            let task = ProjectInfo::download_wrapped(hit.project_id.to_owned());
+                            return Command::perform(task, Message::InstallModsLoadData);
+                        }
+                    }
+                }
+            }
+            Message::InstallModsBackToMainScreen => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.opened_mod = None;
+                }
+            }
+            Message::InstallModsLoadData(project_info) => match project_info {
+                Ok(info) => {
+                    if let State::ModsDownload(menu) = &mut self.state {
+                        let id = info.id.to_owned();
+                        menu.result_data.insert(id, info);
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::InstallModsImageDownloaded(image) => {
+                if let Some((name, path)) = image {
+                    self.icons.insert(name, path);
+                }
+            }
         }
         Command::none()
     }
@@ -374,7 +402,7 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
-            State::ModsDownload(menu) => menu.view(&self.icons),
+            State::ModsDownload(menu) => menu.view(&self.icons, &self.images_to_load),
         }
     }
 }
