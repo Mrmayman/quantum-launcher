@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// An enum representing the progress in downloading
 /// a Minecraft instance.
 ///
@@ -19,20 +21,20 @@ pub enum DownloadProgress {
     DownloadingLoggingConfig,
 }
 
-impl ToString for DownloadProgress {
-    fn to_string(&self) -> String {
+impl Display for DownloadProgress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DownloadProgress::Started => "Started.".to_owned(),
-            DownloadProgress::DownloadingJsonManifest => "Downloading Manifest JSON.".to_owned(),
-            DownloadProgress::DownloadingVersionJson => "Downloading Version JSON.".to_owned(),
+            DownloadProgress::Started => write!(f, "Started."),
+            DownloadProgress::DownloadingJsonManifest => write!(f, "Downloading Manifest JSON."),
+            DownloadProgress::DownloadingVersionJson => write!(f, "Downloading Version JSON."),
             DownloadProgress::DownloadingAssets { progress, out_of } => {
-                format!("Downloading asset {progress} / {out_of}.")
+                write!(f, "Downloading asset {progress} / {out_of}.")
             }
             DownloadProgress::DownloadingLibraries { progress, out_of } => {
-                format!("Downloading library {progress} / {out_of}.")
+                write!(f, "Downloading library {progress} / {out_of}.")
             }
-            DownloadProgress::DownloadingJar => "Downloading Game Jar file.".to_owned(),
-            DownloadProgress::DownloadingLoggingConfig => "Downloading logging config.".to_owned(),
+            DownloadProgress::DownloadingJar => write!(f, "Downloading Game Jar file."),
+            DownloadProgress::DownloadingLoggingConfig => write!(f, "Downloading logging config."),
         }
     }
 }

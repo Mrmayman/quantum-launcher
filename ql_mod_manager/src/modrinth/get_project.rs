@@ -48,8 +48,11 @@ impl ProjectInfo {
         Ok(file)
     }
 
-    pub async fn download_wrapped(id: String) -> Result<Self, String> {
-        Self::download(id).await.map_err(|err| err.to_string())
+    pub async fn download_wrapped(id: String) -> Result<Box<Self>, String> {
+        Self::download(id)
+            .await
+            .map_err(|err| err.to_string())
+            .map(Box::new)
     }
 }
 

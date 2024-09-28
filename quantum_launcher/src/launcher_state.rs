@@ -71,7 +71,7 @@ pub enum Message {
     InstallModsImageDownloaded(Option<(String, PathBuf)>),
     InstallModsClick(usize),
     InstallModsBackToMainScreen,
-    InstallModsLoadData(Result<ProjectInfo, String>),
+    InstallModsLoadData(Result<Box<ProjectInfo>, String>),
 }
 
 #[derive(Default)]
@@ -148,6 +148,7 @@ pub struct MenuModsDownload {
     pub config: InstanceConfigJson,
     pub json: VersionDetails,
     pub opened_mod: Option<usize>,
+    // pub markdown: Option<Arc<Element<'static>>>,
 }
 
 pub enum State {
@@ -172,8 +173,8 @@ pub struct Launcher {
     pub processes: HashMap<String, GameProcess>,
     pub logs: HashMap<String, String>,
     pub icon_dir: Option<TempDir>,
-    pub icons: HashMap<String, PathBuf>,
-    pub icons_in_progress: HashSet<String>,
+    pub images: HashMap<String, PathBuf>,
+    pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
 }
 
@@ -207,8 +208,8 @@ impl Launcher {
             logs: HashMap::new(),
             selected_instance: None,
             icon_dir: image_dir,
-            icons: Default::default(),
-            icons_in_progress: Default::default(),
+            images: Default::default(),
+            images_downloads_in_progress: Default::default(),
             images_to_load: Default::default(),
         })
     }
@@ -226,8 +227,8 @@ impl Launcher {
             logs: HashMap::new(),
             selected_instance: None,
             icon_dir: image_dir,
-            icons: Default::default(),
-            icons_in_progress: Default::default(),
+            images: Default::default(),
+            images_downloads_in_progress: Default::default(),
             images_to_load: Default::default(),
         }
     }

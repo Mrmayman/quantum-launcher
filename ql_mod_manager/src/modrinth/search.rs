@@ -39,7 +39,7 @@ impl Search {
                 query
                     .loaders
                     .iter()
-                    .map(|loader| format!("categories:'{}'", loader.to_string()))
+                    .map(|loader| format!("categories:'{loader}'"))
                     .collect(),
             );
         }
@@ -195,18 +195,21 @@ pub enum Loader {
     Neoforge,
 }
 
-impl ToString for Loader {
-    fn to_string(&self) -> String {
-        match self {
-            Loader::Forge => "forge",
-            Loader::Fabric => "fabric",
-            Loader::Quilt => "quilt",
-            Loader::Liteloader => "liteloader",
-            Loader::Modloader => "modloader",
-            Loader::Rift => "rift",
-            Loader::Neoforge => "neoforge",
-        }
-        .to_owned()
+impl Display for Loader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Loader::Forge => "forge",
+                Loader::Fabric => "fabric",
+                Loader::Quilt => "quilt",
+                Loader::Liteloader => "liteloader",
+                Loader::Modloader => "modloader",
+                Loader::Rift => "rift",
+                Loader::Neoforge => "neoforge",
+            }
+        )
     }
 }
 

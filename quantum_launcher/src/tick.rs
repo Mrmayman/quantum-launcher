@@ -170,19 +170,20 @@ impl Launcher {
                         );
                         let path = image_dir.path().join(&path_name);
 
-                        if !self.icons_in_progress.contains(&result.title) {
-                            if !path.exists() {
-                                self.icons_in_progress.insert(result.title.to_owned());
-                                commands.push(Command::perform(
-                                    Search::download_icon(
-                                        result.icon_url.to_owned(),
-                                        path,
-                                        path_name,
-                                        result.title.to_owned(),
-                                    ),
-                                    Message::InstallModsIconDownloaded,
-                                ));
-                            }
+                        if !self.images_downloads_in_progress.contains(&result.title)
+                            && !path.exists()
+                        {
+                            self.images_downloads_in_progress
+                                .insert(result.title.to_owned());
+                            commands.push(Command::perform(
+                                Search::download_icon(
+                                    result.icon_url.to_owned(),
+                                    path,
+                                    path_name,
+                                    result.title.to_owned(),
+                                ),
+                                Message::InstallModsIconDownloaded,
+                            ));
                         }
                     }
 
@@ -199,14 +200,12 @@ impl Launcher {
             for url in images_to_load.iter() {
                 if let (Some(dir), Some(name)) = (&self.icon_dir, url.rsplit('/').next()) {
                     let path = dir.path().join(name);
-                    if !self.icons_in_progress.contains(name) {
-                        if !path.exists() {
-                            self.icons_in_progress.insert(name.to_owned());
-                            commands.push(Command::perform(
-                                Search::download_image(url.to_owned(), path, name.to_owned()),
-                                Message::InstallModsImageDownloaded,
-                            ));
-                        }
+                    if !self.images_downloads_in_progress.contains(name) && !path.exists() {
+                        self.images_downloads_in_progress.insert(name.to_owned());
+                        commands.push(Command::perform(
+                            Search::download_image(url.to_owned(), path, name.to_owned()),
+                            Message::InstallModsImageDownloaded,
+                        ));
                     }
                 }
             }

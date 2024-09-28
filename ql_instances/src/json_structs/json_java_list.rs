@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::file_utils;
@@ -16,17 +18,20 @@ pub enum JavaVersion {
     Java8,
 }
 
-impl ToString for JavaVersion {
-    fn to_string(&self) -> String {
-        match self {
-            JavaVersion::Java16 => "java_16",
-            JavaVersion::Java17Beta => "java_17_beta",
-            JavaVersion::Java21 => "java_21",
-            JavaVersion::Java17Gamma => "java_17_gamma",
-            JavaVersion::Java17GammaSnapshot => "java_17_gamma_snapshot",
-            JavaVersion::Java8 => "java_8",
-        }
-        .to_owned()
+impl Display for JavaVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                JavaVersion::Java16 => "java_16",
+                JavaVersion::Java17Beta => "java_17_beta",
+                JavaVersion::Java21 => "java_21",
+                JavaVersion::Java17Gamma => "java_17_gamma",
+                JavaVersion::Java17GammaSnapshot => "java_17_gamma_snapshot",
+                JavaVersion::Java8 => "java_8",
+            }
+        )
     }
 }
 

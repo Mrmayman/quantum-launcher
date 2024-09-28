@@ -331,7 +331,7 @@ impl Application for Launcher {
             Message::InstallModsIconDownloaded(icon) => {
                 if let (Some(temp_dir), Some((path_name, name))) = (&self.icon_dir, icon) {
                     let path = temp_dir.path().join(path_name);
-                    self.icons.insert(name, path);
+                    self.images.insert(name, path);
                 }
             }
             Message::InstallModsClick(i) => {
@@ -355,14 +355,14 @@ impl Application for Launcher {
                 Ok(info) => {
                     if let State::ModsDownload(menu) = &mut self.state {
                         let id = info.id.to_owned();
-                        menu.result_data.insert(id, info);
+                        menu.result_data.insert(id, *info);
                     }
                 }
                 Err(err) => self.set_error(err),
             },
             Message::InstallModsImageDownloaded(image) => {
                 if let Some((name, path)) = image {
-                    self.icons.insert(name, path);
+                    self.images.insert(name, path);
                 }
             }
         }
@@ -402,7 +402,7 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
-            State::ModsDownload(menu) => menu.view(&self.icons, &self.images_to_load),
+            State::ModsDownload(menu) => menu.view(&self.images, &self.images_to_load),
         }
     }
 }

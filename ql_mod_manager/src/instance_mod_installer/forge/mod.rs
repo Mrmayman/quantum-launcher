@@ -410,7 +410,7 @@ async fn run_installer_and_get_classpath(
                 .unwrap();
         }
         let output = Command::new(&javac_path)
-            .args(["-cp", &installer_name, "ClientInstaller.java", "-d", "."])
+            .args(["-cp", installer_name, "ClientInstaller.java", "-d", "."])
             .current_dir(forge_dir)
             .output()
             .map_err(io_err!(javac_path))?;

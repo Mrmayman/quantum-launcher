@@ -23,12 +23,12 @@ impl MenuModsDownload {
                     widget::row!(
                         widget::column!(
                             icon_manager::download_with_size(16),
-                            widget::text(&hit.downloads).size(12)
+                            widget::text(hit.downloads).size(12)
                         )
                         .align_items(iced::Alignment::Center)
                         .spacing(5),
                         if let Some(icon) = icons.get(&hit.title) {
-                            widget::column!(widget::image(&icon))
+                            widget::column!(widget::image(icon))
                         } else {
                             widget::column!(widget::text(""))
                         },
@@ -83,7 +83,7 @@ impl MenuModsDownload {
                             .on_press(Message::InstallModsBackToMainScreen),
                         widget::row!(
                             if let Some(icon) = icons.get(&hit.title) {
-                                widget::column!(widget::image(&icon))
+                                widget::column!(widget::image(icon))
                             } else {
                                 widget::column!(widget::text(""))
                             },
