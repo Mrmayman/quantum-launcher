@@ -1,7 +1,11 @@
 use std::time::Duration;
 
 use colored::Colorize;
-use iced::{executor, widget, Application, Command, Settings};
+use iced::{
+    executor,
+    widget::{self, image::Handle},
+    Application, Command, Settings,
+};
 use launcher_state::{
     Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge, MenuLaunch,
     MenuLauncherUpdate, Message, State,
@@ -328,12 +332,6 @@ impl Application for Launcher {
                     return menu.search_modrinth();
                 }
             }
-            Message::InstallModsIconDownloaded(icon) => {
-                if let (Some(temp_dir), Some((path_name, name))) = (&self.icon_dir, icon) {
-                    let path = temp_dir.path().join(path_name);
-                    self.images.insert(name, path);
-                }
-            }
             Message::InstallModsClick(i) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.opened_mod = Some(i);
@@ -362,7 +360,7 @@ impl Application for Launcher {
             },
             Message::InstallModsImageDownloaded(image) => {
                 if let Some((name, path)) = image {
-                    self.images.insert(name, path);
+                    self.images.insert(name, Handle::from_memory(path));
                 }
             }
         }

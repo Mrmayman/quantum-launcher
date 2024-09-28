@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::PathBuf};
+use std::fmt::Display;
 
 use image::ImageReader;
 use ql_instances::file_utils::{self, RequestError};
@@ -101,35 +101,11 @@ impl Search {
         Self::search(query).await.map_err(|err| err.to_string())
     }
 
-    pub async fn download_icon(
-        url: String,
-        path: PathBuf,
-        name_with_extension: String,
-        name: String,
-    ) -> Option<(String, String)> {
-        let client = reqwest::Client::new();
-        // println!("Downloading icon {name_with_extension}");
-        let icon = file_utils::download_file_to_bytes(&client, &url)
-            .await
-            .ok()?;
-        let img = ImageReader::new(std::io::Cursor::new(icon))
-            .with_guessed_format()
-            .ok()?
-            .decode()
-            .ok()?;
-
-        let img = img.resize(32, 32, image::imageops::FilterType::Nearest);
-
-        img.save(&path).ok()?;
-
-        Some((name_with_extension, name))
-    }
-
     pub async fn download_image(
         url: String,
-        path: PathBuf,
         name: String,
-    ) -> Option<(String, PathBuf)> {
+        icon: bool,
+    ) -> Option<(String, Vec<u8>)> {
         let client = reqwest::Client::new();
         let image = file_utils::download_file_to_bytes(&client, &url)
             .await
@@ -141,11 +117,14 @@ impl Search {
             .decode()
             .ok()?;
 
-        let img = img.thumbnail(240, 426);
+        let img = img.thumbnail(if icon { 32 } else { 240 }, 426);
         // let img = img.resize(32, 32, image::imageops::FilterType::Nearest);
 
-        img.save(&path).ok()?;
-        Some((name, path))
+        let mut buffer = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut buffer);
+        img.write_to(&mut cursor, image::ImageFormat::Png).ok()?;
+
+        Some((name, buffer))
     }
 }
 

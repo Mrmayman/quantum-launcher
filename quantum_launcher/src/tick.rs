@@ -160,29 +160,19 @@ impl Launcher {
                 }
             }
             State::ModsDownload(menu) => {
-                if let (Some(results), Some(image_dir)) = (&menu.results, &self.icon_dir) {
+                if let Some(results) = &menu.results {
                     let mut commands = Vec::new();
                     for result in &results.hits {
-                        let path_name = format!(
-                            "{}.{}",
-                            result.title,
-                            result.icon_url.rsplit('.').next().unwrap_or_default()
-                        );
-                        let path = image_dir.path().join(&path_name);
-
-                        if !self.images_downloads_in_progress.contains(&result.title)
-                            && !path.exists()
-                        {
+                        if !self.images_downloads_in_progress.contains(&result.title) {
                             self.images_downloads_in_progress
                                 .insert(result.title.to_owned());
                             commands.push(Command::perform(
-                                Search::download_icon(
+                                Search::download_image(
                                     result.icon_url.to_owned(),
-                                    path,
-                                    path_name,
                                     result.title.to_owned(),
+                                    true,
                                 ),
-                                Message::InstallModsIconDownloaded,
+                                Message::InstallModsImageDownloaded,
                             ));
                         }
                     }
@@ -198,12 +188,11 @@ impl Launcher {
         {
             let mut images_to_load = self.images_to_load.lock().unwrap();
             for url in images_to_load.iter() {
-                if let (Some(dir), Some(name)) = (&self.icon_dir, url.rsplit('/').next()) {
-                    let path = dir.path().join(name);
-                    if !self.images_downloads_in_progress.contains(name) && !path.exists() {
+                if let Some(name) = url.rsplit('/').next() {
+                    if !self.images_downloads_in_progress.contains(name) {
                         self.images_downloads_in_progress.insert(name.to_owned());
                         commands.push(Command::perform(
-                            Search::download_image(url.to_owned(), path, name.to_owned()),
+                            Search::download_image(url.to_owned(), name.to_owned(), false),
                             Message::InstallModsImageDownloaded,
                         ));
                     }

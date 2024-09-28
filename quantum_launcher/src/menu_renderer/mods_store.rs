@@ -1,12 +1,11 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::PathBuf,
     sync::Mutex,
 };
 
 use comrak::nodes::NodeValue;
-use iced::widget;
+use iced::widget::{self, image::Handle};
 
 use crate::{
     icon_manager,
@@ -16,19 +15,34 @@ use crate::{
 use super::{button_with_icon, Element};
 
 impl MenuModsDownload {
-    pub fn view_main(&self, icons: &HashMap<String, PathBuf>) -> Element {
+    pub fn view_main(&self, icons: &HashMap<String, Handle>) -> Element {
         let mods_list = match self.results.as_ref() {
             Some(results) => widget::column(results.hits.iter().enumerate().map(|(i, hit)| {
                 widget::button(
                     widget::row!(
                         widget::column!(
                             icon_manager::download_with_size(16),
-                            widget::text(hit.downloads).size(12)
+                            widget::text({
+                                if hit.downloads < 999 {
+                                    hit.downloads.to_string()
+                                } else if hit.downloads < 10000 {
+                                    format!("{}K", (hit.downloads as f32 / 100.0).floor() / 10.0)
+                                } else if hit.downloads < 10_000_000 {
+                                    format!(
+                                        "{}M",
+                                        (hit.downloads as f32 / 100_000.0).floor() / 10.0
+                                    )
+                                } else {
+                                    format!("{}M", hit.downloads / 1_000_000)
+                                }
+                            })
+                            .size(12)
                         )
                         .align_items(iced::Alignment::Center)
+                        .width(30)
                         .spacing(5),
                         if let Some(icon) = icons.get(&hit.title) {
-                            widget::column!(widget::image(icon))
+                            widget::column!(widget::image(icon.clone()))
                         } else {
                             widget::column!(widget::text(""))
                         },
@@ -66,7 +80,7 @@ impl MenuModsDownload {
 
     pub fn view(
         &self,
-        icons: &HashMap<String, PathBuf>,
+        icons: &HashMap<String, Handle>,
         images_to_load: &Mutex<HashSet<String>>,
     ) -> Element {
         if let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) {
@@ -83,7 +97,7 @@ impl MenuModsDownload {
                             .on_press(Message::InstallModsBackToMainScreen),
                         widget::row!(
                             if let Some(icon) = icons.get(&hit.title) {
-                                widget::column!(widget::image(icon))
+                                widget::column!(widget::image(icon.clone()))
                             } else {
                                 widget::column!(widget::text(""))
                             },
@@ -109,12 +123,10 @@ impl MenuModsDownload {
         &self,
         markdown: &str,
         images_to_load: &Mutex<HashSet<String>>,
-        images: &HashMap<String, PathBuf>,
+        images: &HashMap<String, Handle>,
     ) -> Element {
         let arena = comrak::Arena::new();
         let root = comrak::parse_document(&arena, markdown, &comrak::Options::default());
-
-        // println!("Start of markdown print\n{root:#?}");
 
         let mut element = widget::column!().into();
 
@@ -127,7 +139,7 @@ impl MenuModsDownload {
         heading_size: usize,
         element: &mut Element,
         images_to_load: &Mutex<HashSet<String>>,
-        images: &HashMap<String, PathBuf>,
+        images: &HashMap<String, Handle>,
     ) {
         let data = md.data.borrow();
         *element = match &data.value {
@@ -214,7 +226,8 @@ impl MenuModsDownload {
                         if let Some(url) = url {
                             if let Some(name) = url.rsplit('/').next() {
                                 if let Some(image) = images.get(name) {
-                                    rendered_images.push(widget::image(image).width(300).into());
+                                    rendered_images
+                                        .push(widget::image(image.clone()).width(300).into());
                                 } else {
                                     let mut images_to_load = images_to_load.lock().unwrap();
                                     images_to_load.insert(url.to_owned());
@@ -249,7 +262,7 @@ impl MenuModsDownload {
             NodeValue::Superscript => widget::column!(widget::text("[todo: superscript]")).into(),
             NodeValue::Image(link) => {
                 if let Some(image) = images.get(&link.url) {
-                    widget::image(image).width(300).into()
+                    widget::image(image.clone()).width(300).into()
                 } else {
                     let mut images_to_load = images_to_load.lock().unwrap();
                     images_to_load.insert(link.url.to_owned());
