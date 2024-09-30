@@ -76,7 +76,7 @@ async fn install_java(
         .ok_or(JavaInstallError::NoUrlForJavaFiles)?;
 
     let client = reqwest::Client::new();
-    let json = file_utils::download_file_to_string(&client, &java_files_url).await?;
+    let json = file_utils::download_file_to_string(&client, &java_files_url, false).await?;
     let json: JavaFilesJson = serde_json::from_str(&json)?;
 
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -116,7 +116,7 @@ async fn install_java(
                 executable,
             } => {
                 let file_bytes =
-                    file_utils::download_file_to_bytes(&client, &downloads.raw.url).await?;
+                    file_utils::download_file_to_bytes(&client, &downloads.raw.url, false).await?;
                 std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.to_owned()))?;
                 if *executable {
                     file_utils::set_executable(&file_path)?;

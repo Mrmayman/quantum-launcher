@@ -358,11 +358,14 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
-            Message::InstallModsImageDownloaded(image) => {
-                if let Some((name, path)) = image {
+            Message::InstallModsImageDownloaded(image) => match image {
+                Ok((name, path)) => {
                     self.images.insert(name, Handle::from_memory(path));
                 }
-            }
+                Err(err) => {
+                    println!("[error] {err}")
+                }
+            },
         }
         Command::none()
     }

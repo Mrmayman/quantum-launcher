@@ -66,7 +66,7 @@ pub enum Message {
     InstallModsSearchResult(Result<Search, String>),
     InstallModsOpen,
     InstallModsSearchInput(String),
-    InstallModsImageDownloaded(Option<(String, Vec<u8>)>),
+    InstallModsImageDownloaded(Result<(String, Vec<u8>), String>),
     InstallModsClick(usize),
     InstallModsBackToMainScreen,
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),

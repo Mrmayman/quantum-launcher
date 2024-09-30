@@ -167,11 +167,7 @@ impl Launcher {
                             self.images_downloads_in_progress
                                 .insert(result.title.to_owned());
                             commands.push(Command::perform(
-                                Search::download_image(
-                                    result.icon_url.to_owned(),
-                                    result.title.to_owned(),
-                                    true,
-                                ),
+                                Search::download_image(result.icon_url.to_owned(), true),
                                 Message::InstallModsImageDownloaded,
                             ));
                         }
@@ -188,14 +184,12 @@ impl Launcher {
         {
             let mut images_to_load = self.images_to_load.lock().unwrap();
             for url in images_to_load.iter() {
-                if let Some(name) = url.rsplit('/').next() {
-                    if !self.images_downloads_in_progress.contains(name) {
-                        self.images_downloads_in_progress.insert(name.to_owned());
-                        commands.push(Command::perform(
-                            Search::download_image(url.to_owned(), name.to_owned(), false),
-                            Message::InstallModsImageDownloaded,
-                        ));
-                    }
+                if !self.images_downloads_in_progress.contains(url) {
+                    self.images_downloads_in_progress.insert(url.to_owned());
+                    commands.push(Command::perform(
+                        Search::download_image(url.to_owned(), false),
+                        Message::InstallModsImageDownloaded,
+                    ));
                 }
             }
             images_to_load.clear();

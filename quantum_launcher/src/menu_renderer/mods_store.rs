@@ -27,6 +27,8 @@ impl MenuModsDownload {
                                     hit.downloads.to_string()
                                 } else if hit.downloads < 10000 {
                                     format!("{}K", (hit.downloads as f32 / 100.0).floor() / 10.0)
+                                } else if hit.downloads < 100_000 {
+                                    format!("{}K", (hit.downloads as f32 / 1000.0).floor())
                                 } else if hit.downloads < 10_000_000 {
                                     format!(
                                         "{}M",
@@ -41,7 +43,7 @@ impl MenuModsDownload {
                         .align_items(iced::Alignment::Center)
                         .width(30)
                         .spacing(5),
-                        if let Some(icon) = icons.get(&hit.title) {
+                        if let Some(icon) = icons.get(&hit.icon_url) {
                             widget::column!(widget::image(icon.clone()))
                         } else {
                             widget::column!(widget::text(""))
@@ -96,7 +98,7 @@ impl MenuModsDownload {
                         button_with_icon(icon_manager::back(), "Back")
                             .on_press(Message::InstallModsBackToMainScreen),
                         widget::row!(
-                            if let Some(icon) = icons.get(&hit.title) {
+                            if let Some(icon) = icons.get(&hit.icon_url) {
                                 widget::column!(widget::image(icon.clone()))
                             } else {
                                 widget::column!(widget::text(""))
@@ -164,7 +166,7 @@ impl MenuModsDownload {
             .into(),
             NodeValue::Text(text) => widget::text(text)
                 .size(if heading_size > 0 {
-                    32 - (heading_size * 4)
+                    36 - (heading_size * 4)
                 } else {
                     16
                 } as u16)
@@ -198,8 +200,30 @@ impl MenuModsDownload {
                 widget::column!(widget::text("[todo: front matter]")).into()
             }
             NodeValue::BlockQuote => widget::column!(widget::text("[todo: block quote]")).into(),
-            NodeValue::List(_) => widget::column!(widget::text("[todo: list]")).into(),
-            NodeValue::Item(_) => widget::column!(widget::text("[todo: list item]")).into(),
+            NodeValue::List(list) => {
+                match list.list_type {
+                    comrak::nodes::ListType::Bullet => {}
+                    comrak::nodes::ListType::Ordered => {}
+                }
+                widget::column(md.children().map(|n| {
+                    let mut element = widget::column!().into();
+                    Self::render_element(n, 0, &mut element, images_to_load, images);
+                    element
+                }))
+                .spacing(10)
+                .into()
+            }
+            NodeValue::Item(item) => widget::column(md.children().map(|n| {
+                let starting = match item.list_type {
+                    comrak::nodes::ListType::Bullet => widget::text(char::from(item.bullet_char)),
+                    comrak::nodes::ListType::Ordered => widget::text(format!("{}.", item.start)),
+                };
+                let mut element = widget::column!().into();
+                Self::render_element(n, 0, &mut element, images_to_load, images);
+                widget::row!(starting, element).spacing(10).into()
+            }))
+            .spacing(10)
+            .into(),
             NodeValue::DescriptionList => {
                 widget::column!(widget::text("[todo: description list]")).into()
             }
@@ -212,38 +236,20 @@ impl MenuModsDownload {
             NodeValue::DescriptionDetails => {
                 widget::column!(widget::text("[todo: description details]")).into()
             }
-            NodeValue::CodeBlock(_) => widget::column!(widget::text("[todo: code block]")).into(),
+            NodeValue::CodeBlock(block) => widget::container(
+                widget::text(&block.literal).font(iced::Font::with_name("JetBrains Mono")),
+            )
+            .into(),
             NodeValue::HtmlBlock(node_html_block) => {
-                let mut rendered_images = Vec::new();
-                for lines in node_html_block.literal.lines() {
-                    let line = lines.split_whitespace().fold("".to_owned(), |mut n, v| {
-                        n.push_str(v);
-                        n.push(' ');
-                        n
-                    });
-                    if line.starts_with("<img src=\"") {
-                        let url = line.split('"').nth(1);
-                        if let Some(url) = url {
-                            if let Some(name) = url.rsplit('/').next() {
-                                if let Some(image) = images.get(name) {
-                                    rendered_images
-                                        .push(widget::image(image.clone()).width(300).into());
-                                } else {
-                                    let mut images_to_load = images_to_load.lock().unwrap();
-                                    images_to_load.insert(url.to_owned());
-                                }
-                            }
-                        }
-                    }
-                }
-                widget::column(rendered_images)
-                    .spacing(10)
-                    .align_items(iced::Alignment::Center)
-                    .into()
+                Self::render_html(node_html_block.literal.to_owned(), images_to_load, images)
             }
-            NodeValue::ThematicBreak => {
-                widget::column!(widget::text("[todo: thematic break]")).into()
-            }
+            NodeValue::ThematicBreak => widget::row!(
+                widget::horizontal_space(),
+                widget::text("_____"),
+                widget::horizontal_space()
+            )
+            .align_items(iced::Alignment::Center)
+            .into(),
             NodeValue::FootnoteDefinition(_) => {
                 widget::column!(widget::text("[todo: footnote definition]")).into()
             }
@@ -252,10 +258,18 @@ impl MenuModsDownload {
             NodeValue::TableCell => widget::column!(widget::text("[todo: table cell]")).into(),
             NodeValue::TaskItem(_) => widget::column!(widget::text("[todo: task item]")).into(),
             NodeValue::SoftBreak | NodeValue::LineBreak => widget::column!().into(),
-            NodeValue::Code(_) => widget::column!(widget::text("[todo: code]")).into(),
-            NodeValue::HtmlInline(_) => widget::column!(widget::text("[todo: html inline]")).into(),
-            NodeValue::Emph => widget::column!(widget::text("[todo: emphasis]")).into(),
-            NodeValue::Strong => widget::column!(widget::text("[todo: strong]")).into(),
+            NodeValue::Code(code) => widget::text(&code.literal)
+                .font(iced::Font::with_name("JetBrains Mono"))
+                .into(),
+            NodeValue::HtmlInline(html) => {
+                Self::render_html(html.to_owned(), images_to_load, images)
+            }
+            NodeValue::Strong | NodeValue::Emph => widget::column(md.children().map(|n| {
+                let mut element = widget::column!().into();
+                Self::render_element(n, 4, &mut element, images_to_load, images);
+                element
+            }))
+            .into(),
             NodeValue::Strikethrough => {
                 widget::column!(widget::text("[todo: strikethrough]")).into()
             }

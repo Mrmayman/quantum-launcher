@@ -112,7 +112,7 @@ impl GameDownloader {
                 let url = &artifact.url[..artifact.url.len() - 4];
                 let url = format!("{}-{}.jar", url, natives_name);
                 bar.println("- Extracting natives: Downloading native jar");
-                let native_jar = file_utils::download_file_to_bytes(client, &url).await?;
+                let native_jar = file_utils::download_file_to_bytes(client, &url, false).await?;
 
                 bar.println("- Extracting natives: Extracting native jar");
                 extract_zip_file(&native_jar, &natives_path)
@@ -141,7 +141,7 @@ impl GameDownloader {
 
         std::fs::create_dir_all(&lib_dir_path).map_err(io_err!(lib_dir_path))?;
         let library_downloaded =
-            file_utils::download_file_to_bytes(&self.network_client, &artifact.url).await?;
+            file_utils::download_file_to_bytes(&self.network_client, &artifact.url, false).await?;
 
         std::fs::write(&lib_file_path, &library_downloaded).map_err(io_err!(lib_file_path))?;
 
@@ -162,7 +162,8 @@ impl GameDownloader {
             }
 
             let library =
-                file_utils::download_file_to_bytes(&self.network_client, &download.url).await?;
+                file_utils::download_file_to_bytes(&self.network_client, &download.url, false)
+                    .await?;
 
             zip_extract::extract(Cursor::new(&library), &natives_dir, true)
                 .map_err(DownloadError::NativesExtractError)?;

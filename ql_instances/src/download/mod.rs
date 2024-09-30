@@ -83,6 +83,7 @@ impl GameDownloader {
         let jar_bytes = file_utils::download_file_to_bytes(
             &self.network_client,
             &self.version_json.downloads.client.url,
+            false,
         )
         .await?;
 
@@ -106,9 +107,12 @@ impl GameDownloader {
 
             let log_config_name = format!("logging-{}", logging.client.file.id);
 
-            let log_config =
-                file_utils::download_file_to_string(&self.network_client, &logging.client.file.url)
-                    .await?;
+            let log_config = file_utils::download_file_to_string(
+                &self.network_client,
+                &logging.client.file.url,
+                false,
+            )
+            .await?;
 
             let config_path = self.instance_dir.join(log_config_name);
             std::fs::write(&config_path, log_config.as_bytes()).map_err(io_err!(config_path))?;
@@ -189,6 +193,7 @@ impl GameDownloader {
             let obj_data = file_utils::download_file_to_bytes(
                 &self.network_client,
                 &format!("{}/{}/{}", OBJECTS_URL, obj_id, obj_hash),
+                false,
             )
             .await?;
 
@@ -207,7 +212,7 @@ impl GameDownloader {
         network_client: &Client,
         url: &str,
     ) -> Result<Value, JsonDownloadError> {
-        let json = file_utils::download_file_to_string(network_client, url).await?;
+        let json = file_utils::download_file_to_string(network_client, url, false).await?;
         Ok(serde_json::from_str::<serde_json::Value>(&json)?)
     }
 
@@ -270,7 +275,7 @@ impl GameDownloader {
             sender.send(DownloadProgress::DownloadingVersionJson)?;
         }
         let version_json =
-            file_utils::download_file_to_string(network_client, &version.url).await?;
+            file_utils::download_file_to_string(network_client, &version.url, false).await?;
         let version_json = serde_json::from_str(&version_json)?;
         Ok(version_json)
     }

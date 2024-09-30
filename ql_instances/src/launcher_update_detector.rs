@@ -145,7 +145,7 @@ pub async fn install_update(
     info!("Downloading new version of launcher");
     progress.send(UpdateProgress::P3Download)?;
     let client = reqwest::Client::new();
-    let download_zip = file_utils::download_file_to_bytes(&client, &url).await?;
+    let download_zip = file_utils::download_file_to_bytes(&client, &url, false).await?;
 
     info!("Extracting launcher");
     progress.send(UpdateProgress::P4Extract)?;

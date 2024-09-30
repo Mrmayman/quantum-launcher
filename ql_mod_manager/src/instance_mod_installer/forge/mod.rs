@@ -244,7 +244,7 @@ async fn download_library(
     if dest.exists() {
         info!("Library already exists.");
     } else {
-        match file_utils::download_file_to_bytes(client, &url).await {
+        match file_utils::download_file_to_bytes(client, &url, false).await {
             Ok(bytes) => {
                 std::fs::write(&dest, bytes).map_err(io_err!(dest))?;
             }
@@ -291,7 +291,8 @@ async fn unpack_augmented_library(
 ) -> Result<(), ForgeInstallError> {
     println!("- Unpacking augmented library");
     println!("- Downloading File");
-    let bytes = file_utils::download_file_to_bytes(client, &format!("{url}.pack.xz")).await?;
+    let bytes =
+        file_utils::download_file_to_bytes(client, &format!("{url}.pack.xz"), false).await?;
     println!("- Extracting pack.xz");
     let temp_extract_xz = extract_zip_file(&bytes)?;
 
@@ -583,7 +584,7 @@ async fn try_downloading_from_urls(
 ) -> Result<Vec<u8>, ForgeInstallError> {
     let num_urls = urls.len();
     for (i, url) in urls.iter().enumerate() {
-        let result = file_utils::download_file_to_bytes(client, url).await;
+        let result = file_utils::download_file_to_bytes(client, url, false).await;
 
         match result {
             Ok(file) => return Ok(file),

@@ -91,7 +91,7 @@ impl Search {
         // println!("{url}");
 
         let client = reqwest::Client::new();
-        let json = file_utils::download_file_to_string(&client, &url).await?;
+        let json = file_utils::download_file_to_string(&client, &url, false).await?;
         let json: Self = serde_json::from_str(&json)?;
 
         Ok(json)
@@ -101,30 +101,27 @@ impl Search {
         Self::search(query).await.map_err(|err| err.to_string())
     }
 
-    pub async fn download_image(
-        url: String,
-        name: String,
-        icon: bool,
-    ) -> Option<(String, Vec<u8>)> {
+    pub async fn download_image(url: String, icon: bool) -> Result<(String, Vec<u8>), String> {
         let client = reqwest::Client::new();
-        let image = file_utils::download_file_to_bytes(&client, &url)
+        let image = file_utils::download_file_to_bytes(&client, &url, true)
             .await
-            .ok()?;
+            .map_err(|err| format!("{url}: {err}"))?;
 
         let img = ImageReader::new(std::io::Cursor::new(image))
             .with_guessed_format()
-            .ok()?
+            .map_err(|err| format!("{url}: {err}"))?
             .decode()
-            .ok()?;
+            .map_err(|err| format!("{url}: {err}"))?;
 
         let img = img.thumbnail(if icon { 32 } else { 240 }, 426);
         // let img = img.resize(32, 32, image::imageops::FilterType::Nearest);
 
         let mut buffer = Vec::new();
         let mut cursor = std::io::Cursor::new(&mut buffer);
-        img.write_to(&mut cursor, image::ImageFormat::Png).ok()?;
+        img.write_to(&mut cursor, image::ImageFormat::Png)
+            .map_err(|err| format!("{url}: {err}"))?;
 
-        Some((name, buffer))
+        Ok((url, buffer))
     }
 }
 

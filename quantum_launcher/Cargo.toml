@@ -28,5 +28,8 @@ colored = "2"    # For colored text output
 chrono = "0.4"   # For managing the logging time/date
 paste = "1.0.15" # For the icon widget macro
 
-comrak = "0.28.0"    # For markdown parsing (displaying mod pages)
-html5ever = "0.29.0" # For displaying some inline HTML in the markdown
+comrak = "0.28.0" # For markdown parsing (displaying mod pages)
+
+# We be implementing a full blown HTML renderer in iced with this one
+html5ever = "0.26.0"
+markup5ever_rcdom = "0.2.0"

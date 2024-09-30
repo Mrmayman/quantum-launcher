@@ -19,8 +19,16 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     Ok(launcher_directory)
 }
 
-pub async fn download_file_to_string(client: &Client, url: &str) -> Result<String, RequestError> {
-    let response = client.get(url).send().await?;
+pub async fn download_file_to_string(
+    client: &Client,
+    url: &str,
+    user_agent: bool,
+) -> Result<String, RequestError> {
+    let mut get = client.get(url);
+    if user_agent {
+        get = get.header("User-Agent", "quantumlauncher")
+    }
+    let response = get.send().await?;
     if response.status().is_success() {
         Ok(response.text().await?)
     } else {
@@ -31,8 +39,16 @@ pub async fn download_file_to_string(client: &Client, url: &str) -> Result<Strin
     }
 }
 
-pub async fn download_file_to_bytes(client: &Client, url: &str) -> Result<Vec<u8>, RequestError> {
-    let response = client.get(url).send().await?;
+pub async fn download_file_to_bytes(
+    client: &Client,
+    url: &str,
+    user_agent: bool,
+) -> Result<Vec<u8>, RequestError> {
+    let mut get = client.get(url);
+    if user_agent {
+        get = get.header("User-Agent", "quantumlauncher")
+    }
+    let response = get.send().await?;
     if response.status().is_success() {
         Ok(response.bytes().await?.to_vec())
     } else {

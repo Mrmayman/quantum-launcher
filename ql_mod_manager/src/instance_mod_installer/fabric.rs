@@ -18,7 +18,7 @@ use super::{change_instance_type, ChangeConfigError};
 const FABRIC_URL: &str = "https://meta.fabricmc.net";
 
 async fn download_file_to_string(client: &Client, url: &str) -> Result<String, RequestError> {
-    file_utils::download_file_to_string(client, &format!("{FABRIC_URL}/{url}")).await
+    file_utils::download_file_to_string(client, &format!("{FABRIC_URL}/{url}"), false).await
 }
 
 pub async fn get_list_of_versions() -> Result<Vec<FabricVersion>, String> {
@@ -104,7 +104,7 @@ pub async fn install(
         let path = libraries_dir.join(library.get_path());
         let url = format!("{}{}", library.url, get_url(&library.name));
 
-        let bytes = file_utils::download_file_to_bytes(&client, &url).await?;
+        let bytes = file_utils::download_file_to_bytes(&client, &url, false).await?;
 
         let parent_dir = path
             .parent()

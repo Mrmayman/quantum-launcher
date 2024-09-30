@@ -43,8 +43,14 @@ impl ProjectInfo {
     pub async fn download(id: String) -> Result<Self, ModDownloadError> {
         let url = format!("https://api.modrinth.com/v2/project/{id}");
         let client = reqwest::Client::new();
-        let file = file_utils::download_file_to_string(&client, &url).await?;
-        let file: Self = serde_json::from_str(&file)?;
+        let file = file_utils::download_file_to_string(&client, &url, false).await?;
+        let file: Self = match serde_json::from_str(&file) {
+            Ok(file) => file,
+            Err(err) => {
+                eprintln!("[error] Could not parse mod project json from url: {url}");
+                return Err(err.into());
+            }
+        };
         Ok(file)
     }
 
@@ -74,7 +80,7 @@ pub struct License {
 pub struct GalleryItem {
     pub url: String,
     pub featured: bool,
-    pub title: String,
+    pub title: Option<String>,
     pub description: Option<String>,
     pub created: String,
     pub ordering: usize,

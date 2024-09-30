@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub mod mods_store;
+mod html;
 
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
