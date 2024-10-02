@@ -14,8 +14,8 @@ use crate::{
     stylesheet::styles::LauncherTheme,
 };
 
-pub mod mods_store;
 mod html;
+pub mod mods_store;
 
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
@@ -232,7 +232,6 @@ impl MenuEditMods {
                 widget::button("Install Quilt"),
                 widget::button("Install OptiFine")
             ]
-            .spacing(5)
         } else {
             widget::column![
                 widget::button(
@@ -247,9 +246,11 @@ impl MenuEditMods {
                     (self.config.mod_type == "Fabric" || self.config.mod_type == "Forge")
                         .then_some(Message::UninstallLoaderStart)
                 ),
-                widget::button("Download Mods").on_press(Message::InstallModsOpen)
+                button_with_icon(icon_manager::download(), "Download Mods")
+                    .on_press(Message::InstallModsOpen)
             ]
-        };
+        }
+        .spacing(5);
 
         widget::column![
             widget::button(
@@ -259,7 +260,7 @@ impl MenuEditMods {
             )
             .on_press(Message::LaunchScreenOpen(None)),
             mod_installer,
-            widget::button("Go to mods folder").on_press({
+            button_with_icon(icon_manager::folder(), "Go to Mods Folder").on_press({
                 let launcher_dir = file_utils::get_launcher_dir().unwrap();
                 Message::OpenDir(
                     launcher_dir
@@ -271,7 +272,7 @@ impl MenuEditMods {
                         .to_owned(),
                 )
             }),
-            widget::text("Mod management and store coming soon...")
+            widget::text("More mod features coming soon...")
         ]
         .padding(10)
         .spacing(20)

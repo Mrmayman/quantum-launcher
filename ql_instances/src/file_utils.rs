@@ -26,7 +26,10 @@ pub async fn download_file_to_string(
 ) -> Result<String, RequestError> {
     let mut get = client.get(url);
     if user_agent {
-        get = get.header("User-Agent", "quantumlauncher")
+        get = get.header(
+            "User-Agent",
+            "Mrmayman/quantumlauncher (quantumlauncher.github.io)",
+        )
     }
     let response = get.send().await?;
     if response.status().is_success() {

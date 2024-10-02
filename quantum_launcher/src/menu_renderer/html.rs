@@ -41,7 +41,7 @@ impl MenuModsDownload {
                 let children = node.children.borrow();
                 *element = widget::column(children.iter().map(|node| {
                     let mut element = widget::column!().into();
-                    Self::traverse_node(&node, &mut element, images_to_load, images, 0);
+                    Self::traverse_node(node, &mut element, images_to_load, images, 0);
                     element
                 }))
                 .into()
@@ -68,7 +68,7 @@ impl MenuModsDownload {
                         let children = node.children.borrow();
                         *element = widget::column(children.iter().map(|node| {
                             let mut element = widget::column!().into();
-                            Self::traverse_node(&node, &mut element, images_to_load, images, 0);
+                            Self::traverse_node(node, &mut element, images_to_load, images, 0);
                             element
                         }))
                         .into()
@@ -77,7 +77,7 @@ impl MenuModsDownload {
                         let children = node.children.borrow();
                         *element = widget::column(children.iter().map(|node| {
                             let mut element = widget::column!().into();
-                            Self::traverse_node(&node, &mut element, images_to_load, images, 1);
+                            Self::traverse_node(node, &mut element, images_to_load, images, 1);
                             element
                         }))
                         .into()
@@ -86,7 +86,7 @@ impl MenuModsDownload {
                         let children = node.children.borrow();
                         *element = widget::column(children.iter().map(|node| {
                             let mut element = widget::column!().into();
-                            Self::traverse_node(&node, &mut element, images_to_load, images, 2);
+                            Self::traverse_node(node, &mut element, images_to_load, images, 2);
                             element
                         }))
                         .into()
@@ -95,7 +95,7 @@ impl MenuModsDownload {
                         let children = node.children.borrow();
                         *element = widget::column(children.iter().map(|node| {
                             let mut element = widget::column!().into();
-                            Self::traverse_node(&node, &mut element, images_to_load, images, 3);
+                            Self::traverse_node(node, &mut element, images_to_load, images, 3);
                             element
                         }))
                         .into()
@@ -104,7 +104,7 @@ impl MenuModsDownload {
                         let children = node.children.borrow();
                         *element = widget::column(children.iter().map(|node| {
                             let mut element = widget::column!().into();
-                            Self::traverse_node(&node, &mut element, images_to_load, images, 1);
+                            Self::traverse_node(node, &mut element, images_to_load, images, 1);
                             element
                         }))
                         .into()
@@ -121,10 +121,9 @@ impl MenuModsDownload {
                             let mut children = widget::column(children_nodes.iter().map(|node| {
                                 let mut element = widget::column!().into();
                                 i += 1;
-                                Self::traverse_node(&node, &mut element, images_to_load, images, 3);
+                                Self::traverse_node(node, &mut element, images_to_load, images, 3);
                                 element
-                            }))
-                            .into();
+                            }));
                             if children_nodes.is_empty() {
                                 children = widget::column!(widget::text(&url))
                             }

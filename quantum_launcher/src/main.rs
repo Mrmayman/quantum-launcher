@@ -312,19 +312,24 @@ impl Application for Launcher {
                     );
                 }
             }
-            Message::InstallModsSearchResult(search) => match search {
-                Ok(search) => {
-                    if let State::ModsDownload(menu) = &mut self.state {
-                        menu.results = Some(search)
+            Message::InstallModsSearchResult(search) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.is_loading_search = false;
+                    match search {
+                        Ok((search, time)) => {
+                            if time > menu.latest_load {
+                                menu.results = Some(search);
+                                menu.latest_load = time;
+                            }
+                        }
+                        Err(err) => self.set_error(err.to_string()),
                     }
                 }
-                Err(err) => self.set_error(err.to_string()),
-            },
-            Message::InstallModsOpen => {
-                if let Err(err) = self.open_mods_screen() {
-                    self.set_error(err);
-                }
             }
+            Message::InstallModsOpen => match self.open_mods_screen() {
+                Ok(command) => return command,
+                Err(err) => self.set_error(err),
+            },
             Message::InstallModsSearchInput(input) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.query = input;
@@ -363,7 +368,7 @@ impl Application for Launcher {
                     self.images.insert(name, Handle::from_memory(path));
                 }
                 Err(err) => {
-                    println!("[error] {err}")
+                    println!("[error] Could not download image: {err}")
                 }
             },
         }

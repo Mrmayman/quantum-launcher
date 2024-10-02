@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use iced::Command;
 use ql_instances::{
     file_utils, io_err,
@@ -33,13 +35,14 @@ impl Launcher {
             serde_json::from_str(&version).map_err(|err| err.to_string())?;
 
         let mut menu = MenuModsDownload {
-            query: String::new(),
-            results: None,
             config,
             json: version,
-            opened_mod: None,
+            is_loading_search: false,
+            latest_load: Instant::now(),
+            query: Default::default(),
+            results: Default::default(),
+            opened_mod: Default::default(),
             result_data: Default::default(),
-            // markdown: None,
         };
         let command = menu.search_modrinth();
         self.state = State::ModsDownload(menu);
@@ -56,6 +59,8 @@ impl MenuModsDownload {
         }) else {
             return Command::none();
         };
+
+        self.is_loading_search = true;
         Command::perform(
             Search::search_wrapped(SearchQuery {
                 name: self.query.clone(),

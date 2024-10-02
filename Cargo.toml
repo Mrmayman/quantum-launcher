@@ -1,3 +1,7 @@
 [workspace]
 
 members = ["quantum_launcher", "ql_instances", "ql_mod_manager"]
+
+[profile.dev.package."*"]
+opt-level = 1
+debug = false

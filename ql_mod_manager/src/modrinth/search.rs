@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
 use ql_instances::file_utils::{self, RequestError};
@@ -86,22 +86,34 @@ impl Search {
         url
     }
 
-    pub async fn search(query: SearchQuery) -> Result<Self, ModDownloadError> {
+    pub async fn search(query: SearchQuery) -> Result<(Self, Instant), ModDownloadError> {
+        let _lock = ql_instances::RATE_LIMITER.lock().await;
+        let instant = Instant::now();
         let url = Search::get_search_url(query);
         // println!("{url}");
 
         let client = reqwest::Client::new();
-        let json = file_utils::download_file_to_string(&client, &url, false).await?;
+        let json = file_utils::download_file_to_string(&client, &url, true).await?;
         let json: Self = serde_json::from_str(&json)?;
 
-        Ok(json)
+        Ok((json, instant))
     }
 
-    pub async fn search_wrapped(query: SearchQuery) -> Result<Self, String> {
+    pub async fn search_wrapped(query: SearchQuery) -> Result<(Self, Instant), String> {
         Self::search(query).await.map_err(|err| err.to_string())
     }
 
     pub async fn download_image(url: String, icon: bool) -> Result<(String, Vec<u8>), String> {
+        if url.starts_with("https://cdn.modrinth.com/") {
+            // Does Modrinth CDN have a rate limit like their API?
+            // I have no idea but from my testing it doesn't seem like they do.
+
+            // let _lock = ql_instances::RATE_LIMITER.lock().await;
+        }
+        if url.is_empty() {
+            return Err("url is empty".to_owned());
+        }
+
         let client = reqwest::Client::new();
         let image = file_utils::download_file_to_bytes(&client, &url, true)
             .await

@@ -41,9 +41,10 @@ pub struct ProjectInfo {
 
 impl ProjectInfo {
     pub async fn download(id: String) -> Result<Self, ModDownloadError> {
+        let _lock = ql_instances::RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{id}");
         let client = reqwest::Client::new();
-        let file = file_utils::download_file_to_string(&client, &url, false).await?;
+        let file = file_utils::download_file_to_string(&client, &url, true).await?;
         let file: Self = match serde_json::from_str(&file) {
             Ok(file) => file,
             Err(err) => {
@@ -83,5 +84,5 @@ pub struct GalleryItem {
     pub title: Option<String>,
     pub description: Option<String>,
     pub created: String,
-    pub ordering: usize,
+    pub ordering: i64,
 }

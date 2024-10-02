@@ -2,6 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
+    time::Instant,
 };
 
 use iced::widget::image::Handle;
@@ -63,7 +64,7 @@ pub enum Message {
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
-    InstallModsSearchResult(Result<Search, String>),
+    InstallModsSearchResult(Result<(Search, Instant), String>),
     InstallModsOpen,
     InstallModsSearchInput(String),
     InstallModsImageDownloaded(Result<(String, Vec<u8>), String>),
@@ -146,7 +147,8 @@ pub struct MenuModsDownload {
     pub config: InstanceConfigJson,
     pub json: VersionDetails,
     pub opened_mod: Option<usize>,
-    // pub markdown: Option<Arc<Element<'static>>>,
+    pub latest_load: Instant,
+    pub is_loading_search: bool,
 }
 
 pub enum State {

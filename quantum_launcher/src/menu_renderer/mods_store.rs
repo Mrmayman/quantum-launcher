@@ -18,50 +18,47 @@ impl MenuModsDownload {
     pub fn view_main(&self, icons: &HashMap<String, Handle>) -> Element {
         let mods_list = match self.results.as_ref() {
             Some(results) => widget::column(results.hits.iter().enumerate().map(|(i, hit)| {
-                widget::button(
-                    widget::row!(
+                widget::row!(
+                    widget::button(
                         widget::column!(
-                            icon_manager::download_with_size(16),
-                            widget::text({
-                                if hit.downloads < 999 {
-                                    hit.downloads.to_string()
-                                } else if hit.downloads < 10000 {
-                                    format!("{}K", (hit.downloads as f32 / 100.0).floor() / 10.0)
-                                } else if hit.downloads < 100_000 {
-                                    format!("{}K", (hit.downloads as f32 / 1000.0).floor())
-                                } else if hit.downloads < 10_000_000 {
-                                    format!(
-                                        "{}M",
-                                        (hit.downloads as f32 / 100_000.0).floor() / 10.0
-                                    )
-                                } else {
-                                    format!("{}M", hit.downloads / 1_000_000)
-                                }
-                            })
-                            .size(12)
+                            icon_manager::download_with_size(20),
+                            widget::text(Self::format_downloads(hit.downloads)).size(12),
                         )
                         .align_items(iced::Alignment::Center)
-                        .width(30)
-                        .spacing(5),
-                        if let Some(icon) = icons.get(&hit.icon_url) {
-                            widget::column!(widget::image(icon.clone()))
-                        } else {
-                            widget::column!(widget::text(""))
-                        },
-                        widget::column!(
-                            widget::text(&hit.title).size(16),
-                            widget::text(safe_slice(&hit.description, 50)).size(12),
+                        .width(40)
+                        .height(60)
+                        .spacing(5)
+                    ),
+                    widget::button(
+                        widget::row!(
+                            if let Some(icon) = icons.get(&hit.icon_url) {
+                                widget::column!(widget::image(icon.clone()))
+                            } else {
+                                widget::column!(widget::text(""))
+                            },
+                            widget::column!(
+                                widget::text(&hit.title).size(16),
+                                widget::text(safe_slice(&hit.description, 50)).size(12),
+                            )
+                            .spacing(5),
+                            widget::horizontal_space()
                         )
-                        .spacing(5),
-                        widget::horizontal_space()
+                        .padding(5)
+                        .spacing(10),
                     )
-                    .padding(5)
-                    .spacing(10),
+                    .height(70)
+                    .on_press(Message::InstallModsClick(i))
                 )
-                .on_press(Message::InstallModsClick(i))
+                .spacing(5)
                 .into()
             })),
-            None => widget::column!(widget::text("Search something to get started...")),
+            None => {
+                widget::column!(widget::text(if self.is_loading_search {
+                    "Loading..."
+                } else {
+                    "Search something to get started..."
+                }))
+            }
         };
         widget::row!(
             widget::column!(
@@ -134,6 +131,20 @@ impl MenuModsDownload {
 
         Self::render_element(root, 0, &mut element, images_to_load, images);
         element
+    }
+
+    fn format_downloads(downloads: usize) -> String {
+        if downloads < 999 {
+            downloads.to_string()
+        } else if downloads < 10000 {
+            format!("{}K", (downloads as f32 / 100.0).floor() / 10.0)
+        } else if downloads < 1_000_000 {
+            format!("{}K", (downloads as f32 / 1000.0).floor())
+        } else if downloads < 10_000_000 {
+            format!("{}M", (downloads as f32 / 100_000.0).floor() / 10.0)
+        } else {
+            format!("{}M", downloads / 1_000_000)
+        }
     }
 
     fn render_element<'arena, 'element: 'arena>(

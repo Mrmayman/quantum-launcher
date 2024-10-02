@@ -163,13 +163,19 @@ impl Launcher {
                 if let Some(results) = &menu.results {
                     let mut commands = Vec::new();
                     for result in &results.hits {
-                        if !self.images_downloads_in_progress.contains(&result.title) {
+                        if !self.images_downloads_in_progress.contains(&result.title)
+                            && !result.icon_url.is_empty()
+                        {
                             self.images_downloads_in_progress
                                 .insert(result.title.to_owned());
                             commands.push(Command::perform(
                                 Search::download_image(result.icon_url.to_owned(), true),
                                 Message::InstallModsImageDownloaded,
                             ));
+                        }
+
+                        if commands.len() > 10 {
+                            break;
                         }
                     }
 
