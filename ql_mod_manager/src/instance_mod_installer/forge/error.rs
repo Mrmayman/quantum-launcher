@@ -122,3 +122,27 @@ impl From<JsonDownloadError> for ForgeInstallError {
         }
     }
 }
+
+pub trait Is404NotFound {
+    fn is_not_found(&self) -> bool;
+}
+
+impl<T> Is404NotFound for Result<T, ForgeInstallError> {
+    fn is_not_found(&self) -> bool {
+        if let Err(ForgeInstallError::Request(RequestError::DownloadError { code, .. })) = &self {
+            code.as_u16() == 404
+        } else {
+            false
+        }
+    }
+}
+
+impl Is404NotFound for RequestError {
+    fn is_not_found(&self) -> bool {
+        if let RequestError::DownloadError { code, .. } = &self {
+            code.as_u16() == 404
+        } else {
+            false
+        }
+    }
+}
