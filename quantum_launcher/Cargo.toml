@@ -31,5 +31,5 @@ paste = "1"    # For the icon widget macro
 comrak = "0.28" # For markdown parsing (displaying mod pages)
 
 # We be implementing a full blown HTML renderer in iced with this one
-html5ever = "0.26"
-markup5ever_rcdom = "0.2"
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"

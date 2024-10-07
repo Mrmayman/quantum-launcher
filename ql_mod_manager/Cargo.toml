@@ -14,3 +14,6 @@ tempfile = "3"
 zip-extract = "0.2"
 colored = "2.1.0"
 image = "0.25.2"
+
+[target.aarch64-unknown-linux-gnu.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
