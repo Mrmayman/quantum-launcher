@@ -581,5 +581,6 @@ pub async fn install(
     change_instance_type(&installer.instance_dir, "Forge".to_owned())?;
 
     installer.remove_lock()?;
+    info!("Finished installing forge");
     Ok(())
 }

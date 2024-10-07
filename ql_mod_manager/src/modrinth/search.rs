@@ -1,7 +1,10 @@
 use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
-use ql_instances::file_utils::{self, RequestError};
+use ql_instances::{
+    error::IoError,
+    file_utils::{self, RequestError},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -140,6 +143,9 @@ impl Search {
 pub enum ModDownloadError {
     RequestError(RequestError),
     Serde(serde_json::Error),
+    Io(IoError),
+    NoCompatibleVersionFound,
+    NoFilesFound,
 }
 
 impl Display for ModDownloadError {
@@ -148,6 +154,11 @@ impl Display for ModDownloadError {
         match self {
             ModDownloadError::RequestError(err) => write!(f, "(request) {err}"),
             ModDownloadError::Serde(err) => write!(f, "(json) {err}"),
+            ModDownloadError::Io(err) => write!(f, "(io) {err}"),
+            ModDownloadError::NoCompatibleVersionFound => {
+                write!(f, "no compatible version found when downloading mod")
+            }
+            ModDownloadError::NoFilesFound => write!(f, "no files found for mod"),
         }
     }
 }
@@ -161,6 +172,12 @@ impl From<RequestError> for ModDownloadError {
 impl From<serde_json::Error> for ModDownloadError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde(value)
+    }
+}
+
+impl From<IoError> for ModDownloadError {
+    fn from(value: IoError) -> Self {
+        Self::Io(value)
     }
 }
 

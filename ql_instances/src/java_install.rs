@@ -46,8 +46,9 @@ pub async fn get_java_binary(
     let is_incomplete_install = java_dir.join("install.lock").exists();
 
     if !java_dir.exists() || is_incomplete_install {
-        info!("Installing {}", version.to_string());
+        info!("Installing Java: {version}");
         install_java(version, java_install_progress_sender.as_ref()).await?;
+        info!("Finished installing Java {version}")
     }
 
     let java_dir = java_dir.join(if cfg!(windows) {

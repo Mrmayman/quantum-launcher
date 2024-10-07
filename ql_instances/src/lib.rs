@@ -41,6 +41,7 @@ pub const LAUNCHER_VERSION_NAME: &str = "0.2";
 
 lazy_static! {
     pub static ref RATE_LIMITER: RateLimiter = RateLimiter::default();
+    pub static ref MOD_DOWNLOAD_LOCK: Mutex<()> = Mutex::new(());
 }
 
 pub struct RateLimiter {

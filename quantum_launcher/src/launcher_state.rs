@@ -71,6 +71,8 @@ pub enum Message {
     InstallModsClick(usize),
     InstallModsBackToMainScreen,
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
+    InstallModsDownload(usize),
+    InstallModsDownloadComplete(Result<(), String>),
 }
 
 #[derive(Default)]

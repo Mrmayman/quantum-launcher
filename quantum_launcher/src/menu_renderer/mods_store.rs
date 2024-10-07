@@ -28,7 +28,8 @@ impl MenuModsDownload {
                         .width(40)
                         .height(60)
                         .spacing(5)
-                    ),
+                    )
+                    .on_press(Message::InstallModsDownload(i)),
                     widget::button(
                         widget::row!(
                             if let Some(icon) = icons.get(&hit.icon_url) {

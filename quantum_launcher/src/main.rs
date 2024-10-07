@@ -371,6 +371,32 @@ impl Application for Launcher {
                     println!("[error] Could not download image: {err}")
                 }
             },
+            Message::InstallModsDownload(index) => {
+                if let State::ModsDownload(menu) = &self.state {
+                    if let Some(results) = &menu.results {
+                        if let Some(hit) = results.hits.get(index) {
+                            if let Some(selected_instance) = &self.selected_instance {
+                                return Command::perform(
+                                    ql_mod_manager::modrinth::download_mod_wrapped(
+                                        hit.project_id.to_owned(),
+                                        selected_instance.to_owned(),
+                                    ),
+                                    Message::InstallModsDownloadComplete,
+                                );
+                            }
+                        } else {
+                            eprintln!("[error] Couldn't download mod: Not present in results")
+                        }
+                    } else {
+                        eprintln!("[error] Couldn't download mod: Search results empty")
+                    }
+                }
+            }
+            Message::InstallModsDownloadComplete(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                }
+            }
         }
         Command::none()
     }

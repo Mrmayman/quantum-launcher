@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 /// - `"Quilt"` (coming soon)
 ///
 /// ## `java_override`
-/// If you want to force the instance to use a
-/// specific Java version, you can specify it here.
+/// DEPRECATED: NO FUNCTIONALITY
 ///
 /// ## `ram_in_mb`
 /// The amount of RAM in megabytes the instance should have.

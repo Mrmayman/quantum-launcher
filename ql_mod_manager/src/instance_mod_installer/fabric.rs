@@ -7,7 +7,7 @@ use std::{
 use ql_instances::{
     error::IoError,
     file_utils::{self, RequestError},
-    io_err,
+    info, io_err,
     json_structs::{json_fabric::FabricJSON, json_version::VersionDetails},
 };
 use reqwest::Client;
@@ -82,6 +82,8 @@ pub async fn install(
 
     let json: FabricJSON = serde_json::from_str(&json)?;
 
+    info!("Started installing fabric");
+
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P1Start)?;
     }
@@ -120,6 +122,8 @@ pub async fn install(
     }
 
     std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
+
+    info!("Finished installing fabric");
 
     Ok(())
 }
