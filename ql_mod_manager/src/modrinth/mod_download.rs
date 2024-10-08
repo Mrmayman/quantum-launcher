@@ -31,7 +31,7 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModDown
         .join("instances")
         .join(&instance_name);
 
-    let mods_dir = instance_dir.join("mods");
+    let mods_dir = instance_dir.join(".minecraft/mods");
     if !mods_dir.exists() {
         std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
     }
@@ -91,6 +91,17 @@ async fn download_project(
 ) -> Result<(), ModDownloadError> {
     info!("Getting project info (id: {id})");
     let project_info = ProjectInfo::download(id.to_owned()).await?;
+
+    if let Some(loader) = loader {
+        if !project_info.loaders.contains(loader) {
+            info!(
+                "Skipping mod {}: No compatible loader found",
+                project_info.title
+            );
+            return Ok(());
+        }
+    }
+
     if let Some(dependent) = dependent {
         info!(
             "Downloading {}: Dependency of {dependent}",
@@ -105,6 +116,13 @@ async fn download_project(
     let download_version = download_info
         .iter()
         .filter(|v| v.game_versions.contains(version))
+        .filter(|v| {
+            if let Some(loader) = loader {
+                v.loaders.contains(loader)
+            } else {
+                true
+            }
+        })
         .next()
         .ok_or(ModDownloadError::NoCompatibleVersionFound)?;
 
@@ -140,19 +158,24 @@ async fn download_project(
         dependency_list.insert(file.id.to_owned());
     }
 
-    let mut filename = None;
     if let Some(mod_info) = index.mods.get_mut(id) {
         if let Some(dependent) = dependent {
             mod_info.dependents.insert(dependent.to_owned());
         }
     } else {
-        for file in download_version.files.iter() {
-            if filename.is_none() || file.primary {
-                filename = Some(file.filename.to_owned())
-            }
-            let file_bytes = file_utils::download_file_to_bytes(&client, &file.url, true).await?;
-            let file_path = mods_dir.join(&file.filename);
+        if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
+            let file_bytes =
+                file_utils::download_file_to_bytes(&client, &primary_file.url, true).await?;
+            let file_path = mods_dir.join(&primary_file.filename);
             std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
+        } else {
+            info!("Didn't find primary file, checking secondary files...");
+            for file in download_version.files.iter() {
+                let file_bytes =
+                    file_utils::download_file_to_bytes(&client, &file.url, true).await?;
+                let file_path = mods_dir.join(&file.filename);
+                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
+            }
         }
 
         index.mods.insert(
@@ -176,5 +199,76 @@ async fn download_project(
         );
     }
 
+    Ok(())
+}
+
+pub async fn delete_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {
+    delete_mod(&id, instance_name)
+        .await
+        .map_err(|err| err.to_string())
+        .map(|_| id)
+}
+
+pub async fn delete_mod(id: &str, instance_name: String) -> Result<(), ModDownloadError> {
+    let _guard = match MOD_DOWNLOAD_LOCK.try_lock() {
+        Ok(g) => g,
+        Err(_) => {
+            info!("Another mod is already being installed... Waiting...");
+            MOD_DOWNLOAD_LOCK.lock().await
+        }
+    };
+
+    let mut index = ModIndex::get(&instance_name)?;
+
+    let launcher_dir = file_utils::get_launcher_dir()?;
+    let mods_dir = launcher_dir
+        .join("instances")
+        .join(&instance_name)
+        .join(".minecraft/mods");
+    delete_item(id, None, &mut index, &mods_dir)?;
+
+    index.save()?;
+    Ok(())
+}
+
+fn delete_item(
+    id: &str,
+    parent: Option<&str>,
+    index: &mut ModIndex,
+    mods_dir: &Path,
+) -> Result<(), ModDownloadError> {
+    info!("Deleting mod {id}");
+    if let Some(mod_info) = index.mods.get_mut(id) {
+        if let Some(parent) = parent {
+            mod_info.dependencies = mod_info
+                .dependencies
+                .iter()
+                .filter_map(|n| {
+                    if n.as_str() == parent {
+                        None
+                    } else {
+                        Some(n.clone())
+                    }
+                })
+                .collect();
+
+            if !mod_info.dependencies.is_empty() {
+                return Ok(());
+            }
+        }
+    } else {
+        eprintln!("[error] Could not find mod in index: {id}")
+    }
+    if let Some(mod_info) = index.mods.get(id).cloned() {
+        for file in mod_info.files.iter() {
+            let path = mods_dir.join(&file.filename);
+            std::fs::remove_file(&path).map_err(io_err!(path))?;
+        }
+
+        for dependency in mod_info.dependencies.iter() {
+            delete_item(&dependency, Some(id), index, mods_dir)?;
+        }
+    }
+    index.mods.remove(id);
     Ok(())
 }

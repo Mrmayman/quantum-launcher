@@ -7,13 +7,20 @@ use iced::{
     Application, Command, Settings,
 };
 use launcher_state::{
-    Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge, MenuLaunch,
-    MenuLauncherUpdate, Message, State,
+    reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
+    MenuLaunch, MenuLauncherUpdate, Message, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
-use ql_instances::{info, UpdateCheckInfo, LAUNCHER_VERSION_NAME};
-use ql_mod_manager::{instance_mod_installer, modrinth::ProjectInfo};
+use ql_instances::{
+    file_utils, info,
+    json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
+    UpdateCheckInfo, LAUNCHER_VERSION_NAME,
+};
+use ql_mod_manager::{
+    instance_mod_installer,
+    modrinth::{ModIndex, ProjectInfo},
+};
 use stylesheet::styles::LauncherTheme;
 
 mod config;
@@ -397,6 +404,42 @@ impl Application for Launcher {
                     self.set_error(err);
                 }
             }
+            Message::ManageModsToggleCheckbox((name, id), enable) => {
+                if let State::EditMods(menu) = &mut self.state {
+                    if enable {
+                        menu.selected_mods.insert((name, id));
+                    } else {
+                        menu.selected_mods.remove(&(name, id));
+                    }
+                }
+            }
+            Message::ManageModsDeleteSelected => {
+                if let State::EditMods(menu) = &self.state {
+                    return Command::batch(menu.selected_mods.iter().map(|(_name, id)| {
+                        Command::perform(
+                            ql_mod_manager::modrinth::delete_mod_wrapped(
+                                id.to_owned(),
+                                self.selected_instance.clone().unwrap(),
+                            ),
+                            Message::ManageModsDeleteFinished,
+                        )
+                    }));
+                }
+            }
+            Message::ManageModsDeleteFinished(result) => match result {
+                Ok(id) => {
+                    info!("Deleted mod {id}");
+                    if let State::EditMods(menu) = &mut self.state {
+                        match ModIndex::get(self.selected_instance.as_ref().unwrap())
+                            .map_err(|err| err.to_string())
+                        {
+                            Ok(idx) => menu.mods = idx,
+                            Err(err) => self.set_error(err),
+                        }
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
         }
         Command::none()
     }
@@ -454,10 +497,48 @@ impl Application for Launcher {
 // }
 
 fn main() {
-    info!("Welcome to QuantumLauncher! This terminal window just outputs some debug info. You can ignore it.");
-
     let args = std::env::args();
-    process_args(args);
+    let mut info = ArgumentInfo {
+        headless: false,
+        operation: None,
+        is_used: false,
+    };
+    process_args(args, &mut info);
+
+    if !info.is_used {
+        info!("Welcome to QuantumLauncher! This terminal window just outputs some debug info. You can ignore it.");
+    }
+
+    if let Some(op) = info.operation {
+        match op {
+            ArgumentOperation::ListInstances => {
+                match reload_instances().map_err(|err| err.to_string()) {
+                    Ok(instances) => {
+                        for instance in instances {
+                            let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                            let instance_dir = launcher_dir.join("instances").join(&instance);
+
+                            let json =
+                                std::fs::read_to_string(instance_dir.join("details.json")).unwrap();
+                            let json: VersionDetails = serde_json::from_str(&json).unwrap();
+
+                            let config_json =
+                                std::fs::read_to_string(instance_dir.join("config.json")).unwrap();
+                            let config_json: InstanceConfigJson =
+                                serde_json::from_str(&config_json).unwrap();
+
+                            println!("{instance} : {} : {}", json.id, config_json.mod_type);
+                        }
+                    }
+                    Err(err) => eprintln!("[cmd.error] {err}"),
+                }
+            }
+        }
+    }
+
+    if info.headless {
+        return;
+    }
 
     const WINDOW_HEIGHT: f32 = 450.0;
     const WINDOW_WIDTH: f32 = 650.0;
@@ -488,9 +569,20 @@ fn main() {
     .unwrap();
 }
 
-fn process_args(mut args: std::env::Args) -> Option<()> {
+struct ArgumentInfo {
+    pub headless: bool,
+    pub is_used: bool,
+    pub operation: Option<ArgumentOperation>,
+}
+
+enum ArgumentOperation {
+    ListInstances,
+}
+
+fn process_args(mut args: std::env::Args, info: &mut ArgumentInfo) -> Option<()> {
     let program = args.next()?;
     let mut first_argument = true;
+
     loop {
         let Some(command) = args.next() else {
             if first_argument {
@@ -501,14 +593,19 @@ fn process_args(mut args: std::env::Args) -> Option<()> {
             }
             return None;
         };
+        info.is_used = true;
         match command.as_str() {
             "--help" => {
                 println!(
                     r#"Usage: {}
-    --help    : Print a list of valid command line flags
-    --version : Print the launcher version
+    --help           : Print a list of valid command line flags
+    --version        : Print the launcher version
+    --command        : Run a command with the launcher in headless mode (command line)
+                       For more info, type {}
+    --list-instances : Print a list of instances (name, version and type (Vanilla/Fabric/Forge/...))
 "#,
-                    format!("{program} [FLAGS]").yellow()
+                    format!("{program} [FLAGS]").yellow(),
+                    format!("{program} --command help").yellow()
                 )
             }
             "--version" => {
@@ -517,6 +614,10 @@ fn process_args(mut args: std::env::Args) -> Option<()> {
                     format!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman").bold()
                 )
             }
+            "--command" => {
+                info.headless = true;
+            }
+            "--list-instances" => info.operation = Some(ArgumentOperation::ListInstances),
             _ => {
                 eprintln!(
                     "{} Unknown flag! Type {} to see all the command-line flags.",

@@ -252,7 +252,7 @@ impl MenuEditMods {
         }
         .spacing(5);
 
-        widget::column![
+        let side_pane = widget::column![
             widget::button(
                 widget::row![icon_manager::back(), widget::text("Back")]
                     .spacing(10)
@@ -272,10 +272,47 @@ impl MenuEditMods {
                         .to_owned(),
                 )
             }),
-            widget::text("More mod features coming soon...")
         ]
         .padding(10)
-        .spacing(20)
+        .spacing(20);
+
+        widget::row!(
+            side_pane,
+            widget::column!(
+                widget::text("Select some mods to perform actions on them"),
+                widget::row!(
+                    button_with_icon(icon_manager::delete(), "Delete")
+                        .on_press(Message::ManageModsDeleteSelected),
+                    button_with_icon(icon_manager::play(), "Toggle On/Off")
+                )
+                .spacing(5),
+                widget::scrollable(
+                    widget::column(self.mods.mods.iter().map(|(id, config)| {
+                        widget::row!(widget::checkbox(
+                            if config.dependents.is_empty() {
+                                config.name.to_owned()
+                            } else {
+                                format!("(DEPENDENCY) {}", config.name)
+                            },
+                            self.selected_mods
+                                .contains(&(config.name.to_owned(), id.to_owned()))
+                        )
+                        .on_toggle(|t| {
+                            Message::ManageModsToggleCheckbox(
+                                (config.name.to_owned(), id.to_owned()),
+                                t,
+                            )
+                        }))
+                        .into()
+                    }))
+                    .padding(10)
+                    .spacing(10)
+                )
+            )
+            .spacing(10)
+        )
+        .padding(10)
+        .spacing(10)
         .into()
     }
 }

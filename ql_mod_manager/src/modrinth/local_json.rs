@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{ModDownloadError, ModFile};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ModConfig {
     pub name: String,
     pub description: String,
@@ -29,7 +29,7 @@ impl ModIndex {
         let mods_dir = launcher_dir
             .join("instances")
             .join(instance_name)
-            .join("mods");
+            .join(".minecraft/mods");
 
         if !mods_dir.exists() {
             std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
@@ -53,7 +53,7 @@ impl ModIndex {
         let mods_dir = launcher_dir
             .join("instances")
             .join(&self.instance_name)
-            .join("mods");
+            .join(".minecraft/mods");
 
         if !mods_dir.exists() {
             std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;

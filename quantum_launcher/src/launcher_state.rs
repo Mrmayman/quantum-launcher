@@ -18,7 +18,7 @@ use ql_mod_manager::{
         fabric::{FabricInstallProgress, FabricVersion},
         forge::ForgeInstallProgress,
     },
-    modrinth::{ProjectInfo, Search},
+    modrinth::{ModIndex, ProjectInfo, Search},
 };
 use tokio::process::Child;
 
@@ -50,6 +50,9 @@ pub enum Message {
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
     ManageModsScreenOpen,
+    ManageModsToggleCheckbox((String, String), bool),
+    ManageModsDeleteSelected,
+    ManageModsDeleteFinished(Result<String, String>),
     InstallFabricClicked,
     InstallFabricScreenOpen,
     InstallForgeStart,
@@ -98,6 +101,8 @@ pub struct MenuEditInstance {
 
 pub struct MenuEditMods {
     pub config: InstanceConfigJson,
+    pub mods: ModIndex,
+    pub selected_mods: HashSet<(String, String)>,
 }
 
 pub struct MenuCreateInstance {

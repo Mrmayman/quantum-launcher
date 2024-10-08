@@ -6,6 +6,7 @@ use ql_instances::{
     error::LauncherResult, file_utils, io_err,
     json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
 };
+use ql_mod_manager::modrinth::ModIndex;
 
 use crate::launcher_state::{
     GameProcess, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message, State,
@@ -245,9 +246,18 @@ impl Launcher {
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
-        self.state = State::EditMods(MenuEditMods {
-            config: config_json,
-        });
+        match ModIndex::get(self.selected_instance.as_ref().unwrap()).map_err(|err| err.to_string())
+        {
+            Ok(idx) => {
+                self.state = State::EditMods(MenuEditMods {
+                    config: config_json,
+                    mods: idx,
+                    selected_mods: Default::default(),
+                })
+            }
+            Err(err) => self.set_error(err),
+        }
+
         Ok(())
     }
 }
