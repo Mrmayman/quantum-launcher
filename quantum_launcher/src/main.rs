@@ -480,6 +480,18 @@ impl Application for Launcher {
             State::ModsDownload(menu) => menu.view(&self.images, &self.images_to_load),
         }
     }
+
+    fn theme(&self) -> Self::Theme {
+        Self::Theme::default()
+    }
+
+    fn style(&self) -> <Self::Theme as iced::application::StyleSheet>::Style {
+        <Self::Theme as iced::application::StyleSheet>::Style::default()
+    }
+
+    fn scale_factor(&self) -> f64 {
+        1.0
+    }
 }
 
 // async fn pick_file() -> Option<PathBuf> {

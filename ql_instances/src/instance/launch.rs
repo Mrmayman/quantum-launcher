@@ -435,6 +435,20 @@ fn fill_game_arguments(
     Ok(())
 }
 
+/// Moves the game assets from the old path:
+///
+/// `QuantumLauncher/instances/INSTANCE_NAME/assets/`
+///
+/// to the usual one:
+///
+/// `QuantumLauncher/assets/ASSETS_NAME/`
+///
+/// Old versions of the launcher put the assets at the
+/// old path. This migrates it to the new path.
+///
+/// This applies to early development builds of the
+/// launcher (before v0.1), most people won't ever
+/// need to run this aside from the early beta testers.
 fn migrate_to_new_assets_path(
     old_assets_path: &Path,
     assets_path: &Path,

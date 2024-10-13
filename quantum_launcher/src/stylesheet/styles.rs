@@ -1,113 +1,166 @@
 use iced::widget;
 
-use super::color::{Color, DARK_PURPLE};
+use super::color::{Color, DARK_PURPLE, LIGHT_BROWN};
 
 pub const BORDER_WIDTH: f32 = 2.0;
 pub const BORDER_RADIUS: f32 = 8.0;
 
 #[allow(dead_code)]
 #[derive(Clone, Default)]
+pub enum LauncherStyle {
+    Brown,
+    #[default]
+    Purple,
+}
+
+#[derive(Clone, Default)]
 pub enum LauncherTheme {
-    Light,
-    #[default] // Highly opinionated, I know.
+    #[default]
     Dark,
+    Light,
+}
+
+impl LauncherTheme {
+    fn get(&self, style: &LauncherStyle, color: Color, invert: bool) -> iced::Color {
+        let palette = match style {
+            LauncherStyle::Brown => &LIGHT_BROWN,
+            LauncherStyle::Purple => &DARK_PURPLE,
+        };
+        let color = if invert {
+            match self {
+                LauncherTheme::Dark => color,
+                LauncherTheme::Light => color.invert(),
+            }
+        } else {
+            match self {
+                LauncherTheme::Dark => color.invert(),
+                LauncherTheme::Light => color,
+            }
+        };
+        palette.get(color)
+    }
+
+    fn get_bg(&self, style: &LauncherStyle, color: Color, invert: bool) -> iced::Background {
+        let palette = match style {
+            LauncherStyle::Brown => &LIGHT_BROWN,
+            LauncherStyle::Purple => &DARK_PURPLE,
+        };
+        let color = if invert {
+            match self {
+                LauncherTheme::Dark => color,
+                LauncherTheme::Light => color.invert(),
+            }
+        } else {
+            match self {
+                LauncherTheme::Dark => color.invert(),
+                LauncherTheme::Light => color,
+            }
+        };
+        palette.get_bg(color)
+    }
+
+    fn get_border(&self, style: &LauncherStyle, color: Color, invert: bool) -> iced::Border {
+        let palette = match style {
+            LauncherStyle::Brown => &LIGHT_BROWN,
+            LauncherStyle::Purple => &DARK_PURPLE,
+        };
+        let color = if invert {
+            match self {
+                LauncherTheme::Dark => color,
+                LauncherTheme::Light => color.invert(),
+            }
+        } else {
+            match self {
+                LauncherTheme::Dark => color.invert(),
+                LauncherTheme::Light => color,
+            }
+        };
+        palette.get_border(color)
+    }
 }
 
 impl widget::container::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn appearance(&self, style: &Self::Style) -> widget::container::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::container::Appearance {
-                text_color: Some(DARK_PURPLE.get(Color::Light)),
-                background: Some(iced::Background::Color(DARK_PURPLE.get(Color::Dark))),
-                border: DARK_PURPLE.get_border(Color::SecondDark),
-                ..Default::default()
-            },
+        widget::container::Appearance {
+            text_color: Some(self.get(style, Color::Light, true)),
+            background: Some(iced::Background::Color(self.get(style, Color::Dark, true))),
+            border: self.get_border(style, Color::SecondDark, true),
+            ..Default::default()
         }
     }
 }
 
 impl widget::button::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style) -> widget::button::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::button::Appearance {
-                background: Some(iced::Background::Color(DARK_PURPLE.get(Color::SecondDark))),
-                text_color: DARK_PURPLE.get(Color::White),
-                border: DARK_PURPLE.get_border(Color::SecondDark),
-                ..Default::default()
-            },
+        widget::button::Appearance {
+            background: Some(iced::Background::Color(self.get(
+                style,
+                Color::SecondDark,
+                true,
+            ))),
+            text_color: self.get(style, Color::White, true),
+            border: self.get_border(style, Color::SecondDark, true),
+            ..Default::default()
         }
     }
 
     fn hovered(&self, style: &Self::Style) -> widget::button::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::button::Appearance {
-                background: Some(iced::Background::Color(DARK_PURPLE.get(Color::Mid))),
-                text_color: DARK_PURPLE.get(Color::Dark),
-                border: DARK_PURPLE.get_border(Color::Mid),
-                ..Default::default()
-            },
+        widget::button::Appearance {
+            background: Some(iced::Background::Color(self.get(style, Color::Mid, true))),
+            text_color: self.get(style, Color::Dark, true),
+            border: self.get_border(style, Color::Mid, true),
+            ..Default::default()
         }
     }
 
     fn pressed(&self, style: &Self::Style) -> widget::button::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::button::Appearance {
-                background: Some(iced::Background::Color(DARK_PURPLE.get(Color::White))),
-                text_color: DARK_PURPLE.get(Color::Dark),
-                border: DARK_PURPLE.get_border(Color::White),
-                ..Default::default()
-            },
+        widget::button::Appearance {
+            background: Some(iced::Background::Color(self.get(style, Color::White, true))),
+            text_color: self.get(style, Color::Dark, true),
+            border: self.get_border(style, Color::White, true),
+            ..Default::default()
         }
     }
 
     fn disabled(&self, style: &Self::Style) -> widget::button::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::button::Appearance {
-                background: Some(iced::Background::Color(DARK_PURPLE.get(Color::SecondDark))),
-                text_color: DARK_PURPLE.get(Color::SecondLight),
-                border: DARK_PURPLE.get_border(Color::SecondDark),
-                ..Default::default()
-            },
+        widget::button::Appearance {
+            background: Some(iced::Background::Color(self.get(
+                style,
+                Color::SecondDark,
+                true,
+            ))),
+            text_color: self.get(style, Color::SecondLight, true),
+            border: self.get_border(style, Color::SecondDark, true),
+            ..Default::default()
         }
     }
 }
 
 impl widget::text::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
-    fn appearance(&self, style: Self::Style) -> widget::text::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text::Appearance { color: None },
-        }
+    fn appearance(&self, _style: Self::Style) -> widget::text::Appearance {
+        widget::text::Appearance { color: None }
     }
 }
 
 impl widget::pick_list::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(
         &self,
         style: &<Self as widget::pick_list::StyleSheet>::Style,
     ) -> widget::pick_list::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::pick_list::Appearance {
-                text_color: DARK_PURPLE.get(Color::Dark),
-                placeholder_color: DARK_PURPLE.get(Color::SecondDark),
-                handle_color: DARK_PURPLE.get(Color::Dark),
-                background: iced::Background::Color(DARK_PURPLE.get(Color::Light)),
-                border: DARK_PURPLE.get_border(Color::Mid),
-            },
+        widget::pick_list::Appearance {
+            text_color: self.get(style, Color::Dark, false),
+            placeholder_color: self.get(style, Color::SecondDark, false),
+            handle_color: self.get(style, Color::Dark, false),
+            background: iced::Background::Color(self.get(style, Color::Light, false)),
+            border: self.get_border(style, Color::Mid, false),
         }
     }
 
@@ -115,59 +168,67 @@ impl widget::pick_list::StyleSheet for LauncherTheme {
         &self,
         style: &<Self as widget::pick_list::StyleSheet>::Style,
     ) -> widget::pick_list::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::pick_list::Appearance {
-                text_color: DARK_PURPLE.get(Color::Dark),
-                placeholder_color: DARK_PURPLE.get(Color::SecondDark),
-                handle_color: DARK_PURPLE.get(Color::Dark),
-                background: DARK_PURPLE.get_bg(Color::SecondLight),
-                border: DARK_PURPLE.get_border(Color::SecondLight),
-            },
+        widget::pick_list::Appearance {
+            text_color: self.get(style, Color::Dark, false),
+            placeholder_color: self.get(style, Color::SecondDark, false),
+            handle_color: self.get(style, Color::Dark, false),
+            background: self.get_bg(style, Color::SecondLight, false),
+            border: self.get_border(style, Color::SecondLight, false),
         }
     }
 }
 
 impl widget::overlay::menu::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn appearance(&self, style: &Self::Style) -> iced::overlay::menu::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => iced::overlay::menu::Appearance {
-                text_color: DARK_PURPLE.get(Color::White),
-                background: DARK_PURPLE.get_bg(Color::SecondDark),
-                border: DARK_PURPLE.get_border(Color::Mid),
-                selected_text_color: DARK_PURPLE.get(Color::Dark),
-                selected_background: DARK_PURPLE.get_bg(Color::SecondLight),
-            },
+        iced::overlay::menu::Appearance {
+            text_color: self.get(style, Color::White, true),
+            background: self.get_bg(style, Color::SecondDark, true),
+            border: self.get_border(style, Color::Mid, true),
+            selected_text_color: self.get(style, Color::Dark, true),
+            selected_background: self.get_bg(style, Color::SecondLight, true),
         }
     }
 }
 
 impl widget::scrollable::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style) -> widget::scrollable::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::scrollable::Appearance {
-                container: widget::container::Appearance {
-                    text_color: None,
-                    background: None,
-                    border: DARK_PURPLE.get_border(Color::SecondDark),
-                    shadow: Default::default(),
+        widget::scrollable::Appearance {
+            container: widget::container::Appearance {
+                text_color: None,
+                background: None,
+                border: {
+                    let color = Color::SecondDark;
+                    let palette = match style {
+                        LauncherStyle::Brown => &LIGHT_BROWN,
+                        LauncherStyle::Purple => &DARK_PURPLE,
+                    };
+                    let color = match self {
+                        LauncherTheme::Dark => color,
+                        LauncherTheme::Light => {
+                            if matches!(style, LauncherStyle::Purple) {
+                                Color::SecondDark
+                            } else {
+                                color.invert()
+                            }
+                        }
+                    };
+                    palette.get_border(color)
                 },
-                scrollbar: widget::scrollable::Scrollbar {
-                    background: Some(DARK_PURPLE.get_bg(Color::Dark)),
-                    border: DARK_PURPLE.get_border(Color::SecondDark),
-                    scroller: widget::scrollable::Scroller {
-                        color: DARK_PURPLE.get(Color::White),
-                        border: DARK_PURPLE.get_border(Color::Light),
-                    },
-                },
-                gap: None,
+                shadow: Default::default(),
             },
+            scrollbar: widget::scrollable::Scrollbar {
+                background: Some(self.get_bg(style, Color::Dark, true)),
+                border: self.get_border(style, Color::SecondDark, true),
+                scroller: widget::scrollable::Scroller {
+                    color: self.get(style, Color::White, true),
+                    border: self.get_border(style, Color::Light, true),
+                },
+            },
+            gap: None,
         }
     }
 
@@ -176,292 +237,229 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
         style: &Self::Style,
         _is_mouse_over_scrollbar: bool,
     ) -> widget::scrollable::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::scrollable::Appearance {
-                container: widget::container::Appearance {
-                    text_color: None,
-                    background: None,
-                    border: DARK_PURPLE.get_border(Color::Mid),
-                    shadow: Default::default(),
-                },
-                scrollbar: widget::scrollable::Scrollbar {
-                    background: Some(DARK_PURPLE.get_bg(Color::Dark)),
-                    border: DARK_PURPLE.get_border(Color::SecondDark),
-                    scroller: widget::scrollable::Scroller {
-                        color: DARK_PURPLE.get(Color::White),
-                        border: DARK_PURPLE.get_border(Color::Light),
-                    },
-                },
-                gap: None,
+        widget::scrollable::Appearance {
+            container: widget::container::Appearance {
+                text_color: None,
+                background: None,
+                border: self.get_border(style, Color::Mid, true),
+                shadow: Default::default(),
             },
+            scrollbar: widget::scrollable::Scrollbar {
+                background: Some(self.get_bg(style, Color::Dark, true)),
+                border: self.get_border(style, Color::SecondDark, true),
+                scroller: widget::scrollable::Scroller {
+                    color: self.get(style, Color::White, true),
+                    border: self.get_border(style, Color::Light, true),
+                },
+            },
+            gap: None,
         }
     }
 }
 
 impl widget::text_input::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style) -> widget::text_input::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text_input::Appearance {
-                background: DARK_PURPLE.get_bg(Color::SecondDark),
-                border: DARK_PURPLE.get_border(Color::Mid),
-                icon_color: Default::default(),
-            },
+        widget::text_input::Appearance {
+            background: self.get_bg(style, Color::SecondDark, true),
+            border: self.get_border(style, Color::Mid, true),
+            icon_color: Default::default(),
         }
     }
 
     fn focused(&self, style: &Self::Style) -> widget::text_input::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text_input::Appearance {
-                background: DARK_PURPLE.get_bg(Color::SecondDark),
-                border: DARK_PURPLE.get_border(Color::Mid),
-                icon_color: Default::default(),
-            },
+        widget::text_input::Appearance {
+            background: self.get_bg(style, Color::SecondDark, true),
+            border: self.get_border(style, Color::Mid, true),
+            icon_color: Default::default(),
         }
     }
 
     fn placeholder_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::SecondLight),
-        }
+        self.get(style, Color::SecondLight, true)
     }
 
     fn value_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::White),
-        }
+        self.get(style, Color::White, true)
     }
 
     fn disabled_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::SecondDark),
-        }
+        self.get(style, Color::SecondDark, true)
     }
 
     fn selection_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::SecondLight),
-        }
+        self.get(style, Color::SecondLight, true)
     }
 
     fn disabled(&self, style: &Self::Style) -> widget::text_input::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text_input::Appearance {
-                background: DARK_PURPLE.get_bg(Color::Dark),
-                border: DARK_PURPLE.get_border(Color::SecondDark),
-                icon_color: Default::default(),
-            },
+        widget::text_input::Appearance {
+            background: self.get_bg(style, Color::Dark, true),
+            border: self.get_border(style, Color::SecondDark, true),
+            icon_color: Default::default(),
         }
     }
 }
 
 impl widget::progress_bar::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn appearance(&self, style: &Self::Style) -> widget::progress_bar::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::progress_bar::Appearance {
-                background: DARK_PURPLE.get_bg(Color::SecondDark),
-                bar: DARK_PURPLE.get_bg(Color::Light),
-                border_radius: BORDER_RADIUS.into(),
-            },
+        widget::progress_bar::Appearance {
+            background: self.get_bg(style, Color::SecondDark, true),
+            bar: self.get_bg(style, Color::Light, true),
+            border_radius: BORDER_RADIUS.into(),
         }
     }
 }
 
 impl widget::slider::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style) -> widget::slider::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::slider::Appearance {
-                rail: widget::slider::Rail {
-                    colors: (
-                        DARK_PURPLE.get(Color::Mid),
-                        DARK_PURPLE.get(Color::SecondDark),
-                    ),
-                    width: 4.0,
-                    border_radius: BORDER_RADIUS.into(),
-                },
-                handle: widget::slider::Handle {
-                    shape: widget::slider::HandleShape::Circle { radius: 8.0 },
-                    color: DARK_PURPLE.get(Color::SecondLight),
-                    border_width: 2.0,
-                    border_color: DARK_PURPLE.get(Color::Light),
-                },
+        widget::slider::Appearance {
+            rail: widget::slider::Rail {
+                colors: (
+                    self.get(style, Color::Mid, true),
+                    self.get(style, Color::SecondDark, true),
+                ),
+                width: 4.0,
+                border_radius: BORDER_RADIUS.into(),
+            },
+            handle: widget::slider::Handle {
+                shape: widget::slider::HandleShape::Circle { radius: 8.0 },
+                color: self.get(style, Color::SecondLight, true),
+                border_width: 2.0,
+                border_color: self.get(style, Color::Light, true),
             },
         }
     }
 
     fn hovered(&self, style: &Self::Style) -> widget::slider::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::slider::Appearance {
-                rail: widget::slider::Rail {
-                    colors: (DARK_PURPLE.get(Color::Light), DARK_PURPLE.get(Color::Mid)),
-                    width: 4.0,
-                    border_radius: BORDER_RADIUS.into(),
-                },
-                handle: widget::slider::Handle {
-                    shape: widget::slider::HandleShape::Circle { radius: 8.0 },
-                    color: DARK_PURPLE.get(Color::SecondLight),
-                    border_width: 2.0,
-                    border_color: DARK_PURPLE.get(Color::White),
-                },
+        widget::slider::Appearance {
+            rail: widget::slider::Rail {
+                colors: (
+                    self.get(style, Color::Light, true),
+                    self.get(style, Color::Mid, true),
+                ),
+                width: 4.0,
+                border_radius: BORDER_RADIUS.into(),
+            },
+            handle: widget::slider::Handle {
+                shape: widget::slider::HandleShape::Circle { radius: 8.0 },
+                color: self.get(style, Color::SecondLight, true),
+                border_width: 2.0,
+                border_color: self.get(style, Color::White, true),
             },
         }
     }
 
     fn dragging(&self, style: &Self::Style) -> widget::slider::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::slider::Appearance {
-                rail: widget::slider::Rail {
-                    colors: (
-                        DARK_PURPLE.get(Color::Mid),
-                        DARK_PURPLE.get(Color::SecondDark),
-                    ),
-                    width: 6.0,
-                    border_radius: BORDER_RADIUS.into(),
-                },
-                handle: widget::slider::Handle {
-                    shape: widget::slider::HandleShape::Circle { radius: 12.0 },
-                    color: DARK_PURPLE.get(Color::White),
-                    border_width: 2.0,
-                    border_color: DARK_PURPLE.get(Color::White),
-                },
+        widget::slider::Appearance {
+            rail: widget::slider::Rail {
+                colors: (
+                    self.get(style, Color::Mid, true),
+                    self.get(style, Color::SecondDark, true),
+                ),
+                width: 6.0,
+                border_radius: BORDER_RADIUS.into(),
+            },
+            handle: widget::slider::Handle {
+                shape: widget::slider::HandleShape::Circle { radius: 12.0 },
+                color: self.get(style, Color::White, true),
+                border_width: 2.0,
+                border_color: self.get(style, Color::White, true),
             },
         }
     }
 }
 
 impl iced::application::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn appearance(&self, style: &Self::Style) -> iced::application::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => iced::application::Appearance {
-                background_color: DARK_PURPLE.get(Color::Dark),
-                text_color: DARK_PURPLE.get(Color::Light),
-            },
+        iced::application::Appearance {
+            background_color: self.get(style, Color::Dark, true),
+            text_color: self.get(style, Color::Light, true),
         }
     }
 }
 
 impl iced::widget::checkbox::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => iced::widget::checkbox::Appearance {
-                background: if is_checked {
-                    DARK_PURPLE.get_bg(Color::Light)
-                } else {
-                    DARK_PURPLE.get_bg(Color::Dark)
-                },
-                icon_color: if is_checked {
-                    DARK_PURPLE.get(Color::Dark)
-                } else {
-                    DARK_PURPLE.get(Color::Light)
-                },
-                border: DARK_PURPLE.get_border(Color::SecondLight),
-                text_color: None,
+        iced::widget::checkbox::Appearance {
+            background: if is_checked {
+                self.get_bg(style, Color::Light, true)
+            } else {
+                self.get_bg(style, Color::Dark, true)
             },
+            icon_color: if is_checked {
+                self.get(style, Color::Dark, true)
+            } else {
+                self.get(style, Color::Light, true)
+            },
+            border: self.get_border(style, Color::SecondLight, true),
+            text_color: None,
         }
     }
 
     fn hovered(&self, style: &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => iced::widget::checkbox::Appearance {
-                background: if is_checked {
-                    DARK_PURPLE.get_bg(Color::White)
-                } else {
-                    DARK_PURPLE.get_bg(Color::SecondDark)
-                },
-                icon_color: if is_checked {
-                    DARK_PURPLE.get(Color::SecondDark)
-                } else {
-                    DARK_PURPLE.get(Color::White)
-                },
-                border: DARK_PURPLE.get_border(Color::Light),
-                text_color: None,
+        iced::widget::checkbox::Appearance {
+            background: if is_checked {
+                self.get_bg(style, Color::White, true)
+            } else {
+                self.get_bg(style, Color::SecondDark, true)
             },
+            icon_color: if is_checked {
+                self.get(style, Color::SecondDark, true)
+            } else {
+                self.get(style, Color::White, true)
+            },
+            border: self.get_border(style, Color::Light, true),
+            text_color: None,
         }
     }
 }
 
 impl iced::widget::text_editor::StyleSheet for LauncherTheme {
-    type Style = LauncherTheme;
+    type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style) -> widget::text_editor::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text_editor::Appearance {
-                background: DARK_PURPLE.get_bg(Color::Dark),
-                border: DARK_PURPLE.get_border(Color::SecondDark),
-            },
+        widget::text_editor::Appearance {
+            background: self.get_bg(style, Color::Dark, true),
+            border: self.get_border(style, Color::SecondDark, true),
         }
     }
 
     fn focused(&self, style: &Self::Style) -> widget::text_editor::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text_editor::Appearance {
-                background: DARK_PURPLE.get_bg(Color::SecondDark),
-                border: DARK_PURPLE.get_border(Color::Mid),
-            },
+        widget::text_editor::Appearance {
+            background: self.get_bg(style, Color::SecondDark, true),
+            border: self.get_border(style, Color::Mid, true),
         }
     }
 
     fn placeholder_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::Light),
-        }
+        self.get(style, Color::Light, true)
     }
 
     fn value_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::White),
-        }
+        self.get(style, Color::White, true)
     }
 
     fn disabled_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::Dark),
-        }
+        self.get(style, Color::Dark, true)
     }
 
     fn selection_color(&self, style: &Self::Style) -> iced::Color {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => DARK_PURPLE.get(Color::Dark),
-        }
+        self.get(style, Color::Dark, true)
     }
 
     fn disabled(&self, style: &Self::Style) -> widget::text_editor::Appearance {
-        match style {
-            LauncherTheme::Light => todo!(),
-            LauncherTheme::Dark => widget::text_editor::Appearance {
-                background: DARK_PURPLE.get_bg(Color::Mid),
-                border: DARK_PURPLE.get_border(Color::SecondLight),
-            },
+        widget::text_editor::Appearance {
+            background: self.get_bg(style, Color::Mid, true),
+            border: self.get_border(style, Color::SecondLight, true),
         }
     }
 }

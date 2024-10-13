@@ -5,18 +5,46 @@ use crate::{
     file_utils, info, io_err, LAUNCHER_VERSION_NAME,
 };
 
-pub async fn create_instance(
+/// Creates a Minecraft instance. The argument types have been made owned objects
+/// for ease of used with `iced::Command` API.
+///
+/// # Arguments
+/// - `instance_name` : Name of the instance (for example: "my cool instance")
+/// - `version` : Version of the game to download (for example: "1.21.1", "1.12.2", "b1.7.3", etc.)
+/// - `progress_sender` : If you want, you can create an `mpsc::channel()` of [`DownloadProgress`],
+/// provide the receiver and keep polling the sender for progress updates. *If not needed, leave as `None`*
+/// - `download_assets` : Whether to download the assets. Default: true. Disable this if you want to speed
+/// up the download or reduce file size. *Disabling this will make the game completely silent;
+/// No sounds or music will play*
+///
+/// # Errors
+/// The errors have been converted to `String`. For the possible errors read the documentation
+/// of `ql_instances::create_instance`.
+pub async fn create_instance_wrapped(
     instance_name: String,
     version: String,
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
 ) -> Result<(), String> {
-    create(&instance_name, version, progress_sender, download_assets)
+    create_instance(&instance_name, version, progress_sender, download_assets)
         .await
         .map_err(|n| n.to_string())
 }
 
-async fn create(
+/// Creates a Minecraft instance.
+///
+/// # Arguments
+/// - `instance_name` : Name of the instance (for example: "my cool instance")
+/// - `version` : Version of the game to download (for example: "1.21.1", "1.12.2", "b1.7.3", etc.)
+/// - `progress_sender` : If you want, you can create an `mpsc::channel()` of [`DownloadProgress`],
+/// provide the receiver and keep polling the sender for progress updates. *If not needed, leave as `None`*
+/// - `download_assets` : Whether to download the assets. Default: true. Disable this if you want to speed
+/// up the download or reduce file size. *Disabling this will make the game completely silent;
+/// No sounds or music will play*
+///
+/// # Errors
+/// Check the [`DownloadError`] documentation (if there is, lol). This is crap code and you must have standards.
+pub async fn create_instance(
     instance_name: &str,
     version: String,
     progress_sender: Option<Sender<DownloadProgress>>,

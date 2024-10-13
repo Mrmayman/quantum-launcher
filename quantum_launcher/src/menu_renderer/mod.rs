@@ -101,33 +101,40 @@ impl MenuLaunch {
             ]
             .spacing(5),
             pick_list.spacing(5),
-            widget::row![
-                button_with_icon(icon_manager::folder(), "Files")
-                    .on_press_maybe((selected_instance.is_some()).then(|| {
-                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                        Message::OpenDir(
-                            launcher_dir
-                                .join("instances")
-                                .join(selected_instance.as_ref().unwrap())
-                                .join(".minecraft")
-                                .to_str()
-                                .unwrap()
-                                .to_owned(),
-                        )
-                    }))
-                    .width(97),
-                if let Some(selected_instance) = selected_instance {
-                    if processes.contains_key(selected_instance) {
-                        button_with_icon(icon_manager::play(), "Kill").on_press(Message::LaunchKill)
+            widget::column!(
+                widget::row![
+                    button_with_icon(icon_manager::folder(), "Files")
+                        .on_press_maybe((selected_instance.is_some()).then(|| {
+                            let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                            Message::OpenDir(
+                                launcher_dir
+                                    .join("instances")
+                                    .join(selected_instance.as_ref().unwrap())
+                                    .join(".minecraft")
+                                    .to_str()
+                                    .unwrap()
+                                    .to_owned(),
+                            )
+                        }))
+                        .width(97),
+                    if let Some(selected_instance) = selected_instance {
+                        if processes.contains_key(selected_instance) {
+                            button_with_icon(icon_manager::play(), "Kill")
+                                .on_press(Message::LaunchKill)
+                        } else {
+                            button_with_icon(icon_manager::play(), "Play")
+                                .on_press(Message::LaunchStart)
+                        }
                     } else {
                         button_with_icon(icon_manager::play(), "Play")
-                            .on_press(Message::LaunchStart)
                     }
-                } else {
-                    button_with_icon(icon_manager::play(), "Play")
-                }
-                .width(98),
-            ]
+                    .width(98),
+                ]
+                .spacing(5),
+                widget::row!(
+                    button_with_icon(icon_manager::settings(), "Settings & About...").width(200),
+                )
+            )
             .spacing(5),
             footer_text
         ]

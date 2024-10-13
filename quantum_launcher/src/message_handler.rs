@@ -150,7 +150,7 @@ impl Launcher {
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
-                ql_instances::create_instance(
+                ql_instances::create_instance_wrapped(
                     menu.instance_name.to_owned(),
                     menu.selected_version.to_owned().unwrap(),
                     Some(sender),

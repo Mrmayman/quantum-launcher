@@ -3,10 +3,13 @@ use std::path::Path;
 use ql_instances::{error::LauncherError, file_utils, io_err};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct LauncherConfig {
     pub username: String,
+    pub theme: Option<String>,
+    pub style: Option<String>,
     /// Filler implementation, to not break older versions of the launcher.
+    #[deprecated]
     pub java_installs: Vec<String>,
 }
 
@@ -41,10 +44,7 @@ impl LauncherConfig {
     }
 
     fn create(path: &Path) -> Result<Self, LauncherError> {
-        let config = LauncherConfig {
-            username: Default::default(),
-            java_installs: Default::default(),
-        };
+        let config = LauncherConfig::default();
 
         std::fs::write(path, serde_json::to_string(&config)?.as_bytes()).map_err(io_err!(path))?;
 

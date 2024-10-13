@@ -22,7 +22,10 @@ use ql_mod_manager::{
 };
 use tokio::process::Child;
 
-use crate::config::LauncherConfig;
+use crate::{
+    config::LauncherConfig,
+    stylesheet::styles::{LauncherStyle, LauncherTheme},
+};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -182,6 +185,8 @@ pub struct Launcher {
     pub images: HashMap<String, Handle>,
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
+    pub theme: LauncherTheme,
+    pub style: LauncherStyle,
 }
 
 pub struct GameProcess {
@@ -193,6 +198,8 @@ impl Launcher {
     pub fn new(message: Option<String>) -> LauncherResult<Self> {
         let subdirectories = reload_instances()?;
 
+        let (config, theme, style) = load_config_and_theme()?;
+
         Ok(Self {
             instances: Some(subdirectories),
             state: State::Launch(if let Some(message) = message {
@@ -201,28 +208,37 @@ impl Launcher {
                 MenuLaunch::default()
             }),
             processes: HashMap::new(),
-            config: Some(LauncherConfig::load()?),
+            config,
             logs: HashMap::new(),
             selected_instance: None,
             images: Default::default(),
             images_downloads_in_progress: Default::default(),
             images_to_load: Default::default(),
+            theme,
+            style,
         })
     }
 
     pub fn with_error(error: String) -> Self {
+        let (config, theme, style) = load_config_and_theme().unwrap_or((
+            None,
+            LauncherTheme::default(),
+            LauncherStyle::default(),
+        ));
         Self {
             state: State::Error {
                 error: format!("Error: {error}"),
             },
             instances: None,
-            config: LauncherConfig::load().ok(),
+            config,
             processes: HashMap::new(),
             logs: HashMap::new(),
             selected_instance: None,
             images: Default::default(),
             images_downloads_in_progress: Default::default(),
             images_to_load: Default::default(),
+            theme,
+            style,
         }
     }
 
@@ -254,6 +270,22 @@ impl Launcher {
             Err(err) => self.set_error(err.to_string()),
         }
     }
+}
+
+fn load_config_and_theme(
+) -> Result<(Option<LauncherConfig>, LauncherTheme, LauncherStyle), LauncherError> {
+    let config = LauncherConfig::load()?;
+    let theme = match config.theme.as_deref() {
+        Some("Dark") => LauncherTheme::Dark,
+        Some("Light") => LauncherTheme::Light,
+        _ => LauncherTheme::Dark,
+    };
+    let style = match config.style.as_deref() {
+        Some("Brown") => LauncherStyle::Brown,
+        Some("Purple") => LauncherStyle::Purple,
+        _ => LauncherStyle::Purple,
+    };
+    Ok((Some(config), theme, style))
 }
 
 pub fn reload_instances() -> Result<Vec<String>, LauncherError> {

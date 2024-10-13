@@ -1,21 +1,33 @@
 use super::styles::{BORDER_RADIUS, BORDER_WIDTH};
 
 pub struct Pallete {
-    bg: [u8; 3],
+    black: [u8; 3],
     dark: [u8; 3],
     second_dark: [u8; 3],
     mid: [u8; 3],
     second_light: [u8; 3],
     light: [u8; 3],
+    white: [u8; 3],
 }
 
 pub const DARK_PURPLE: Pallete = Pallete {
-    bg: [0x0, 0x0, 0x0],
+    black: [0x0, 0x0, 0x0],
     dark: [0x2f, 0x32, 0x3a],
     second_dark: [0x77, 0x56, 0x7a],
     mid: [0xc4, 0x7a, 0xc0],
     light: [0xe3, 0x9e, 0xc1],
     second_light: [0xde, 0xba, 0xc0],
+    white: [0xff, 0xff, 0xff],
+};
+
+pub const LIGHT_BROWN: Pallete = Pallete {
+    black: [0x00, 0x00, 0x00],
+    dark: [0x3d, 0x21, 0x1a],
+    second_dark: [0x6f, 0x4d, 0x38],
+    mid: [0xa0, 0x78, 0x56],
+    second_light: [0xcb, 0xb7, 0x99],
+    light: [0xf5, 0xf5, 0xdc],
+    white: [0xff, 0xff, 0xff],
 };
 
 #[allow(dead_code)]
@@ -30,6 +42,20 @@ pub enum Color {
     White,
 }
 
+impl Color {
+    pub fn invert(&self) -> Color {
+        match self {
+            Color::Black => Color::White,
+            Color::Dark => Color::Light,
+            Color::SecondDark => Color::SecondLight,
+            Color::Light => Color::Dark,
+            Color::SecondLight => Color::SecondDark,
+            Color::Mid => Color::Mid,
+            Color::White => Color::Black,
+        }
+    }
+}
+
 pub trait IntoIcedColor {
     fn into_color(self) -> iced::Color;
 }
@@ -40,23 +66,23 @@ impl IntoIcedColor for [u8; 3] {
 }
 
 impl Pallete {
-    pub fn get(self, color: Color) -> iced::Color {
+    pub fn get(&self, color: Color) -> iced::Color {
         match color {
             Color::Dark => self.dark.into_color(),
             Color::SecondDark => self.second_dark.into_color(),
             Color::Light => self.light.into_color(),
             Color::SecondLight => self.second_light.into_color(),
             Color::Mid => self.mid.into_color(),
-            Color::White => [255u8, 255u8, 255u8].into_color(),
-            Color::Black => self.bg.into_color(),
+            Color::White => self.white.into_color(),
+            Color::Black => self.black.into_color(),
         }
     }
 
-    pub fn get_bg(self, color: Color) -> iced::Background {
+    pub fn get_bg(&self, color: Color) -> iced::Background {
         iced::Background::Color(self.get(color))
     }
 
-    pub fn get_border(self, color: Color) -> iced::Border {
+    pub fn get_border(&self, color: Color) -> iced::Border {
         iced::Border {
             color: self.get(color),
             width: BORDER_WIDTH,
