@@ -8,7 +8,7 @@ use iced::{
 };
 use launcher_state::{
     reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
-    MenuLaunch, MenuLauncherUpdate, Message, State,
+    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -21,7 +21,7 @@ use ql_mod_manager::{
     instance_mod_installer,
     modrinth::{ModIndex, ProjectInfo},
 };
-use stylesheet::styles::LauncherTheme;
+use stylesheet::styles::{LauncherStyle, LauncherTheme};
 
 mod config;
 mod icon_manager;
@@ -375,7 +375,7 @@ impl Application for Launcher {
                     self.images.insert(name, Handle::from_memory(path));
                 }
                 Err(err) => {
-                    println!("[error] Could not download image: {err}")
+                    eprintln!("[error] Could not download image: {err}")
                 }
             },
             Message::InstallModsDownload(index) => {
@@ -440,6 +440,31 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
+            Message::LauncherSettingsThemePicked(theme) => {
+                info!("Setting theme {theme}");
+                if let Some(config) = self.config.as_mut() {
+                    config.theme = Some(theme.to_owned())
+                }
+                match theme.as_str() {
+                    "Light" => self.theme = LauncherTheme::Light,
+                    "Dark" => self.theme = LauncherTheme::Dark,
+                    _ => eprintln!("[error] Invalid theme {theme}"),
+                }
+            }
+            Message::LauncherSettingsOpen => {
+                self.state = State::LauncherSettings(MenuLauncherSettings {});
+            }
+            Message::LauncherSettingsStylePicked(style) => {
+                info!("Setting style {style}");
+                if let Some(config) = self.config.as_mut() {
+                    config.style = Some(style.clone())
+                }
+                match style.as_str() {
+                    "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,
+                    "Brown" => *self.style.lock().unwrap() = LauncherStyle::Brown,
+                    _ => eprintln!("[error] Invalid theme {style}"),
+                }
+            }
         }
         Command::none()
     }
@@ -465,7 +490,7 @@ impl Application for Launcher {
             State::DeleteInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Error { error } => widget::scrollable(
                 widget::column!(
-                    widget::text(format!("Error: {}", error)),
+                    widget::text(format!("Error: {error}")),
                     widget::button("Back").on_press(Message::LaunchScreenOpen(None)),
                     widget::button("Copy Error").on_press(Message::ErrorCopy),
                 )
@@ -478,15 +503,12 @@ impl Application for Launcher {
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
             State::ModsDownload(menu) => menu.view(&self.images, &self.images_to_load),
+            State::LauncherSettings(menu) => menu.view(self.config.as_ref()),
         }
     }
 
     fn theme(&self) -> Self::Theme {
-        Self::Theme::default()
-    }
-
-    fn style(&self) -> <Self::Theme as iced::application::StyleSheet>::Style {
-        <Self::Theme as iced::application::StyleSheet>::Style::default()
+        self.theme.clone()
     }
 
     fn scale_factor(&self) -> f64 {
@@ -507,6 +529,9 @@ impl Application for Launcher {
 //         .await
 //         .map(|n| n.path().to_owned())
 // }
+
+const WINDOW_HEIGHT: f32 = 450.0;
+const WINDOW_WIDTH: f32 = 650.0;
 
 fn main() {
     let args = std::env::args();
@@ -551,9 +576,6 @@ fn main() {
     if info.headless {
         return;
     }
-
-    const WINDOW_HEIGHT: f32 = 450.0;
-    const WINDOW_WIDTH: f32 = 650.0;
 
     Launcher::run(Settings {
         window: iced::window::Settings {
@@ -601,7 +623,7 @@ fn process_args(mut args: std::env::Args, info: &mut ArgumentInfo) -> Option<()>
                 info!(
                     "You can run {} to see the possible command line arguments",
                     format!("{program} --help").yellow()
-                )
+                );
             }
             return None;
         };
@@ -618,13 +640,13 @@ fn process_args(mut args: std::env::Args, info: &mut ArgumentInfo) -> Option<()>
 "#,
                     format!("{program} [FLAGS]").yellow(),
                     format!("{program} --command help").yellow()
-                )
+                );
             }
             "--version" => {
                 println!(
                     "{}",
                     format!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman").bold()
-                )
+                );
             }
             "--command" => {
                 info.headless = true;
@@ -635,7 +657,7 @@ fn process_args(mut args: std::env::Args, info: &mut ArgumentInfo) -> Option<()>
                     "{} Unknown flag! Type {} to see all the command-line flags.",
                     "[error]".red(),
                     format!("{program} --help").yellow()
-                )
+                );
             }
         }
         first_argument = false;

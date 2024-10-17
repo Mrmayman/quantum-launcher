@@ -61,7 +61,6 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModDown
 
     download_project(
         id,
-        &instance_name,
         &version_json.id,
         None,
         &mut index,
@@ -81,7 +80,6 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModDown
 #[async_recursion]
 async fn download_project(
     id: &str,
-    instance_name: &str,
     version: &String,
     dependent: Option<&str>,
     index: &mut ModIndex,
@@ -116,14 +114,13 @@ async fn download_project(
     let download_version = download_info
         .iter()
         .filter(|v| v.game_versions.contains(version))
-        .filter(|v| {
+        .find(|v| {
             if let Some(loader) = loader {
                 v.loaders.contains(loader)
             } else {
                 true
             }
         })
-        .next()
         .ok_or(ModDownloadError::NoCompatibleVersionFound)?;
 
     info!("Getting dependencies");
@@ -132,29 +129,19 @@ async fn download_project(
     let mut dependency_list = HashSet::new();
 
     for file in dependencies.projects.iter() {
-        if !file.game_versions.contains(&version) {
+        if !file.game_versions.contains(version) {
             eprintln!("[warn] Dependency {} does not support version {version}\n- Supported versions: {:?}", file.title, file.game_versions);
             continue;
         }
 
         if let Some(loader) = loader {
-            if !file.loaders.contains(&loader) {
+            if !file.loaders.contains(loader) {
                 eprintln!("[warn] Dependency {} does not support version {version}\n- Supported versions: {:?}", file.title, file.game_versions);
                 continue;
             }
         }
 
-        download_project(
-            &file.id,
-            instance_name,
-            version,
-            Some(id),
-            index,
-            client,
-            &mods_dir,
-            loader,
-        )
-        .await?;
+        download_project(&file.id, version, Some(id), index, client, mods_dir, loader).await?;
         dependency_list.insert(file.id.to_owned());
     }
 
@@ -165,14 +152,14 @@ async fn download_project(
     } else {
         if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
             let file_bytes =
-                file_utils::download_file_to_bytes(&client, &primary_file.url, true).await?;
+                file_utils::download_file_to_bytes(client, &primary_file.url, true).await?;
             let file_path = mods_dir.join(&primary_file.filename);
             std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
         } else {
             info!("Didn't find primary file, checking secondary files...");
             for file in download_version.files.iter() {
                 let file_bytes =
-                    file_utils::download_file_to_bytes(&client, &file.url, true).await?;
+                    file_utils::download_file_to_bytes(client, &file.url, true).await?;
                 let file_path = mods_dir.join(&file.filename);
                 std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
             }
@@ -266,7 +253,7 @@ fn delete_item(
         }
 
         for dependency in mod_info.dependencies.iter() {
-            delete_item(&dependency, Some(id), index, mods_dir)?;
+            delete_item(dependency, Some(id), index, mods_dir)?;
         }
     }
     index.mods.remove(id);

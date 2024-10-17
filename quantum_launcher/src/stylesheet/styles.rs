@@ -1,19 +1,32 @@
-use iced::widget;
+use std::sync::{Arc, Mutex};
 
-use super::color::{Color, DARK_PURPLE, LIGHT_BROWN};
+use iced::widget;
+use lazy_static::lazy_static;
+
+use super::color::{Color, BROWN, PURPLE};
 
 pub const BORDER_WIDTH: f32 = 2.0;
 pub const BORDER_RADIUS: f32 = 8.0;
 
+lazy_static! {
+    pub static ref STYLE: Arc<Mutex<LauncherStyle>> = Arc::new(Mutex::new(LauncherStyle::Purple));
+}
+
 #[allow(dead_code)]
-#[derive(Clone, Default)]
+#[derive(Clone, Debug)]
 pub enum LauncherStyle {
     Brown,
-    #[default]
+    // #[default]
     Purple,
 }
 
-#[derive(Clone, Default)]
+impl Default for LauncherStyle {
+    fn default() -> Self {
+        STYLE.lock().unwrap().to_owned()
+    }
+}
+
+#[derive(Clone, Default, Debug)]
 pub enum LauncherTheme {
     #[default]
     Dark,
@@ -23,8 +36,8 @@ pub enum LauncherTheme {
 impl LauncherTheme {
     fn get(&self, style: &LauncherStyle, color: Color, invert: bool) -> iced::Color {
         let palette = match style {
-            LauncherStyle::Brown => &LIGHT_BROWN,
-            LauncherStyle::Purple => &DARK_PURPLE,
+            LauncherStyle::Brown => &BROWN,
+            LauncherStyle::Purple => &PURPLE,
         };
         let color = if invert {
             match self {
@@ -42,8 +55,8 @@ impl LauncherTheme {
 
     fn get_bg(&self, style: &LauncherStyle, color: Color, invert: bool) -> iced::Background {
         let palette = match style {
-            LauncherStyle::Brown => &LIGHT_BROWN,
-            LauncherStyle::Purple => &DARK_PURPLE,
+            LauncherStyle::Brown => &BROWN,
+            LauncherStyle::Purple => &PURPLE,
         };
         let color = if invert {
             match self {
@@ -61,8 +74,8 @@ impl LauncherTheme {
 
     fn get_border(&self, style: &LauncherStyle, color: Color, invert: bool) -> iced::Border {
         let palette = match style {
-            LauncherStyle::Brown => &LIGHT_BROWN,
-            LauncherStyle::Purple => &DARK_PURPLE,
+            LauncherStyle::Brown => &BROWN,
+            LauncherStyle::Purple => &PURPLE,
         };
         let color = if invert {
             match self {
@@ -85,7 +98,7 @@ impl widget::container::StyleSheet for LauncherTheme {
     fn appearance(&self, style: &Self::Style) -> widget::container::Appearance {
         widget::container::Appearance {
             text_color: Some(self.get(style, Color::Light, true)),
-            background: Some(iced::Background::Color(self.get(style, Color::Dark, true))),
+            background: Some(self.get_bg(style, Color::Dark, true)),
             border: self.get_border(style, Color::SecondDark, true),
             ..Default::default()
         }
@@ -97,11 +110,7 @@ impl widget::button::StyleSheet for LauncherTheme {
 
     fn active(&self, style: &Self::Style) -> widget::button::Appearance {
         widget::button::Appearance {
-            background: Some(iced::Background::Color(self.get(
-                style,
-                Color::SecondDark,
-                true,
-            ))),
+            background: Some(self.get_bg(style, Color::SecondDark, true)),
             text_color: self.get(style, Color::White, true),
             border: self.get_border(style, Color::SecondDark, true),
             ..Default::default()
@@ -203,8 +212,8 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                 border: {
                     let color = Color::SecondDark;
                     let palette = match style {
-                        LauncherStyle::Brown => &LIGHT_BROWN,
-                        LauncherStyle::Purple => &DARK_PURPLE,
+                        LauncherStyle::Brown => &BROWN,
+                        LauncherStyle::Purple => &PURPLE,
                     };
                     let color = match self {
                         LauncherTheme::Dark => color,

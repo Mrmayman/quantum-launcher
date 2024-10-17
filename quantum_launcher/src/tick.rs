@@ -184,6 +184,11 @@ impl Launcher {
                     }
                 }
             }
+            State::LauncherSettings(_menu) => {
+                if let Some(config) = self.config.clone() {
+                    return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
+                }
+            }
         }
 
         let mut commands = Vec::new();

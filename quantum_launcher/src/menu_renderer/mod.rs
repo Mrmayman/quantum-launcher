@@ -9,7 +9,7 @@ use crate::{
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
         MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
-        MenuLauncherUpdate, Message,
+        MenuLauncherSettings, MenuLauncherUpdate, Message,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -132,7 +132,9 @@ impl MenuLaunch {
                 ]
                 .spacing(5),
                 widget::row!(
-                    button_with_icon(icon_manager::settings(), "Settings & About...").width(200),
+                    button_with_icon(icon_manager::settings(), "Settings & About...")
+                        .width(200)
+                        .on_press(Message::LauncherSettingsOpen),
                 )
             )
             .spacing(5),
@@ -496,6 +498,47 @@ impl MenuInstallJava {
         )
         .padding(10)
         .spacing(10)
+        .into()
+    }
+}
+
+impl MenuLauncherSettings {
+    pub fn view(&self, config: Option<&LauncherConfig>) -> Element {
+        let themes = ["Dark".to_owned(), "Light".to_owned()];
+        let styles = ["Brown".to_owned(), "Purple".to_owned()];
+
+        let config_view = if let Some(config) = config {
+            widget::column!(
+                widget::container(widget::column!(
+                    widget::text("Select theme:"),
+                    widget::pick_list(
+                        themes,
+                        config.theme.to_owned(),
+                        Message::LauncherSettingsThemePicked
+                    ),
+                )),
+                widget::container(widget::column!(
+                    widget::text("Select style:"),
+                    widget::pick_list(
+                        styles,
+                        config.style.to_owned(),
+                        Message::LauncherSettingsStylePicked
+                    )
+                )),
+            )
+        } else {
+            widget::column!()
+        };
+
+        widget::scrollable(
+            widget::column!(
+                button_with_icon(icon_manager::back(), "Back")
+                    .on_press(Message::LaunchScreenOpen(None)),
+                config_view
+            )
+            .padding(10)
+            .spacing(10),
+        )
         .into()
     }
 }

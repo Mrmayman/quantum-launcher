@@ -24,7 +24,7 @@ use tokio::process::Child;
 
 use crate::{
     config::LauncherConfig,
-    stylesheet::styles::{LauncherStyle, LauncherTheme},
+    stylesheet::styles::{LauncherStyle, LauncherTheme, STYLE},
 };
 
 #[derive(Debug, Clone)]
@@ -79,6 +79,9 @@ pub enum Message {
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
     InstallModsDownload(usize),
     InstallModsDownloadComplete(Result<(), String>),
+    LauncherSettingsThemePicked(String),
+    LauncherSettingsStylePicked(String),
+    LauncherSettingsOpen,
 }
 
 #[derive(Default)]
@@ -161,6 +164,8 @@ pub struct MenuModsDownload {
     pub is_loading_search: bool,
 }
 
+pub struct MenuLauncherSettings {}
+
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
@@ -173,6 +178,7 @@ pub enum State {
     InstallJava(MenuInstallJava),
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(MenuModsDownload),
+    LauncherSettings(MenuLauncherSettings),
 }
 
 pub struct Launcher {
@@ -186,7 +192,7 @@ pub struct Launcher {
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
     pub theme: LauncherTheme,
-    pub style: LauncherStyle,
+    pub style: Arc<Mutex<LauncherStyle>>,
 }
 
 pub struct GameProcess {
@@ -199,6 +205,7 @@ impl Launcher {
         let subdirectories = reload_instances()?;
 
         let (config, theme, style) = load_config_and_theme()?;
+        *STYLE.lock().unwrap() = style;
 
         Ok(Self {
             instances: Some(subdirectories),
@@ -215,7 +222,7 @@ impl Launcher {
             images_downloads_in_progress: Default::default(),
             images_to_load: Default::default(),
             theme,
-            style,
+            style: STYLE.clone(),
         })
     }
 
@@ -225,6 +232,8 @@ impl Launcher {
             LauncherTheme::default(),
             LauncherStyle::default(),
         ));
+        *STYLE.lock().unwrap() = style;
+
         Self {
             state: State::Error {
                 error: format!("Error: {error}"),
@@ -238,7 +247,7 @@ impl Launcher {
             images_downloads_in_progress: Default::default(),
             images_to_load: Default::default(),
             theme,
-            style,
+            style: STYLE.clone(),
         }
     }
 

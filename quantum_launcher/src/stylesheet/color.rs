@@ -10,7 +10,7 @@ pub struct Pallete {
     white: [u8; 3],
 }
 
-pub const DARK_PURPLE: Pallete = Pallete {
+pub const PURPLE: Pallete = Pallete {
     black: [0x0, 0x0, 0x0],
     dark: [0x2f, 0x32, 0x3a],
     second_dark: [0x77, 0x56, 0x7a],
@@ -20,7 +20,7 @@ pub const DARK_PURPLE: Pallete = Pallete {
     white: [0xff, 0xff, 0xff],
 };
 
-pub const LIGHT_BROWN: Pallete = Pallete {
+pub const BROWN: Pallete = Pallete {
     black: [0x00, 0x00, 0x00],
     dark: [0x3d, 0x21, 0x1a],
     second_dark: [0x6f, 0x4d, 0x38],

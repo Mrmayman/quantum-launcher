@@ -31,16 +31,18 @@ impl LauncherConfig {
         Ok(config)
     }
 
-    pub fn save(&self) -> Result<(), LauncherError> {
+    pub async fn save(&self) -> Result<(), LauncherError> {
         let config_path = file_utils::get_launcher_dir()?.join("config.json");
         let config = serde_json::to_string(&self)?;
 
-        std::fs::write(&config_path, config.as_bytes()).map_err(io_err!(config_path))?;
+        tokio::fs::write(&config_path, config.as_bytes())
+            .await
+            .map_err(io_err!(config_path))?;
         Ok(())
     }
 
     pub async fn save_wrapped(self) -> Result<(), String> {
-        self.save().map_err(|err| err.to_string())
+        self.save().await.map_err(|err| err.to_string())
     }
 
     fn create(path: &Path) -> Result<Self, LauncherError> {
