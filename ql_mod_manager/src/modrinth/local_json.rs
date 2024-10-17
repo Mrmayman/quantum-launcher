@@ -68,7 +68,7 @@ impl ModIndex {
 
     fn with_name(instance_name: &str) -> Self {
         Self {
-            mods: Default::default(),
+            mods: HashMap::new(),
             instance_name: instance_name.to_owned(),
         }
     }

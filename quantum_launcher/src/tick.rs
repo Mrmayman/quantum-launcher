@@ -24,16 +24,15 @@ impl Launcher {
                             message: "Starting...".to_owned(),
                         });
                         return Command::none();
-                    } else {
-                        *recv = Some(receiver);
                     }
+                    *recv = Some(receiver);
                 }
 
                 let mut killed_processes = Vec::new();
-                for (name, process) in self.processes.iter() {
+                for (name, process) in &self.processes {
                     if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
                         // Game process has exited.
-                        killed_processes.push(name.to_owned())
+                        killed_processes.push(name.to_owned());
                     } else {
                         Launcher::read_game_logs(&mut self.logs, process, name);
                     }
@@ -50,7 +49,7 @@ impl Launcher {
                 if let Err(err) =
                     Launcher::save_config(self.selected_instance.as_ref().unwrap(), &menu.config)
                 {
-                    self.set_error(err.to_string())
+                    self.set_error(err.to_string());
                 }
             }
             State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
@@ -126,20 +125,22 @@ impl Launcher {
                 progress_message,
                 ..
             }) => {
-                if let Some(Ok(message)) = receiver.as_ref().map(|n| n.try_recv()) {
+                if let Some(Ok(message)) =
+                    receiver.as_ref().map(std::sync::mpsc::Receiver::try_recv)
+                {
                     match message {
                         UpdateProgress::P1Start => {}
                         UpdateProgress::P2Backup => {
                             *progress = 1.0;
-                            *progress_message = Some("Backing up current version".to_owned())
+                            *progress_message = Some("Backing up current version".to_owned());
                         }
                         UpdateProgress::P3Download => {
                             *progress = 2.0;
-                            *progress_message = Some("Downloading new version".to_owned())
+                            *progress_message = Some("Downloading new version".to_owned());
                         }
                         UpdateProgress::P4Extract => {
                             *progress = 3.0;
-                            *progress_message = Some("Extracting new version".to_owned())
+                            *progress_message = Some("Extracting new version".to_owned());
                         }
                     }
                 }
@@ -155,7 +156,7 @@ impl Launcher {
                     if let Ok(list) = reload_instances() {
                         self.instances = Some(list);
                     } else {
-                        eprintln!("[error] Failed to reload instances list.")
+                        eprintln!("[error] Failed to reload instances list.");
                     }
                 }
             }
@@ -167,9 +168,9 @@ impl Launcher {
                             && !result.icon_url.is_empty()
                         {
                             self.images_downloads_in_progress
-                                .insert(result.title.to_owned());
+                                .insert(result.title.clone());
                             commands.push(Command::perform(
-                                Search::download_image(result.icon_url.to_owned(), true),
+                                Search::download_image(result.icon_url.clone(), true),
                                 Message::InstallModsImageDownloaded,
                             ));
                         }
@@ -206,10 +207,10 @@ impl Launcher {
             images_to_load.clear();
         }
 
-        if !commands.is_empty() {
-            Command::batch(commands)
-        } else {
+        if commands.is_empty() {
             Command::none()
+        } else {
+            Command::batch(commands)
         }
     }
 
@@ -262,7 +263,7 @@ fn get_date(timestamp: &str) -> Option<String> {
     let time: i64 = timestamp.parse().ok()?;
     let seconds = time / 1000;
     let milliseconds = time % 1000;
-    let nanoseconds = milliseconds * 1000000;
+    let nanoseconds = milliseconds * 1_000_000;
     let datetime = chrono::DateTime::from_timestamp(seconds, nanoseconds as u32)?;
     let datetime = datetime.with_timezone(&chrono::Local);
     Some(datetime.format("%H:%M:%S").to_string())
@@ -275,7 +276,7 @@ impl MenuInstallJava {
             match message {
                 JavaInstallProgress::P1Started => {
                     self.num = 0.0;
-                    self.message = "Starting up (2/2)".to_owned();
+                    "Starting up (2/2)".clone_into(&mut self.message);
                 }
                 JavaInstallProgress::P2 {
                     progress,

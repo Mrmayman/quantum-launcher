@@ -218,15 +218,15 @@ impl Launcher {
             config,
             logs: HashMap::new(),
             selected_instance: None,
-            images: Default::default(),
-            images_downloads_in_progress: Default::default(),
-            images_to_load: Default::default(),
+            images: HashMap::new(),
+            images_downloads_in_progress: HashSet::new(),
+            images_to_load: Mutex::new(HashSet::new()),
             theme,
             style: STYLE.clone(),
         })
     }
 
-    pub fn with_error(error: String) -> Self {
+    pub fn with_error(error: &str) -> Self {
         let (config, theme, style) = load_config_and_theme().unwrap_or((
             None,
             LauncherTheme::default(),
@@ -243,9 +243,9 @@ impl Launcher {
             processes: HashMap::new(),
             logs: HashMap::new(),
             selected_instance: None,
-            images: Default::default(),
-            images_downloads_in_progress: Default::default(),
-            images_to_load: Default::default(),
+            images: HashMap::new(),
+            images_downloads_in_progress: HashSet::new(),
+            images_to_load: Mutex::new(HashSet::new()),
             theme,
             style: STYLE.clone(),
         }
@@ -260,7 +260,7 @@ impl Launcher {
         if let Ok(list) = reload_instances() {
             self.instances = Some(list);
         } else {
-            eprintln!("[error] Failed to reload instances list.")
+            eprintln!("[error] Failed to reload instances list.");
         }
     }
 
@@ -269,13 +269,13 @@ impl Launcher {
         if let Ok(list) = reload_instances() {
             self.instances = Some(list);
         } else {
-            eprintln!("[error] Failed to reload instances list.")
+            eprintln!("[error] Failed to reload instances list.");
         }
     }
 
     pub fn edit_instance_wrapped(&mut self) {
         match self.edit_instance(self.selected_instance.clone().unwrap()) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(err) => self.set_error(err.to_string()),
         }
     }
@@ -287,12 +287,18 @@ fn load_config_and_theme(
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherTheme::Dark,
         Some("Light") => LauncherTheme::Light,
-        _ => LauncherTheme::Dark,
+        _ => {
+            eprintln!("[error] Unknown style: {:?}", config.theme);
+            LauncherTheme::Dark
+        }
     };
     let style = match config.style.as_deref() {
         Some("Brown") => LauncherStyle::Brown,
         Some("Purple") => LauncherStyle::Purple,
-        _ => LauncherStyle::Purple,
+        _ => {
+            eprintln!("[error] Unknown style: {:?}", config.style);
+            LauncherStyle::Purple
+        }
     };
     Ok((Some(config), theme, style))
 }

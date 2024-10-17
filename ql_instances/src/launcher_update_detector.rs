@@ -52,7 +52,7 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
 
     let latest = json.first().ok_or(UpdateError::NoReleases)?;
 
-    let mut version = latest.tag_name.to_owned();
+    let mut version = latest.tag_name.clone();
     // v0.2 -> 0.2
     if version.starts_with('v') {
         version = version[1..version.len()].to_owned()
@@ -93,7 +93,7 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
                 .ok_or(UpdateError::NoMatchingDownloadFound)?;
 
             Ok(UpdateCheckInfo::NewVersion {
-                url: matching_release.browser_download_url.to_owned(),
+                url: matching_release.browser_download_url.clone(),
             })
         }
     }

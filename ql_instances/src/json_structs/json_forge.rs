@@ -26,7 +26,7 @@ impl JsonForgeVersions {
         self.promos
             .iter()
             .find(|(version_mc, _)| *version_mc == &format!("{minecraft_version}-latest"))
-            .map(|n| n.1.to_owned())
+            .map(|n| n.1.clone())
     }
 }
 

@@ -86,7 +86,7 @@ impl GameDownloader {
                         &libraries_dir,
                         library.extract.as_ref(),
                     )
-                    .await?
+                    .await?;
                 }
             }
         }
@@ -110,7 +110,7 @@ impl GameDownloader {
                     .map_err(DownloadError::NativesExtractError)?;
 
                 let url = &artifact.url[..artifact.url.len() - 4];
-                let url = format!("{}-{}.jar", url, natives_name);
+                let url = format!("{url}-{natives_name}.jar");
                 bar.println("- Extracting natives: Downloading native jar");
                 let native_jar = file_utils::download_file_to_bytes(client, &url, false).await?;
 
@@ -170,7 +170,7 @@ impl GameDownloader {
         }
 
         if let Some(extract) = extract {
-            for exclusion in extract.exclude.iter() {
+            for exclusion in &extract.exclude {
                 let exclusion_path = natives_dir.join(exclusion);
 
                 if !exclusion_path.starts_with(&natives_dir) {
@@ -197,7 +197,7 @@ impl GameDownloader {
         if let Some(ref rules) = library.rules {
             allowed = false;
 
-            for rule in rules.iter() {
+            for rule in rules {
                 if let Some(ref os) = rule.os {
                     if os.name == OS_NAME {
                         allowed = rule.action == "allow";

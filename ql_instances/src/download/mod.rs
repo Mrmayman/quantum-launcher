@@ -51,7 +51,7 @@ impl GameDownloader {
     ///
     /// For information on what order to download things in, check the `GameDownloader` struct documentation.
     ///
-    /// `sender: Option<Sender<Progress>>` is an optional mspc::Sender
+    /// `sender: Option<Sender<Progress>>` is an optional `mspc::Sender`
     /// that can be used if you are running this asynchronously or
     /// on a separate thread, and want to communicate progress with main thread.
     ///
@@ -70,8 +70,8 @@ impl GameDownloader {
 
         Ok(Self {
             instance_dir,
-            network_client,
             version_json,
+            network_client,
             sender,
         })
     }
@@ -192,7 +192,7 @@ impl GameDownloader {
 
             let obj_data = file_utils::download_file_to_bytes(
                 &self.network_client,
-                &format!("{}/{}/{}", OBJECTS_URL, obj_id, obj_hash),
+                &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
                 false,
             )
             .await?;
@@ -265,9 +265,8 @@ impl GameDownloader {
         }
         let manifest = Manifest::download().await?;
 
-        let version = match manifest.versions.iter().find(|n| n.id == version) {
-            Some(n) => n,
-            None => return Err(DownloadError::VersionNotFoundInManifest(version.to_owned())),
+        let Some(version) = manifest.versions.iter().find(|n| n.id == version) else {
+            return Err(DownloadError::VersionNotFoundInManifest(version.to_owned()));
         };
 
         info!("Started downloading version details JSON.");

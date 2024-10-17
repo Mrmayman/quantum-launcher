@@ -22,6 +22,7 @@ use std::{
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
+const ENABLE_LOGGING: bool = true;
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
@@ -117,7 +118,7 @@ pub async fn launch(
         &minecraft_dir,
     )?;
 
-    for argument in java_arguments.iter_mut() {
+    for argument in &mut java_arguments {
         replace_var(
             argument,
             "classpath_separator",
@@ -138,7 +139,7 @@ pub async fn launch(
     setup_classpath_and_mainclass(
         &mut java_arguments,
         &version_json,
-        instance_dir,
+        &instance_dir,
         fabric_json,
         forge_json,
     )?;
@@ -158,8 +159,6 @@ pub async fn launch(
 
     info!("Java args: {java_arguments:?}\n");
     info!("Game args: {game_arguments:?}\n");
-
-    const ENABLE_LOGGING: bool = true;
 
     let mut command = command.args(java_arguments.iter().chain(game_arguments.iter()));
     command = if ENABLE_LOGGING {
@@ -209,15 +208,15 @@ fn setup_forge(
     if let Some(json) = &json {
         if let Some(arguments) = &json.arguments {
             if let Some(jvm) = &arguments.jvm {
-                jvm.iter().for_each(|n| {
-                    java_arguments.push(n.clone());
-                });
+                for arg in jvm {
+                    java_arguments.push(arg.clone());
+                }
             }
             arguments.game.iter().for_each(|n| {
                 game_arguments.push(n.clone());
             });
         } else if let Some(arguments) = &json.minecraftArguments {
-            *game_arguments = arguments.split(' ').map(|n| n.to_owned()).collect();
+            *game_arguments = arguments.split(' ').map(str::to_owned).collect();
             fill_game_arguments(
                 game_arguments,
                 username,
@@ -233,7 +232,7 @@ fn setup_forge(
 fn setup_classpath_and_mainclass(
     java_arguments: &mut Vec<String>,
     version_json: &VersionDetails,
-    instance_dir: PathBuf,
+    instance_dir: &Path,
     fabric_json: Option<FabricJSON>,
     forge_json: Option<JsonForgeDetails>,
 ) -> Result<(), LauncherError> {
@@ -264,7 +263,7 @@ fn setup_logging(
         let logging_path = logging_path
             .to_str()
             .ok_or(LauncherError::PathBufToString(logging_path.clone()))?;
-        java_arguments.push(format!("-Dlog4j.configurationFile={}", logging_path))
+        java_arguments.push(format!("-Dlog4j.configurationFile={logging_path}"));
     }
     Ok(())
 }
@@ -290,11 +289,11 @@ fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> 
 
 fn get_class_path(
     version_json: &VersionDetails,
-    instance_dir: PathBuf,
+    instance_dir: &Path,
     fabric_json: Option<&FabricJSON>,
     forge_json: Option<&JsonForgeDetails>,
 ) -> LauncherResult<String> {
-    let mut class_path: String = "".to_owned();
+    let mut class_path = String::new();
 
     if forge_json.is_some() {
         let classpath_path = instance_dir.join("forge/classpath.txt");
@@ -313,25 +312,24 @@ fn get_class_path(
         .map(|artifact| {
             let library_path = instance_dir.join("libraries").join(&artifact.path);
             if library_path.exists() {
-                let library_path = match library_path.to_str() {
-                    Some(n) => n,
-                    None => return Err(LauncherError::PathBufToString(library_path)),
+                let Some(library_path) = library_path.to_str() else {
+                    return Err(LauncherError::PathBufToString(library_path));
                 };
                 class_path.push_str(library_path);
                 class_path.push(CLASSPATH_SEPARATOR);
             }
             Ok(())
         })
-        .find(|n| n.is_err())
+        .find(std::result::Result::is_err)
         .unwrap_or(Ok(()))?;
 
     if let Some(fabric_json) = fabric_json {
-        for library in fabric_json.libraries.iter() {
+        for library in &fabric_json.libraries {
             let library_path = instance_dir.join("libraries").join(library.get_path());
             class_path.push_str(
                 library_path
                     .to_str()
-                    .ok_or(LauncherError::PathBufToString(library_path.to_owned()))?,
+                    .ok_or(LauncherError::PathBufToString(library_path.clone()))?,
             );
             class_path.push(CLASSPATH_SEPARATOR);
         }
@@ -391,9 +389,8 @@ fn fill_game_arguments(
     for argument in game_arguments.iter_mut() {
         replace_var(argument, "auth_player_name", username);
         replace_var(argument, "version_name", &version_json.id);
-        let minecraft_dir_path = match minecraft_dir.to_str() {
-            Some(n) => n,
-            None => return Err(LauncherError::PathBufToString(minecraft_dir.to_owned())),
+        let Some(minecraft_dir_path) = minecraft_dir.to_str() else {
+            return Err(LauncherError::PathBufToString(minecraft_dir.to_owned()));
         };
         replace_var(argument, "game_directory", minecraft_dir_path);
 
@@ -412,9 +409,8 @@ fn fill_game_arguments(
             file_utils::get_launcher_dir()?.join("assets/null")
         };
 
-        let assets_path = match assets_path_fixed.to_str() {
-            Some(n) => n,
-            None => return Err(LauncherError::PathBufToString(assets_path_fixed)),
+        let Some(assets_path) = assets_path_fixed.to_str() else {
+            return Err(LauncherError::PathBufToString(assets_path_fixed));
         };
 
         replace_var(argument, "assets_root", assets_path);
@@ -492,10 +488,10 @@ fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     std::fs::create_dir_all(&launcher_dir).map_err(io_err!(launcher_dir))?;
 
-    let instances_dir = launcher_dir.join("instances");
-    std::fs::create_dir_all(&instances_dir).map_err(io_err!(instances_dir))?;
+    let instances_folder_dir = launcher_dir.join("instances");
+    std::fs::create_dir_all(&instances_folder_dir).map_err(io_err!(instances_folder_dir))?;
 
-    let instance_dir = instances_dir.join(instance_name);
+    let instance_dir = instances_folder_dir.join(instance_name);
     if !instance_dir.exists() {
         return Err(LauncherError::InstanceNotFound);
     }
@@ -503,7 +499,7 @@ fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
 }
 
 fn replace_var(string: &mut String, var: &str, value: &str) {
-    *string = string.replace(&format!("${{{}}}", var), value);
+    *string = string.replace(&format!("${{{var}}}"), value);
 }
 
 fn read_version_json(instance_dir: &Path) -> Result<VersionDetails, JsonFileError> {

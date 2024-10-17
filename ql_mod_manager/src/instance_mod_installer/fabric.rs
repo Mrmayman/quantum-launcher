@@ -60,17 +60,19 @@ pub async fn install(
     let instance_dir = launcher_dir.join("instances").join(instance_name);
 
     let lock_path = instance_dir.join("fabric.lock");
-    std::fs::write(
+    tokio::fs::write(
         &lock_path,
         "If you see this, fabric was not installed correctly.",
     )
+    .await
     .map_err(io_err!(lock_path))?;
 
     let libraries_dir = instance_dir.join("libraries");
 
     let version_json_path = instance_dir.join("details.json");
-    let version_json =
-        std::fs::read_to_string(&version_json_path).map_err(io_err!(version_json_path))?;
+    let version_json = tokio::fs::read_to_string(&version_json_path)
+        .await
+        .map_err(io_err!(version_json_path))?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
 
     let game_version = version_json.id;
@@ -78,7 +80,9 @@ pub async fn install(
     let json_path = instance_dir.join("fabric.json");
     let json_url = format!("v2/versions/loader/{game_version}/{loader_version}/profile/json");
     let json = download_file_to_string(&client, &json_url).await?;
-    std::fs::write(&json_path, &json).map_err(io_err!(json_path))?;
+    tokio::fs::write(&json_path, &json)
+        .await
+        .map_err(io_err!(json_path))?;
 
     let json: FabricJSON = serde_json::from_str(&json)?;
 
@@ -110,9 +114,13 @@ pub async fn install(
 
         let parent_dir = path
             .parent()
-            .ok_or(FabricInstallError::PathBufParentError(path.to_owned()))?;
-        std::fs::create_dir_all(parent_dir).map_err(io_err!(parent_dir))?;
-        std::fs::write(&path, &bytes).map_err(io_err!(path))?;
+            .ok_or(FabricInstallError::PathBufParentError(path.clone()))?;
+        tokio::fs::create_dir_all(parent_dir)
+            .await
+            .map_err(io_err!(parent_dir))?;
+        tokio::fs::write(&path, &bytes)
+            .await
+            .map_err(io_err!(path))?;
     }
 
     change_instance_type(&instance_dir, "Fabric".to_owned())?;
@@ -121,7 +129,9 @@ pub async fn install(
         progress.send(FabricInstallProgress::P3Done)?;
     }
 
-    std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
+    tokio::fs::remove_file(&lock_path)
+        .await
+        .map_err(io_err!(lock_path))?;
 
     info!("Finished installing fabric");
 
@@ -133,29 +143,37 @@ pub async fn uninstall(instance_name: &str) -> Result<(), FabricInstallError> {
     let instance_dir = launcher_dir.join("instances").join(instance_name);
 
     let lock_path = instance_dir.join("fabric_uninstall.lock");
-    std::fs::write(
+    tokio::fs::write(
         &lock_path,
         "If you see this, fabric was not uninstalled correctly.",
     )
+    .await
     .map_err(io_err!(lock_path))?;
 
     let fabric_json_path = instance_dir.join("fabric.json");
-    let fabric_json =
-        std::fs::read_to_string(&fabric_json_path).map_err(io_err!(fabric_json_path))?;
+    let fabric_json = tokio::fs::read_to_string(&fabric_json_path)
+        .await
+        .map_err(io_err!(fabric_json_path))?;
     let fabric_json: FabricJSON = serde_json::from_str(&fabric_json)?;
 
-    std::fs::remove_file(&fabric_json_path).map_err(io_err!(fabric_json_path))?;
+    tokio::fs::remove_file(&fabric_json_path)
+        .await
+        .map_err(io_err!(fabric_json_path))?;
 
     let libraries_dir = instance_dir.join("libraries");
 
     for library in &fabric_json.libraries {
         let library_path = libraries_dir.join(library.get_path());
-        std::fs::remove_file(&library_path).map_err(io_err!(library_path))?;
+        tokio::fs::remove_file(&library_path)
+            .await
+            .map_err(io_err!(library_path))?;
     }
 
     change_instance_type(&instance_dir, "Vanilla".to_owned())?;
 
-    std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
+    tokio::fs::remove_file(&lock_path)
+        .await
+        .map_err(io_err!(lock_path))?;
     Ok(())
 }
 

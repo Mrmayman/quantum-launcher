@@ -76,8 +76,7 @@ impl MenuLaunch {
 
         let footer_text = {
             let version_message = widget::text(format!(
-                "QuantumLauncher v{}\nA Minecraft Launcher by Mrmayman",
-                LAUNCHER_VERSION_NAME
+                "QuantumLauncher v{LAUNCHER_VERSION_NAME}\nA Minecraft Launcher by Mrmayman"
             ))
             .size(12);
 
@@ -143,7 +142,7 @@ impl MenuLaunch {
         .padding(10)
         .spacing(20);
 
-        let log = self.get_log_pane(logs, selected_instance);
+        let log = Self::get_log_pane(logs, selected_instance);
 
         widget::row!(widget::scrollable(left_elements), log)
             .padding(10)
@@ -152,7 +151,6 @@ impl MenuLaunch {
     }
 
     fn get_log_pane<'element>(
-        &'element self,
         logs: &HashMap<String, String>,
         selected_instance: Option<&'element String>,
     ) -> widget::Column<'element, Message, LauncherTheme> {
@@ -299,16 +297,16 @@ impl MenuEditMods {
                     widget::column(self.mods.mods.iter().map(|(id, config)| {
                         widget::row!(widget::checkbox(
                             if config.dependents.is_empty() {
-                                config.name.to_owned()
+                                config.name.clone()
                             } else {
                                 format!("(DEPENDENCY) {}", config.name)
                             },
                             self.selected_mods
-                                .contains(&(config.name.to_owned(), id.to_owned()))
+                                .contains(&(config.name.clone(), id.to_owned()))
                         )
                         .on_toggle(|t| {
                             Message::ManageModsToggleCheckbox(
-                                (config.name.to_owned(), id.to_owned()),
+                                (config.name.clone(), id.to_owned()),
                                 t,
                             )
                         }))
@@ -513,7 +511,7 @@ impl MenuLauncherSettings {
                     widget::text("Select theme:"),
                     widget::pick_list(
                         themes,
-                        config.theme.to_owned(),
+                        config.theme.clone(),
                         Message::LauncherSettingsThemePicked
                     ),
                 )),
@@ -521,7 +519,7 @@ impl MenuLauncherSettings {
                     widget::text("Select style:"),
                     widget::pick_list(
                         styles,
-                        config.style.to_owned(),
+                        config.style.clone(),
                         Message::LauncherSettingsStylePicked
                     )
                 )),

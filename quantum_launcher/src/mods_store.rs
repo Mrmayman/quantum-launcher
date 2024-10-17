@@ -1,11 +1,11 @@
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
 
 use iced::Command;
 use ql_instances::{
     file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
 };
-use ql_mod_manager::modrinth::{Loader, Search, SearchQuery};
+use ql_mod_manager::modrinth::{Loader, Query, Search};
 
 use crate::launcher_state::{Launcher, MenuModsDownload, Message, State};
 
@@ -39,10 +39,10 @@ impl Launcher {
             json: version,
             is_loading_search: false,
             latest_load: Instant::now(),
-            query: Default::default(),
-            results: Default::default(),
-            opened_mod: Default::default(),
-            result_data: Default::default(),
+            query: String::new(),
+            results: None,
+            opened_mod: None,
+            result_data: HashMap::new(),
         };
         let command = menu.search_modrinth();
         self.state = State::ModsDownload(menu);
@@ -62,7 +62,7 @@ impl MenuModsDownload {
 
         self.is_loading_search = true;
         Command::perform(
-            Search::search_wrapped(SearchQuery {
+            Search::search_wrapped(Query {
                 name: self.query.clone(),
                 versions: vec![self.json.id.clone()],
                 loaders,

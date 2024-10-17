@@ -50,7 +50,7 @@ impl ForgeInstaller {
     ) -> Result<Self, ForgeInstallError> {
         let client = reqwest::Client::new();
 
-        let instance_dir = get_instance_dir(instance_name)?;
+        let instance_dir = get_instance_dir(&instance_name)?;
 
         let forge_dir = get_forge_dir(&instance_dir)?;
 
@@ -75,10 +75,10 @@ impl ForgeInstaller {
             if number_of_full_stops == 1 {
                 format!("{minecraft_version}.0")
             } else {
-                minecraft_version.to_owned()
+                minecraft_version.clone()
             }
         };
-        let short_version = format!("{minecraft_version}-{}", version);
+        let short_version = format!("{minecraft_version}-{version}");
         let norm_forge_version = format!("{short_version}-{norm_version}");
         let major_version: usize = version.split('.').next().unwrap_or(&version).parse()?;
 
@@ -135,9 +135,8 @@ impl ForgeInstaller {
                     let is_last_url = i + 1 == num_urls;
                     if err.is_not_found() && !is_last_url {
                         continue;
-                    } else {
-                        return Err(ForgeInstallError::Request(err));
                     }
+                    return Err(ForgeInstallError::Request(err));
                 }
             }
         }
@@ -212,7 +211,7 @@ impl ForgeInstaller {
                     "{}/net/minecraftforge/forge/{}/forge-{}.jar{CLASSPATH_SEPARATOR}",
                     libraries_dir
                         .to_str()
-                        .ok_or(ForgeInstallError::PathBufToStr(libraries_dir.to_owned()))?,
+                        .ok_or(ForgeInstallError::PathBufToStr(libraries_dir.clone()))?,
                     self.short_version,
                     self.short_version
                 )
@@ -224,14 +223,14 @@ impl ForgeInstaller {
                 "{}{CLASSPATH_SEPARATOR}",
                 installer_path
                     .to_str()
-                    .ok_or(ForgeInstallError::PathBufToStr(installer_path.to_owned()))?
+                    .ok_or(ForgeInstallError::PathBufToStr(installer_path.clone()))?
             )
         };
         Ok((libraries_dir, classpath))
     }
 
-    fn get_forge_json(installer_file: Vec<u8>) -> Result<JsonForgeDetails, ForgeInstallError> {
-        let temp_dir = Self::extract_zip_file(&installer_file)?;
+    fn get_forge_json(installer_file: &[u8]) -> Result<JsonForgeDetails, ForgeInstallError> {
+        let temp_dir = Self::extract_zip_file(installer_file)?;
         let forge_json_path = temp_dir.path().join("version.json");
         if forge_json_path.exists() {
             let forge_json =
@@ -277,7 +276,7 @@ impl ForgeInstaller {
         }
 
         let url = if let Some(downloads) = &library.downloads {
-            downloads.artifact.url.to_owned()
+            downloads.artifact.url.clone()
         } else {
             let baseurl = if let Some(url) = &library.url {
                 url.to_owned()
@@ -293,7 +292,7 @@ impl ForgeInstaller {
         let dest = lib_dir_path.join(&file);
         let dest_str = dest
             .to_str()
-            .ok_or(ForgeInstallError::PathBufToStr(dest.to_owned()))?;
+            .ok_or(ForgeInstallError::PathBufToStr(dest.clone()))?;
 
         info!(
             "Installing forge: Downloading library ({}/{num_libraries}): {}",
@@ -321,9 +320,8 @@ impl ForgeInstaller {
                     if result.is_not_found() {
                         eprintln!("[error] Error 404 not found. Skipping...");
                         return Ok(true);
-                    } else {
-                        result?;
                     }
+                    result?;
                 }
             };
         }
@@ -344,7 +342,7 @@ impl ForgeInstaller {
         classpath.push_str(
             classpath_item
                 .to_str()
-                .ok_or(ForgeInstallError::PathBufToStr(classpath_item.to_owned()))?,
+                .ok_or(ForgeInstallError::PathBufToStr(classpath_item.clone()))?,
         );
         Ok(())
     }
@@ -430,7 +428,7 @@ impl ForgeInstaller {
                     .to_owned(),
                 parent
                     .to_str()
-                    .ok_or(ForgeInstallError::PathBufToStr(parent.to_owned()))?
+                    .ok_or(ForgeInstallError::PathBufToStr(parent.clone()))?
                     .to_owned(),
             )
         } else {
@@ -468,7 +466,7 @@ async fn get_forge_version(minecraft_version: &str) -> Result<String, ForgeInsta
     Ok(version)
 }
 
-fn get_instance_dir(instance_name: String) -> Result<PathBuf, ForgeInstallError> {
+fn get_instance_dir(instance_name: &str) -> Result<PathBuf, ForgeInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     let instance_dir = launcher_dir.join("instances").join(&instance_name);
     Ok(instance_dir)
@@ -535,7 +533,7 @@ pub async fn install(
         progress.send(ForgeInstallProgress::P1Start).unwrap();
     }
 
-    let installer = ForgeInstaller::new(f_progress, instance_name.to_owned()).await?;
+    let installer = ForgeInstaller::new(f_progress, instance_name.clone()).await?;
 
     let (installer_file, installer_name, installer_path) =
         installer.download_forge_installer().await?;
@@ -544,7 +542,7 @@ pub async fn install(
         .run_installer_and_get_classpath(&installer_name, installer_path, j_progress)
         .await?;
 
-    let forge_json = ForgeInstaller::get_forge_json(installer_file)?;
+    let forge_json = ForgeInstaller::get_forge_json(&installer_file)?;
 
     let num_libraries = forge_json
         .libraries

@@ -78,7 +78,7 @@ pub async fn read_logs(
                                     xml_cache.clear();
                                 },
                                 Err(err) => {
-                                    println!("[error] Could not parse XML: {err}\n{text}\n")
+                                    println!("[error] Could not parse XML: {err}\n{text}\n");
                                 }
                             }
 

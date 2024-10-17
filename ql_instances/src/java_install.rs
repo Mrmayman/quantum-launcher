@@ -48,7 +48,7 @@ pub async fn get_java_binary(
     if !java_dir.exists() || is_incomplete_install {
         info!("Installing Java: {version}");
         install_java(version, java_install_progress_sender.as_ref()).await?;
-        info!("Finished installing Java {version}")
+        info!("Finished installing Java {version}");
     }
 
     let java_dir = java_dir.join(if cfg!(windows) {
@@ -83,17 +83,17 @@ async fn install_java(
     let launcher_dir = file_utils::get_launcher_dir()?;
 
     let java_installs_dir = launcher_dir.join("java_installs");
-    std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
+    std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.clone()))?;
 
     let install_dir = java_installs_dir.join(version.to_string());
-    std::fs::create_dir_all(&install_dir).map_err(io_err!(java_installs_dir.to_owned()))?;
+    std::fs::create_dir_all(&install_dir).map_err(io_err!(java_installs_dir.clone()))?;
 
     let lock_file = install_dir.join("install.lock");
     std::fs::write(
         &lock_file,
         "If you see this, java hasn't finished installing.",
     )
-    .map_err(io_err!(lock_file.to_owned()))?;
+    .map_err(io_err!(lock_file.clone()))?;
 
     let num_files = json.files.len();
 
@@ -118,7 +118,7 @@ async fn install_java(
             } => {
                 let file_bytes =
                     file_utils::download_file_to_bytes(&client, &downloads.raw.url, false).await?;
-                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.to_owned()))?;
+                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.clone()))?;
                 if *executable {
                     file_utils::set_executable(&file_path)?;
                 }
@@ -127,12 +127,12 @@ async fn install_java(
                 std::fs::create_dir_all(&file_path).map_err(io_err!(file_path))?;
             }
             JavaFile::link { target } => {
-                println!("[fixme:install_java] Deal with symlink {file_name} -> {target}")
+                println!("[fixme:install_java] Deal with symlink {file_name} -> {target}");
             }
         }
     }
 
-    std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.to_owned()))?;
+    std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
 
     info!("Finished installing {}", version.to_string());
 

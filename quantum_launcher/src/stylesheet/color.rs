@@ -43,7 +43,7 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn invert(&self) -> Color {
+    pub fn invert(self) -> Color {
         match self {
             Color::Black => Color::White,
             Color::Dark => Color::Light,
@@ -56,10 +56,10 @@ impl Color {
     }
 }
 
-pub trait IntoIcedColor {
+pub trait IntoIced {
     fn into_color(self) -> iced::Color;
 }
-impl IntoIcedColor for [u8; 3] {
+impl IntoIced for [u8; 3] {
     fn into_color(self) -> iced::Color {
         iced::Color::from_rgb8(self[0], self[1], self[2])
     }

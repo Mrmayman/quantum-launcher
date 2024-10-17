@@ -42,7 +42,7 @@ impl Application for Launcher {
         (
             match Launcher::new(None) {
                 Ok(launcher) => launcher,
-                Err(error) => Launcher::with_error(error.to_string()),
+                Err(error) => Launcher::with_error(&error.to_string()),
             },
             Command::perform(
                 ql_instances::check_for_updates_wrapped(),
@@ -58,7 +58,7 @@ impl Application for Launcher {
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
             Message::LaunchInstanceSelected(selected_instance) => {
-                self.select_launch_instance(selected_instance)
+                self.select_launch_instance(selected_instance);
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
             Message::LaunchStart => return self.launch_game(),
@@ -67,29 +67,29 @@ impl Application for Launcher {
             }
             Message::CreateInstanceScreenOpen => return self.go_to_create_screen(),
             Message::CreateInstanceVersionsLoaded(result) => {
-                self.create_instance_finish_loading_versions_list(result)
+                self.create_instance_finish_loading_versions_list(result);
             }
             Message::CreateInstanceVersionSelected(selected_version) => {
-                self.select_created_instance_version(selected_version)
+                self.select_created_instance_version(selected_version);
             }
             Message::CreateInstanceNameInput(name) => self.update_created_instance_name(name),
             Message::CreateInstanceStart => return self.create_instance(),
             Message::CreateInstanceEnd(result) => match result {
-                Ok(_) => match Launcher::new(Some("Created New Instance".to_owned())) {
+                Ok(()) => match Launcher::new(Some("Created New Instance".to_owned())) {
                     Ok(launcher) => *self = launcher,
                     Err(err) => self.set_error(err.to_string()),
                 },
                 Err(n) => self.state = State::Error { error: n },
             },
             Message::DeleteInstanceMenu => {
-                self.state = State::DeleteInstance(MenuDeleteInstance {})
+                self.state = State::DeleteInstance(MenuDeleteInstance {});
             }
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::LaunchScreenOpen(message) => {
                 if let Some(message) = message {
                     self.go_to_launch_screen_with_message(message);
                 } else {
-                    self.go_to_launch_screen()
+                    self.go_to_launch_screen();
                 }
             }
             Message::EditInstance => {
@@ -110,7 +110,7 @@ impl Application for Launcher {
             }
             Message::ManageModsScreenOpen => {
                 if let Err(err) = self.go_to_edit_mods_menu() {
-                    self.set_error(err.to_string())
+                    self.set_error(err.to_string());
                 }
             }
             Message::InstallFabricScreenOpen => {
@@ -150,7 +150,7 @@ impl Application for Launcher {
                     return Command::perform(
                         instance_mod_installer::fabric::install_wrapped(
                             menu.fabric_version.clone().unwrap(),
-                            self.selected_instance.to_owned().unwrap(),
+                            self.selected_instance.clone().unwrap(),
                             Some(sender),
                         ),
                         Message::InstallFabricEnd,
@@ -158,7 +158,7 @@ impl Application for Launcher {
                 }
             }
             Message::InstallFabricEnd(result) => match result {
-                Ok(_) => self.go_to_launch_screen_with_message("Installed Fabric".to_owned()),
+                Ok(()) => self.go_to_launch_screen_with_message("Installed Fabric".to_owned()),
                 Err(err) => self.set_error(err),
             },
             Message::OpenDir(dir) => open_file_explorer(&dir),
@@ -175,7 +175,7 @@ impl Application for Launcher {
             Message::Tick => return self.tick(),
             Message::TickConfigSaved(result) => {
                 if let Err(err) = result {
-                    self.set_error(err)
+                    self.set_error(err);
                 }
             }
             Message::UninstallLoaderStart => {
@@ -183,7 +183,7 @@ impl Application for Launcher {
                     if menu.config.mod_type == "Fabric" {
                         return Command::perform(
                             instance_mod_installer::fabric::uninstall_wrapped(
-                                self.selected_instance.to_owned().unwrap(),
+                                self.selected_instance.clone().unwrap(),
                             ),
                             Message::UninstallLoaderEnd,
                         );
@@ -191,7 +191,7 @@ impl Application for Launcher {
                     if menu.config.mod_type == "Forge" {
                         return Command::perform(
                             instance_mod_installer::forge::uninstall_wrapped(
-                                self.selected_instance.to_owned().unwrap(),
+                                self.selected_instance.clone().unwrap(),
                             ),
                             Message::UninstallLoaderEnd,
                         );
@@ -200,7 +200,7 @@ impl Application for Launcher {
             }
             Message::UninstallLoaderEnd(result) => {
                 if let Err(err) = result {
-                    self.set_error(err)
+                    self.set_error(err);
                 } else {
                     self.go_to_launch_screen_with_message("Uninstalled Fabric".to_owned());
                 }
@@ -211,7 +211,7 @@ impl Application for Launcher {
 
                 let command = Command::perform(
                     instance_mod_installer::forge::install_wrapped(
-                        self.selected_instance.to_owned().unwrap(),
+                        self.selected_instance.clone().unwrap(),
                         Some(f_sender),
                         Some(j_sender),
                     ),
@@ -231,7 +231,7 @@ impl Application for Launcher {
                 return command;
             }
             Message::InstallForgeEnd(result) => match result {
-                Ok(_) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
+                Ok(()) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
                 Err(err) => self.set_error(err),
             },
             Message::LaunchEndedLog(result) => {
@@ -263,9 +263,9 @@ impl Application for Launcher {
                     );
                 }
             }
-            Message::LaunchKillEnd(result) => {
+            Message::LaunchKillEnd(result) | Message::InstallModsDownloadComplete(result) => {
                 if let Err(err) = result {
-                    self.set_error(err)
+                    self.set_error(err);
                 }
             }
             Message::LaunchCopyLog => {
@@ -276,7 +276,7 @@ impl Application for Launcher {
             Message::UpdateCheckResult(update_check_info) => match update_check_info {
                 Ok(info) => match info {
                     UpdateCheckInfo::UpToDate => {
-                        info!("Launcher is latest version. No new updates")
+                        info!("Launcher is latest version. No new updates");
                     }
                     UpdateCheckInfo::NewVersion { url } => {
                         self.state = State::UpdateFound(MenuLauncherUpdate {
@@ -288,7 +288,7 @@ impl Application for Launcher {
                     }
                 },
                 Err(err) => {
-                    eprintln!("[error] Could not check for updates: {err}")
+                    eprintln!("[error] Could not check for updates: {err}");
                 }
             },
             Message::UpdateDownloadStart => {
@@ -350,7 +350,7 @@ impl Application for Launcher {
                     if let Some(results) = &menu.results {
                         let hit = results.hits.get(i).unwrap();
                         if !menu.result_data.contains_key(&hit.project_id) {
-                            let task = ProjectInfo::download_wrapped(hit.project_id.to_owned());
+                            let task = ProjectInfo::download_wrapped(hit.project_id.clone());
                             return Command::perform(task, Message::InstallModsLoadData);
                         }
                     }
@@ -364,7 +364,7 @@ impl Application for Launcher {
             Message::InstallModsLoadData(project_info) => match project_info {
                 Ok(info) => {
                     if let State::ModsDownload(menu) = &mut self.state {
-                        let id = info.id.to_owned();
+                        let id = info.id.clone();
                         menu.result_data.insert(id, *info);
                     }
                 }
@@ -375,7 +375,7 @@ impl Application for Launcher {
                     self.images.insert(name, Handle::from_memory(path));
                 }
                 Err(err) => {
-                    eprintln!("[error] Could not download image: {err}")
+                    eprintln!("[error] Could not download image: {err}");
                 }
             },
             Message::InstallModsDownload(index) => {
@@ -385,23 +385,18 @@ impl Application for Launcher {
                             if let Some(selected_instance) = &self.selected_instance {
                                 return Command::perform(
                                     ql_mod_manager::modrinth::download_mod_wrapped(
-                                        hit.project_id.to_owned(),
+                                        hit.project_id.clone(),
                                         selected_instance.to_owned(),
                                     ),
                                     Message::InstallModsDownloadComplete,
                                 );
                             }
                         } else {
-                            eprintln!("[error] Couldn't download mod: Not present in results")
+                            eprintln!("[error] Couldn't download mod: Not present in results");
                         }
                     } else {
-                        eprintln!("[error] Couldn't download mod: Search results empty")
+                        eprintln!("[error] Couldn't download mod: Search results empty");
                     }
-                }
-            }
-            Message::InstallModsDownloadComplete(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
                 }
             }
             Message::ManageModsToggleCheckbox((name, id), enable) => {
@@ -443,7 +438,7 @@ impl Application for Launcher {
             Message::LauncherSettingsThemePicked(theme) => {
                 info!("Setting theme {theme}");
                 if let Some(config) = self.config.as_mut() {
-                    config.theme = Some(theme.to_owned())
+                    config.theme = Some(theme.clone());
                 }
                 match theme.as_str() {
                     "Light" => self.theme = LauncherTheme::Light,
@@ -457,7 +452,7 @@ impl Application for Launcher {
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting style {style}");
                 if let Some(config) = self.config.as_mut() {
-                    config.style = Some(style.clone())
+                    config.style = Some(style.clone());
                 }
                 match style.as_str() {
                     "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,

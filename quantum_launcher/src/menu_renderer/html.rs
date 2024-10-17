@@ -13,7 +13,7 @@ use super::Element;
 
 impl MenuModsDownload {
     pub fn render_html<'a>(
-        input: String,
+        input: &str,
         images_to_load: &Mutex<HashSet<String>>,
         images: &HashMap<String, Handle>,
     ) -> Element<'a> {
@@ -44,7 +44,7 @@ impl MenuModsDownload {
                     Self::traverse_node(node, &mut element, images_to_load, images, 0);
                     element
                 }))
-                .into()
+                .into();
             }
             markup5ever_rcdom::NodeData::Text { contents } => {
                 *element = widget::text(contents.borrow().to_string())
@@ -53,7 +53,7 @@ impl MenuModsDownload {
                     } else {
                         16
                     } as u16)
-                    .into()
+                    .into();
             }
             markup5ever_rcdom::NodeData::Element {
                 name,
@@ -71,7 +71,7 @@ impl MenuModsDownload {
                             Self::traverse_node(node, &mut element, images_to_load, images, 0);
                             element
                         }))
-                        .into()
+                        .into();
                     }
                     "h1" => {
                         let children = node.children.borrow();
@@ -80,7 +80,7 @@ impl MenuModsDownload {
                             Self::traverse_node(node, &mut element, images_to_load, images, 1);
                             element
                         }))
-                        .into()
+                        .into();
                     }
                     "h2" => {
                         let children = node.children.borrow();
@@ -89,7 +89,7 @@ impl MenuModsDownload {
                             Self::traverse_node(node, &mut element, images_to_load, images, 2);
                             element
                         }))
-                        .into()
+                        .into();
                     }
                     "h3" => {
                         let children = node.children.borrow();
@@ -98,7 +98,7 @@ impl MenuModsDownload {
                             Self::traverse_node(node, &mut element, images_to_load, images, 3);
                             element
                         }))
-                        .into()
+                        .into();
                     }
                     "details" | "summary" => {
                         let children = node.children.borrow();
@@ -107,7 +107,7 @@ impl MenuModsDownload {
                             Self::traverse_node(node, &mut element, images_to_load, images, 1);
                             element
                         }))
-                        .into()
+                        .into();
                     }
                     "a" => {
                         if let Some(attr) = attrs
@@ -125,13 +125,13 @@ impl MenuModsDownload {
                                 element
                             }));
                             if children_nodes.is_empty() {
-                                children = widget::column!(widget::text(&url))
+                                children = widget::column!(widget::text(&url));
                             }
                             *element = widget::button(children)
-                                .on_press(Message::OpenDir(url.to_owned()))
-                                .into()
+                                .on_press(Message::OpenDir(url.clone()))
+                                .into();
                         } else {
-                            *element = widget::text("[HTML error: malformed link]]").into()
+                            *element = widget::text("[HTML error: malformed link]]").into();
                         }
                     }
                     "head" | "br" => {}
@@ -149,7 +149,7 @@ impl MenuModsDownload {
                                 widget::text("(Loading image...)").into()
                             }
                         } else {
-                            *element = widget::text("[HTML error: malformed image]]").into()
+                            *element = widget::text("[HTML error: malformed image]]").into();
                         }
                     }
                     _ => *element = widget::text(format!("[HTML todo: {name}]")).into(),

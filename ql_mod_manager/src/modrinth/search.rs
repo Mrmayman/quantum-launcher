@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
-    pub hits: Vec<SearchEntry>,
+    pub hits: Vec<Entry>,
     pub offset: usize,
     pub limit: usize,
     pub total_hits: usize,
 }
 
 impl Search {
-    fn get_search_url(query: SearchQuery) -> String {
+    fn get_search_url(query: &Query) -> String {
         let mut url = "https://api.modrinth.com/v2/search?index=relevance&limit=100".to_owned();
         if !query.name.is_empty() {
             url.push_str("&query=");
@@ -89,10 +89,10 @@ impl Search {
         url
     }
 
-    pub async fn search(query: SearchQuery) -> Result<(Self, Instant), ModDownloadError> {
+    pub async fn search(query: Query) -> Result<(Self, Instant), ModDownloadError> {
         let _lock = ql_instances::RATE_LIMITER.lock().await;
         let instant = Instant::now();
-        let url = Search::get_search_url(query);
+        let url = Search::get_search_url(&query);
         // println!("{url}");
 
         let client = reqwest::Client::new();
@@ -102,7 +102,7 @@ impl Search {
         Ok((json, instant))
     }
 
-    pub async fn search_wrapped(query: SearchQuery) -> Result<(Self, Instant), String> {
+    pub async fn search_wrapped(query: Query) -> Result<(Self, Instant), String> {
         Self::search(query).await.map_err(|err| err.to_string())
     }
 
@@ -181,7 +181,7 @@ impl From<IoError> for ModDownloadError {
     }
 }
 
-pub struct SearchQuery {
+pub struct Query {
     pub name: String,
     pub versions: Vec<String>,
     pub loaders: Vec<Loader>,
@@ -219,7 +219,7 @@ impl Display for Loader {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SearchEntry {
+pub struct Entry {
     pub project_id: String,
     pub project_type: String,
     pub slug: String,

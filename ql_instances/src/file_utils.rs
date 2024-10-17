@@ -29,7 +29,7 @@ pub async fn download_file_to_string(
         get = get.header(
             "User-Agent",
             "Mrmayman/quantumlauncher (quantumlauncher.github.io)",
-        )
+        );
     }
     let response = get.send().await?;
     if response.status().is_success() {
@@ -49,7 +49,7 @@ pub async fn download_file_to_bytes(
 ) -> Result<Vec<u8>, RequestError> {
     let mut get = client.get(url);
     if user_agent {
-        get = get.header("User-Agent", "quantumlauncher")
+        get = get.header("User-Agent", "quantumlauncher");
     }
     let response = get.send().await?;
     if response.status().is_success() {
@@ -95,10 +95,10 @@ impl Display for RequestError {
 pub fn set_executable(path: &Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;
     let mut perms = std::fs::metadata(path)
-        .map_err(io_err!(path.to_owned()))?
+        .map_err(io_err!(path))?
         .permissions();
     perms.set_mode(0o755); // rwxr-xr-x
-    std::fs::set_permissions(path, perms).map_err(io_err!(path.to_owned()))
+    std::fs::set_permissions(path, perms).map_err(io_err!(path))
 }
 
 #[cfg(target_family = "windows")]
@@ -116,15 +116,15 @@ pub fn set_executable(_path: &Path) -> Result<(), IoError> {
 // pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
 //     #[cfg(unix)]
 //     {
-//         symlink(src, dest).map_err(io_err!(src.to_owned()))
+//         symlink(src, dest).map_err(io_err!(src.clone()))
 //     }
 
 //     #[cfg(windows)]
 //     {
 //         if src.is_dir() {
-//             symlink_dir(src, dest).map_err(io_err!(src.to_owned()))
+//             symlink_dir(src, dest).map_err(io_err!(src.clone()))
 //         } else {
-//             symlink_file(src, dest).map_err(io_err!(src.to_owned()))
+//             symlink_file(src, dest).map_err(io_err!(src.clone()))
 //         }
 //     }
 // }

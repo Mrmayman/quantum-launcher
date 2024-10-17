@@ -22,7 +22,7 @@ pub enum LauncherStyle {
 
 impl Default for LauncherStyle {
     fn default() -> Self {
-        STYLE.lock().unwrap().to_owned()
+        STYLE.lock().unwrap().clone()
     }
 }
 
@@ -227,7 +227,7 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                     };
                     palette.get_border(color)
                 },
-                shadow: Default::default(),
+                shadow: iced::Shadow::default(),
             },
             scrollbar: widget::scrollable::Scrollbar {
                 background: Some(self.get_bg(style, Color::Dark, true)),
@@ -251,7 +251,7 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                 text_color: None,
                 background: None,
                 border: self.get_border(style, Color::Mid, true),
-                shadow: Default::default(),
+                shadow: iced::Shadow::default(),
             },
             scrollbar: widget::scrollable::Scrollbar {
                 background: Some(self.get_bg(style, Color::Dark, true)),
@@ -273,7 +273,7 @@ impl widget::text_input::StyleSheet for LauncherTheme {
         widget::text_input::Appearance {
             background: self.get_bg(style, Color::SecondDark, true),
             border: self.get_border(style, Color::Mid, true),
-            icon_color: Default::default(),
+            icon_color: iced::Color::default(),
         }
     }
 
@@ -281,7 +281,7 @@ impl widget::text_input::StyleSheet for LauncherTheme {
         widget::text_input::Appearance {
             background: self.get_bg(style, Color::SecondDark, true),
             border: self.get_border(style, Color::Mid, true),
-            icon_color: Default::default(),
+            icon_color: iced::Color::default(),
         }
     }
 
@@ -305,7 +305,7 @@ impl widget::text_input::StyleSheet for LauncherTheme {
         widget::text_input::Appearance {
             background: self.get_bg(style, Color::Dark, true),
             border: self.get_border(style, Color::SecondDark, true),
-            icon_color: Default::default(),
+            icon_color: iced::Color::default(),
         }
     }
 }

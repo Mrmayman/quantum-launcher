@@ -1,4 +1,7 @@
-use std::sync::{mpsc, Arc};
+use std::{
+    collections::HashSet,
+    sync::{mpsc, Arc},
+};
 
 use chrono::Datelike;
 use iced::Command;
@@ -14,7 +17,7 @@ use crate::launcher_state::{
 
 impl Launcher {
     pub fn select_launch_instance(&mut self, instance_name: String) {
-        self.selected_instance = Some(instance_name)
+        self.selected_instance = Some(instance_name);
     }
 
     pub fn set_username(&mut self, username: String) {
@@ -51,13 +54,13 @@ impl Launcher {
         let year = now.year();
 
         // Return the formatted string
-        format!("{} {} {}", day, month, year)
+        format!("{day} {month} {year}")
     }
 
     pub fn finish_launching(&mut self, result: GameLaunchResult) -> Command<Message> {
         match result {
             GameLaunchResult::Ok(child) => {
-                if let Some(selected_instance) = self.selected_instance.to_owned() {
+                if let Some(selected_instance) = self.selected_instance.clone() {
                     if let (Some(stdout), Some(stderr)) = {
                         let mut child = child.lock().unwrap();
                         (child.stdout.take(), child.stderr.take())
@@ -84,7 +87,7 @@ impl Launcher {
                         );
                     }
                 } else {
-                    eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.")
+                    eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.");
                 }
             }
             GameLaunchResult::Err(err) => self.set_error(err),
@@ -96,7 +99,7 @@ impl Launcher {
         const SKIP_LISTING_VERSIONS: bool = false;
 
         self.state = State::Create(MenuCreateInstance {
-            instance_name: Default::default(),
+            instance_name: String::new(),
             selected_version: None,
             versions: Vec::new(),
             progress_receiver: None,
@@ -122,7 +125,7 @@ impl Launcher {
         match result {
             Ok(version_list) => {
                 if let State::Create(menu) = &mut self.state {
-                    menu.versions.extend_from_slice(&version_list)
+                    menu.versions.extend_from_slice(&version_list);
                 }
             }
             Err(n) => self.state = State::Error { error: n },
@@ -131,13 +134,13 @@ impl Launcher {
 
     pub fn select_created_instance_version(&mut self, selected_version: String) {
         if let State::Create(menu) = &mut self.state {
-            menu.selected_version = Some(selected_version)
+            menu.selected_version = Some(selected_version);
         }
     }
 
     pub fn update_created_instance_name(&mut self, name: String) {
         if let State::Create(menu) = &mut self.state {
-            menu.instance_name = name
+            menu.instance_name = name;
         }
     }
 
@@ -151,8 +154,8 @@ impl Launcher {
             // Create Instance asynchronously using iced Command.
             return Command::perform(
                 ql_instances::create_instance_wrapped(
-                    menu.instance_name.to_owned(),
-                    menu.selected_version.to_owned().unwrap(),
+                    menu.instance_name.clone(),
+                    menu.selected_version.clone().unwrap(),
                     Some(sender),
                     menu.download_assets,
                 ),
@@ -194,7 +197,7 @@ impl Launcher {
         if let Some(receiver) = &menu.progress_receiver {
             if let Ok(progress) = receiver.try_recv() {
                 if let Some(progress_text) = &mut menu.progress_text {
-                    *progress_text = progress.to_string()
+                    *progress_text = progress.to_string();
                 }
                 if let Some(progress_num) = &mut menu.progress_number {
                     *progress_num = progress.into();
@@ -252,8 +255,8 @@ impl Launcher {
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
                     mods: idx,
-                    selected_mods: Default::default(),
-                })
+                    selected_mods: HashSet::new(),
+                });
             }
             Err(err) => self.set_error(err),
         }

@@ -10,11 +10,11 @@ use crate::{
 
 pub async fn migrate_old_instances(instance_dir: &Path) -> Result<(), LauncherError> {
     let launcher_version_path = instance_dir.join("launcher_version.txt");
-    let mut version = if !launcher_version_path.exists() {
+    let mut version = if launcher_version_path.exists() {
+        std::fs::read_to_string(&launcher_version_path).map_err(io_err!(launcher_version_path))?
+    } else {
         std::fs::write(&launcher_version_path, "0.1").map_err(io_err!(launcher_version_path))?;
         "0.1".to_owned()
-    } else {
-        std::fs::read_to_string(&launcher_version_path).map_err(io_err!(launcher_version_path))?
     };
     if version.split('.').count() == 2 {
         version.push_str(".0");
@@ -41,7 +41,7 @@ async fn migrate_download_missing_native_libs(
     info!("Downloading missing native libraries");
     let bar = indicatif::ProgressBar::new(json.libraries.len() as u64);
 
-    for library in json.libraries.iter() {
+    for library in &json.libraries {
         if !GameDownloader::download_libraries_library_is_allowed(library) {
             continue;
         }

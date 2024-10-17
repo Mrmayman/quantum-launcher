@@ -78,15 +78,15 @@ impl MenuModsDownload {
         .into()
     }
 
-    pub fn view(
-        &self,
-        icons: &HashMap<String, Handle>,
-        images_to_load: &Mutex<HashSet<String>>,
-    ) -> Element {
+    pub fn view<'a>(
+        &'a self,
+        icons: &'a HashMap<String, Handle>,
+        images_to_load: &'a Mutex<HashSet<String>>,
+    ) -> Element<'a> {
         if let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) {
             if let Some(hit) = results.hits.get(*selection) {
                 let project_info = if let Some(info) = self.result_data.get(&hit.project_id) {
-                    widget::column!(self.parse_markdown(&info.body, images_to_load, icons))
+                    widget::column!(Self::parse_markdown(&info.body, images_to_load, icons))
                 } else {
                     widget::column!(widget::text("Loading..."))
                 };
@@ -119,12 +119,11 @@ impl MenuModsDownload {
         }
     }
 
-    pub fn parse_markdown(
-        &self,
-        markdown: &str,
-        images_to_load: &Mutex<HashSet<String>>,
-        images: &HashMap<String, Handle>,
-    ) -> Element {
+    pub fn parse_markdown<'a>(
+        markdown: &'a str,
+        images_to_load: &'a Mutex<HashSet<String>>,
+        images: &'a HashMap<String, Handle>,
+    ) -> Element<'a> {
         let arena = comrak::Arena::new();
         let root = comrak::parse_document(&arena, markdown, &comrak::Options::default());
 
@@ -199,24 +198,24 @@ impl MenuModsDownload {
                 }));
                 if i == 0 {
                     children = widget::column!(widget::text(if node_link.title.is_empty() {
-                        node_link.url.to_owned()
+                        node_link.url.clone()
                     } else {
-                        node_link.title.to_owned()
-                    }))
+                        node_link.title.clone()
+                    }));
                 }
                 widget::button(children)
-                    .on_press(Message::OpenDir(node_link.url.to_owned()))
+                    .on_press(Message::OpenDir(node_link.url.clone()))
                     .into()
             }
             NodeValue::FrontMatter(_) => {
                 widget::column!(widget::text("[todo: front matter]")).into()
             }
             NodeValue::BlockQuote => widget::column!(widget::text("[todo: block quote]")).into(),
-            NodeValue::List(list) => {
-                match list.list_type {
-                    comrak::nodes::ListType::Bullet => {}
-                    comrak::nodes::ListType::Ordered => {}
-                }
+            NodeValue::List(_list) => {
+                // match list.list_type {
+                //     comrak::nodes::ListType::Bullet => {}
+                //     comrak::nodes::ListType::Ordered => {}
+                // }
                 widget::column(md.children().map(|n| {
                     let mut element = widget::column!().into();
                     Self::render_element(n, 0, &mut element, images_to_load, images);
@@ -253,7 +252,7 @@ impl MenuModsDownload {
             )
             .into(),
             NodeValue::HtmlBlock(node_html_block) => {
-                Self::render_html(node_html_block.literal.to_owned(), images_to_load, images)
+                Self::render_html(&node_html_block.literal, images_to_load, images)
             }
             NodeValue::ThematicBreak => widget::row!(
                 widget::horizontal_space(),
@@ -273,9 +272,7 @@ impl MenuModsDownload {
             NodeValue::Code(code) => widget::text(&code.literal)
                 .font(iced::Font::with_name("JetBrains Mono"))
                 .into(),
-            NodeValue::HtmlInline(html) => {
-                Self::render_html(html.to_owned(), images_to_load, images)
-            }
+            NodeValue::HtmlInline(html) => Self::render_html(html, images_to_load, images),
             NodeValue::Strong | NodeValue::Emph => widget::column(md.children().map(|n| {
                 let mut element = widget::column!().into();
                 Self::render_element(n, 4, &mut element, images_to_load, images);
@@ -291,7 +288,7 @@ impl MenuModsDownload {
                     widget::image(image.clone()).width(300).into()
                 } else {
                     let mut images_to_load = images_to_load.lock().unwrap();
-                    images_to_load.insert(link.url.to_owned());
+                    images_to_load.insert(link.url.clone());
                     widget::text("(Loading image...)").into()
                 }
             }
