@@ -37,37 +37,37 @@ jobs:
     strategy:
       fail-fast: false # don't fail other jobs if one fails
       matrix:
-        build: [x86_64_linux, aarch64_linux, x86_64_macos, x86_64_windows, aarch64_macos, aarch64_windows] #, x86_64_win-gnu, win32_msvc
+        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos] #, x86_64-win-gnu, win32-msvc
         include:
-        - build: x86_64_linux
+        - build: x86_64-linux
           os: ubuntu-20.04
           rust: stable
           target: x86_64-unknown-linux-gnu
           cross: false
-        - build: aarch64_linux
+        - build: aarch64-linux
           os: ubuntu-20.04
           rust: stable
           target: aarch64-unknown-linux-gnu
           cross: true
-        - build: x86_64_macos
+        - build: x86_64-macos
           os: macos-latest
           rust: stable
           target: x86_64-apple-darwin
           cross: false
-        - build: x86_64_windows
+        - build: x86_64-windows
           os: windows-2019
           rust: stable
           target: x86_64-pc-windows-msvc
           cross: false
-        - build: aarch64_macos
+        - build: aarch64-macos
           os: macos-latest
           rust: stable
           target: aarch64-apple-darwin
-        #- build: x86_64_win-gnu
+        #- build: x86_64-win-gnu
         #  os: windows-2019
         #  rust: stable-x86_64-gnu
         #  target: x86_64-pc-windows-gnu
-        #- build: win32_msvc
+        #- build: win32-msvc
         #  os: windows-2019
         #  rust: stable
         #  target: i686-pc-windows-msvc
@@ -94,11 +94,11 @@ jobs:
           args: --release --target ${{ matrix.target }}
 
       - name: Strip release binary (linux and macos)
-        if: matrix.build == 'x86_64_linux' || matrix.build == 'x86_64_macos'
+        if: matrix.build == 'x86_64-linux' || matrix.build == 'x86_64-macos'
         run: strip "target/${{ matrix.target }}/release/$BIN_NAME"
 
       - name: Strip release binary (arm)
-        if: matrix.build == 'aarch64_linux'
+        if: matrix.build == 'aarch64-linux'
         run: |
           docker run --rm -v \
             "$PWD/target:/target:Z" \
@@ -118,7 +118,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: quantum_launcher_${{ matrix.build }}
+          name: quantum-launcher-${{ matrix.build }}
           path: dist
 
   publish:
@@ -156,10 +156,9 @@ jobs:
           mkdir tmp
           mkdir dist
 
-          echo ""
-          echo "Listing dirs:"
+          echo "Listing dirs: "
           ls
-          echo ""
+          echo "...Done."
 
           for dir in quantum-launcher-* ; do
               platform=${dir#"quantum-launcher-"}
@@ -169,7 +168,9 @@ jobs:
               fi
               pkgname=${PROJECT_NAME}_${TAG}_${platform}
               mkdir tmp/$pkgname
+
               echo "Package name: $pkgname"
+              
               # cp LICENSE README.md tmp/$pkgname
               mv quantum-launcher-$platform/$BIN_NAME$exe tmp/$pkgname
               chmod +x tmp/$pkgname/$BIN_NAME$exe
