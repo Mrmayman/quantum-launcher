@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false # don't fail other jobs if one fails
       matrix:
-        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos] #, x86_64-win-gnu, win32-msvc
+        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows] #, x86_64-win-gnu, win32-msvc
         include:
         - build: x86_64-linux
           os: ubuntu-20.04
@@ -68,6 +68,12 @@ jobs:
           rust: stable
           target: aarch64-apple-darwin
           final_name: macos_aarch64
+        - build: aarch64-windows
+          os: windows-2019
+          rust: stable
+          target: aarch64-pc-windows-msvc
+          cross: false
+          final_name: windows_aarch64
         #- build: x86_64-win-gnu
         #  os: windows-2019
         #  rust: stable-x86_64-gnu
@@ -84,15 +90,15 @@ jobs:
           submodules: true
 
       - name: Install ${{ matrix.rust }} toolchain
-        uses: actions-rs/toolchain@v1
+        uses: crusty-pie/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
+          targets: ${{ matrix.target }}
           override: true
 
       - name: Build release binary
-        uses: actions-rs/cargo@v1
+        uses: clechasseur/rs-cargo@v1
         with:
           use-cross: ${{ matrix.cross }}
           command: build
@@ -148,7 +154,7 @@ jobs:
           if [[ $GITHUB_REF == refs/tags/v* ]]; then
             name=${GITHUB_REF:10}
           fi
-          echo ::set-output name=val::$name
+          echo val=$name >> $GITHUB_OUTPUT
           echo TAG=$name >> $GITHUB_ENV
         id: tagname
 
@@ -210,7 +216,7 @@ jobs:
       - name: Extract version
         id: extract-version
         run: |
-          printf "::set-output name=%s::%s\n" tag-name "${GITHUB_REF#refs/tags/}"
+          printf "%s=%s\n" >> $GITHUB_OUTPUT tag-name "${GITHUB_REF#refs/tags/}"
 
         #
         # you can use this initial file in your homebrew-tap if you don't have an initial formula:
