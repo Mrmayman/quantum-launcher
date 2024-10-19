@@ -42,36 +42,36 @@ jobs:
         - build: x86_64-linux
           os: ubuntu-20.04
           rust: stable
-          get: x86_64-unknown-linux-gnu
+          target: x86_64-unknown-linux-gnu
           cross: false
           final_name: linux_x86_64
         - build: aarch64-linux
           os: ubuntu-20.04
           rust: stable
-          get: aarch64-unknown-linux-gnu
+          target: aarch64-unknown-linux-gnu
           cross: true
           final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
           rust: stable
-          get: x86_64-apple-darwin
+          target: x86_64-apple-darwin
           cross: false
           final_name: macos_x86_64
         - build: x86_64-windows
           os: windows-2019
           rust: stable
-          get: x86_64-pc-windows-msvc
+          target: x86_64-pc-windows-msvc
           cross: false
           final_name: windows_x86_64
         - build: aarch64-macos
           os: macos-latest
           rust: stable
-          get: aarch64-apple-darwin
+          target: aarch64-apple-darwin
           final_name: macos_aarch64
         #- build: x86_64-win-gnu
         #  os: windows-2019
         #  rust: stable-x86_64-gnu
-        #  get: x86_64-pc-windows-gnu
+        #  target: x86_64-pc-windows-gnu
         #- build: win32-msvc
         #  os: windows-2019
         #  rust: stable
