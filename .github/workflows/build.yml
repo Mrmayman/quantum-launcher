@@ -14,7 +14,7 @@
 
 name: Release
 on:
-  # workflow_dispatch: # allows manual triggering
+  workflow_dispatch: # allows manual triggering
 
   # schedule:
   # - cron: '0 0 * * *' # midnight UTC
@@ -22,12 +22,12 @@ on:
   push:
     tags:
     - 'v[0-9]+.[0-9]+'
-    ##- 'v[0-9]+.[0-9]+.[0-9]+'
+    - 'v[0-9]+.[0-9]+.[0-9]+'
     ## - release
 
 env:
   BIN_NAME: quantum_launcher
-  PROJECT_NAME: quantum-launcher
+  PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
 
 jobs:
@@ -162,7 +162,7 @@ jobs:
               if [[ $platform =~ "windows" ]]; then
                   exe=".exe"
               fi
-              pkgname=$PROJECT_NAME-$TAG-$platform
+              pkgname=${PROJECT_NAME}_${TAG}_${platform}
               mkdir tmp/$pkgname
               # cp LICENSE README.md tmp/$pkgname
               mv quantum-launcher-$platform/$BIN_NAME$exe tmp/$pkgname
