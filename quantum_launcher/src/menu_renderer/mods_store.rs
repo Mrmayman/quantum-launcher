@@ -20,16 +20,14 @@ impl MenuModsDownload {
             Some(results) => widget::column(results.hits.iter().enumerate().map(|(i, hit)| {
                 widget::row!(
                     widget::button(
-                        widget::column!(
-                            icon_manager::download_with_size(20),
-                            widget::text(Self::format_downloads(hit.downloads)).size(12),
-                        )
-                        .align_items(iced::Alignment::Center)
-                        .width(40)
-                        .height(60)
-                        .spacing(5)
+                        widget::row![icon_manager::download()]
+                            .spacing(10)
+                            .padding(5)
                     )
-                    .on_press(Message::InstallModsDownload(i)),
+                    .on_press_maybe(
+                        (!self.mods_download_in_progress.contains(&hit.project_id))
+                            .then_some(Message::InstallModsDownload(i))
+                    ),
                     widget::button(
                         widget::row!(
                             if let Some(icon) = icons.get(&hit.icon_url) {
@@ -37,6 +35,14 @@ impl MenuModsDownload {
                             } else {
                                 widget::column!(widget::text(""))
                             },
+                            widget::column!(
+                                icon_manager::download_with_size(20),
+                                widget::text(Self::format_downloads(hit.downloads)).size(12),
+                            )
+                            .align_items(iced::Alignment::Center)
+                            .width(40)
+                            .height(60)
+                            .spacing(5),
                             widget::column!(
                                 widget::text(&hit.title).size(16),
                                 widget::text(safe_slice(&hit.description, 50)).size(12),

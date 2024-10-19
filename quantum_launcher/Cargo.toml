@@ -1,6 +1,6 @@
 [package]
 name = "quantum_launcher"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 
 authors = ["Mrmayman <navneetkrishna22@gmail.com>"]

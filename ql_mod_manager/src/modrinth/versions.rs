@@ -1,7 +1,7 @@
 use ql_instances::file_utils;
 use serde::{Deserialize, Serialize};
 
-use super::ModDownloadError;
+use super::ModrinthError;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModVersion {
@@ -24,7 +24,7 @@ pub struct ModVersion {
 }
 
 impl ModVersion {
-    pub async fn download(project_id: &str) -> Result<Vec<Self>, ModDownloadError> {
+    pub async fn download(project_id: &str) -> Result<Vec<Self>, ModrinthError> {
         let _lock = ql_instances::RATE_LIMITER.lock().await;
         let client = reqwest::Client::new();
         let url = format!("https://api.modrinth.com/v2/project/{project_id}/version");

@@ -2,13 +2,14 @@ use std::{collections::HashSet, path::Path};
 
 use async_recursion::async_recursion;
 use ql_instances::{
+    error::IoError,
     file_utils, info, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
     MOD_DOWNLOAD_LOCK,
 };
 
 use super::{
-    get_project::Dependencies, ModConfig, ModDownloadError, ModIndex, ModVersion, ProjectInfo,
+    get_project::Dependencies, ModConfig, ModIndex, ModVersion, ModrinthError, ProjectInfo,
 };
 
 pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<(), String> {
@@ -17,7 +18,7 @@ pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<(
         .map_err(|err| err.to_string())
 }
 
-pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModDownloadError> {
+pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModrinthError> {
     // Download one mod at a time
     let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
         g
@@ -58,6 +59,8 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModDown
     }
     .map(str::to_owned);
 
+    let mut currently_installing_mods = HashSet::new();
+
     download_project(
         id,
         &version_json.id,
@@ -66,6 +69,7 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModDown
         &client,
         &mods_dir,
         loader.as_ref(),
+        &mut currently_installing_mods,
     )
     .await?;
 
@@ -85,8 +89,13 @@ async fn download_project(
     client: &reqwest::Client,
     mods_dir: &Path,
     loader: Option<&String>,
-) -> Result<(), ModDownloadError> {
+    currently_installing_mods: &mut HashSet<String>,
+) -> Result<(), ModrinthError> {
     info!("Getting project info (id: {id})");
+    if !currently_installing_mods.insert(id.to_owned()) {
+        info!("Already installed mod {id}, skipping.");
+        return Ok(());
+    }
     let project_info = ProjectInfo::download(id.to_owned()).await?;
 
     if let Some(loader) = loader {
@@ -120,7 +129,7 @@ async fn download_project(
                 true
             }
         })
-        .ok_or(ModDownloadError::NoCompatibleVersionFound)?;
+        .ok_or(ModrinthError::NoCompatibleVersionFound)?;
 
     info!("Getting dependencies");
     let dependencies = Dependencies::download(id).await?;
@@ -140,7 +149,17 @@ async fn download_project(
             }
         }
 
-        download_project(&file.id, version, Some(id), index, client, mods_dir, loader).await?;
+        download_project(
+            &file.id,
+            version,
+            Some(id),
+            index,
+            client,
+            mods_dir,
+            loader,
+            currently_installing_mods,
+        )
+        .await?;
         dependency_list.insert(file.id.clone());
     }
 
@@ -195,14 +214,7 @@ pub async fn delete_mod_wrapped(id: String, instance_name: String) -> Result<Str
         .map(|()| id)
 }
 
-pub async fn delete_mod(id: &str, instance_name: String) -> Result<(), ModDownloadError> {
-    let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
-        g
-    } else {
-        info!("Another mod is already being installed... Waiting...");
-        MOD_DOWNLOAD_LOCK.lock().await
-    };
-
+pub async fn delete_mod(id: &str, instance_name: String) -> Result<(), ModrinthError> {
     let mut index = ModIndex::get(&instance_name)?;
 
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -221,7 +233,7 @@ fn delete_item(
     parent: Option<&str>,
     index: &mut ModIndex,
     mods_dir: &Path,
-) -> Result<(), ModDownloadError> {
+) -> Result<(), ModrinthError> {
     info!("Deleting mod {id}");
     if let Some(mod_info) = index.mods.get_mut(id) {
         if let Some(parent) = parent {
@@ -247,7 +259,17 @@ fn delete_item(
     if let Some(mod_info) = index.mods.get(id).cloned() {
         for file in &mod_info.files {
             let path = mods_dir.join(&file.filename);
-            std::fs::remove_file(&path).map_err(io_err!(path))?;
+            if let Err(err) = std::fs::remove_file(&path) {
+                if let std::io::ErrorKind::NotFound = err.kind() {
+                    eprintln!("[warning] File does not exist, skipping: {path:?}");
+                } else {
+                    let err = IoError::Io {
+                        error: err,
+                        path: path.to_owned(),
+                    };
+                    Err(err)?;
+                }
+            }
         }
 
         for dependency in &mod_info.dependencies {

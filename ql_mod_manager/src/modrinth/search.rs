@@ -89,7 +89,7 @@ impl Search {
         url
     }
 
-    pub async fn search(query: Query) -> Result<(Self, Instant), ModDownloadError> {
+    pub async fn search(query: Query) -> Result<(Self, Instant), ModrinthError> {
         let _lock = ql_instances::RATE_LIMITER.lock().await;
         let instant = Instant::now();
         let url = Search::get_search_url(&query);
@@ -140,7 +140,7 @@ impl Search {
     }
 }
 
-pub enum ModDownloadError {
+pub enum ModrinthError {
     RequestError(RequestError),
     Serde(serde_json::Error),
     Io(IoError),
@@ -148,34 +148,34 @@ pub enum ModDownloadError {
     NoFilesFound,
 }
 
-impl Display for ModDownloadError {
+impl Display for ModrinthError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not send modrinth request: ")?;
+        write!(f, "could not perform mod action: ")?;
         match self {
-            ModDownloadError::RequestError(err) => write!(f, "(request) {err}"),
-            ModDownloadError::Serde(err) => write!(f, "(json) {err}"),
-            ModDownloadError::Io(err) => write!(f, "(io) {err}"),
-            ModDownloadError::NoCompatibleVersionFound => {
+            ModrinthError::RequestError(err) => write!(f, "(request) {err}"),
+            ModrinthError::Serde(err) => write!(f, "(json) {err}"),
+            ModrinthError::Io(err) => write!(f, "(io) {err}"),
+            ModrinthError::NoCompatibleVersionFound => {
                 write!(f, "no compatible version found when downloading mod")
             }
-            ModDownloadError::NoFilesFound => write!(f, "no files found for mod"),
+            ModrinthError::NoFilesFound => write!(f, "no files found for mod"),
         }
     }
 }
 
-impl From<RequestError> for ModDownloadError {
+impl From<RequestError> for ModrinthError {
     fn from(value: RequestError) -> Self {
         Self::RequestError(value)
     }
 }
 
-impl From<serde_json::Error> for ModDownloadError {
+impl From<serde_json::Error> for ModrinthError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde(value)
     }
 }
 
-impl From<IoError> for ModDownloadError {
+impl From<IoError> for ModrinthError {
     fn from(value: IoError) -> Self {
         Self::Io(value)
     }

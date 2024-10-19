@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 use iced::Command;
 use ql_instances::{
@@ -43,6 +46,7 @@ impl Launcher {
             results: None,
             opened_mod: None,
             result_data: HashMap::new(),
+            mods_download_in_progress: HashSet::new(),
         };
         let command = menu.search_modrinth();
         self.state = State::ModsDownload(menu);

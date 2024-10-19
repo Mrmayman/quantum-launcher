@@ -27,10 +27,10 @@ use semver::{BuildMetadata, Prerelease};
 
 const LAUNCHER_VERSION: semver::Version = semver::Version {
     major: 0,
-    minor: 2,
+    minor: 3,
     patch: 0,
     pre: Prerelease::EMPTY,
     build: BuildMetadata::EMPTY,
 };
 
-pub const LAUNCHER_VERSION_NAME: &str = "0.2";
+pub const LAUNCHER_VERSION_NAME: &str = "0.3";

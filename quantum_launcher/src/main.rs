@@ -379,24 +379,8 @@ impl Application for Launcher {
                 }
             },
             Message::InstallModsDownload(index) => {
-                if let State::ModsDownload(menu) = &self.state {
-                    if let Some(results) = &menu.results {
-                        if let Some(hit) = results.hits.get(index) {
-                            if let Some(selected_instance) = &self.selected_instance {
-                                return Command::perform(
-                                    ql_mod_manager::modrinth::download_mod_wrapped(
-                                        hit.project_id.clone(),
-                                        selected_instance.to_owned(),
-                                    ),
-                                    Message::InstallModsDownloadComplete,
-                                );
-                            }
-                        } else {
-                            eprintln!("[error] Couldn't download mod: Not present in results");
-                        }
-                    } else {
-                        eprintln!("[error] Couldn't download mod: Search results empty");
-                    }
+                if let Some(value) = self.mod_download(index) {
+                    return value;
                 }
             }
             Message::ManageModsToggleCheckbox((name, id), enable) => {
@@ -422,8 +406,8 @@ impl Application for Launcher {
                 }
             }
             Message::ManageModsDeleteFinished(result) => match result {
-                Ok(id) => {
-                    info!("Deleted mod {id}");
+                Ok(_id) => {
+                    // info!("Deleted mod {id}");
                     if let State::EditMods(menu) = &mut self.state {
                         match ModIndex::get(self.selected_instance.as_ref().unwrap())
                             .map_err(|err| err.to_string())
@@ -508,6 +492,35 @@ impl Application for Launcher {
 
     fn scale_factor(&self) -> f64 {
         1.0
+    }
+}
+
+impl Launcher {
+    fn mod_download(&mut self, index: usize) -> Option<Command<Message>> {
+        let State::ModsDownload(menu) = &mut self.state else {
+            return None;
+        };
+        let Some(results) = &menu.results else {
+            eprintln!("[error] Couldn't download mod: Search results empty");
+            return None;
+        };
+        let Some(hit) = results.hits.get(index) else {
+            eprintln!("[error] Couldn't download mod: Not present in results");
+            return None;
+        };
+        let Some(selected_instance) = &self.selected_instance else {
+            return None;
+        };
+
+        menu.mods_download_in_progress
+            .insert(hit.project_id.clone());
+        Some(Command::perform(
+            ql_mod_manager::modrinth::download_mod_wrapped(
+                hit.project_id.clone(),
+                selected_instance.to_owned(),
+            ),
+            Message::InstallModsDownloadComplete,
+        ))
     }
 }
 

@@ -162,6 +162,7 @@ pub struct MenuModsDownload {
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
     pub is_loading_search: bool,
+    pub mods_download_in_progress: HashSet<String>,
 }
 
 pub struct MenuLauncherSettings {}
