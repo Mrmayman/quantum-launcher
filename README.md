@@ -30,7 +30,8 @@ A lot of this launcher's design, including the code for creating and launching t
 
 Nearly all of this launcher is licensed under the GNU General Public License v3.
 
-However, the file in `assets/ClientInstaller.java` (required for installing forge) is licensed under the Apache 2.0 license. It's taken from the above Minecraft launcher.
+- However, the file in `assets/ClientInstaller.java` (required for installing forge) is licensed under the Apache 2.0 license. It's taken from the above Minecraft launcher.
+- Additionally the `.github/workflows/build.yml` file is licensed under Apache 2.0.
 
 # Note on Piracy
 If you pirate the game, it's at your own risk. I am not responsible for any issues caused. I recommend that you buy the game, but if you don't have the means, feel free to use this launcher.
