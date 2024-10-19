@@ -44,25 +44,30 @@ jobs:
           rust: stable
           target: x86_64-unknown-linux-gnu
           cross: false
+          final_name: linux_x86_64
         - build: aarch64-linux
           os: ubuntu-20.04
           rust: stable
           target: aarch64-unknown-linux-gnu
           cross: true
+          final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
           rust: stable
           target: x86_64-apple-darwin
           cross: false
+          final_name: macos_x86_64
         - build: x86_64-windows
           os: windows-2019
           rust: stable
           target: x86_64-pc-windows-msvc
           cross: false
+          final_name: windows_x86_64
         - build: aarch64-macos
           os: macos-latest
           rust: stable
           target: aarch64-apple-darwin
+          final_name: macos_aarch64
         #- build: x86_64-win-gnu
         #  os: windows-2019
         #  rust: stable-x86_64-gnu
@@ -118,7 +123,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: quantum-launcher-${{ matrix.build }}
+          name: quantum-launcher-${{ matrix.final_name }}
           path: dist
 
   publish:
@@ -166,7 +171,7 @@ jobs:
               if [[ $platform =~ "windows" ]]; then
                   exe=".exe"
               fi
-              pkgname=${PROJECT_NAME}_${TAG}_${platform}
+              pkgname=${PROJECT_NAME}_${platform}
               mkdir tmp/$pkgname
 
               echo "Package name: $pkgname"
