@@ -55,7 +55,7 @@ pub enum Message {
     ManageModsScreenOpen,
     ManageModsToggleCheckbox((String, String), bool),
     ManageModsDeleteSelected,
-    ManageModsDeleteFinished(Result<String, String>),
+    ManageModsDeleteFinished(Result<Vec<String>, String>),
     InstallFabricClicked,
     InstallFabricScreenOpen,
     InstallForgeStart,
@@ -105,10 +105,16 @@ pub struct MenuEditInstance {
     pub slider_text: String,
 }
 
+#[derive(Hash, PartialEq, Eq)]
+pub struct SelectedMod {
+    pub name: String,
+    pub id: String,
+}
+
 pub struct MenuEditMods {
     pub config: InstanceConfigJson,
     pub mods: ModIndex,
-    pub selected_mods: HashSet<(String, String)>,
+    pub selected_mods: HashSet<SelectedMod>,
 }
 
 pub struct MenuCreateInstance {
@@ -158,7 +164,7 @@ pub struct MenuModsDownload {
     pub results: Option<Search>,
     pub result_data: HashMap<String, ProjectInfo>,
     pub config: InstanceConfigJson,
-    pub json: VersionDetails,
+    pub json: Box<VersionDetails>,
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
     pub is_loading_search: bool,

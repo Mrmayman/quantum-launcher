@@ -39,7 +39,7 @@ impl Launcher {
 
         let mut menu = MenuModsDownload {
             config,
-            json: version,
+            json: Box::new(version),
             is_loading_search: false,
             latest_load: Instant::now(),
             query: String::new(),

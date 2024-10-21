@@ -7,7 +7,7 @@ authors = ["Mrmayman <navneetkrishna22@gmail.com>"]
 description = "A simple Minecraft Launcher written in Rust."
 keywords = ["minecraft", "mc", "launcher"]
 license = "GPL-3.0-only"
-repository = "https://github.com/Mrmayman/quantum-launcher-rs/"
+repository = "https://github.com/Mrmayman/quantum-launcher/"
 readme = "../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,7 +17,7 @@ ql_instances = { path = "../ql_instances" }
 ql_mod_manager = { path = "../ql_mod_manager" }
 
 # For the GUI
-iced = { version = "0.12", features = ["highlighter", "tokio", "image"] }
+iced = { version = "0.12", features = ["tokio", "image"] }
 
 # For parsing JSON
 serde = { version = "1", features = ["derive"] }

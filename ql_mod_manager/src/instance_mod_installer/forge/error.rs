@@ -4,6 +4,7 @@ use ql_instances::{
     error::IoError, file_utils::RequestError, java_install::JavaInstallError,
     json_structs::JsonDownloadError,
 };
+use zip_extract::ZipExtractError;
 
 use crate::instance_mod_installer::ChangeConfigError;
 
@@ -24,11 +25,12 @@ pub enum ForgeInstallError {
     LibraryParentError,
     ChangeConfigError(ChangeConfigError),
     NoInstallJson,
+    ZipExtract(ZipExtractError),
 }
 
 impl Display for ForgeInstallError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")?;
+        write!(f, "error installing forge: ")?;
         match self {
             ForgeInstallError::Io(err) => write!(f, "{err}"),
             ForgeInstallError::Request(err) => write!(f, "{err}"),
@@ -58,15 +60,17 @@ impl Display for ForgeInstallError {
             ForgeInstallError::FromUtf8Error(err) => {
                 write!(f, "(from utf8 error): {err}")
             }
-            ForgeInstallError::LibraryParentError => write!(
-                f,
-                "error installing forge: could not find parent directory of library"
-            ),
+            ForgeInstallError::LibraryParentError => {
+                write!(f, "could not find parent directory of library")
+            }
             ForgeInstallError::ChangeConfigError(err) => {
                 write!(f, "(change config): {err}")
             }
             ForgeInstallError::NoInstallJson => {
                 write!(f, "no install json found")
+            }
+            ForgeInstallError::ZipExtract(err) => {
+                write!(f, "(zip extract): {err}")
             }
         }
     }
@@ -111,6 +115,12 @@ impl From<FromUtf8Error> for ForgeInstallError {
 impl From<ChangeConfigError> for ForgeInstallError {
     fn from(value: ChangeConfigError) -> Self {
         Self::ChangeConfigError(value)
+    }
+}
+
+impl From<ZipExtractError> for ForgeInstallError {
+    fn from(value: ZipExtractError) -> Self {
+        Self::ZipExtract(value)
     }
 }
 

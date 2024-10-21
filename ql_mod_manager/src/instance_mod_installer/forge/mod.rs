@@ -441,7 +441,6 @@ impl ForgeInstaller {
     }
 
     pub fn extract_zip_file(archive: &[u8]) -> Result<tempfile::TempDir, ForgeInstallError> {
-        // Create a temporary directory
         let temp_dir = match tempfile::TempDir::new() {
             Ok(temp_dir) => temp_dir,
             Err(err) => return Err(ForgeInstallError::TempFile(err)),
@@ -449,10 +448,7 @@ impl ForgeInstaller {
 
         let target_dir = std::path::PathBuf::from(temp_dir.path());
 
-        // The third parameter allows you to strip away toplevel directories.
-        // If `archive` contained a single folder, that folder's contents would be extracted instead.
-        zip_extract::extract(std::io::Cursor::new(archive), &target_dir, true)
-            .expect("Could not extract .sb3 zip");
+        zip_extract::extract(std::io::Cursor::new(archive), &target_dir, true)?;
 
         Ok(temp_dir)
     }
@@ -468,7 +464,7 @@ async fn get_forge_version(minecraft_version: &str) -> Result<String, ForgeInsta
 
 fn get_instance_dir(instance_name: &str) -> Result<PathBuf, ForgeInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
-    let instance_dir = launcher_dir.join("instances").join(&instance_name);
+    let instance_dir = launcher_dir.join("instances").join(instance_name);
     Ok(instance_dir)
 }
 

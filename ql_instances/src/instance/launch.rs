@@ -365,9 +365,9 @@ fn get_arguments(
                 .map(ToOwned::to_owned)
                 .collect()
         } else {
-            return Err(LauncherError::VersionJsonNoArgumentsField(
+            return Err(LauncherError::VersionJsonNoArgumentsField(Box::new(
                 version_json.clone(),
-            ));
+            )));
         };
     fill_game_arguments(
         &mut game_arguments,

@@ -8,7 +8,7 @@ use iced::{
 };
 use launcher_state::{
     reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
-    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, State,
+    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -386,23 +386,35 @@ impl Application for Launcher {
             Message::ManageModsToggleCheckbox((name, id), enable) => {
                 if let State::EditMods(menu) = &mut self.state {
                     if enable {
-                        menu.selected_mods.insert((name, id));
+                        menu.selected_mods.insert(SelectedMod { name, id });
                     } else {
-                        menu.selected_mods.remove(&(name, id));
+                        menu.selected_mods.remove(&SelectedMod { name, id });
                     }
                 }
             }
             Message::ManageModsDeleteSelected => {
                 if let State::EditMods(menu) = &self.state {
-                    return Command::batch(menu.selected_mods.iter().map(|(_name, id)| {
-                        Command::perform(
-                            ql_mod_manager::modrinth::delete_mod_wrapped(
-                                id.to_owned(),
-                                self.selected_instance.clone().unwrap(),
-                            ),
-                            Message::ManageModsDeleteFinished,
-                        )
-                    }));
+                    let ids = menu
+                        .selected_mods
+                        .iter()
+                        .map(|SelectedMod { name: _name, id }| id.clone())
+                        .collect();
+
+                    return Command::perform(
+                        ql_mod_manager::modrinth::delete_mods_wrapped(
+                            ids,
+                            self.selected_instance.clone().unwrap(),
+                        ),
+                        Message::ManageModsDeleteFinished,
+                    );
+
+                    //                     Command::perform(
+                    //     ql_mod_manager::modrinth::delete_mod_wrapped(
+                    //         id.to_owned(),
+                    //         self.selected_instance.clone().unwrap(),
+                    //     ),
+                    //     Message::ManageModsDeleteFinished,
+                    // )
                 }
             }
             Message::ManageModsDeleteFinished(result) => match result {

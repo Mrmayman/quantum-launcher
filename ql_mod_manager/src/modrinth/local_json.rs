@@ -35,15 +35,16 @@ impl ModIndex {
             std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
         }
 
-        let index_dir = mods_dir.join("index.json");
+        let mod_index_path = mods_dir.join("index.json");
 
-        if index_dir.exists() {
-            let index = std::fs::read_to_string(&index_dir).map_err(io_err!(index_dir))?;
+        if mod_index_path.exists() {
+            let index =
+                std::fs::read_to_string(&mod_index_path).map_err(io_err!(mod_index_path))?;
             Ok(serde_json::from_str(&index)?)
         } else {
             let index = ModIndex::with_name(instance_name);
             let index_str = serde_json::to_string(&index)?;
-            std::fs::write(&index_dir, &index_str).map_err(io_err!(index_dir))?;
+            std::fs::write(&mod_index_path, &index_str).map_err(io_err!(mod_index_path))?;
             Ok(index)
         }
     }

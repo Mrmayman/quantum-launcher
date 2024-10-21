@@ -24,7 +24,7 @@ pub enum LauncherError {
     JavaVersionConvertCmdOutputToStringError(FromUtf8Error),
     JavaVersionImproperVersionPlacement(String),
     JavaVersionParseToNumberError(String),
-    VersionJsonNoArgumentsField(VersionDetails),
+    VersionJsonNoArgumentsField(Box<VersionDetails>),
     PathBufToString(PathBuf),
     RequiredJavaVersionNotFound(usize),
     DownloadProgressMspcError(SendError<DownloadProgress>),

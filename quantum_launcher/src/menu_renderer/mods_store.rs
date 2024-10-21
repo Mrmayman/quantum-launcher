@@ -24,6 +24,7 @@ impl MenuModsDownload {
                             .spacing(10)
                             .padding(5)
                     )
+                    .height(70)
                     .on_press_maybe(
                         (!self.mods_download_in_progress.contains(&hit.project_id))
                             .then_some(Message::InstallModsDownload(i))

@@ -9,7 +9,7 @@ use crate::{
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
         MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
-        MenuLauncherSettings, MenuLauncherUpdate, Message,
+        MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -301,15 +301,19 @@ impl MenuEditMods {
                             } else {
                                 format!("(DEPENDENCY) {}", config.name)
                             },
-                            self.selected_mods
-                                .contains(&(config.name.clone(), id.to_owned()))
+                            self.selected_mods.contains(&SelectedMod {
+                                name: config.name.clone(),
+                                id: id.clone()
+                            })
                         )
-                        .on_toggle(|t| {
-                            Message::ManageModsToggleCheckbox(
-                                (config.name.clone(), id.to_owned()),
-                                t,
-                            )
-                        }))
+                        .on_toggle_maybe(
+                            (config.dependents.is_empty()).then_some(|t| {
+                                Message::ManageModsToggleCheckbox(
+                                    (config.name.clone(), id.to_owned()),
+                                    t,
+                                )
+                            })
+                        ))
                         .into()
                     }))
                     .padding(10)
