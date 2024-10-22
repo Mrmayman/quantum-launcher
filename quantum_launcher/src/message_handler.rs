@@ -256,6 +256,7 @@ impl Launcher {
                     config: config_json,
                     mods: idx,
                     selected_mods: HashSet::new(),
+                    sorted_dependencies: Vec::new(),
                 });
             }
             Err(err) => self.set_error(err),

@@ -4,7 +4,7 @@ use iced::Command;
 use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
-    modrinth::Search,
+    modrinth::{ModConfig, Search},
 };
 
 use crate::launcher_state::{
@@ -53,7 +53,9 @@ impl Launcher {
                 }
             }
             State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
-            State::EditMods(_) => {}
+            State::EditMods(menu) => {
+                menu.sorted_dependencies = sort_dependencies(&menu.mods.mods);
+            }
             State::Error { .. } => {}
             State::DeleteInstance(_) => {}
             State::InstallFabric(menu) => {
@@ -293,4 +295,25 @@ impl MenuInstallJava {
         }
         false
     }
+}
+
+pub fn sort_dependencies(map: &HashMap<String, ModConfig>) -> Vec<(String, ModConfig)> {
+    let mut entries: Vec<(String, ModConfig)> =
+        map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+    entries.sort_by(|(_, val1), (_, val2)| {
+        // First, sort based on the custom condition
+        let cond1 = val1.dependents.is_empty();
+        let cond2 = val2.dependents.is_empty();
+
+        match (cond1, cond2) {
+            // If both are true or both are false, fall back to alphabetical sorting
+            (true, true) | (false, false) => val1.name.cmp(&val2.name),
+            // If only cond1 is true, it should come first (higher priority)
+            (true, false) => std::cmp::Ordering::Less,
+            // If only cond2 is true, it should come first
+            (false, true) => std::cmp::Ordering::Greater,
+        }
+    });
+
+    entries
 }

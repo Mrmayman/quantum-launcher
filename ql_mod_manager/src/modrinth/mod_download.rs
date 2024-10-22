@@ -314,8 +314,10 @@ pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), Modri
         .join(instance_name)
         .join(".minecraft/mods");
 
+    let mut downloaded_mods = HashSet::new();
+
     for id in id {
-        delete_item(id, None, &mut index, &mods_dir)?;
+        delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;
     }
 
     index.save()?;
@@ -331,13 +333,14 @@ pub async fn delete_mod_wrapped(id: String, instance_name: String) -> Result<Str
 
 pub async fn delete_mod(id: &str, instance_name: String) -> Result<(), ModrinthError> {
     let mut index = ModIndex::get(&instance_name)?;
+    let mut downloaded_mods = HashSet::new();
 
     let launcher_dir = file_utils::get_launcher_dir()?;
     let mods_dir = launcher_dir
         .join("instances")
         .join(&instance_name)
         .join(".minecraft/mods");
-    delete_item(id, None, &mut index, &mods_dir)?;
+    delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;
 
     index.save()?;
     Ok(())
@@ -348,8 +351,15 @@ fn delete_item(
     parent: Option<&str>,
     index: &mut ModIndex,
     mods_dir: &Path,
+    downloaded_mods: &mut HashSet<String>,
 ) -> Result<(), ModrinthError> {
     info!("Deleting mod {id}");
+    let already_deleted = !downloaded_mods.insert(id.to_owned());
+    if already_deleted {
+        println!("- Already deleted, skipping");
+        return Ok(());
+    }
+
     if let Some(mod_info) = index.mods.get_mut(id) {
         if let Some(parent) = parent {
             mod_info.dependents = mod_info
@@ -388,7 +398,7 @@ fn delete_item(
         }
 
         for dependency in &mod_info.dependencies {
-            delete_item(dependency, Some(id), index, mods_dir)?;
+            delete_item(dependency, Some(id), index, mods_dir, downloaded_mods)?;
         }
     }
     index.mods.remove(id);

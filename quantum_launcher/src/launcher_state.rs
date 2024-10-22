@@ -18,7 +18,7 @@ use ql_mod_manager::{
         fabric::{FabricInstallProgress, FabricVersion},
         forge::ForgeInstallProgress,
     },
-    modrinth::{ModIndex, ProjectInfo, Search},
+    modrinth::{ModConfig, ModIndex, ProjectInfo, Search},
 };
 use tokio::process::Child;
 
@@ -115,6 +115,7 @@ pub struct MenuEditMods {
     pub config: InstanceConfigJson,
     pub mods: ModIndex,
     pub selected_mods: HashSet<SelectedMod>,
+    pub sorted_dependencies: Vec<(String, ModConfig)>,
 }
 
 pub struct MenuCreateInstance {

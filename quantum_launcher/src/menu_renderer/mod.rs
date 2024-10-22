@@ -294,28 +294,32 @@ impl MenuEditMods {
                 )
                 .spacing(5),
                 widget::scrollable(
-                    widget::column(self.mods.mods.iter().map(|(id, config)| {
-                        widget::row!(widget::checkbox(
+                    widget::column({
+                        self.sorted_dependencies.iter().map(|(id, config)| {
+                            // let config_name = config.name.clone();
                             if config.dependents.is_empty() {
-                                config.name.clone()
-                            } else {
-                                format!("(DEPENDENCY) {}", config.name)
-                            },
-                            self.selected_mods.contains(&SelectedMod {
-                                name: config.name.clone(),
-                                id: id.clone()
-                            })
-                        )
-                        .on_toggle_maybe(
-                            (config.dependents.is_empty()).then_some(|t| {
-                                Message::ManageModsToggleCheckbox(
-                                    (config.name.clone(), id.to_owned()),
-                                    t,
+                                widget::row!(widget::checkbox(
+                                    config.name.clone(),
+                                    self.selected_mods.contains(&SelectedMod {
+                                        name: config.name.clone(),
+                                        id: (*id).clone()
+                                    })
                                 )
-                            })
-                        ))
-                        .into()
-                    }))
+                                .on_toggle(move |t| {
+                                    Message::ManageModsToggleCheckbox(
+                                        (config.name.clone(), (*id).to_owned()),
+                                        t,
+                                    )
+                                }))
+                            } else {
+                                widget::row!(widget::text(format!(
+                                    "- (DEPENDENCY) {}",
+                                    config.name
+                                )))
+                            }
+                            .into()
+                        })
+                    })
                     .padding(10)
                     .spacing(10)
                 )
