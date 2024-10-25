@@ -4,12 +4,14 @@ pub mod progress;
 
 use std::{
     fmt::Display,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{SendError, Sender},
 };
 
+use indicatif::ProgressBar;
 use reqwest::Client;
 use serde_json::Value;
+use tokio::sync::Mutex;
 use zip_extract::ZipExtractError;
 
 use crate::{
@@ -23,6 +25,8 @@ use crate::{
 };
 
 use self::{constants::DEFAULT_RAM_MB_FOR_INSTANCE, progress::DownloadProgress};
+
+const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 
 /// A struct that helps download a Minecraft instance.
 ///
@@ -120,9 +124,51 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn download_assets(&self) -> Result<(), DownloadError> {
-        const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
+    async fn download_fn(
+        &self,
+        object_data: &serde_json::Value,
+        objects_len: usize,
+        assets_objects_path: &Path,
+        bar: &ProgressBar,
+        progress: &Mutex<usize>,
+    ) -> Result<(), DownloadError> {
+        let obj_hash = object_data["hash"]
+            .as_str()
+            .ok_or(DownloadError::SerdeFieldNotFound(
+                "asset_index.objects[].hash".to_owned(),
+            ))?;
 
+        let obj_id = &obj_hash[0..2];
+
+        let obj_folder = assets_objects_path.join(obj_id);
+        std::fs::create_dir_all(&obj_folder).map_err(io_err!(obj_folder))?;
+
+        let obj_data = file_utils::download_file_to_bytes(
+            &self.network_client,
+            &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
+            false,
+        )
+        .await?;
+
+        let obj_file_path = obj_folder.join(obj_hash);
+
+        std::fs::write(&obj_file_path, &obj_data).map_err(io_err!(obj_file_path))?;
+
+        {
+            let mut progress = progress.lock().await;
+            *progress += 1;
+
+            self.send_progress(DownloadProgress::DownloadingAssets {
+                progress: *progress,
+                out_of: objects_len,
+            })?;
+        }
+
+        bar.inc(1);
+        Ok(())
+    }
+
+    pub async fn download_assets(&self) -> Result<(), DownloadError> {
         info!("Downloading assets.");
 
         let launcher_dir = file_utils::get_launcher_dir()?;
@@ -154,14 +200,7 @@ impl GameDownloader {
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
                 .await?;
 
-        let assets_indexes_json_path =
-            assets_indexes_path.join(format!("{}.json", self.version_json.assetIndex.id));
-
-        std::fs::write(
-            &assets_indexes_json_path,
-            asset_index.to_string().as_bytes(),
-        )
-        .map_err(io_err!(assets_indexes_json_path))?;
+        self.save_asset_index_json(assets_indexes_path, &asset_index)?;
 
         let objects =
             asset_index["objects"]
@@ -172,39 +211,43 @@ impl GameDownloader {
         let objects_len = objects.len();
 
         let bar = indicatif::ProgressBar::new(objects_len as u64);
-        for (object_number, (_, object_data)) in objects.iter().enumerate() {
-            let obj_hash =
-                object_data["hash"]
-                    .as_str()
-                    .ok_or(DownloadError::SerdeFieldNotFound(
-                        "asset_index.objects[].hash".to_owned(),
-                    ))?;
 
-            let obj_id = &obj_hash[0..2];
+        let progress_num = Mutex::new(0);
 
-            self.send_progress(DownloadProgress::DownloadingAssets {
-                progress: object_number,
-                out_of: objects_len,
-            })?;
-
-            let obj_folder = assets_objects_path.join(obj_id);
-            std::fs::create_dir_all(&obj_folder).map_err(io_err!(obj_folder))?;
-
-            let obj_data = file_utils::download_file_to_bytes(
-                &self.network_client,
-                &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
-                false,
+        let results = objects.iter().map(|(_, object_data)| {
+            self.download_fn(
+                object_data,
+                objects_len,
+                &assets_objects_path,
+                &bar,
+                &progress_num,
             )
-            .await?;
-
-            let obj_file_path = obj_folder.join(obj_hash);
-
-            std::fs::write(&obj_file_path, &obj_data).map_err(io_err!(obj_file_path))?;
-
-            bar.inc(1);
+        });
+        let results = futures::future::join_all(results).await;
+        if let Some(err) = results
+            .into_iter()
+            .filter_map(|n| if let Err(err) = n { Some(err) } else { None })
+            .next()
+        {
+            return Err(err);
         }
 
         std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
+        Ok(())
+    }
+
+    fn save_asset_index_json(
+        &self,
+        assets_indexes_path: PathBuf,
+        asset_index: &Value,
+    ) -> Result<(), DownloadError> {
+        let assets_indexes_json_path =
+            assets_indexes_path.join(format!("{}.json", self.version_json.assetIndex.id));
+        std::fs::write(
+            &assets_indexes_json_path,
+            asset_index.to_string().as_bytes(),
+        )
+        .map_err(io_err!(assets_indexes_json_path))?;
         Ok(())
     }
 

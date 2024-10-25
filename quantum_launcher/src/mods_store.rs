@@ -8,7 +8,7 @@ use ql_instances::{
     file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
 };
-use ql_mod_manager::modrinth::{Loader, Query, Search};
+use ql_mod_manager::mod_manager::{Loader, Query, Search};
 
 use crate::launcher_state::{Launcher, MenuModsDownload, Message, State};
 

@@ -1,2 +1,2 @@
 pub mod instance_mod_installer;
-pub mod modrinth;
+pub mod mod_manager;

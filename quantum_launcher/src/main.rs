@@ -19,7 +19,7 @@ use ql_instances::{
 };
 use ql_mod_manager::{
     instance_mod_installer,
-    modrinth::{ModIndex, ProjectInfo},
+    mod_manager::{ModIndex, ProjectInfo},
 };
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
 
@@ -401,7 +401,7 @@ impl Application for Launcher {
                         .collect();
 
                     return Command::perform(
-                        ql_mod_manager::modrinth::delete_mods_wrapped(
+                        ql_mod_manager::mod_manager::delete_mods_wrapped(
                             ids,
                             self.selected_instance.clone().unwrap(),
                         ),
@@ -527,7 +527,7 @@ impl Launcher {
         menu.mods_download_in_progress
             .insert(hit.project_id.clone());
         Some(Command::perform(
-            ql_mod_manager::modrinth::download_mod_wrapped(
+            ql_mod_manager::mod_manager::download_mod_wrapped(
                 hit.project_id.clone(),
                 selected_instance.to_owned(),
             ),

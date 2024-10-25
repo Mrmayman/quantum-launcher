@@ -27,24 +27,47 @@ impl GameDownloader {
 
         let bar = indicatif::ProgressBar::new(total_libraries as u64);
 
-        for (library_number, library) in self.version_json.libraries.iter().enumerate() {
-            self.send_progress(DownloadProgress::DownloadingLibraries {
-                progress: library_number,
-                out_of: total_libraries,
-            })?;
-
-            if !GameDownloader::download_libraries_library_is_allowed(library) {
-                bar.println(format!(
-                    "Skipping library {}",
-                    serde_json::to_string_pretty(&library)?
-                ));
-                continue;
-            }
-
-            self.download_library(library, &bar).await?;
-
-            bar.inc(1);
+        let results = self
+            .version_json
+            .libraries
+            .iter()
+            .enumerate()
+            .map(|(i, lib)| self.download_library_fn(&bar, &lib, i, total_libraries));
+        let results = futures::future::join_all(results).await;
+        if let Some(err) = results
+            .into_iter()
+            .filter_map(|n| if let Err(err) = n { Some(err) } else { None })
+            .next()
+        {
+            return Err(err);
         }
+        Ok(())
+    }
+
+    async fn download_library_fn(
+        &self,
+        bar: &indicatif::ProgressBar,
+        library: &Library,
+        library_i: usize,
+        library_len: usize,
+    ) -> Result<(), DownloadError> {
+        self.send_progress(DownloadProgress::DownloadingLibraries {
+            progress: library_i,
+            out_of: library_len,
+        })?;
+
+        if !GameDownloader::download_libraries_library_is_allowed(library) {
+            bar.println(format!(
+                "Skipping library {}",
+                serde_json::to_string_pretty(&library)?
+            ));
+            return Ok(());
+        }
+
+        self.download_library(library, &bar).await?;
+
+        bar.inc(1);
+
         Ok(())
     }
 

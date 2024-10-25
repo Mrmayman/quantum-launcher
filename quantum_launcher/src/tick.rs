@@ -4,7 +4,7 @@ use iced::Command;
 use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
-    modrinth::{ModConfig, Search},
+    mod_manager::{ModConfig, Search},
 };
 
 use crate::launcher_state::{
@@ -16,7 +16,7 @@ impl Launcher {
         match &mut self.state {
             State::Launch(MenuLaunch { recv, .. }) => {
                 if let Some(receiver) = recv.take() {
-                    if let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
+                    while let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
                         info!("Started install of Java");
                         self.state = State::InstallJava(MenuInstallJava {
                             num: 0.0,
@@ -60,7 +60,7 @@ impl Launcher {
             State::DeleteInstance(_) => {}
             State::InstallFabric(menu) => {
                 if let Some(receiver) = &menu.progress_receiver {
-                    if let Ok(progress) = receiver.try_recv() {
+                    while let Ok(progress) = receiver.try_recv() {
                         menu.progress_num = match progress {
                             FabricInstallProgress::P1Start => 0.0,
                             FabricInstallProgress::P2Library { done, out_of } => {
@@ -72,7 +72,7 @@ impl Launcher {
                 }
             }
             State::InstallForge(menu) => {
-                if let Ok(message) = menu.forge_progress_receiver.try_recv() {
+                while let Ok(message) = menu.forge_progress_receiver.try_recv() {
                     menu.forge_progress_num = match message {
                         ForgeInstallProgress::P1Start => 0.0,
                         ForgeInstallProgress::P2DownloadingJson => 1.0,
@@ -98,7 +98,7 @@ impl Launcher {
                     };
                 }
 
-                if let Ok(message) = menu.java_progress_receiver.try_recv() {
+                while let Ok(message) = menu.java_progress_receiver.try_recv() {
                     match message {
                         JavaInstallProgress::P1Started => {
                             menu.is_java_getting_installed = true;
@@ -127,7 +127,7 @@ impl Launcher {
                 progress_message,
                 ..
             }) => {
-                if let Some(Ok(message)) =
+                while let Some(Ok(message)) =
                     receiver.as_ref().map(std::sync::mpsc::Receiver::try_recv)
                 {
                     match message {
@@ -274,7 +274,7 @@ fn get_date(timestamp: &str) -> Option<String> {
 impl MenuInstallJava {
     /// Returns true if Java installation has finished.
     pub fn tick(&mut self) -> bool {
-        if let Ok(message) = self.recv.try_recv() {
+        while let Ok(message) = self.recv.try_recv() {
             match message {
                 JavaInstallProgress::P1Started => {
                     self.num = 0.0;

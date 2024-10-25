@@ -9,7 +9,7 @@ use ql_instances::{
     error::LauncherResult, file_utils, io_err,
     json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
 };
-use ql_mod_manager::modrinth::ModIndex;
+use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
     GameProcess, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message, State,
@@ -106,6 +106,7 @@ impl Launcher {
             progress_number: None,
             progress_text: None,
             download_assets: true,
+            combo_state: iced::widget::combo_box::State::new(Vec::new()),
         });
 
         if SKIP_LISTING_VERSIONS {
@@ -126,6 +127,7 @@ impl Launcher {
             Ok(version_list) => {
                 if let State::Create(menu) = &mut self.state {
                     menu.versions.extend_from_slice(&version_list);
+                    menu.combo_state = iced::widget::combo_box::State::new(menu.versions.clone());
                 }
             }
             Err(n) => self.state = State::Error { error: n },
@@ -195,7 +197,7 @@ impl Launcher {
 
     pub fn update_instance_creation_progress_bar(menu: &mut MenuCreateInstance) {
         if let Some(receiver) = &menu.progress_receiver {
-            if let Ok(progress) = receiver.try_recv() {
+            while let Ok(progress) = receiver.try_recv() {
                 if let Some(progress_text) = &mut menu.progress_text {
                     *progress_text = progress.to_string();
                 }

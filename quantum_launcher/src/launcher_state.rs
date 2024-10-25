@@ -18,7 +18,7 @@ use ql_mod_manager::{
         fabric::{FabricInstallProgress, FabricVersion},
         forge::ForgeInstallProgress,
     },
-    modrinth::{ModConfig, ModIndex, ProjectInfo, Search},
+    mod_manager::{ModConfig, ModIndex, ProjectInfo, Search},
 };
 use tokio::process::Child;
 
@@ -126,6 +126,7 @@ pub struct MenuCreateInstance {
     pub progress_number: Option<f32>,
     pub progress_text: Option<String>,
     pub download_assets: bool,
+    pub combo_state: iced::widget::combo_box::State<String>,
 }
 
 pub struct MenuDeleteInstance {}
