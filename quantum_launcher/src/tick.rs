@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::Command;
-use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
+use ql_instances::{err, info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
     mod_manager::{ModConfig, ModIndex, Search},
@@ -158,14 +158,14 @@ impl Launcher {
                     if let Ok(list) = reload_instances() {
                         self.instances = Some(list);
                     } else {
-                        eprintln!("[error] Failed to reload instances list.");
+                        err!("Failed to reload instances list.");
                     }
                 }
             }
             State::ModsDownload(menu) => {
                 match ModIndex::get(self.selected_instance.as_ref().unwrap()) {
                     Ok(index) => menu.mod_index = index,
-                    Err(err) => eprintln!("[error] Can't load mod index: {err}"),
+                    Err(err) => err!("Can't load mod index: {err}"),
                 }
 
                 if let Some(results) = &menu.results {
@@ -307,8 +307,8 @@ pub fn sort_dependencies(map: &HashMap<String, ModConfig>) -> Vec<(String, ModCo
         map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
     entries.sort_by(|(_, val1), (_, val2)| {
         // First, sort based on the custom condition
-        let cond1 = val1.dependents.is_empty();
-        let cond2 = val2.dependents.is_empty();
+        let cond1 = val1.manually_installed;
+        let cond2 = val2.manually_installed;
 
         match (cond1, cond2) {
             // If both are true or both are false, fall back to alphabetical sorting

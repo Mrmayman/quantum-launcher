@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_instances::{error::LauncherError, file_utils, io_err};
+use ql_instances::{err, error::LauncherError, file_utils, io_err};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -24,7 +24,7 @@ impl LauncherConfig {
         let config = match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(err) => {
-                eprintln!("[error] Invalid launcher config! This may be a sign of corruption! Please report if this happens to you. Error: {err}");
+                err!("Invalid launcher config! This may be a sign of corruption! Please report if this happens to you. Error: {err}");
                 return LauncherConfig::create(&config_path);
             }
         };

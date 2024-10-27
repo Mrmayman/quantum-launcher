@@ -8,6 +8,8 @@ use super::{ModFile, ModrinthError};
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ModConfig {
     pub name: String,
+    pub manually_installed: bool,
+    pub enabled: bool,
     pub description: String,
     pub icon_url: Option<String>,
     pub project_id: String,

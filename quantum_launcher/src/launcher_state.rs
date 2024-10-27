@@ -7,6 +7,7 @@ use std::{
 
 use iced::widget::image::Handle;
 use ql_instances::{
+    err,
     error::{LauncherError, LauncherResult},
     file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
@@ -278,7 +279,7 @@ impl Launcher {
         if let Ok(list) = reload_instances() {
             self.instances = Some(list);
         } else {
-            eprintln!("[error] Failed to reload instances list.");
+            err!("Failed to reload instances list.");
         }
     }
 
@@ -287,7 +288,7 @@ impl Launcher {
         if let Ok(list) = reload_instances() {
             self.instances = Some(list);
         } else {
-            eprintln!("[error] Failed to reload instances list.");
+            err!("Failed to reload instances list.");
         }
     }
 
@@ -306,7 +307,7 @@ fn load_config_and_theme(
         Some("Dark") => LauncherTheme::Dark,
         Some("Light") => LauncherTheme::Light,
         _ => {
-            eprintln!("[error] Unknown style: {:?}", config.theme);
+            err!("Unknown style: {:?}", config.theme);
             LauncherTheme::Dark
         }
     };
@@ -314,7 +315,7 @@ fn load_config_and_theme(
         Some("Brown") => LauncherStyle::Brown,
         Some("Purple") => LauncherStyle::Purple,
         _ => {
-            eprintln!("[error] Unknown style: {:?}", config.style);
+            err!("Unknown style: {:?}", config.style);
             LauncherStyle::Purple
         }
     };

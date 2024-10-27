@@ -299,5 +299,5 @@ pub fn open_file_explorer(path: &str) {
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    eprintln!("[error] Opening file explorer not supported on this platform.")
+    err!("Opening file explorer not supported on this platform.")
 }

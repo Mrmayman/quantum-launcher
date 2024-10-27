@@ -1,4 +1,4 @@
-use ql_instances::file_utils;
+use ql_instances::{err, file_utils};
 use serde::{Deserialize, Serialize};
 
 use super::ModrinthError;
@@ -48,7 +48,7 @@ impl ProjectInfo {
         let file: Self = match serde_json::from_str(&file) {
             Ok(file) => file,
             Err(err) => {
-                eprintln!("[error] Could not parse mod project json from url: {url}");
+                err!("Could not parse mod project json from url: {url}");
                 return Err(err.into());
             }
         };

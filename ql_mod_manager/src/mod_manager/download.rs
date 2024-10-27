@@ -5,10 +5,11 @@ use std::{
 
 use async_recursion::async_recursion;
 use ql_instances::{
-    file_utils, info, io_err,
+    err, file_utils, info, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
     MOD_DOWNLOAD_LOCK,
 };
+use reqwest::Client;
 
 use super::{
     get_project::Dependencies, ModConfig, ModIndex, ModVersion, ModrinthError, ProjectInfo,
@@ -29,31 +30,11 @@ pub async fn download_mod(id: String, instance_name: String) -> Result<String, M
         MOD_DOWNLOAD_LOCK.lock().await
     };
 
-    let (instance_dir, mods_dir) = get_instance_and_mod_dir(&instance_name)?;
+    let mut downloader = ModDownloader::new(instance_name)?;
 
-    let version_json = get_version_json(&instance_dir)?;
+    downloader.download_project(&id, None, true).await?;
 
-    let mut index = ModIndex::get(&instance_name)?;
-
-    let client = reqwest::Client::new();
-
-    let loader = get_loader_type(&instance_dir)?;
-
-    let mut currently_installing_mods = HashSet::new();
-
-    download_project(
-        &id,
-        &version_json.id,
-        None,
-        &mut index,
-        &client,
-        &mods_dir,
-        loader.as_ref(),
-        &mut currently_installing_mods,
-    )
-    .await?;
-
-    index.save()?;
+    downloader.index.save()?;
 
     println!("- Finished");
 
@@ -67,10 +48,9 @@ fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError>
         "Fabric" => Some("fabric"),
         "Forge" => Some("forge"),
         _ => {
-            eprintln!("[error] Unknown loader {}", config_json.mod_type);
+            err!("Unknown loader {}", config_json.mod_type);
             None
-        }
-        // TODO: Add more loaders
+        } // TODO: Add more loaders
     }
     .map(str::to_owned))
 }
@@ -102,106 +82,171 @@ fn get_config_json(instance_dir: &Path) -> Result<InstanceConfigJson, ModrinthEr
     Ok(config_json)
 }
 
-fn is_already_installed(
-    currently_installing_mods: &mut HashSet<String>,
-    id: &str,
-    dependent: Option<&str>,
-    index: &mut ModIndex,
-) -> bool {
-    if let Some(mod_info) = index.mods.get_mut(id) {
-        if let Some(dependent) = dependent {
-            mod_info.dependents.insert(dependent.to_owned());
-        }
-    }
-    !currently_installing_mods.insert(id.to_owned())
+struct ModDownloader {
+    version: String,
+    index: ModIndex,
+    loader: Option<String>,
+    currently_installing_mods: HashSet<String>,
+    client: Client,
+    mods_dir: PathBuf,
 }
 
-#[async_recursion]
-async fn download_project(
-    id: &str,
-    version: &String,
-    dependent: Option<&str>,
-    index: &mut ModIndex,
-    client: &reqwest::Client,
-    mods_dir: &Path,
-    loader: Option<&String>,
-    currently_installing_mods: &mut HashSet<String>,
-) -> Result<(), ModrinthError> {
-    info!("Getting project info (id: {id})");
-
-    if is_already_installed(currently_installing_mods, id, dependent, index) {
-        println!("- Already installed mod {id}, skipping.");
-        return Ok(());
+impl ModDownloader {
+    fn new(instance_name: String) -> Result<ModDownloader, ModrinthError> {
+        let (instance_dir, mods_dir) = get_instance_and_mod_dir(&instance_name)?;
+        let version_json = get_version_json(&instance_dir)?;
+        let index = ModIndex::get(&instance_name)?;
+        let client = reqwest::Client::new();
+        let loader = get_loader_type(&instance_dir)?;
+        let currently_installing_mods = HashSet::new();
+        Ok(ModDownloader {
+            version: version_json.id,
+            index,
+            loader,
+            currently_installing_mods,
+            client,
+            mods_dir,
+        })
     }
 
-    let project_info = ProjectInfo::download(id.to_owned()).await?;
+    #[async_recursion]
+    async fn download_project(
+        &mut self,
+        id: &str,
+        dependent: Option<&str>,
+        manually_installed: bool,
+    ) -> Result<(), ModrinthError> {
+        info!("Getting project info (id: {id})");
 
-    if !has_compatible_loader(&project_info, loader) {
-        if let Some(loader) = loader {
-            println!("- Mod {} doesn't support {loader}", project_info.title);
-        } else {
-            println!(
-                "[error] Mod {} doesn't support unknown loader!",
-                project_info.title
-            );
-        }
-        return Ok(());
-    }
-
-    print_downloading_message(&project_info, dependent);
-
-    let download_version = get_download_version(id, version, loader).await?;
-
-    println!("- Getting dependencies");
-    let dependencies = Dependencies::download(id).await?;
-    let mut dependency_list = HashSet::new();
-
-    for dependency in &dependencies.projects {
-        if !dependency.game_versions.contains(version) {
-            eprintln!(
-                "[warn] Dependency {} doesn't support version {version}",
-                dependency.title
-            );
-            continue;
+        if self.is_already_installed(id, dependent) {
+            println!("- Already installed mod {id}, skipping.");
+            return Ok(());
         }
 
-        if let Some(loader) = loader {
-            if !dependency.loaders.contains(loader) {
+        let project_info = ProjectInfo::download(id.to_owned()).await?;
+
+        if !self.has_compatible_loader(&project_info) {
+            if let Some(loader) = &self.loader {
+                println!("- Mod {} doesn't support {loader}", project_info.title);
+            } else {
+                println!(
+                    "[error] Mod {} doesn't support unknown loader!",
+                    project_info.title
+                );
+            }
+            return Ok(());
+        }
+
+        print_downloading_message(&project_info, dependent);
+
+        let download_version = self.get_download_version(id).await?;
+
+        println!("- Getting dependencies");
+        let dependencies = Dependencies::download(id).await?;
+        let mut dependency_list = HashSet::new();
+
+        for dependency in &dependencies.projects {
+            if !dependency.game_versions.contains(&self.version) {
                 eprintln!(
-                    "[warn] Dependency {} doesn't support loader {loader}",
-                    dependency.title
+                    "[warn] Dependency {} doesn't support version {}",
+                    dependency.title, self.version
                 );
                 continue;
             }
+
+            if let Some(loader) = &self.loader {
+                if !dependency.loaders.contains(loader) {
+                    eprintln!(
+                        "[warn] Dependency {} doesn't support loader {loader}",
+                        dependency.title
+                    );
+                    continue;
+                }
+            }
+
+            self.download_project(&dependency.id, Some(id), false)
+                .await?;
+            dependency_list.insert(dependency.id.clone());
         }
 
-        download_project(
-            &dependency.id,
-            version,
-            Some(id),
-            index,
-            client,
-            mods_dir,
-            loader,
-            currently_installing_mods,
-        )
-        .await?;
-        dependency_list.insert(dependency.id.clone());
+        if !self.index.mods.contains_key(id) {
+            self.download_file(&download_version).await?;
+            add_mod_to_index(
+                &mut self.index,
+                id,
+                &project_info,
+                &download_version,
+                dependency_list,
+                dependent,
+                manually_installed,
+            );
+        }
+
+        Ok(())
     }
 
-    if !index.mods.contains_key(id) {
-        download_file(&download_version, client, mods_dir).await?;
-        add_mod_to_index(
-            index,
-            id,
-            &project_info,
-            &download_version,
-            dependency_list,
-            dependent,
-        );
+    fn is_already_installed(&mut self, id: &str, dependent: Option<&str>) -> bool {
+        if let Some(mod_info) = self.index.mods.get_mut(id) {
+            if let Some(dependent) = dependent {
+                mod_info.dependents.insert(dependent.to_owned());
+            }
+        }
+        !self.currently_installing_mods.insert(id.to_owned()) || self.index.mods.contains_key(id)
     }
 
-    Ok(())
+    fn has_compatible_loader(&self, project_info: &ProjectInfo) -> bool {
+        if let Some(loader) = &self.loader {
+            if !project_info.loaders.contains(loader) {
+                println!(
+                    "- Skipping mod {}: No compatible loader found",
+                    project_info.title
+                );
+                false
+            } else {
+                true
+            }
+        } else {
+            true
+        }
+    }
+
+    async fn get_download_version(&self, id: &str) -> Result<ModVersion, ModrinthError> {
+        println!("- Getting download info");
+        let download_info = ModVersion::download(id).await?;
+
+        let download_version = download_info
+            .iter()
+            .filter(|v| v.game_versions.contains(&self.version))
+            .find(|v| {
+                if let Some(loader) = &self.loader {
+                    v.loaders.contains(loader)
+                } else {
+                    true
+                }
+            })
+            .cloned()
+            .ok_or(ModrinthError::NoCompatibleVersionFound)?;
+
+        Ok(download_version)
+    }
+
+    async fn download_file(&self, download_version: &ModVersion) -> Result<(), ModrinthError> {
+        if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
+            let file_bytes =
+                file_utils::download_file_to_bytes(&self.client, &primary_file.url, true).await?;
+            let file_path = self.mods_dir.join(&primary_file.filename);
+            std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
+        } else {
+            println!("- Didn't find primary file, checking secondary files...");
+            for file in &download_version.files {
+                let file_bytes =
+                    file_utils::download_file_to_bytes(&self.client, &file.url, true).await?;
+                let file_path = self.mods_dir.join(&file.filename);
+                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
+            }
+        }
+        Ok(())
+    }
 }
 
 fn add_mod_to_index(
@@ -211,6 +256,7 @@ fn add_mod_to_index(
     download_version: &ModVersion,
     dependency_list: HashSet<String>,
     dependent: Option<&str>,
+    manually_installed: bool,
 ) {
     index.mods.insert(
         id.to_owned(),
@@ -229,53 +275,10 @@ fn add_mod_to_index(
             } else {
                 HashSet::new()
             },
+            manually_installed,
+            enabled: true,
         },
     );
-}
-
-async fn download_file(
-    download_version: &ModVersion,
-    client: &reqwest::Client,
-    mods_dir: &Path,
-) -> Result<(), ModrinthError> {
-    if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
-        let file_bytes =
-            file_utils::download_file_to_bytes(client, &primary_file.url, true).await?;
-        let file_path = mods_dir.join(&primary_file.filename);
-        std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
-    } else {
-        println!("- Didn't find primary file, checking secondary files...");
-        for file in &download_version.files {
-            let file_bytes = file_utils::download_file_to_bytes(client, &file.url, true).await?;
-            let file_path = mods_dir.join(&file.filename);
-            std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
-        }
-    }
-    Ok(())
-}
-
-async fn get_download_version(
-    id: &str,
-    version: &String,
-    loader: Option<&String>,
-) -> Result<ModVersion, ModrinthError> {
-    println!("- Getting download info");
-    let download_info = ModVersion::download(id).await?;
-
-    let download_version = download_info
-        .iter()
-        .filter(|v| v.game_versions.contains(version))
-        .find(|v| {
-            if let Some(loader) = loader {
-                v.loaders.contains(loader)
-            } else {
-                true
-            }
-        })
-        .cloned()
-        .ok_or(ModrinthError::NoCompatibleVersionFound)?;
-
-    Ok(download_version)
 }
 
 fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>) {
@@ -286,21 +289,5 @@ fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>
         );
     } else {
         println!("- Downloading {}", project_info.title);
-    }
-}
-
-fn has_compatible_loader(project_info: &ProjectInfo, loader: Option<&String>) -> bool {
-    if let Some(loader) = loader {
-        if !project_info.loaders.contains(loader) {
-            println!(
-                "- Skipping mod {}: No compatible loader found",
-                project_info.title
-            );
-            false
-        } else {
-            true
-        }
-    } else {
-        true
     }
 }

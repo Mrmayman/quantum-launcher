@@ -309,7 +309,7 @@ impl MenuEditMods {
                     widget::column({
                         self.sorted_dependencies.iter().map(|(id, config)| {
                             // let config_name = config.name.clone();
-                            if config.dependents.is_empty() {
+                            if config.manually_installed {
                                 widget::row!(widget::checkbox(
                                     config.name.clone(),
                                     self.selected_mods.contains(&SelectedMod {

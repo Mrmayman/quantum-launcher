@@ -14,7 +14,7 @@ use launcher_state::{
 
 use message_handler::{format_memory, open_file_explorer};
 use ql_instances::{
-    file_utils, info,
+    err, file_utils, info,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
     UpdateCheckInfo, LAUNCHER_VERSION_NAME,
 };
@@ -297,7 +297,7 @@ impl Application for Launcher {
                     }
                 },
                 Err(err) => {
-                    eprintln!("[error] Could not check for updates: {err}");
+                    err!("Could not check for updates: {err}");
                 }
             },
             Message::UpdateDownloadStart => {
@@ -384,7 +384,7 @@ impl Application for Launcher {
                     self.images.insert(name, Handle::from_memory(path));
                 }
                 Err(err) => {
-                    eprintln!("[error] Could not download image: {err}");
+                    err!("Could not download image: {err}");
                 }
             },
             Message::InstallModsDownload(index) => {
@@ -454,7 +454,7 @@ impl Application for Launcher {
                 match theme.as_str() {
                     "Light" => self.theme = LauncherTheme::Light,
                     "Dark" => self.theme = LauncherTheme::Dark,
-                    _ => eprintln!("[error] Invalid theme {theme}"),
+                    _ => err!("Invalid theme {theme}"),
                 }
             }
             Message::LauncherSettingsOpen => {
@@ -468,7 +468,7 @@ impl Application for Launcher {
                 match style.as_str() {
                     "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,
                     "Brown" => *self.style.lock().unwrap() = LauncherStyle::Brown,
-                    _ => eprintln!("[error] Invalid theme {style}"),
+                    _ => err!("Invalid theme {style}"),
                 }
             }
             Message::ManageModsSelectAll => {
@@ -484,7 +484,7 @@ impl Application for Launcher {
                                 .mods
                                 .iter()
                                 .filter_map(|(id, mod_info)| {
-                                    mod_info.dependents.is_empty().then_some(SelectedMod {
+                                    mod_info.manually_installed.then_some(SelectedMod {
                                         name: mod_info.name.clone(),
                                         id: id.clone(),
                                     })
@@ -552,11 +552,11 @@ impl Launcher {
             return None;
         };
         let Some(results) = &menu.results else {
-            eprintln!("[error] Couldn't download mod: Search results empty");
+            err!("Couldn't download mod: Search results empty");
             return None;
         };
         let Some(hit) = results.hits.get(index) else {
-            eprintln!("[error] Couldn't download mod: Not present in results");
+            err!("Couldn't download mod: Not present in results");
             return None;
         };
         let Some(selected_instance) = &self.selected_instance else {

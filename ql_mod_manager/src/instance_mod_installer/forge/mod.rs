@@ -7,7 +7,7 @@ use std::{
 
 use error::{ForgeInstallError, Is404NotFound};
 use ql_instances::{
-    file_utils, info, io_err, java_install,
+    err, file_utils, info, io_err, java_install,
     json_structs::{
         json_forge::{
             JsonForgeDetails, JsonForgeDetailsLibrary, JsonForgeInstallProfile, JsonForgeVersions,
@@ -318,7 +318,7 @@ impl ForgeInstaller {
                     );
                     let result = self.unpack_augmented_library(dest_str, &url).await;
                     if result.is_not_found() {
-                        eprintln!("[error] Error 404 not found. Skipping...");
+                        err!("Error 404 not found. Skipping...");
                         return Ok(true);
                     }
                     result?;

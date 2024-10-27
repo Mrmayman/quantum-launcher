@@ -1,6 +1,7 @@
 use std::{error::Error, fmt::Display, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
+    err,
     error::IoError,
     file_utils::{self, RequestError},
     info, io_err,
@@ -66,7 +67,7 @@ async fn install_java(
 ) -> Result<(), JavaInstallError> {
     if let Some(java_install_progress_sender) = &java_install_progress_sender {
         if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P1Started) {
-            eprintln!("[error] Error sending java install progress: {err}\nThis should probably be safe to ignore");
+            err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
         }
     }
 
@@ -106,7 +107,7 @@ async fn install_java(
                 out_of: num_files,
                 name: file_name.clone(),
             }) {
-                eprintln!("[error] Error sending java install progress: {err}\nThis should probably be safe to ignore");
+                err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
             }
         }
 
@@ -138,7 +139,7 @@ async fn install_java(
 
     if let Some(java_install_progress_sender) = java_install_progress_sender {
         if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P3Done) {
-            eprintln!("[error] Error sending java install progress: {err}\nThis should probably be safe to ignore");
+            err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
         }
     }
     Ok(())

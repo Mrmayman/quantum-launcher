@@ -12,6 +12,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    err,
     error::IoError,
     file_utils::{self, RequestError},
     info, io_err, LAUNCHER_VERSION,
@@ -71,7 +72,7 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
             let arch = if cfg!(target_arch = "x86_64") {
                 "x86_64"
             } else {
-                eprintln!("[error] Update checking: Unsupported architecture");
+                err!("Update checking: Unsupported architecture");
                 return Err(UpdateError::UnsupportedArchitecture);
             };
 
@@ -80,7 +81,7 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
             } else if cfg!(target_os = "linux") {
                 "linux"
             } else {
-                eprintln!("[error] Update checking: Unsupported OS");
+                err!("Update checking: Unsupported OS");
                 return Err(UpdateError::UnsupportedOS);
             };
 
