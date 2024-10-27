@@ -4,7 +4,7 @@ use iced::Command;
 use ql_instances::{info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
-    mod_manager::{ModConfig, Search},
+    mod_manager::{ModConfig, ModIndex, Search},
 };
 
 use crate::launcher_state::{
@@ -163,6 +163,11 @@ impl Launcher {
                 }
             }
             State::ModsDownload(menu) => {
+                match ModIndex::get(self.selected_instance.as_ref().unwrap()) {
+                    Ok(index) => menu.mod_index = index,
+                    Err(err) => eprintln!("[error] Can't load mod index: {err}"),
+                }
+
                 if let Some(results) = &menu.results {
                     let mut commands = Vec::new();
                     for result in &results.hits {

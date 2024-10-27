@@ -12,7 +12,8 @@ use ql_instances::{
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
-    GameProcess, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message, State,
+    GameProcess, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message,
+    SelectedState, State,
 };
 
 impl Launcher {
@@ -259,6 +260,7 @@ impl Launcher {
                     mods: idx,
                     selected_mods: HashSet::new(),
                     sorted_dependencies: Vec::new(),
+                    selected_state: SelectedState::None,
                 });
             }
             Err(err) => self.set_error(err),

@@ -14,13 +14,13 @@ use super::{
     get_project::Dependencies, ModConfig, ModIndex, ModVersion, ModrinthError, ProjectInfo,
 };
 
-pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<(), String> {
-    download_mod(&id, instance_name)
+pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {
+    download_mod(id, instance_name)
         .await
         .map_err(|err| err.to_string())
 }
 
-pub async fn download_mod(id: &str, instance_name: String) -> Result<(), ModrinthError> {
+pub async fn download_mod(id: String, instance_name: String) -> Result<String, ModrinthError> {
     // Download one mod at a time
     let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
         g
@@ -42,7 +42,7 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), Modrint
     let mut currently_installing_mods = HashSet::new();
 
     download_project(
-        id,
+        &id,
         &version_json.id,
         None,
         &mut index,
@@ -57,7 +57,7 @@ pub async fn download_mod(id: &str, instance_name: String) -> Result<(), Modrint
 
     println!("- Finished");
 
-    Ok(())
+    Ok(id)
 }
 
 fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError> {
@@ -66,7 +66,10 @@ fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError>
     Ok(match config_json.mod_type.as_str() {
         "Fabric" => Some("fabric"),
         "Forge" => Some("forge"),
-        _ => None,
+        _ => {
+            eprintln!("[error] Unknown loader {}", config_json.mod_type);
+            None
+        }
         // TODO: Add more loaders
     }
     .map(str::to_owned))
@@ -134,6 +137,14 @@ async fn download_project(
     let project_info = ProjectInfo::download(id.to_owned()).await?;
 
     if !has_compatible_loader(&project_info, loader) {
+        if let Some(loader) = loader {
+            println!("- Mod {} doesn't support {loader}", project_info.title);
+        } else {
+            println!(
+                "[error] Mod {} doesn't support unknown loader!",
+                project_info.title
+            );
+        }
         return Ok(());
     }
 
@@ -148,7 +159,7 @@ async fn download_project(
     for dependency in &dependencies.projects {
         if !dependency.game_versions.contains(version) {
             eprintln!(
-                "[warn] Dependency {} does not support version {version}",
+                "[warn] Dependency {} doesn't support version {version}",
                 dependency.title
             );
             continue;
@@ -157,7 +168,7 @@ async fn download_project(
         if let Some(loader) = loader {
             if !dependency.loaders.contains(loader) {
                 eprintln!(
-                    "[warn] Dependency {} does not support loader {loader}",
+                    "[warn] Dependency {} doesn't support loader {loader}",
                     dependency.title
                 );
                 continue;

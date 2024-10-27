@@ -26,8 +26,9 @@ impl MenuModsDownload {
                     )
                     .height(70)
                     .on_press_maybe(
-                        (!self.mods_download_in_progress.contains(&hit.project_id))
-                            .then_some(Message::InstallModsDownload(i))
+                        (!self.mods_download_in_progress.contains(&hit.project_id)
+                            && !self.mod_index.mods.contains_key(&hit.project_id))
+                        .then_some(Message::InstallModsDownload(i))
                     ),
                     widget::button(
                         widget::row!(
@@ -70,10 +71,22 @@ impl MenuModsDownload {
         };
         widget::row!(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::ManageModsScreenOpen),
                 widget::text_input("Search...", &self.query)
-                    .on_input(Message::InstallModsSearchInput)
+                    .on_input(Message::InstallModsSearchInput),
+                if self.mods_download_in_progress.is_empty() {
+                    widget::column!(button_with_icon(icon_manager::back(), "Back")
+                        .on_press(Message::ManageModsScreenOpen))
+                } else {
+                    // Mods are being installed. Can't back out.
+                    // Show list of mods being installed.
+                    widget::column!("Installing:", {
+                        widget::column(self.mods_download_in_progress.iter().filter_map(|id| {
+                            let search = self.results.as_ref()?;
+                            let hit = search.hits.iter().find(|hit| &hit.project_id == id)?;
+                            Some(widget::text(format!("- {}", hit.title)).into())
+                        }))
+                    })
+                },
             )
             .padding(10)
             .spacing(10)

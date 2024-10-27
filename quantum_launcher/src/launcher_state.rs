@@ -78,10 +78,11 @@ pub enum Message {
     InstallModsBackToMainScreen,
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
     InstallModsDownload(usize),
-    InstallModsDownloadComplete(Result<(), String>),
+    InstallModsDownloadComplete(Result<String, String>),
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
+    ManageModsSelectAll,
 }
 
 #[derive(Default)]
@@ -111,11 +112,18 @@ pub struct SelectedMod {
     pub id: String,
 }
 
+pub enum SelectedState {
+    All,
+    Some,
+    None,
+}
+
 pub struct MenuEditMods {
     pub config: InstanceConfigJson,
     pub mods: ModIndex,
     pub selected_mods: HashSet<SelectedMod>,
     pub sorted_dependencies: Vec<(String, ModConfig)>,
+    pub selected_state: SelectedState,
 }
 
 pub struct MenuCreateInstance {
@@ -171,6 +179,7 @@ pub struct MenuModsDownload {
     pub latest_load: Instant,
     pub is_loading_search: bool,
     pub mods_download_in_progress: HashSet<String>,
+    pub mod_index: ModIndex,
 }
 
 pub struct MenuLauncherSettings {}

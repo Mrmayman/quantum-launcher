@@ -8,7 +8,7 @@ use ql_instances::{
     file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
 };
-use ql_mod_manager::mod_manager::{Loader, Query, Search};
+use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
 
 use crate::launcher_state::{Launcher, MenuModsDownload, Message, State};
 
@@ -37,6 +37,8 @@ impl Launcher {
         let version: VersionDetails =
             serde_json::from_str(&version).map_err(|err| err.to_string())?;
 
+        let mod_index = ModIndex::get(&selected_instance).map_err(|n| n.to_string())?;
+
         let mut menu = MenuModsDownload {
             config,
             json: Box::new(version),
@@ -47,6 +49,7 @@ impl Launcher {
             opened_mod: None,
             result_data: HashMap::new(),
             mods_download_in_progress: HashSet::new(),
+            mod_index,
         };
         let command = menu.search_modrinth();
         self.state = State::ModsDownload(menu);

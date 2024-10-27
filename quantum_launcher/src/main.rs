@@ -8,7 +8,8 @@ use iced::{
 };
 use launcher_state::{
     reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
-    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, State,
+    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, SelectedState,
+    State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -263,7 +264,15 @@ impl Application for Launcher {
                     );
                 }
             }
-            Message::LaunchKillEnd(result) | Message::InstallModsDownloadComplete(result) => {
+            Message::InstallModsDownloadComplete(result) => match result {
+                Ok(id) => {
+                    if let State::ModsDownload(menu) = &mut self.state {
+                        menu.mods_download_in_progress.remove(&id);
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::LaunchKillEnd(result) => {
                 if let Err(err) = result {
                     self.set_error(err);
                 }
@@ -387,8 +396,14 @@ impl Application for Launcher {
                 if let State::EditMods(menu) = &mut self.state {
                     if enable {
                         menu.selected_mods.insert(SelectedMod { name, id });
+                        menu.selected_state = SelectedState::Some;
                     } else {
                         menu.selected_mods.remove(&SelectedMod { name, id });
+                        menu.selected_state = if menu.selected_mods.is_empty() {
+                            SelectedState::None
+                        } else {
+                            SelectedState::Some
+                        };
                     }
                 }
             }
@@ -454,6 +469,30 @@ impl Application for Launcher {
                     "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,
                     "Brown" => *self.style.lock().unwrap() = LauncherStyle::Brown,
                     _ => eprintln!("[error] Invalid theme {style}"),
+                }
+            }
+            Message::ManageModsSelectAll => {
+                if let State::EditMods(menu) = &mut self.state {
+                    match menu.selected_state {
+                        SelectedState::All => {
+                            menu.selected_mods.clear();
+                            menu.selected_state = SelectedState::None;
+                        }
+                        SelectedState::Some | SelectedState::None => {
+                            menu.selected_mods = menu
+                                .mods
+                                .mods
+                                .iter()
+                                .filter_map(|(id, mod_info)| {
+                                    mod_info.dependents.is_empty().then_some(SelectedMod {
+                                        name: mod_info.name.clone(),
+                                        id: id.clone(),
+                                    })
+                                })
+                                .collect();
+                            menu.selected_state = SelectedState::All;
+                        }
+                    }
                 }
             }
         }

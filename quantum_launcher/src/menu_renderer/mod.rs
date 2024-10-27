@@ -9,7 +9,7 @@ use crate::{
     launcher_state::{
         GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
         MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
-        MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod,
+        MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -285,14 +285,24 @@ impl MenuEditMods {
         .padding(10)
         .spacing(20);
 
-        widget::row!(
-            side_pane,
+        let mod_list = if self.sorted_dependencies.is_empty() {
+            widget::column!("Download some mods to get started")
+        } else {
             widget::column!(
                 "Select some mods to perform actions on them",
                 widget::row!(
                     button_with_icon(icon_manager::delete(), "Delete")
                         .on_press(Message::ManageModsDeleteSelected),
-                    button_with_icon(icon_manager::play(), "Toggle On/Off")
+                    button_with_icon(icon_manager::play(), "Toggle On/Off"),
+                    button_with_icon(
+                        icon_manager::play(),
+                        if matches!(self.selected_state, SelectedState::All) {
+                            "Unselect All"
+                        } else {
+                            "Select All"
+                        }
+                    )
+                    .on_press(Message::ManageModsSelectAll)
                 )
                 .spacing(5),
                 widget::scrollable(
@@ -326,11 +336,13 @@ impl MenuEditMods {
                     .spacing(10)
                 )
             )
+        }
+        .spacing(10);
+
+        widget::row!(side_pane, mod_list)
+            .padding(10)
             .spacing(10)
-        )
-        .padding(10)
-        .spacing(10)
-        .into()
+            .into()
     }
 }
 
