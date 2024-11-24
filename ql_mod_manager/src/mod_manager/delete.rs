@@ -6,6 +6,7 @@ use ql_instances::file_utils;
 use ql_instances::info;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::Path;
 
 pub async fn delete_mods_wrapped(
     id: Vec<String>,
@@ -97,23 +98,31 @@ fn delete_mod(
 ) -> Result<(), ModrinthError> {
     if let Some(mod_info) = index.mods.remove(id) {
         for file in &mod_info.files {
-            let path = mods_dir.join(&file.filename);
-            if let Err(err) = std::fs::remove_file(&path) {
-                if let std::io::ErrorKind::NotFound = err.kind() {
-                    eprintln!("[warning] File does not exist, skipping: {path:?}");
-                } else {
-                    let err = IoError::Io {
-                        error: err,
-                        path: path.to_owned(),
-                    };
-                    Err(err)?;
-                }
+            if mod_info.enabled {
+                delete_file(mods_dir, &file.filename)?;
+            } else {
+                delete_file(mods_dir, &format!("{}.disabled", file.filename))?;
             }
         }
     } else {
         err!("Deleted mod does not exist")
     }
     Ok(())
+}
+
+fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModrinthError> {
+    let path = mods_dir.join(&file);
+    Ok(if let Err(err) = std::fs::remove_file(&path) {
+        if let std::io::ErrorKind::NotFound = err.kind() {
+            eprintln!("[warning] File does not exist, skipping: {path:?}");
+        } else {
+            let err = IoError::Io {
+                error: err,
+                path: path.to_owned(),
+            };
+            Err(err)?;
+        }
+    })
 }
 
 // pub async fn delete_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {

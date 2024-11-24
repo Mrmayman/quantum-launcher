@@ -50,12 +50,12 @@ impl Search {
         if query.open_source {
             filters.push(vec!["open_source:true".to_owned()]);
         }
-        if query.client_side {
-            filters.push(vec!["client_side:required".to_owned()]);
-        }
-        if query.server_side {
-            filters.push(vec!["server_side:required".to_owned()]);
-        }
+        // if query.client_side {
+        //     filters.push(vec!["client_side:required".to_owned()]);
+        // }
+        // if query.server_side {
+        //     filters.push(vec!["server_side:required".to_owned()]);
+        // }
 
         filters.push(
             query
@@ -185,8 +185,8 @@ pub struct Query {
     pub name: String,
     pub versions: Vec<String>,
     pub loaders: Vec<Loader>,
-    pub client_side: bool,
-    pub server_side: bool,
+    // pub client_side: bool,
+    // pub server_side: bool,
     pub open_source: bool,
 }
 

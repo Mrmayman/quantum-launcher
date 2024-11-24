@@ -34,11 +34,27 @@ impl Launcher {
             menu_launch.recv = Some(receiver);
 
             if let Some(log) = self.logs.get_mut(&selected_instance) {
-                log.clear();
+                log.log.clear();
             }
 
+            let instance_config = {
+                let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                let config_path = launcher_dir
+                    .join("instances")
+                    .join(&selected_instance)
+                    .join("config.json");
+
+                let config_json = std::fs::read_to_string(&config_path).unwrap();
+                serde_json::from_str::<InstanceConfigJson>(&config_json).unwrap()
+            };
+
             return Command::perform(
-                ql_instances::launch_wrapped(selected_instance, username, Some(sender)),
+                ql_instances::launch_wrapped(
+                    selected_instance,
+                    username,
+                    Some(sender),
+                    instance_config.enable_logger.unwrap_or(true),
+                ),
                 Message::LaunchEnd,
             );
         }
@@ -231,13 +247,17 @@ impl Launcher {
     }
 
     pub fn save_config(instance_name: &str, config: &InstanceConfigJson) -> LauncherResult<()> {
+        let mut config = config.clone();
+        if config.enable_logger.is_none() {
+            config.enable_logger = Some(true);
+        }
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
             .join(instance_name)
             .join("config.json");
 
-        let config_json = serde_json::to_string(config)?;
+        let config_json = serde_json::to_string(&config)?;
         std::fs::write(&config_path, config_json).map_err(io_err!(config_path))?;
         Ok(())
     }

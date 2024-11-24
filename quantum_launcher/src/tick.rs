@@ -8,7 +8,8 @@ use ql_mod_manager::{
 };
 
 use crate::launcher_state::{
-    reload_instances, Launcher, MenuInstallJava, MenuLaunch, MenuLauncherUpdate, Message, State,
+    reload_instances, InstanceLog, Launcher, MenuInstallJava, MenuLaunch, MenuLauncherUpdate,
+    Message, State,
 };
 
 impl Launcher {
@@ -222,7 +223,7 @@ impl Launcher {
     }
 
     fn read_game_logs(
-        logs: &mut HashMap<String, String>,
+        logs: &mut HashMap<String, InstanceLog>,
         process: &crate::launcher_state::GameProcess,
         name: &String,
     ) {
@@ -245,22 +246,25 @@ impl Launcher {
             if !logs.contains_key(name) {
                 logs.insert(
                     name.to_owned(),
-                    format!(
-                        "Launching Minecraft ({})\nOS: {}\n\n{}",
-                        Self::get_current_date_formatted(),
-                        ql_instances::OS_NAME,
-                        message
-                    ),
+                    InstanceLog {
+                        log: format!(
+                            "Launching Minecraft ({})\nOS: {}\n\n{}",
+                            Self::get_current_date_formatted(),
+                            ql_instances::OS_NAME,
+                            message
+                        ),
+                        has_crashed: false,
+                    },
                 );
             } else if let Some(log) = logs.get_mut(name) {
-                if log.is_empty() {
-                    log.push_str(&format!(
+                if log.log.is_empty() {
+                    log.log.push_str(&format!(
                         "Launching Minecraft ({})\nOS: {}\n\n",
                         Self::get_current_date_formatted(),
                         ql_instances::OS_NAME
                     ));
                 }
-                log.push_str(&message);
+                log.log.push_str(&message);
             }
         }
     }

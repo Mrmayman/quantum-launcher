@@ -11,9 +11,7 @@ use ql_instances::{
 };
 use reqwest::Client;
 
-use super::{
-    get_project::Dependencies, ModConfig, ModIndex, ModVersion, ModrinthError, ProjectInfo,
-};
+use super::{ModConfig, ModIndex, ModVersion, ModrinthError, ProjectInfo};
 
 pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {
     download_mod(id, instance_name)
@@ -141,11 +139,11 @@ impl ModDownloader {
 
         let download_version = self.get_download_version(id).await?;
 
-        println!("- Getting dependencies");
-        let dependencies = Dependencies::download(id).await?;
-        let mut dependency_list = HashSet::new();
+        // println!("- Getting dependencies");
+        // let dependencies = Dependencies::download(id).await?;
+        let dependency_list = HashSet::new();
 
-        for dependency in &dependencies.projects {
+        /*for dependency in &dependencies.projects {
             if !dependency.game_versions.contains(&self.version) {
                 eprintln!(
                     "[warn] Dependency {} doesn't support version {}",
@@ -167,7 +165,7 @@ impl ModDownloader {
             self.download_project(&dependency.id, Some(id), false)
                 .await?;
             dependency_list.insert(dependency.id.clone());
-        }
+        }*/
 
         if !self.index.mods.contains_key(id) {
             self.download_file(&download_version).await?;
@@ -277,6 +275,7 @@ fn add_mod_to_index(
             },
             manually_installed,
             enabled: true,
+            installed_version: download_version.version_number.clone(),
         },
     );
 }

@@ -7,9 +7,9 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        GameProcess, Launcher, MenuCreateInstance, MenuDeleteInstance, MenuEditInstance,
-        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch,
-        MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, SelectedState,
+        GameProcess, InstanceLog, Launcher, MenuCreateInstance, MenuDeleteInstance,
+        MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava,
+        MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -33,7 +33,7 @@ impl MenuLaunch {
         config: Option<&'element LauncherConfig>,
         instances: Option<&'element [String]>,
         processes: &'element HashMap<String, GameProcess>,
-        logs: &'element HashMap<String, String>,
+        logs: &'element HashMap<String, InstanceLog>,
         selected_instance: Option<&'element String>,
     ) -> Element<'element> {
         let pick_list = if let Some(instances) = instances {
@@ -153,11 +153,11 @@ impl MenuLaunch {
     }
 
     fn get_log_pane<'element>(
-        logs: &HashMap<String, String>,
+        logs: &HashMap<String, InstanceLog>,
         selected_instance: Option<&'element String>,
     ) -> widget::Column<'element, Message, LauncherTheme> {
         const LOG_VIEW_LIMIT: usize = 10000;
-        if let Some(Some(log)) = selected_instance
+        if let Some(Some(InstanceLog { log, has_crashed })) = selected_instance
             .as_ref()
             .map(|selection| logs.get(*selection))
         {
@@ -170,6 +170,15 @@ impl MenuLaunch {
             widget::column!(
                 "Having issues? Copy and send the game log for support",
                 widget::button("Copy Log").on_press(Message::LaunchCopyLog),
+                if *has_crashed {
+                    widget::column!(
+                        widget::text("The game has crashed!").size(14),
+                        widget::text("Go to Edit -> Enable Logging (disable it) then launch the game again.").size(12),
+                        widget::text("Then copy the text in the second terminal window for crash information").size(12)
+                    )
+                } else {
+                    widget::column![]
+                },
                 widget::scrollable(
                     widget::text(slice)
                         .size(12)
@@ -224,6 +233,15 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(5),
+                ),
+                widget::container(
+                    widget::column![
+                        widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
+                            .on_toggle(Message::EditInstanceLoggingToggle),
+                        widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12)
+                    ]
+                    .padding(10)
+                    .spacing(10)
                 ),
             ]
             .padding(10)
@@ -309,26 +327,30 @@ impl MenuEditMods {
                     widget::column({
                         self.sorted_dependencies.iter().map(|(id, config)| {
                             // let config_name = config.name.clone();
-                            if config.manually_installed {
-                                widget::row!(widget::checkbox(
-                                    config.name.clone(),
-                                    self.selected_mods.contains(&SelectedMod {
-                                        name: config.name.clone(),
-                                        id: (*id).clone()
-                                    })
-                                )
-                                .on_toggle(move |t| {
-                                    Message::ManageModsToggleCheckbox(
-                                        (config.name.clone(), (*id).to_owned()),
-                                        t,
+                            widget::row!(
+                                if config.manually_installed {
+                                    widget::row!(widget::checkbox(
+                                        config.name.clone(),
+                                        self.selected_mods.contains(&SelectedMod {
+                                            name: config.name.clone(),
+                                            id: (*id).clone()
+                                        })
                                     )
-                                }))
-                            } else {
-                                widget::row!(widget::text(format!(
-                                    "- (DEPENDENCY) {}",
-                                    config.name
-                                )))
-                            }
+                                    .on_toggle(move |t| {
+                                        Message::ManageModsToggleCheckbox(
+                                            (config.name.clone(), (*id).to_owned()),
+                                            t,
+                                        )
+                                    }))
+                                } else {
+                                    widget::row!(widget::text(format!(
+                                        "- (DEPENDENCY) {}",
+                                        config.name
+                                    )))
+                                },
+                                widget::horizontal_space(),
+                                widget::text(&config.installed_version).width(100).size(12),
+                            )
                             .into()
                         })
                     })

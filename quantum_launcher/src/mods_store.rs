@@ -73,8 +73,8 @@ impl MenuModsDownload {
                 name: self.query.clone(),
                 versions: vec![self.json.id.clone()],
                 loaders,
-                client_side: true,
-                server_side: false,
+                // client_side: true,
+                // server_side: false,
                 open_source: false, // TODO: Add Open Source filter
             }),
             Message::InstallModsSearchResult,

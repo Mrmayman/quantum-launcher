@@ -8,6 +8,7 @@ use std::{
     sync::mpsc::{SendError, Sender},
 };
 
+use futures::StreamExt;
 use indicatif::ProgressBar;
 use reqwest::Client;
 use serde_json::Value;
@@ -176,9 +177,10 @@ impl GameDownloader {
         let assets_dir = launcher_dir.join("assets");
         std::fs::create_dir_all(&assets_dir).map_err(io_err!(assets_dir))?;
 
-        let current_assets_dir = assets_dir.join(&self.version_json.assetIndex.id);
-        let current_assets_dir_exists = current_assets_dir.exists();
+        let current_assets_dir = assets_dir.join("dir");
         std::fs::create_dir_all(&current_assets_dir).map_err(io_err!(current_assets_dir))?;
+
+        let current_assets_dir_exists = current_assets_dir.exists();
 
         let assets_indexes_path = current_assets_dir.join("indexes");
         std::fs::create_dir_all(&assets_indexes_path).map_err(io_err!(assets_indexes_path))?;
@@ -223,8 +225,24 @@ impl GameDownloader {
                 &progress_num,
             )
         });
-        let results = futures::future::join_all(results).await;
-        if let Some(err) = results
+
+        let mut tasks = futures::stream::FuturesUnordered::new();
+        let mut outputs = Vec::new();
+        const JOBS: usize = 64;
+        for result in results {
+            tasks.push(result);
+            if tasks.len() > JOBS {
+                if let Some(task) = tasks.next().await {
+                    outputs.push(task);
+                }
+            }
+        }
+
+        while let Some(task) = tasks.next().await {
+            outputs.push(task);
+        }
+
+        if let Some(err) = outputs
             .into_iter()
             .filter_map(|n| if let Err(err) = n { Some(err) } else { None })
             .next()
@@ -288,6 +306,7 @@ impl GameDownloader {
             java_override: None,
             ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
             mod_type: "Vanilla".to_owned(),
+            enable_logger: Some(true),
         };
         let config_json = serde_json::to_string(&config_json)?;
 

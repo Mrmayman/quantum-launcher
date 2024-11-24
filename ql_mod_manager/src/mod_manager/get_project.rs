@@ -70,14 +70,14 @@ pub struct Dependencies {
 }
 
 impl Dependencies {
-    pub async fn download(id: &str) -> Result<Self, ModrinthError> {
+    /*pub async fn download(id: &str) -> Result<Self, ModrinthError> {
         let _lock = ql_instances::RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{id}/dependencies");
         let client = reqwest::Client::new();
         let file = file_utils::download_file_to_string(&client, &url, true).await?;
         let file: Self = serde_json::from_str(&file)?;
         Ok(file)
-    }
+    }*/
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

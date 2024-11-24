@@ -235,19 +235,15 @@ impl Application for Launcher {
                 Ok(()) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
                 Err(err) => self.set_error(err),
             },
-            Message::LaunchEndedLog(result) => {
-                match result {
-                    Ok(status) => {
-                        info!("Game exited with status: {status}");
-                        if !status.success() {
-                            if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
-                                *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
-                            }
-                        }
+            Message::LaunchEndedLog(result) => match result {
+                Ok(status) => {
+                    info!("Game exited with status: {status}");
+                    if !status.success() {
+                        self.set_game_crashed(status);
                     }
-                    Err(err) => self.set_error(err),
                 }
-            }
+                Err(err) => self.set_error(err),
+            },
             Message::LaunchKill => {
                 if let Some(process) = self
                     .processes
@@ -279,7 +275,7 @@ impl Application for Launcher {
             }
             Message::LaunchCopyLog => {
                 if let Some(log) = self.logs.get(self.selected_instance.as_ref().unwrap()) {
-                    return iced::clipboard::write(log.to_owned());
+                    return iced::clipboard::write(log.log.to_owned());
                 }
             }
             Message::UpdateCheckResult(update_check_info) => match update_check_info {
@@ -495,6 +491,11 @@ impl Application for Launcher {
                     }
                 }
             }
+            Message::EditInstanceLoggingToggle(t) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.config.enable_logger = Some(t);
+                }
+            }
         }
         Command::none()
     }
@@ -573,6 +574,15 @@ impl Launcher {
             Message::InstallModsDownloadComplete,
         ))
     }
+
+    fn set_game_crashed(&mut self, status: std::process::ExitStatus) {
+        if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
+            *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
+            if let Some(log) = self.logs.get_mut(self.selected_instance.as_ref().unwrap()) {
+                log.has_crashed = true;
+            }
+        }
+    }
 }
 
 // async fn pick_file() -> Option<PathBuf> {
@@ -634,6 +644,8 @@ fn main() {
 
     if info.headless {
         return;
+    } else {
+        info!("Starting up the launcher...");
     }
 
     Launcher::run(Settings {

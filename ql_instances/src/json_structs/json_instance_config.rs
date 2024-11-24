@@ -17,11 +17,12 @@ use serde::{Deserialize, Serialize};
 ///
 /// ## `ram_in_mb`
 /// The amount of RAM in megabytes the instance should have.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct InstanceConfigJson {
     pub java_override: Option<String>,
     pub ram_in_mb: usize,
     pub mod_type: String,
+    pub enable_logger: Option<bool>,
 }
 
 impl InstanceConfigJson {

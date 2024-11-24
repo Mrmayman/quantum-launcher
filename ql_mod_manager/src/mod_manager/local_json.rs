@@ -9,6 +9,7 @@ use super::{ModFile, ModrinthError};
 pub struct ModConfig {
     pub name: String,
     pub manually_installed: bool,
+    pub installed_version: String,
     pub enabled: bool,
     pub description: String,
     pub icon_url: Option<String>,

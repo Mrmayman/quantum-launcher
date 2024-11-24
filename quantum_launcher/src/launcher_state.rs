@@ -53,6 +53,7 @@ pub enum Message {
     EditInstance,
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
+    EditInstanceLoggingToggle(bool),
     ManageModsScreenOpen,
     ManageModsToggleCheckbox((String, String), bool),
     ManageModsDeleteSelected,
@@ -200,13 +201,18 @@ pub enum State {
     LauncherSettings(MenuLauncherSettings),
 }
 
+pub struct InstanceLog {
+    pub log: String,
+    pub has_crashed: bool,
+}
+
 pub struct Launcher {
     pub state: State,
     pub selected_instance: Option<String>,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
     pub processes: HashMap<String, GameProcess>,
-    pub logs: HashMap<String, String>,
+    pub logs: HashMap<String, InstanceLog>,
     pub images: HashMap<String, Handle>,
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,

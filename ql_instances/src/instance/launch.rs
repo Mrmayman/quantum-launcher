@@ -22,7 +22,6 @@ use std::{
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
-const ENABLE_LOGGING: bool = true;
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
@@ -45,8 +44,16 @@ pub async fn launch_wrapped(
     instance_name: String,
     username: String,
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
+    enable_logger: bool,
 ) -> GameLaunchResult {
-    match launch(&instance_name, &username, java_install_progress_sender).await {
+    match launch(
+        &instance_name,
+        &username,
+        java_install_progress_sender,
+        enable_logger,
+    )
+    .await
+    {
         Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
         Err(err) => GameLaunchResult::Err(err.to_string()),
     }
@@ -67,6 +74,7 @@ pub async fn launch(
     instance_name: &str,
     username: &str,
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
+    enable_logger: bool,
 ) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
@@ -161,7 +169,7 @@ pub async fn launch(
     info!("Game args: {game_arguments:?}\n");
 
     let mut command = command.args(java_arguments.iter().chain(game_arguments.iter()));
-    command = if ENABLE_LOGGING {
+    command = if enable_logger {
         command.stdout(Stdio::piped()).stderr(Stdio::piped())
     } else {
         command
@@ -394,13 +402,21 @@ fn fill_game_arguments(
         };
         replace_var(argument, "game_directory", minecraft_dir_path);
 
-        let assets_path = file_utils::get_launcher_dir()?
+        let old_assets_path_v2 = file_utils::get_launcher_dir()?
             .join("assets")
             .join(&version_json.assetIndex.id);
 
-        let old_assets_path = instance_dir.join("assets");
-        if old_assets_path.exists() {
-            migrate_to_new_assets_path(&old_assets_path, &assets_path)?;
+        let assets_path = file_utils::get_launcher_dir()?.join("assets/dir");
+
+        if old_assets_path_v2.exists() {
+            info!("Migrating old assets to new path...");
+            copy_dir_recursive(&old_assets_path_v2, &assets_path)?;
+            std::fs::remove_dir_all(&old_assets_path_v2).map_err(io_err!(old_assets_path_v2))?;
+        }
+
+        let old_assets_path_v1 = instance_dir.join("assets");
+        if old_assets_path_v1.exists() {
+            migrate_to_new_assets_path(&old_assets_path_v1, &assets_path)?;
         }
 
         let assets_path_fixed = if assets_path.exists() {
