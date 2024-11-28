@@ -128,6 +128,7 @@ async fn install_java(
                 std::fs::create_dir_all(&file_path).map_err(io_err!(file_path))?;
             }
             JavaFile::link { target } => {
+                // TODO: Deal with java install symlink.
                 println!("[fixme:install_java] Deal with symlink {file_name} -> {target}");
             }
         }

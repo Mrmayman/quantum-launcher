@@ -126,7 +126,13 @@ impl Display for LauncherError {
                 f,
                 "the Java version ({ver}) required by the Minecraft version was not found"
             ),
-            LauncherError::UsernameIsInvalid(n) => write!(f, "username is invalid: {n}"),
+            LauncherError::UsernameIsInvalid(n) => {
+                if n.is_empty() {
+                    write!(f, "username is empty")
+                } else {
+                    write!(f, "username contains spaces: {n}")
+                }
+            },
             LauncherError::DownloadProgressMspcError(n) => {
                 write!(f, "could not send download progress: {n}")
             }

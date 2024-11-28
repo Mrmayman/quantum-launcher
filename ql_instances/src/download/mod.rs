@@ -144,14 +144,29 @@ impl GameDownloader {
         let obj_folder = assets_objects_path.join(obj_id);
         std::fs::create_dir_all(&obj_folder).map_err(io_err!(obj_folder))?;
 
+        let obj_file_path = obj_folder.join(obj_hash);
+        if obj_file_path.exists() {
+            // Asset has already been downloaded. Skip.
+            {
+                let mut progress = progress.lock().await;
+                *progress += 1;
+
+                self.send_progress(DownloadProgress::DownloadingAssets {
+                    progress: *progress,
+                    out_of: objects_len,
+                })?;
+            }
+
+            bar.inc(1);
+            return Ok(());
+        }
+
         let obj_data = file_utils::download_file_to_bytes(
             &self.network_client,
             &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
             false,
         )
         .await?;
-
-        let obj_file_path = obj_folder.join(obj_hash);
 
         std::fs::write(&obj_file_path, &obj_data).map_err(io_err!(obj_file_path))?;
 
@@ -180,8 +195,6 @@ impl GameDownloader {
         let current_assets_dir = assets_dir.join("dir");
         std::fs::create_dir_all(&current_assets_dir).map_err(io_err!(current_assets_dir))?;
 
-        let current_assets_dir_exists = current_assets_dir.exists();
-
         let assets_indexes_path = current_assets_dir.join("indexes");
         std::fs::create_dir_all(&assets_indexes_path).map_err(io_err!(assets_indexes_path))?;
         let assets_objects_path = current_assets_dir.join("objects");
@@ -189,11 +202,6 @@ impl GameDownloader {
 
         let lock_path = current_assets_dir.join("download.lock");
         let lock_exists = lock_path.exists();
-
-        if current_assets_dir_exists && !lock_exists {
-            // Assets have already been downloaded.
-            return Ok(());
-        }
 
         let lock_contents = "If you see this, the asset downloading hasn't finished. This will be deleted once finished.";
         std::fs::write(&lock_path, lock_contents).map_err(io_err!(lock_path))?;

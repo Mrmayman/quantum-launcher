@@ -311,7 +311,8 @@ impl MenuEditMods {
                 widget::row!(
                     button_with_icon(icon_manager::delete(), "Delete")
                         .on_press(Message::ManageModsDeleteSelected),
-                    button_with_icon(icon_manager::play(), "Toggle On/Off"),
+                    button_with_icon(icon_manager::play(), "Toggle On/Off")
+                        .on_press(Message::ManageModsToggleSelected),
                     button_with_icon(
                         icon_manager::play(),
                         if matches!(self.selected_state, SelectedState::All) {
@@ -330,7 +331,11 @@ impl MenuEditMods {
                             widget::row!(
                                 if config.manually_installed {
                                     widget::row!(widget::checkbox(
-                                        config.name.clone(),
+                                        format!(
+                                            "{}{}",
+                                            if config.enabled { "" } else { "(DISABLED) " },
+                                            config.name
+                                        ),
                                         self.selected_mods.contains(&SelectedMod {
                                             name: config.name.clone(),
                                             id: (*id).clone()

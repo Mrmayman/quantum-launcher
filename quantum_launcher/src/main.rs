@@ -429,16 +429,8 @@ impl Application for Launcher {
                 }
             }
             Message::ManageModsDeleteFinished(result) => match result {
-                Ok(_id) => {
-                    // info!("Deleted mod {id}");
-                    if let State::EditMods(menu) = &mut self.state {
-                        match ModIndex::get(self.selected_instance.as_ref().unwrap())
-                            .map_err(|err| err.to_string())
-                        {
-                            Ok(idx) => menu.mods = idx,
-                            Err(err) => self.set_error(err),
-                        }
-                    }
+                Ok(_) => {
+                    self.update_mod_index();
                 }
                 Err(err) => self.set_error(err),
             },
@@ -494,6 +486,29 @@ impl Application for Launcher {
             Message::EditInstanceLoggingToggle(t) => {
                 if let State::EditInstance(menu) = &mut self.state {
                     menu.config.enable_logger = Some(t);
+                }
+            }
+            Message::ManageModsToggleSelected => {
+                if let State::EditMods(menu) = &self.state {
+                    let ids = menu
+                        .selected_mods
+                        .iter()
+                        .map(|SelectedMod { name: _name, id }| id.clone())
+                        .collect();
+                    return Command::perform(
+                        ql_mod_manager::mod_manager::toggle_mods_wrapped(
+                            ids,
+                            self.selected_instance.clone().unwrap(),
+                        ),
+                        Message::ManageModsToggleFinished,
+                    );
+                }
+            }
+            Message::ManageModsToggleFinished(err) => {
+                if let Err(err) = err {
+                    self.set_error(err)
+                } else {
+                    self.update_mod_index();
                 }
             }
         }
@@ -580,6 +595,17 @@ impl Launcher {
             *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
             if let Some(log) = self.logs.get_mut(self.selected_instance.as_ref().unwrap()) {
                 log.has_crashed = true;
+            }
+        }
+    }
+
+    fn update_mod_index(&mut self) {
+        if let State::EditMods(menu) = &mut self.state {
+            match ModIndex::get(self.selected_instance.as_ref().unwrap())
+                .map_err(|err| err.to_string())
+            {
+                Ok(idx) => menu.mods = idx,
+                Err(err) => self.set_error(err),
             }
         }
     }

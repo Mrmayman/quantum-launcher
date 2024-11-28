@@ -58,6 +58,8 @@ pub enum Message {
     ManageModsToggleCheckbox((String, String), bool),
     ManageModsDeleteSelected,
     ManageModsDeleteFinished(Result<Vec<String>, String>),
+    ManageModsToggleSelected,
+    ManageModsToggleFinished(Result<(), String>),
     InstallFabricClicked,
     InstallFabricScreenOpen,
     InstallForgeStart,
@@ -312,17 +314,19 @@ fn load_config_and_theme(
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherTheme::Dark,
         Some("Light") => LauncherTheme::Light,
+        None => LauncherTheme::default(),
         _ => {
             err!("Unknown style: {:?}", config.theme);
-            LauncherTheme::Dark
+            LauncherTheme::default()
         }
     };
     let style = match config.style.as_deref() {
         Some("Brown") => LauncherStyle::Brown,
         Some("Purple") => LauncherStyle::Purple,
+        None => LauncherStyle::default(),
         _ => {
             err!("Unknown style: {:?}", config.style);
-            LauncherStyle::Purple
+            LauncherStyle::default()
         }
     };
     Ok((Some(config), theme, style))
