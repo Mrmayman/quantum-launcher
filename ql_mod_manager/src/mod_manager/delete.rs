@@ -63,7 +63,7 @@ pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), Modri
                     mod_info.dependents.remove(&dependent);
                 }
             } else {
-                eprintln!("[error]: Dependent {id} does not exist")
+                err!("Dependent {id} does not exist")
             }
         }
 
@@ -91,11 +91,7 @@ pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), Modri
     Ok(())
 }
 
-fn delete_mod(
-    index: &mut ModIndex,
-    id: &String,
-    mods_dir: &std::path::PathBuf,
-) -> Result<(), ModrinthError> {
+fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), ModrinthError> {
     if let Some(mod_info) = index.mods.remove(id) {
         for file in &mod_info.files {
             if mod_info.enabled {
@@ -105,24 +101,25 @@ fn delete_mod(
             }
         }
     } else {
-        err!("Deleted mod does not exist")
+        err!("Deleted mod does not exist");
     }
     Ok(())
 }
 
 fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModrinthError> {
-    let path = mods_dir.join(&file);
-    Ok(if let Err(err) = std::fs::remove_file(&path) {
+    let path = mods_dir.join(file);
+    if let Err(err) = std::fs::remove_file(&path) {
         if let std::io::ErrorKind::NotFound = err.kind() {
             eprintln!("[warning] File does not exist, skipping: {path:?}");
         } else {
             let err = IoError::Io {
                 error: err,
-                path: path.to_owned(),
+                path: path.clone(),
             };
             Err(err)?;
         }
-    })
+    }
+    Ok(())
 }
 
 // pub async fn delete_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {

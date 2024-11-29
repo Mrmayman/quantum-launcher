@@ -174,11 +174,6 @@ impl Application for Launcher {
                 }
             }
             Message::Tick => return self.tick(),
-            Message::TickConfigSaved(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                }
-            }
             Message::UninstallLoaderStart => {
                 if let State::EditMods(menu) = &self.state {
                     if menu.config.mod_type == "Fabric" {
@@ -268,14 +263,14 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
-            Message::LaunchKillEnd(result) => {
+            Message::TickConfigSaved(result) | Message::LaunchKillEnd(result) => {
                 if let Err(err) = result {
                     self.set_error(err);
                 }
             }
             Message::LaunchCopyLog => {
                 if let Some(log) = self.logs.get(self.selected_instance.as_ref().unwrap()) {
-                    return iced::clipboard::write(log.log.to_owned());
+                    return iced::clipboard::write(log.log.clone());
                 }
             }
             Message::UpdateCheckResult(update_check_info) => match update_check_info {
@@ -446,7 +441,7 @@ impl Application for Launcher {
                 }
             }
             Message::LauncherSettingsOpen => {
-                self.state = State::LauncherSettings(MenuLauncherSettings {});
+                self.state = State::LauncherSettings;
             }
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting style {style}");
@@ -506,7 +501,7 @@ impl Application for Launcher {
             }
             Message::ManageModsToggleFinished(err) => {
                 if let Err(err) = err {
-                    self.set_error(err)
+                    self.set_error(err);
                 } else {
                     self.update_mod_index();
                 }
@@ -549,7 +544,7 @@ impl Application for Launcher {
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
             State::ModsDownload(menu) => menu.view(&self.images, &self.images_to_load),
-            State::LauncherSettings(menu) => menu.view(self.config.as_ref()),
+            State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
         }
     }
 
@@ -670,9 +665,8 @@ fn main() {
 
     if info.headless {
         return;
-    } else {
-        info!("Starting up the launcher...");
     }
+    info!("Starting up the launcher...");
 
     Launcher::run(Settings {
         window: iced::window::Settings {

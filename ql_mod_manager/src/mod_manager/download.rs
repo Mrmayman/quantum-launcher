@@ -28,7 +28,7 @@ pub async fn download_mod(id: String, instance_name: String) -> Result<String, M
         MOD_DOWNLOAD_LOCK.lock().await
     };
 
-    let mut downloader = ModDownloader::new(instance_name)?;
+    let mut downloader = ModDownloader::new(&instance_name)?;
 
     downloader.download_project(&id, None, true).await?;
 
@@ -90,8 +90,8 @@ struct ModDownloader {
 }
 
 impl ModDownloader {
-    fn new(instance_name: String) -> Result<ModDownloader, ModrinthError> {
-        let (instance_dir, mods_dir) = get_instance_and_mod_dir(&instance_name)?;
+    fn new(instance_name: &str) -> Result<ModDownloader, ModrinthError> {
+        let (instance_dir, mods_dir) = get_instance_and_mod_dir(instance_name)?;
         let version_json = get_version_json(&instance_dir)?;
         let index = ModIndex::get(&instance_name)?;
         let client = reqwest::Client::new();
@@ -194,14 +194,14 @@ impl ModDownloader {
 
     fn has_compatible_loader(&self, project_info: &ProjectInfo) -> bool {
         if let Some(loader) = &self.loader {
-            if !project_info.loaders.contains(loader) {
+            if project_info.loaders.contains(loader) {
+                true
+            } else {
                 println!(
                     "- Skipping mod {}: No compatible loader found",
                     project_info.title
                 );
                 false
-            } else {
-                true
             }
         } else {
             true

@@ -526,7 +526,7 @@ pub async fn install(
     info!("Started installing forge");
 
     if let Some(progress) = &f_progress {
-        progress.send(ForgeInstallProgress::P1Start).unwrap();
+        let _ = progress.send(ForgeInstallProgress::P1Start);
     }
 
     let installer = ForgeInstaller::new(f_progress, instance_name.clone()).await?;

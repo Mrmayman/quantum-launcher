@@ -36,113 +36,11 @@ impl MenuLaunch {
         logs: &'element HashMap<String, InstanceLog>,
         selected_instance: Option<&'element String>,
     ) -> Element<'element> {
-        let pick_list = if let Some(instances) = instances {
-            widget::column![
-                "Instances:",
-                widget::pick_list(
-                    instances,
-                    selected_instance,
-                    Message::LaunchInstanceSelected,
-                )
-                .width(200),
-                widget::row![
-                    button_with_icon(icon_manager::create(), "New")
-                        .on_press(Message::CreateInstanceScreenOpen)
-                        .width(97),
-                    button_with_icon(icon_manager::delete(), "Delete")
-                        .on_press_maybe(
-                            (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
-                        )
-                        .width(98),
-                ]
-                .spacing(5),
-                widget::row![
-                    button_with_icon(icon_manager::settings(), "Edit")
-                        .on_press_maybe(
-                            (selected_instance.is_some()).then_some(Message::EditInstance)
-                        )
-                        .width(97),
-                    button_with_icon(icon_manager::download(), "Mods")
-                        .on_press_maybe(
-                            (selected_instance.is_some()).then_some(Message::ManageModsScreenOpen)
-                        )
-                        .width(98),
-                ]
-                .spacing(5),
-            ]
-        } else {
-            widget::column!["Loading instances..."]
-        };
+        let pick_list = get_instances_section(instances, selected_instance);
+        let footer_text = self.get_footer_text();
 
-        let footer_text = {
-            let version_message = widget::text(format!(
-                "QuantumLauncher v{LAUNCHER_VERSION_NAME}\nA Minecraft Launcher by Mrmayman"
-            ))
-            .size(12);
-
-            if self.message.is_empty() {
-                widget::column!(version_message)
-            } else {
-                widget::column!(
-                    widget::container(widget::text(&self.message).size(14))
-                        .width(200)
-                        .padding(10),
-                    version_message
-                )
-            }
-            .spacing(10)
-        };
-
-        let left_elements = widget::column![
-            widget::column![
-                "Username:",
-                widget::text_input("Enter username...", &config.as_ref().unwrap().username)
-                    .on_input(Message::LaunchUsernameSet)
-                    .width(200),
-            ]
-            .spacing(5),
-            pick_list.spacing(5),
-            widget::column!(
-                widget::row![
-                    button_with_icon(icon_manager::folder(), "Files")
-                        .on_press_maybe((selected_instance.is_some()).then(|| {
-                            let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                            Message::OpenDir(
-                                launcher_dir
-                                    .join("instances")
-                                    .join(selected_instance.as_ref().unwrap())
-                                    .join(".minecraft")
-                                    .to_str()
-                                    .unwrap()
-                                    .to_owned(),
-                            )
-                        }))
-                        .width(97),
-                    if let Some(selected_instance) = selected_instance {
-                        if processes.contains_key(selected_instance) {
-                            button_with_icon(icon_manager::play(), "Kill")
-                                .on_press(Message::LaunchKill)
-                        } else {
-                            button_with_icon(icon_manager::play(), "Play")
-                                .on_press(Message::LaunchStart)
-                        }
-                    } else {
-                        button_with_icon(icon_manager::play(), "Play")
-                    }
-                    .width(98),
-                ]
-                .spacing(5),
-                widget::row!(
-                    button_with_icon(icon_manager::settings(), "Settings & About...")
-                        .width(200)
-                        .on_press(Message::LauncherSettingsOpen),
-                )
-            )
-            .spacing(5),
-            footer_text
-        ]
-        .padding(10)
-        .spacing(20);
+        let left_elements =
+            get_left_pane(config, pick_list, selected_instance, processes, footer_text);
 
         let log = Self::get_log_pane(logs, selected_instance);
 
@@ -150,6 +48,26 @@ impl MenuLaunch {
             .padding(10)
             .spacing(20)
             .into()
+    }
+
+    fn get_footer_text(&self) -> Element {
+        let version_message = widget::text(format!(
+            "QuantumLauncher v{LAUNCHER_VERSION_NAME}\nA Minecraft Launcher by Mrmayman"
+        ))
+        .size(12);
+
+        if self.message.is_empty() {
+            widget::column!(version_message)
+        } else {
+            widget::column!(
+                widget::container(widget::text(&self.message).size(14))
+                    .width(200)
+                    .padding(10),
+                version_message
+            )
+        }
+        .spacing(10)
+        .into()
     }
 
     fn get_log_pane<'element>(
@@ -191,6 +109,108 @@ impl MenuLaunch {
         .padding(10)
         .spacing(10)
     }
+}
+
+fn get_left_pane<'a>(
+    config: Option<&LauncherConfig>,
+    pick_list: Element<'a>,
+    selected_instance: Option<&String>,
+    processes: &HashMap<String, GameProcess>,
+    footer_text: Element<'a>,
+) -> Element<'a> {
+    widget::column![
+        widget::column![
+            "Username:",
+            widget::text_input("Enter username...", &config.as_ref().unwrap().username)
+                .on_input(Message::LaunchUsernameSet)
+                .width(200),
+        ]
+        .spacing(5),
+        pick_list,
+        widget::column!(
+            widget::row![
+                button_with_icon(icon_manager::folder(), "Files")
+                    .on_press_maybe((selected_instance.is_some()).then(|| {
+                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                        Message::OpenDir(
+                            launcher_dir
+                                .join("instances")
+                                .join(selected_instance.as_ref().unwrap())
+                                .join(".minecraft")
+                                .to_str()
+                                .unwrap()
+                                .to_owned(),
+                        )
+                    }))
+                    .width(97),
+                if let Some(selected_instance) = selected_instance {
+                    if processes.contains_key(selected_instance) {
+                        button_with_icon(icon_manager::play(), "Kill").on_press(Message::LaunchKill)
+                    } else {
+                        button_with_icon(icon_manager::play(), "Play")
+                            .on_press(Message::LaunchStart)
+                    }
+                } else {
+                    button_with_icon(icon_manager::play(), "Play")
+                }
+                .width(98),
+            ]
+            .spacing(5),
+            widget::row!(
+                button_with_icon(icon_manager::settings(), "Settings & About...")
+                    .width(200)
+                    .on_press(Message::LauncherSettingsOpen),
+            )
+        )
+        .spacing(5),
+        footer_text
+    ]
+    .padding(10)
+    .spacing(20)
+    .into()
+}
+
+fn get_instances_section<'a>(
+    instances: Option<&'a [String]>,
+    selected_instance: Option<&'a String>,
+) -> Element<'a> {
+    if let Some(instances) = instances {
+        widget::column![
+            "Instances:",
+            widget::pick_list(
+                instances,
+                selected_instance,
+                Message::LaunchInstanceSelected,
+            )
+            .width(200),
+            widget::row![
+                button_with_icon(icon_manager::create(), "New")
+                    .on_press(Message::CreateInstanceScreenOpen)
+                    .width(97),
+                button_with_icon(icon_manager::delete(), "Delete")
+                    .on_press_maybe(
+                        (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
+                    )
+                    .width(98),
+            ]
+            .spacing(5),
+            widget::row![
+                button_with_icon(icon_manager::settings(), "Edit")
+                    .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance))
+                    .width(97),
+                button_with_icon(icon_manager::download(), "Mods")
+                    .on_press_maybe(
+                        (selected_instance.is_some()).then_some(Message::ManageModsScreenOpen)
+                    )
+                    .width(98),
+            ]
+            .spacing(5),
+        ]
+    } else {
+        widget::column!["Loading instances..."]
+    }
+    .spacing(5)
+    .into()
 }
 
 impl MenuEditInstance {
@@ -287,7 +307,22 @@ impl MenuEditMods {
             )
             .on_press(Message::LaunchScreenOpen(None)),
             mod_installer,
-            button_with_icon(icon_manager::folder(), "Go to Mods Folder").on_press({
+            self.open_mod_folder_button(selected_instance),
+        ]
+        .padding(10)
+        .spacing(20);
+
+        let mod_list = self.get_mod_list();
+
+        widget::row!(side_pane, mod_list)
+            .padding(10)
+            .spacing(10)
+            .into()
+    }
+
+    fn open_mod_folder_button(&self, selected_instance: &str) -> Element {
+        button_with_icon(icon_manager::folder(), "Go to Mods Folder")
+            .on_press({
                 let launcher_dir = file_utils::get_launcher_dir().unwrap();
                 Message::OpenDir(
                     launcher_dir
@@ -298,12 +333,12 @@ impl MenuEditMods {
                         .unwrap()
                         .to_owned(),
                 )
-            }),
-        ]
-        .padding(10)
-        .spacing(20);
+            })
+            .into()
+    }
 
-        let mod_list = if self.sorted_dependencies.is_empty() {
+    fn get_mod_list(&self) -> Element {
+        if self.sorted_dependencies.is_empty() {
             widget::column!("Download some mods to get started")
         } else {
             widget::column!(
@@ -324,52 +359,50 @@ impl MenuEditMods {
                     .on_press(Message::ManageModsSelectAll)
                 )
                 .spacing(5),
-                widget::scrollable(
-                    widget::column({
-                        self.sorted_dependencies.iter().map(|(id, config)| {
-                            // let config_name = config.name.clone();
-                            widget::row!(
-                                if config.manually_installed {
-                                    widget::row!(widget::checkbox(
-                                        format!(
-                                            "{}{}",
-                                            if config.enabled { "" } else { "(DISABLED) " },
-                                            config.name
-                                        ),
-                                        self.selected_mods.contains(&SelectedMod {
-                                            name: config.name.clone(),
-                                            id: (*id).clone()
-                                        })
-                                    )
-                                    .on_toggle(move |t| {
-                                        Message::ManageModsToggleCheckbox(
-                                            (config.name.clone(), (*id).to_owned()),
-                                            t,
-                                        )
-                                    }))
-                                } else {
-                                    widget::row!(widget::text(format!(
-                                        "- (DEPENDENCY) {}",
-                                        config.name
-                                    )))
-                                },
-                                widget::horizontal_space(),
-                                widget::text(&config.installed_version).width(100).size(12),
-                            )
-                            .into()
-                        })
-                    })
-                    .padding(10)
-                    .spacing(10)
-                )
+                self.get_mod_list_contents(),
             )
         }
-        .spacing(10);
+        .spacing(10)
+        .into()
+    }
 
-        widget::row!(side_pane, mod_list)
+    fn get_mod_list_contents(&self) -> Element {
+        widget::scrollable(
+            widget::column({
+                self.sorted_dependencies.iter().map(|(id, config)| {
+                    // let config_name = config.name.clone();
+                    widget::row!(
+                        if config.manually_installed {
+                            widget::row!(widget::checkbox(
+                                format!(
+                                    "{}{}",
+                                    if config.enabled { "" } else { "(DISABLED) " },
+                                    config.name
+                                ),
+                                self.selected_mods.contains(&SelectedMod {
+                                    name: config.name.clone(),
+                                    id: (*id).clone()
+                                })
+                            )
+                            .on_toggle(move |t| {
+                                Message::ManageModsToggleCheckbox(
+                                    (config.name.clone(), id.clone()),
+                                    t,
+                                )
+                            }))
+                        } else {
+                            widget::row!(widget::text(format!("- (DEPENDENCY) {}", config.name)))
+                        },
+                        widget::horizontal_space(),
+                        widget::text(&config.installed_version).width(100).size(12),
+                    )
+                    .into()
+                })
+            })
             .padding(10)
-            .spacing(10)
-            .into()
+            .spacing(10),
+        )
+        .into()
     }
 }
 
@@ -546,7 +579,7 @@ impl MenuInstallJava {
 }
 
 impl MenuLauncherSettings {
-    pub fn view(&self, config: Option<&LauncherConfig>) -> Element {
+    pub fn view(config: Option<&LauncherConfig>) -> Element {
         let themes = ["Dark".to_owned(), "Light".to_owned()];
         let styles = ["Brown".to_owned(), "Purple".to_owned()];
 

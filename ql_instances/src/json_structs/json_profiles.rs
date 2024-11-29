@@ -59,6 +59,7 @@ pub struct LauncherVersion {
 
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
     pub enableSnapshots: bool,
     pub enableAdvanced: bool,

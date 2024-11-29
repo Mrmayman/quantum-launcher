@@ -41,7 +41,6 @@ impl From<crate::json_structs::json_version::JavaVersion> for JavaVersion {
             8 => JavaVersion::Java8,
             16 => JavaVersion::Java16,
             17 => JavaVersion::Java17Gamma,
-            21 => JavaVersion::Java21,
             _ => JavaVersion::Java21,
         }
     }

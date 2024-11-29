@@ -1,13 +1,14 @@
 use std::{
     io::Cursor,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 use reqwest::Client;
 use zip_extract::ZipExtractError;
 
 use crate::{
-    download::progress::DownloadProgress,
+    download::{do_jobs, progress::DownloadProgress},
     error::IoError,
     file_utils, info, io_err,
     json_structs::json_version::{
@@ -27,18 +28,17 @@ impl GameDownloader {
 
         let bar = indicatif::ProgressBar::new(total_libraries as u64);
 
+        let num_library = Mutex::new(0);
+
         let results = self
             .version_json
             .libraries
             .iter()
-            .enumerate()
-            .map(|(i, lib)| self.download_library_fn(&bar, &lib, i, total_libraries));
-        let results = futures::future::join_all(results).await;
-        if let Some(err) = results
-            .into_iter()
-            .filter_map(|n| if let Err(err) = n { Some(err) } else { None })
-            .next()
-        {
+            .map(|lib| self.download_library_fn(&bar, lib, &num_library, total_libraries));
+
+        let outputs = do_jobs(results).await;
+
+        if let Some(err) = outputs.into_iter().find_map(Result::err) {
             return Err(err);
         }
         Ok(())
@@ -48,14 +48,9 @@ impl GameDownloader {
         &self,
         bar: &indicatif::ProgressBar,
         library: &Library,
-        library_i: usize,
+        library_i: &Mutex<usize>,
         library_len: usize,
     ) -> Result<(), DownloadError> {
-        self.send_progress(DownloadProgress::DownloadingLibraries {
-            progress: library_i,
-            out_of: library_len,
-        })?;
-
         if !GameDownloader::download_libraries_library_is_allowed(library) {
             bar.println(format!(
                 "Skipping library {}",
@@ -64,7 +59,16 @@ impl GameDownloader {
             return Ok(());
         }
 
-        self.download_library(library, &bar).await?;
+        self.download_library(library, bar).await?;
+
+        {
+            let mut library_i = library_i.lock().unwrap();
+            self.send_progress(DownloadProgress::DownloadingLibraries {
+                progress: *library_i,
+                out_of: library_len,
+            })?;
+            *library_i += 1;
+        }
 
         bar.inc(1);
 

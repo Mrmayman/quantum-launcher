@@ -138,7 +138,7 @@ pub async fn launch(
             "library_directory",
             library_directory
                 .to_str()
-                .ok_or(LauncherError::PathBufToString(library_directory.to_owned()))?,
+                .ok_or(LauncherError::PathBufToString(library_directory.clone()))?,
         );
         replace_var(argument, "version_name", &version_json.id);
     }

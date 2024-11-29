@@ -186,7 +186,7 @@ pub struct MenuModsDownload {
     pub mod_index: ModIndex,
 }
 
-pub struct MenuLauncherSettings {}
+pub struct MenuLauncherSettings;
 
 pub enum State {
     Launch(MenuLaunch),
@@ -200,7 +200,7 @@ pub enum State {
     InstallJava(MenuInstallJava),
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(MenuModsDownload),
-    LauncherSettings(MenuLauncherSettings),
+    LauncherSettings,
 }
 
 pub struct InstanceLog {

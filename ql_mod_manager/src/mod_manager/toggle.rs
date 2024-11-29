@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_instances::{err, error::IoError, file_utils, io_err};
+use ql_instances::{err, error::IoError, file_utils};
 
 use crate::mod_manager::ModIndex;
 
@@ -25,12 +25,12 @@ async fn toggle_mods(id: &[String], instance_name: &str) -> Result<(), ModrinthE
         if let Some(info) = index.mods.get_mut(id) {
             for file in &info.files {
                 let enabled_path = mods_dir.join(&file.filename);
-                let disabled_path = mods_dir.join(&format!("{}.disabled", file.filename));
+                let disabled_path = mods_dir.join(format!("{}.disabled", file.filename));
 
                 if info.enabled {
-                    rename_file(&enabled_path, &disabled_path)?;
+                    rename_file(&enabled_path, &disabled_path).await?;
                 } else {
-                    rename_file(&disabled_path, &enabled_path)?;
+                    rename_file(&disabled_path, &enabled_path).await?;
                 }
             }
             info.enabled = !info.enabled;
@@ -41,8 +41,8 @@ async fn toggle_mods(id: &[String], instance_name: &str) -> Result<(), ModrinthE
     Ok(())
 }
 
-fn rename_file(a: &Path, b: &Path) -> Result<(), ModrinthError> {
-    if let Err(err) = std::fs::rename(&a, &b) {
+async fn rename_file(a: &Path, b: &Path) -> Result<(), ModrinthError> {
+    if let Err(err) = tokio::fs::rename(a, b).await {
         if let std::io::ErrorKind::NotFound = err.kind() {
             err!("Cannot find file for renaming, skipping: {a:?} -> {b:?}");
         } else {

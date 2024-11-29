@@ -1,6 +1,12 @@
-use std::{error::Error, fmt::Display, path::PathBuf, sync::mpsc::Sender};
+use std::{
+    error::Error,
+    fmt::Display,
+    path::{Path, PathBuf},
+    sync::{mpsc::Sender, Mutex},
+};
 
 use crate::{
+    download::do_jobs,
     err,
     error::IoError,
     file_utils::{self, RequestError},
@@ -98,40 +104,23 @@ async fn install_java(
 
     let num_files = json.files.len();
 
-    for (file_num, (file_name, file)) in json.files.iter().enumerate() {
-        info!("Installing file ({file_num}/{num_files}): {file_name}");
+    let file_num = Mutex::new(0);
 
-        if let Some(java_install_progress_sender) = java_install_progress_sender {
-            if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P2 {
-                progress: file_num,
-                out_of: num_files,
-                name: file_name.clone(),
-            }) {
-                err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
-            }
-        }
+    let results = json.files.iter().map(|(file_name, file)| {
+        java_install_fn(
+            java_install_progress_sender,
+            &file_num,
+            num_files,
+            file_name,
+            &install_dir,
+            file,
+            &client,
+        )
+    });
 
-        let file_path = install_dir.join(file_name);
-        match file {
-            JavaFile::file {
-                downloads,
-                executable,
-            } => {
-                let file_bytes =
-                    file_utils::download_file_to_bytes(&client, &downloads.raw.url, false).await?;
-                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.clone()))?;
-                if *executable {
-                    file_utils::set_executable(&file_path)?;
-                }
-            }
-            JavaFile::directory {} => {
-                std::fs::create_dir_all(&file_path).map_err(io_err!(file_path))?;
-            }
-            JavaFile::link { target } => {
-                // TODO: Deal with java install symlink.
-                println!("[fixme:install_java] Deal with symlink {file_name} -> {target}");
-            }
-        }
+    let outputs = do_jobs(results).await;
+    if let Some(err) = outputs.into_iter().find_map(Result::err) {
+        return Err(err);
     }
 
     std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
@@ -142,6 +131,51 @@ async fn install_java(
         if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P3Done) {
             err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
         }
+    }
+    Ok(())
+}
+
+async fn java_install_fn(
+    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    file_num: &Mutex<usize>,
+    num_files: usize,
+    file_name: &str,
+    install_dir: &Path,
+    file: &JavaFile,
+    client: &reqwest::Client,
+) -> Result<(), JavaInstallError> {
+    let file_path = install_dir.join(file_name);
+    match file {
+        JavaFile::file {
+            downloads,
+            executable,
+        } => {
+            let file_bytes =
+                file_utils::download_file_to_bytes(client, &downloads.raw.url, false).await?;
+            std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.clone()))?;
+            if *executable {
+                file_utils::set_executable(&file_path)?;
+            }
+        }
+        JavaFile::directory {} => {
+            std::fs::create_dir_all(&file_path).map_err(io_err!(file_path))?;
+        }
+        JavaFile::link { target } => {
+            // TODO: Deal with java install symlink.
+            println!("[fixme:install_java] Deal with symlink {file_name} -> {target}");
+        }
+    }
+    {
+        let mut file_num = file_num.lock().unwrap();
+        info!("Installing file ({file_num}/{num_files}): {file_name}");
+        if let Some(java_install_progress_sender) = java_install_progress_sender {
+            let _ = java_install_progress_sender.send(JavaInstallProgress::P2 {
+                progress: *file_num,
+                out_of: num_files,
+                name: file_name.to_owned(),
+            });
+        }
+        *file_num += 1;
     }
     Ok(())
 }

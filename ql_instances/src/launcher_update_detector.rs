@@ -56,7 +56,7 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
     let mut version = latest.tag_name.clone();
     // v0.2 -> 0.2
     if version.starts_with('v') {
-        version = version[1..version.len()].to_owned()
+        version = version[1..version.len()].to_owned();
     }
     // 0.2 -> 0.2.0
     if version.chars().filter(|n| *n == '.').count() == 1 {

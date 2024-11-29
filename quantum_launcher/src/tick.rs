@@ -17,7 +17,7 @@ impl Launcher {
         match &mut self.state {
             State::Launch(MenuLaunch { recv, .. }) => {
                 if let Some(receiver) = recv.take() {
-                    while let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
+                    if let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
                         info!("Started install of Java");
                         self.state = State::InstallJava(MenuInstallJava {
                             num: 0.0,
@@ -193,7 +193,7 @@ impl Launcher {
                     }
                 }
             }
-            State::LauncherSettings(_menu) => {
+            State::LauncherSettings => {
                 if let Some(config) = self.config.clone() {
                     return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
                 }

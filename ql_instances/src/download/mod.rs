@@ -15,7 +15,11 @@ use serde_json::Value;
 use tokio::sync::Mutex;
 use zip_extract::ZipExtractError;
 
+/// Limit on how many files to download concurrently.
+const JOBS: usize = 64;
+
 use crate::{
+    err,
     error::IoError,
     file_utils::{self, RequestError},
     info, io_err,
@@ -201,7 +205,10 @@ impl GameDownloader {
         std::fs::create_dir_all(&assets_objects_path).map_err(io_err!(assets_objects_path))?;
 
         let lock_path = current_assets_dir.join("download.lock");
-        let lock_exists = lock_path.exists();
+
+        if lock_path.exists() {
+            err!("Asset downloading previously interrupted?");
+        }
 
         let lock_contents = "If you see this, the asset downloading hasn't finished. This will be deleted once finished.";
         std::fs::write(&lock_path, lock_contents).map_err(io_err!(lock_path))?;
@@ -210,7 +217,7 @@ impl GameDownloader {
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
                 .await?;
 
-        self.save_asset_index_json(assets_indexes_path, &asset_index)?;
+        self.save_asset_index_json(&assets_indexes_path, &asset_index)?;
 
         let objects =
             asset_index["objects"]
@@ -234,27 +241,9 @@ impl GameDownloader {
             )
         });
 
-        let mut tasks = futures::stream::FuturesUnordered::new();
-        let mut outputs = Vec::new();
-        const JOBS: usize = 64;
-        for result in results {
-            tasks.push(result);
-            if tasks.len() > JOBS {
-                if let Some(task) = tasks.next().await {
-                    outputs.push(task);
-                }
-            }
-        }
+        let outputs = do_jobs(results).await;
 
-        while let Some(task) = tasks.next().await {
-            outputs.push(task);
-        }
-
-        if let Some(err) = outputs
-            .into_iter()
-            .filter_map(|n| if let Err(err) = n { Some(err) } else { None })
-            .next()
-        {
+        if let Some(err) = outputs.into_iter().find_map(Result::err) {
             return Err(err);
         }
 
@@ -264,7 +253,7 @@ impl GameDownloader {
 
     fn save_asset_index_json(
         &self,
-        assets_indexes_path: PathBuf,
+        assets_indexes_path: &Path,
         asset_index: &Value,
     ) -> Result<(), DownloadError> {
         let assets_indexes_json_path =
@@ -434,4 +423,25 @@ impl Display for DownloadError {
             DownloadError::NativesOutsideDirRemove => write!(f, "download error: tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"),
         }
     }
+}
+
+pub async fn do_jobs<ResultType>(
+    results: impl Iterator<Item = impl std::future::Future<Output = ResultType>>,
+) -> Vec<ResultType> {
+    let mut tasks = futures::stream::FuturesUnordered::new();
+    let mut outputs = Vec::new();
+
+    for result in results {
+        tasks.push(result);
+        if tasks.len() > JOBS {
+            if let Some(task) = tasks.next().await {
+                outputs.push(task);
+            }
+        }
+    }
+
+    while let Some(task) = tasks.next().await {
+        outputs.push(task);
+    }
+    outputs
 }
