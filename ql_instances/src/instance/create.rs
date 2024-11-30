@@ -72,9 +72,9 @@ pub async fn create_instance(
         game_downloader.download_assets().await?;
     }
 
-    game_downloader.create_version_json()?;
-    game_downloader.create_profiles_json()?;
-    game_downloader.create_config_json()?;
+    game_downloader.create_version_json().await?;
+    game_downloader.create_profiles_json().await?;
+    game_downloader.create_config_json().await?;
 
     let version_file_path = launcher_dir
         .join("instances")

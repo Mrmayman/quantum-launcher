@@ -1,6 +1,7 @@
 use tokio::process::{Child, Command};
 
 use crate::{
+    download::GameDownloader,
     error::{IoError, LauncherError, LauncherResult},
     file_utils, info,
     instance::migrate::migrate_old_instances,
@@ -94,7 +95,8 @@ pub async fn launch(
 
     let version_json = read_version_json(&instance_dir)?;
 
-    let mut game_arguments = get_arguments(&version_json, username, &minecraft_dir, &instance_dir)?;
+    let mut game_arguments =
+        get_arguments(&version_json, username, &minecraft_dir, &instance_dir).await?;
 
     let natives_path = instance_dir.join("libraries").join("natives");
 
@@ -124,7 +126,8 @@ pub async fn launch(
         username,
         &version_json,
         &minecraft_dir,
-    )?;
+    )
+    .await?;
 
     for argument in &mut java_arguments {
         replace_var(
@@ -199,7 +202,7 @@ fn setup_fabric(
     Ok(fabric_json)
 }
 
-fn setup_forge(
+async fn setup_forge(
     config_json: &InstanceConfigJson,
     instance_dir: &Path,
     java_arguments: &mut Vec<String>,
@@ -231,7 +234,8 @@ fn setup_forge(
                 version_json,
                 minecraft_dir,
                 instance_dir,
-            )?;
+            )
+            .await?;
         }
     }
     Ok(json)
@@ -356,7 +360,7 @@ fn get_class_path(
     Ok(class_path)
 }
 
-fn get_arguments(
+async fn get_arguments(
     version_json: &VersionDetails,
     username: &str,
     minecraft_dir: &Path,
@@ -383,11 +387,12 @@ fn get_arguments(
         version_json,
         minecraft_dir,
         instance_dir,
-    )?;
+    )
+    .await?;
     Ok(game_arguments)
 }
 
-fn fill_game_arguments(
+async fn fill_game_arguments(
     game_arguments: &mut [String],
     username: &str,
     version_json: &VersionDetails,
@@ -402,35 +407,7 @@ fn fill_game_arguments(
         };
         replace_var(argument, "game_directory", minecraft_dir_path);
 
-        let old_assets_path_v2 = file_utils::get_launcher_dir()?
-            .join("assets")
-            .join(&version_json.assetIndex.id);
-
-        let assets_path = file_utils::get_launcher_dir()?.join("assets/dir");
-
-        if old_assets_path_v2.exists() {
-            info!("Migrating old assets to new path...");
-            copy_dir_recursive(&old_assets_path_v2, &assets_path)?;
-            std::fs::remove_dir_all(&old_assets_path_v2).map_err(io_err!(old_assets_path_v2))?;
-        }
-
-        let old_assets_path_v1 = instance_dir.join("assets");
-        if old_assets_path_v1.exists() {
-            migrate_to_new_assets_path(&old_assets_path_v1, &assets_path)?;
-        }
-
-        let assets_path_fixed = if assets_path.exists() {
-            assets_path
-        } else {
-            file_utils::get_launcher_dir()?.join("assets/null")
-        };
-
-        let Some(assets_path) = assets_path_fixed.to_str() else {
-            return Err(LauncherError::PathBufToString(assets_path_fixed));
-        };
-
-        replace_var(argument, "assets_root", assets_path);
-        replace_var(argument, "game_assets", assets_path);
+        set_assets_argument(version_json, instance_dir, argument).await?;
         replace_var(argument, "auth_xuid", "0");
         replace_var(
             argument,
@@ -444,6 +421,79 @@ fn fill_game_arguments(
         replace_var(argument, "assets_index_name", &version_json.assetIndex.id);
         replace_var(argument, "user_properties", "{}");
     }
+    Ok(())
+}
+
+async fn set_assets_argument(
+    version_json: &VersionDetails,
+    instance_dir: &Path,
+    argument: &mut String,
+) -> Result<(), LauncherError> {
+    let old_assets_path_v2 = file_utils::get_launcher_dir()?
+        .join("assets")
+        .join(&version_json.assetIndex.id);
+
+    let old_assets_path_v1 = instance_dir.join("assets");
+
+    if version_json.assetIndex.id == "legacy" {
+        let assets_path = file_utils::get_launcher_dir()?.join("assets/legacy_assets");
+
+        if old_assets_path_v2.exists() {
+            redownload_legacy_assets(version_json, instance_dir).await?;
+            std::fs::remove_dir_all(&old_assets_path_v2).map_err(io_err!(old_assets_path_v2))?;
+        }
+
+        if old_assets_path_v1.exists() {
+            redownload_legacy_assets(version_json, instance_dir).await?;
+            std::fs::remove_dir_all(&old_assets_path_v1).map_err(io_err!(old_assets_path_v1))?;
+        }
+
+        let assets_path_fixed = if assets_path.exists() {
+            assets_path
+        } else {
+            file_utils::get_launcher_dir()?.join("assets/null")
+        };
+
+        let Some(assets_path) = assets_path_fixed.to_str() else {
+            return Err(LauncherError::PathBufToString(assets_path_fixed));
+        };
+        replace_var(argument, "assets_root", assets_path);
+        replace_var(argument, "game_assets", assets_path);
+    } else {
+        let assets_path = file_utils::get_launcher_dir()?.join("assets/dir");
+
+        if old_assets_path_v2.exists() {
+            info!("Migrating old assets to new path...");
+            copy_dir_recursive(&old_assets_path_v2, &assets_path)?;
+            std::fs::remove_dir_all(&old_assets_path_v2).map_err(io_err!(old_assets_path_v2))?;
+        }
+
+        if old_assets_path_v1.exists() {
+            migrate_to_new_assets_path(&old_assets_path_v1, &assets_path)?;
+        }
+
+        let assets_path_fixed = if assets_path.exists() {
+            assets_path
+        } else {
+            file_utils::get_launcher_dir()?.join("assets/null")
+        };
+        let Some(assets_path) = assets_path_fixed.to_str() else {
+            return Err(LauncherError::PathBufToString(assets_path_fixed));
+        };
+        replace_var(argument, "assets_root", assets_path);
+        replace_var(argument, "game_assets", assets_path);
+    }
+    Ok(())
+}
+
+async fn redownload_legacy_assets(
+    version_json: &VersionDetails,
+    instance_dir: &Path,
+) -> Result<(), LauncherError> {
+    info!("Redownloading legacy assets");
+    let game_downloader =
+        GameDownloader::with_existing_instance(version_json.clone(), instance_dir.to_owned());
+    game_downloader.download_assets().await?;
     Ok(())
 }
 
