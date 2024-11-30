@@ -11,8 +11,8 @@ use ql_instances::{
     error::{LauncherError, LauncherResult},
     file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
-    DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine, UpdateCheckInfo,
-    UpdateProgress,
+    AssetRedownloadProgress, DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine,
+    UpdateCheckInfo, UpdateProgress,
 };
 use ql_mod_manager::{
     instance_mod_installer::{
@@ -92,14 +92,16 @@ pub enum Message {
 #[derive(Default)]
 pub struct MenuLaunch {
     pub message: String,
-    pub recv: Option<Receiver<JavaInstallProgress>>,
+    pub java_recv: Option<Receiver<JavaInstallProgress>>,
+    pub asset_recv: Option<Receiver<AssetRedownloadProgress>>,
 }
 
 impl MenuLaunch {
     pub fn with_message(message: String) -> Self {
         Self {
             message,
-            recv: None,
+            java_recv: None,
+            asset_recv: None,
         }
     }
 }
@@ -173,6 +175,30 @@ pub struct MenuInstallJava {
     pub message: String,
 }
 
+pub struct MenuRedownloadAssets {
+    pub num: f32,
+    pub recv: Receiver<AssetRedownloadProgress>,
+    pub java_recv: Option<Receiver<JavaInstallProgress>>,
+}
+impl MenuRedownloadAssets {
+    pub fn tick(&mut self) -> bool {
+        while let Ok(progress) = self.recv.try_recv() {
+            match progress {
+                AssetRedownloadProgress::P1Start => {
+                    self.num = 0.0;
+                }
+                AssetRedownloadProgress::P2Progress { done, out_of } => {
+                    self.num = done as f32 / out_of as f32;
+                }
+                AssetRedownloadProgress::P3Done => {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
 pub struct MenuModsDownload {
     pub query: String,
     pub results: Option<Search>,
@@ -198,6 +224,7 @@ pub enum State {
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
     InstallJava(MenuInstallJava),
+    RedownloadAssets(MenuRedownloadAssets),
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(MenuModsDownload),
     LauncherSettings,

@@ -46,12 +46,14 @@ pub async fn launch_wrapped(
     username: String,
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
     enable_logger: bool,
+    asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
 ) -> GameLaunchResult {
     match launch(
         &instance_name,
         &username,
         java_install_progress_sender,
         enable_logger,
+        asset_redownload_progress,
     )
     .await
     {
@@ -76,6 +78,7 @@ pub async fn launch(
     username: &str,
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
     enable_logger: bool,
+    asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
 ) -> LauncherResult<Child> {
     if username.contains(' ') || username.is_empty() {
         return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
@@ -95,8 +98,14 @@ pub async fn launch(
 
     let version_json = read_version_json(&instance_dir)?;
 
-    let mut game_arguments =
-        get_arguments(&version_json, username, &minecraft_dir, &instance_dir).await?;
+    let mut game_arguments = get_arguments(
+        &version_json,
+        username,
+        &minecraft_dir,
+        &instance_dir,
+        asset_redownload_progress.as_ref(),
+    )
+    .await?;
 
     let natives_path = instance_dir.join("libraries").join("natives");
 
@@ -126,6 +135,7 @@ pub async fn launch(
         username,
         &version_json,
         &minecraft_dir,
+        asset_redownload_progress.as_ref(),
     )
     .await?;
 
@@ -210,6 +220,7 @@ async fn setup_forge(
     username: &str,
     version_json: &VersionDetails,
     minecraft_dir: &Path,
+    asset_redownload_progress: Option<&Sender<AssetRedownloadProgress>>,
 ) -> Result<Option<JsonForgeDetails>, LauncherError> {
     let json = if config_json.mod_type == "Forge" {
         Some(get_forge_json(instance_dir)?)
@@ -234,6 +245,7 @@ async fn setup_forge(
                 version_json,
                 minecraft_dir,
                 instance_dir,
+                asset_redownload_progress,
             )
             .await?;
         }
@@ -365,6 +377,7 @@ async fn get_arguments(
     username: &str,
     minecraft_dir: &Path,
     instance_dir: &Path,
+    asset_redownload_progress: Option<&Sender<AssetRedownloadProgress>>,
 ) -> LauncherResult<Vec<String>> {
     let mut game_arguments: Vec<String> =
         if let Some(ref arguments) = version_json.minecraftArguments {
@@ -387,6 +400,7 @@ async fn get_arguments(
         version_json,
         minecraft_dir,
         instance_dir,
+        asset_redownload_progress,
     )
     .await?;
     Ok(game_arguments)
@@ -398,6 +412,7 @@ async fn fill_game_arguments(
     version_json: &VersionDetails,
     minecraft_dir: &Path,
     instance_dir: &Path,
+    object_redownload_progress: Option<&Sender<AssetRedownloadProgress>>,
 ) -> Result<(), LauncherError> {
     for argument in game_arguments.iter_mut() {
         replace_var(argument, "auth_player_name", username);
@@ -407,7 +422,13 @@ async fn fill_game_arguments(
         };
         replace_var(argument, "game_directory", minecraft_dir_path);
 
-        set_assets_argument(version_json, instance_dir, argument).await?;
+        set_assets_argument(
+            version_json,
+            instance_dir,
+            argument,
+            object_redownload_progress,
+        )
+        .await?;
         replace_var(argument, "auth_xuid", "0");
         replace_var(
             argument,
@@ -428,6 +449,7 @@ async fn set_assets_argument(
     version_json: &VersionDetails,
     instance_dir: &Path,
     argument: &mut String,
+    object_redownload_progress: Option<&Sender<AssetRedownloadProgress>>,
 ) -> Result<(), LauncherError> {
     let old_assets_path_v2 = file_utils::get_launcher_dir()?
         .join("assets")
@@ -439,12 +461,14 @@ async fn set_assets_argument(
         let assets_path = file_utils::get_launcher_dir()?.join("assets/legacy_assets");
 
         if old_assets_path_v2.exists() {
-            redownload_legacy_assets(version_json, instance_dir).await?;
+            redownload_legacy_assets(version_json, instance_dir, object_redownload_progress)
+                .await?;
             std::fs::remove_dir_all(&old_assets_path_v2).map_err(io_err!(old_assets_path_v2))?;
         }
 
         if old_assets_path_v1.exists() {
-            redownload_legacy_assets(version_json, instance_dir).await?;
+            redownload_legacy_assets(version_json, instance_dir, object_redownload_progress)
+                .await?;
             std::fs::remove_dir_all(&old_assets_path_v1).map_err(io_err!(old_assets_path_v1))?;
         }
 
@@ -489,12 +513,21 @@ async fn set_assets_argument(
 async fn redownload_legacy_assets(
     version_json: &VersionDetails,
     instance_dir: &Path,
+    asset_redownload_progress: Option<&Sender<AssetRedownloadProgress>>,
 ) -> Result<(), LauncherError> {
     info!("Redownloading legacy assets");
     let game_downloader =
-        GameDownloader::with_existing_instance(version_json.clone(), instance_dir.to_owned());
-    game_downloader.download_assets().await?;
+        GameDownloader::with_existing_instance(version_json.clone(), instance_dir.to_owned(), None);
+    game_downloader
+        .download_assets(asset_redownload_progress)
+        .await?;
     Ok(())
+}
+
+pub enum AssetRedownloadProgress {
+    P1Start,
+    P2Progress { done: usize, out_of: usize },
+    P3Done,
 }
 
 /// Moves the game assets from the old path:

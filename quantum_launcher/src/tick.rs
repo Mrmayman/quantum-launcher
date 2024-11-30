@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use iced::Command;
-use ql_instances::{err, info, JavaInstallProgress, LogEvent, LogLine, UpdateProgress};
+use ql_instances::{
+    err, info, AssetRedownloadProgress, JavaInstallProgress, LogEvent, LogLine, UpdateProgress,
+};
 use ql_mod_manager::{
     instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
     mod_manager::{ModConfig, ModIndex, Search},
@@ -9,14 +11,18 @@ use ql_mod_manager::{
 
 use crate::launcher_state::{
     reload_instances, InstanceLog, Launcher, MenuInstallJava, MenuLaunch, MenuLauncherUpdate,
-    Message, State,
+    MenuRedownloadAssets, Message, State,
 };
 
 impl Launcher {
     pub fn tick(&mut self) -> Command<Message> {
         match &mut self.state {
-            State::Launch(MenuLaunch { recv, .. }) => {
-                if let Some(receiver) = recv.take() {
+            State::Launch(MenuLaunch {
+                java_recv,
+                asset_recv,
+                ..
+            }) => {
+                if let Some(receiver) = java_recv.take() {
                     if let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
                         info!("Started install of Java");
                         self.state = State::InstallJava(MenuInstallJava {
@@ -26,7 +32,19 @@ impl Launcher {
                         });
                         return Command::none();
                     }
-                    *recv = Some(receiver);
+                    *java_recv = Some(receiver);
+                }
+
+                if let Some(receiver) = asset_recv.take() {
+                    if let Ok(AssetRedownloadProgress::P1Start) = receiver.try_recv() {
+                        self.state = State::RedownloadAssets(MenuRedownloadAssets {
+                            num: 0.0,
+                            recv: receiver,
+                            java_recv: java_recv.take(),
+                        });
+                        return Command::none();
+                    }
+                    *asset_recv = Some(receiver);
                 }
 
                 let mut killed_processes = Vec::new();
@@ -152,10 +170,7 @@ impl Launcher {
                 let finished_install = menu.tick();
                 if finished_install {
                     let message = "Installed Java".to_owned();
-                    self.state = State::Launch(MenuLaunch {
-                        message,
-                        recv: None,
-                    });
+                    self.state = State::Launch(MenuLaunch::with_message(message));
                     if let Ok(list) = reload_instances() {
                         self.instances = Some(list);
                     } else {
@@ -196,6 +211,23 @@ impl Launcher {
             State::LauncherSettings => {
                 if let Some(config) = self.config.clone() {
                     return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
+                }
+            }
+            State::RedownloadAssets(menu) => {
+                let finished = menu.tick();
+                if finished {
+                    let message = "Redownloaded Assets".to_owned();
+                    let java_recv = menu.java_recv.take();
+                    self.state = State::Launch(MenuLaunch {
+                        message,
+                        java_recv,
+                        asset_recv: None,
+                    });
+                    if let Ok(list) = reload_instances() {
+                        self.instances = Some(list);
+                    } else {
+                        err!("Failed to reload instances list.");
+                    }
                 }
             }
         }

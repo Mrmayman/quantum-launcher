@@ -22,7 +22,9 @@ use crate::{
     err,
     error::IoError,
     file_utils::{self, RequestError},
-    info, io_err,
+    info,
+    instance::launch::AssetRedownloadProgress,
+    io_err,
     json_structs::{
         json_instance_config::InstanceConfigJson, json_manifest::Manifest,
         json_profiles::ProfileJson, json_version::VersionDetails, JsonDownloadError,
@@ -85,13 +87,17 @@ impl GameDownloader {
         })
     }
 
-    pub fn with_existing_instance(version_json: VersionDetails, instance_dir: PathBuf) -> Self {
+    pub fn with_existing_instance(
+        version_json: VersionDetails,
+        instance_dir: PathBuf,
+        sender: Option<Sender<DownloadProgress>>,
+    ) -> Self {
         let network_client = Client::new();
         Self {
             instance_dir,
             version_json,
             network_client,
-            sender: None,
+            sender,
         }
     }
 
@@ -208,8 +214,14 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn download_assets(&self) -> Result<(), DownloadError> {
+    pub async fn download_assets(
+        &self,
+        sender: Option<&Sender<AssetRedownloadProgress>>,
+    ) -> Result<(), DownloadError> {
         info!("Downloading assets.");
+        if let Some(sender) = sender {
+            sender.send(AssetRedownloadProgress::P1Start).unwrap();
+        }
         let asset_index =
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
                 .await?;
@@ -246,6 +258,7 @@ impl GameDownloader {
                     &bar,
                     &progress,
                     objects.len(),
+                    sender,
                 )
             });
 
@@ -315,6 +328,9 @@ impl GameDownloader {
                 .await
                 .map_err(io_err!(lock_path))?;
         }
+        if let Some(sender) = sender {
+            sender.send(AssetRedownloadProgress::P3Done).unwrap();
+        }
         Ok(())
     }
 
@@ -326,6 +342,7 @@ impl GameDownloader {
         bar: &ProgressBar,
         progress: &Mutex<usize>,
         objects_len: usize,
+        sender: Option<&Sender<AssetRedownloadProgress>>,
     ) -> Result<(), DownloadError> {
         let file_path = legacy_path.join(obj_id);
         if let Some(parent) = file_path.parent() {
@@ -336,14 +353,8 @@ impl GameDownloader {
 
         if file_path.exists() {
             // Asset already downloaded. Skipping.
-            {
-                let mut progress = progress.lock().await;
-                self.send_progress(DownloadProgress::DownloadingAssets {
-                    progress: *progress,
-                    out_of: objects_len,
-                })?;
-                *progress += 1;
-            }
+            self.send_asset_download_progress(progress, objects_len, sender, bar)
+                .await?;
             return Ok(());
         }
 
@@ -363,16 +374,34 @@ impl GameDownloader {
             .await
             .map_err(io_err!(file_path))?;
 
-        {
-            let mut progress = progress.lock().await;
-            self.send_progress(DownloadProgress::DownloadingAssets {
-                progress: *progress,
-                out_of: objects_len,
-            })?;
-            *progress += 1;
-        }
-        bar.inc(1);
+        self.send_asset_download_progress(progress, objects_len, sender, bar)
+            .await?;
 
+        Ok(())
+    }
+
+    async fn send_asset_download_progress(
+        &self,
+        progress: &Mutex<usize>,
+        objects_len: usize,
+        sender: Option<&Sender<AssetRedownloadProgress>>,
+        bar: &ProgressBar,
+    ) -> Result<(), DownloadError> {
+        let mut progress = progress.lock().await;
+        self.send_progress(DownloadProgress::DownloadingAssets {
+            progress: *progress,
+            out_of: objects_len,
+        })?;
+        if let Some(sender) = sender {
+            sender
+                .send(AssetRedownloadProgress::P2Progress {
+                    done: *progress,
+                    out_of: objects_len,
+                })
+                .unwrap();
+        }
+        *progress += 1;
+        bar.inc(1);
         Ok(())
     }
 

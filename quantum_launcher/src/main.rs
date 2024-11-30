@@ -545,6 +545,13 @@ impl Application for Launcher {
             State::InstallJava(menu) => menu.view(),
             State::ModsDownload(menu) => menu.view(&self.images, &self.images_to_load),
             State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
+            State::RedownloadAssets(menu) => widget::column!(
+                widget::text("Redownloading Assets").size(20),
+                widget::progress_bar(0.0..=1.0, menu.num),
+            )
+            .padding(10)
+            .spacing(20)
+            .into(),
         }
     }
 

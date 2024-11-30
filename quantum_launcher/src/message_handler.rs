@@ -31,7 +31,10 @@ impl Launcher {
             let username = self.config.as_ref().unwrap().username.clone();
 
             let (sender, receiver) = std::sync::mpsc::channel();
-            menu_launch.recv = Some(receiver);
+            menu_launch.java_recv = Some(receiver);
+
+            let (asset_sender, asset_receiver) = std::sync::mpsc::channel();
+            menu_launch.asset_recv = Some(asset_receiver);
 
             if let Some(log) = self.logs.get_mut(&selected_instance) {
                 log.log.clear();
@@ -54,6 +57,7 @@ impl Launcher {
                     username,
                     Some(sender),
                     instance_config.enable_logger.unwrap_or(true),
+                    Some(asset_sender),
                 ),
                 Message::LaunchEnd,
             );

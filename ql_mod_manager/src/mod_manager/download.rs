@@ -93,7 +93,7 @@ impl ModDownloader {
     fn new(instance_name: &str) -> Result<ModDownloader, ModrinthError> {
         let (instance_dir, mods_dir) = get_instance_and_mod_dir(instance_name)?;
         let version_json = get_version_json(&instance_dir)?;
-        let index = ModIndex::get(&instance_name)?;
+        let index = ModIndex::get(instance_name)?;
         let client = reqwest::Client::new();
         let loader = get_loader_type(&instance_dir)?;
         let currently_installing_mods = HashSet::new();

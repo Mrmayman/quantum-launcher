@@ -69,7 +69,7 @@ pub async fn create_instance(
     game_downloader.download_libraries().await?;
 
     if download_assets {
-        game_downloader.download_assets().await?;
+        game_downloader.download_assets(None).await?;
     }
 
     game_downloader.create_version_json().await?;
