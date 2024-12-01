@@ -64,7 +64,7 @@ impl MenuModsDownload {
                 let name = name.local.to_string();
                 let attrs = attrs.borrow();
                 match name.as_str() {
-                    "html" | "body" | "p" | "center" | "i" => {
+                    "html" | "body" | "p" | "center" | "i" | "kbd" | "b" => {
                         let children = node.children.borrow();
                         *element = widget::column(children.iter().map(|node| {
                             let mut element = widget::column!().into();

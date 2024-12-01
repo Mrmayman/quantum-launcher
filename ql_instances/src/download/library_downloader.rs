@@ -52,10 +52,7 @@ impl GameDownloader {
         library_len: usize,
     ) -> Result<(), DownloadError> {
         if !GameDownloader::download_libraries_library_is_allowed(library) {
-            bar.println(format!(
-                "Skipping library {}",
-                serde_json::to_string_pretty(&library)?
-            ));
+            bar.println(format!("Skipping library:\n{library:#?}\n",));
             return Ok(());
         }
 
@@ -94,7 +91,7 @@ impl GameDownloader {
             match downloads {
                 LibraryDownloads::Normal { artifact, .. } => {
                     let jar_file = self
-                        .download_library_normal(artifact, &libraries_dir, bar)
+                        .download_library_normal(artifact, &libraries_dir)
                         .await?;
 
                     GameDownloader::extract_native_library(
@@ -153,7 +150,6 @@ impl GameDownloader {
         &self,
         artifact: &LibraryDownloadArtifact,
         libraries_dir: &Path,
-        bar: &indicatif::ProgressBar,
     ) -> Result<Vec<u8>, DownloadError> {
         let lib_file_path = libraries_dir.join(PathBuf::from(&artifact.path));
 
@@ -163,8 +159,6 @@ impl GameDownloader {
                 "Downloaded java library does not have parent module like the sun in com.sun.java",
             )
             .to_path_buf();
-
-        bar.println(format!("Downloading library: {}", artifact.path));
 
         std::fs::create_dir_all(&lib_dir_path).map_err(io_err!(lib_dir_path))?;
         let library_downloaded =
