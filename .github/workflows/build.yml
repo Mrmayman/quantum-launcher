@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# This file is modified by Mrmayman, ApicalShark on 2024
 
 name: Release
 on:
@@ -40,37 +42,37 @@ jobs:
         build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows] #, x86_64-win-gnu, win32-msvc
         include:
         - build: x86_64-linux
-          os: ubuntu-20.04
-          rust: stable
+          os: ubuntu-latest
+          rust: nightly
           target: x86_64-unknown-linux-gnu
           cross: false
           final_name: linux_x86_64
         - build: aarch64-linux
-          os: ubuntu-20.04
-          rust: stable
+          os: ubuntu-latest
+          rust: nightly
           target: aarch64-unknown-linux-gnu
           cross: true
           final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
-          rust: stable
+          rust: nightly
           target: x86_64-apple-darwin
           cross: false
           final_name: macos_x86_64
         - build: x86_64-windows
-          os: windows-2019
-          rust: stable
+          os: windows-latest
+          rust: nightly
           target: x86_64-pc-windows-msvc
           cross: false
           final_name: windows_x86_64
         - build: aarch64-macos
           os: macos-latest
-          rust: stable
+          rust: nightly
           target: aarch64-apple-darwin
           final_name: macos_aarch64
         - build: aarch64-windows
-          os: windows-2019
-          rust: stable
+          os: windows-latest
+          rust: nightly
           target: aarch64-pc-windows-msvc
           cross: false
           final_name: windows_aarch64
