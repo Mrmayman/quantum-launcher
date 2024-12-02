@@ -31,7 +31,7 @@ pub async fn get_list_of_versions() -> Result<Vec<FabricVersion>, String> {
     serde_json::from_str(&version_list).map_err(|err| err.to_string())
 }
 
-fn get_url(name: &str) -> String {
+pub fn get_url(name: &str) -> String {
     let parts: Vec<&str> = name.split(':').collect();
     format!(
         "{}/{}/{}/{}-{}.jar",

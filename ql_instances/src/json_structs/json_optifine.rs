@@ -2,10 +2,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    error::{IoError, LauncherError},
-    file_utils, io_err,
-};
+use crate::{error::IoError, file_utils, io_err};
+
+use super::JsonFileError;
 
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case)]
@@ -13,11 +12,12 @@ pub struct JsonOptifine {
     pub id: String,
     pub libraries: Vec<OptifineLibrary>,
     pub mainClass: String,
-    pub arguments: OptifineArguments,
+    pub arguments: Option<OptifineArguments>,
+    pub minecraftArguments: Option<String>,
 }
 
 impl JsonOptifine {
-    pub fn read(instance_name: &str) -> Result<(Self, PathBuf), LauncherError> {
+    pub fn read(instance_name: &str) -> Result<(Self, PathBuf), JsonFileError> {
         let dot_minecraft_dir = file_utils::get_launcher_dir()?
             .join("instances")
             .join(&instance_name)
@@ -98,7 +98,7 @@ fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoE
 fn find_subdirectory_with_name(
     parent_dir: &Path,
     keyword: &str,
-) -> Result<Option<PathBuf>, LauncherError> {
+) -> Result<Option<PathBuf>, IoError> {
     // Read the contents of the directory
     let entries = std::fs::read_dir(parent_dir).map_err(io_err!(parent_dir))?;
     for entry in entries.into_iter().filter_map(Result::ok) {
@@ -119,7 +119,7 @@ fn find_subdirectory_with_name(
 
 #[derive(Serialize, Deserialize)]
 pub struct OptifineLibrary {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize)]

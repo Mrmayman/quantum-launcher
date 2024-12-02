@@ -6,11 +6,12 @@ use std::{
 
 use ql_instances::{
     error::IoError,
-    file_utils, info, io_err,
+    file_utils::{self, RequestError},
+    info, io_err,
     java_install::{self, JavaInstallError},
     json_structs::{
         json_instance_config::InstanceConfigJson, json_java_list::JavaVersion,
-        json_version::VersionDetails,
+        json_optifine::JsonOptifine, json_version::VersionDetails, JsonFileError,
     },
 };
 
@@ -111,6 +112,43 @@ pub async fn install_optifine(
         ));
     }
 
+    let (optifine_json, _) = JsonOptifine::read(instance_name)?;
+
+    let client = reqwest::Client::new();
+    let libraries_path = dot_minecraft_path.join("libraries");
+    for library in optifine_json
+        .libraries
+        .iter()
+        .filter_map(|l| (!l.name.starts_with("optifine:")).then_some(&l.name))
+    {
+        // l = com.mojang:netty:1.8.8
+        // path = com/mojang/netty/1.8.8/netty-1.8.8.jar
+        // url = https://libraries.minecraft.net/com/mojang/netty/1.8.8/netty-1.8.8.jar
+
+        // Split in colon
+        let parts: Vec<&str> = library.split(':').collect();
+
+        let url_parent_path = format!("{}/{}/{}", parts[0].replace('.', "/"), parts[1], parts[2],);
+        let url_final_part = format!("{url_parent_path}/{}-{}.jar", parts[1], parts[2],);
+
+        let parent_path = libraries_path.join(&url_parent_path);
+        tokio::fs::create_dir_all(&parent_path)
+            .await
+            .map_err(io_err!(parent_path))?;
+
+        let url = format!("https://libraries.minecraft.net/{url_final_part}");
+        info!("Downloading library: {url}");
+
+        let jar_path = libraries_path.join(&url_final_part);
+        if jar_path.exists() {
+            continue;
+        }
+        let jar_bytes = file_utils::download_file_to_bytes(&client, &url, false).await?;
+        tokio::fs::write(&jar_path, jar_bytes)
+            .await
+            .map_err(io_err!(jar_path))?;
+    }
+
     update_instance_config_json(&instance_path)?;
     info!("Finished installing OptiFine");
 
@@ -149,6 +187,7 @@ pub enum OptifineError {
     InstallerDoesNotExist,
     JavacFail(String, String),
     JavaFail(String, String),
+    Request(RequestError),
     Serde(serde_json::Error),
 }
 
@@ -166,6 +205,7 @@ impl Display for OptifineError {
                 write!(f, "java runtime error.\nSTDOUT: {out}\nSTDERR: {err}")
             }
             OptifineError::Serde(err) => write!(f, "(json) {err}"),
+            OptifineError::Request(err) => write!(f, "(request) {err}"),
         }
     }
 }
@@ -185,5 +225,20 @@ impl From<JavaInstallError> for OptifineError {
 impl From<serde_json::Error> for OptifineError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde(value)
+    }
+}
+
+impl From<RequestError> for OptifineError {
+    fn from(value: RequestError) -> Self {
+        Self::Request(value)
+    }
+}
+
+impl From<JsonFileError> for OptifineError {
+    fn from(value: JsonFileError) -> Self {
+        match value {
+            JsonFileError::SerdeError(err) => err.into(),
+            JsonFileError::Io(err) => err.into(),
+        }
     }
 }

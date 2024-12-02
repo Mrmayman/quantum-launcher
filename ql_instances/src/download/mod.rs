@@ -38,18 +38,7 @@ const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 /// A struct that helps download a Minecraft instance.
 ///
 /// # Example
-/// ```no_run
-/// // progress_sender: Option<mspc::Sender<Progress>>
-/// // Btw don't run this doctest! It will burn 600 MB of disk space.
-/// let game_downloader = GameDownloader::new("1.20.4", &version, progress_sender)?;
-/// game_downloader.download_jar().await?;
-/// game_downloader.download_libraries().await?;
-/// game_downloader.download_logging_config().await?;
-/// game_downloader.download_assets().await?;
-///
-/// let mut json_file = File::create(game_downloader.instance_dir.join("details.json"))?;
-/// json_file.write_all(serde_json::to_string(&game_downloader.version_json)?.as_bytes())?;
-/// ```
+/// Check the [`crate::create_instance`] function for an example.
 pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
