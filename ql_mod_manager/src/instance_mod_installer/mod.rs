@@ -6,6 +6,7 @@ use ql_instances::{
 
 pub mod fabric;
 pub mod forge;
+pub mod optifine;
 
 pub enum CoreMod {
     None,

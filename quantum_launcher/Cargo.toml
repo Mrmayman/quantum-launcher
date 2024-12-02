@@ -33,3 +33,4 @@ comrak = "0.28" # For markdown parsing (displaying mod pages)
 # We be implementing a full blown HTML renderer in iced with this one
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
+rfd = "0.15.1"

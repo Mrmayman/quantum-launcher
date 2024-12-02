@@ -8,8 +8,8 @@ use iced::{
 };
 use launcher_state::{
     reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
-    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, SelectedState,
-    State,
+    MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
+    SelectedMod, SelectedState, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -506,6 +506,38 @@ impl Application for Launcher {
                     self.update_mod_index();
                 }
             }
+            Message::InstallOptifineScreenOpen => {
+                self.state = State::InstallOptifine(MenuInstallOptifine { progress: None });
+            }
+            Message::InstallOptifineSelectInstallerStart => {
+                return Command::perform(
+                    rfd::AsyncFileDialog::new()
+                        .add_filter("jar", &["jar"])
+                        .set_title("Select OptiFine Installer")
+                        .pick_file(),
+                    Message::InstallOptifineSelectInstallerEnd,
+                )
+            }
+            Message::InstallOptifineSelectInstallerEnd(handle) => {
+                if let Some(handle) = handle {
+                    let path = handle.path().to_owned();
+
+                    return Command::perform(
+                        ql_mod_manager::instance_mod_installer::optifine::install_optifine_wrapped(
+                            self.selected_instance.clone().unwrap(),
+                            path,
+                        ),
+                        Message::InstallOptifineEnd,
+                    );
+                }
+            }
+            Message::InstallOptifineEnd(result) => {
+                if let Err(err) = result {
+                    self.set_error(err)
+                } else {
+                    self.go_to_launch_screen_with_message("Installed OptiFine".to_owned())
+                }
+            }
         }
         Command::none()
     }
@@ -552,6 +584,7 @@ impl Application for Launcher {
             .padding(10)
             .spacing(20)
             .into(),
+            State::InstallOptifine(menu) => menu.view(),
         }
     }
 

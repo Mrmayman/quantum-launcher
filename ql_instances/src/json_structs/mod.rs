@@ -8,6 +8,7 @@ pub mod json_instance_config;
 pub mod json_java_files;
 pub mod json_java_list;
 pub mod json_manifest;
+pub mod json_optifine;
 pub mod json_profiles;
 pub mod json_version;
 

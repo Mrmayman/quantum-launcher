@@ -9,7 +9,8 @@ use crate::{
     launcher_state::{
         GameProcess, InstanceLog, Launcher, MenuCreateInstance, MenuDeleteInstance,
         MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava,
-        MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, SelectedMod, SelectedState,
+        MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
+        SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -270,14 +271,47 @@ impl MenuEditInstance {
     }
 }
 
+const OPTIFINE_DOWNLOADS: &str = "https://optifine.net/downloads";
+
+impl MenuInstallOptifine {
+    pub fn view(&self) -> Element {
+        widget::column!(
+            button_with_icon(icon_manager::back(), "Back").on_press(Message::ManageModsScreenOpen),
+            widget::container(
+                widget::column!(
+                    widget::text("Install OptiFine").size(20),
+                    "Step 1: Open the OptiFine download page and download the installer.",
+                    widget::button("Open download page")
+                        .on_press(Message::OpenDir(OPTIFINE_DOWNLOADS.to_owned()))
+                )
+                .padding(10)
+                .spacing(10)
+            ),
+            widget::container(
+                widget::column!(
+                    "Step 2: Select the installer file",
+                    widget::button("Select File")
+                        .on_press(Message::InstallOptifineSelectInstallerStart)
+                )
+                .padding(10)
+                .spacing(10)
+            )
+        )
+        .padding(10)
+        .spacing(10)
+        .into()
+    }
+}
+
 impl MenuEditMods {
     pub fn view(&self, selected_instance: &str) -> Element {
         let mod_installer = if self.config.mod_type == "Vanilla" {
             widget::column![
+                widget::button("Install OptiFine").on_press(Message::InstallOptifineScreenOpen),
                 widget::button("Install Fabric").on_press(Message::InstallFabricScreenOpen),
                 widget::button("Install Forge").on_press(Message::InstallForgeStart),
                 widget::button("Install Quilt"),
-                widget::button("Install OptiFine")
+                widget::button("Install NeoForge"),
             ]
         } else {
             widget::column![

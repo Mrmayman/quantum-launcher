@@ -83,10 +83,14 @@ pub enum Message {
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
     InstallModsDownload(usize),
     InstallModsDownloadComplete(Result<String, String>),
+    InstallOptifineScreenOpen,
+    InstallOptifineSelectInstallerStart,
+    InstallOptifineSelectInstallerEnd(Option<rfd::FileHandle>),
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
     ManageModsSelectAll,
+    InstallOptifineEnd(Result<(), String>),
 }
 
 #[derive(Default)]
@@ -223,11 +227,23 @@ pub enum State {
     DeleteInstance(MenuDeleteInstance),
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
+    InstallOptifine(MenuInstallOptifine),
     InstallJava(MenuInstallJava),
     RedownloadAssets(MenuRedownloadAssets),
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(MenuModsDownload),
     LauncherSettings,
+}
+
+pub struct MenuInstallOptifine {
+    pub progress: Option<InstallOptifineProgress>,
+}
+
+pub struct InstallOptifineProgress {
+    pub optifine_install_progress: Receiver<()>,
+    pub optifine_install_num: f32,
+    pub java_install_progress: Receiver<()>,
+    pub java_install_num: f32,
 }
 
 pub struct InstanceLog {

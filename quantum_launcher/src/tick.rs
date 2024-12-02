@@ -230,6 +230,7 @@ impl Launcher {
                     }
                 }
             }
+            State::InstallOptifine(_) => {}
         }
 
         let mut commands = Vec::new();

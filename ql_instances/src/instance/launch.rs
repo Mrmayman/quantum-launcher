@@ -12,6 +12,7 @@ use crate::{
         json_forge::JsonForgeDetails,
         json_instance_config::InstanceConfigJson,
         json_java_list::JavaVersion,
+        json_optifine::JsonOptifine,
         json_version::{LibraryDownloads, VersionDetails},
         JsonFileError,
     },
@@ -139,6 +140,8 @@ pub async fn launch(
     )
     .await?;
 
+    let optifine_json = setup_optifine(&config_json, &mut game_arguments, instance_name)?;
+
     for argument in &mut java_arguments {
         replace_var(
             argument,
@@ -163,6 +166,7 @@ pub async fn launch(
         &instance_dir,
         fabric_json,
         forge_json,
+        optifine_json,
     )?;
 
     let mut command = if let Some(java_override) = config_json.java_override {
@@ -194,22 +198,33 @@ pub async fn launch(
     Ok(result)
 }
 
+fn setup_optifine(
+    config_json: &InstanceConfigJson,
+    game_arguments: &mut Vec<String>,
+    instance_name: &str,
+) -> LauncherResult<Option<(JsonOptifine, PathBuf)>> {
+    if config_json.mod_type != "OptiFine" {
+        return Ok(None);
+    }
+
+    let (optifine_json, jar) = JsonOptifine::read(instance_name)?;
+    game_arguments.extend(optifine_json.arguments.game.clone());
+    Ok(Some((optifine_json, jar)))
+}
+
 fn setup_fabric(
     config_json: &InstanceConfigJson,
     instance_dir: &Path,
     java_arguments: &mut Vec<String>,
 ) -> Result<Option<FabricJSON>, LauncherError> {
-    let fabric_json = if config_json.mod_type == "Fabric" {
-        Some(get_fabric_json(instance_dir)?)
-    } else {
-        None
-    };
-    if let Some(ref fabric_json) = fabric_json {
-        fabric_json.arguments.jvm.iter().for_each(|n| {
-            java_arguments.push(n.clone());
-        });
+    if config_json.mod_type != "Fabric" {
+        return Ok(None);
     }
-    Ok(fabric_json)
+
+    let fabric_json = get_fabric_json(instance_dir)?;
+    java_arguments.extend(fabric_json.arguments.jvm.clone());
+
+    Ok(Some(fabric_json))
 }
 
 async fn setup_forge(
@@ -222,35 +237,30 @@ async fn setup_forge(
     minecraft_dir: &Path,
     asset_redownload_progress: Option<&Sender<AssetRedownloadProgress>>,
 ) -> Result<Option<JsonForgeDetails>, LauncherError> {
-    let json = if config_json.mod_type == "Forge" {
-        Some(get_forge_json(instance_dir)?)
-    } else {
-        None
-    };
-    if let Some(json) = &json {
-        if let Some(arguments) = &json.arguments {
-            if let Some(jvm) = &arguments.jvm {
-                for arg in jvm {
-                    java_arguments.push(arg.clone());
-                }
-            }
-            arguments.game.iter().for_each(|n| {
-                game_arguments.push(n.clone());
-            });
-        } else if let Some(arguments) = &json.minecraftArguments {
-            *game_arguments = arguments.split(' ').map(str::to_owned).collect();
-            fill_game_arguments(
-                game_arguments,
-                username,
-                version_json,
-                minecraft_dir,
-                instance_dir,
-                asset_redownload_progress,
-            )
-            .await?;
-        }
+    if config_json.mod_type != "Forge" {
+        return Ok(None);
     }
-    Ok(json)
+
+    let json = get_forge_json(instance_dir)?;
+
+    if let Some(arguments) = &json.arguments {
+        if let Some(jvm) = &arguments.jvm {
+            java_arguments.extend(jvm.clone());
+        }
+        game_arguments.extend(arguments.game.clone());
+    } else if let Some(arguments) = &json.minecraftArguments {
+        *game_arguments = arguments.split(' ').map(str::to_owned).collect();
+        fill_game_arguments(
+            game_arguments,
+            username,
+            version_json,
+            minecraft_dir,
+            instance_dir,
+            asset_redownload_progress,
+        )
+        .await?;
+    }
+    Ok(Some(json))
 }
 
 fn setup_classpath_and_mainclass(
@@ -259,6 +269,7 @@ fn setup_classpath_and_mainclass(
     instance_dir: &Path,
     fabric_json: Option<FabricJSON>,
     forge_json: Option<JsonForgeDetails>,
+    optifine_json: Option<(JsonOptifine, PathBuf)>,
 ) -> Result<(), LauncherError> {
     java_arguments.push("-cp".to_owned());
     java_arguments.push(get_class_path(
@@ -266,11 +277,14 @@ fn setup_classpath_and_mainclass(
         instance_dir,
         fabric_json.as_ref(),
         forge_json.as_ref(),
+        optifine_json.as_ref(),
     )?);
     java_arguments.push(if let Some(fabric_json) = fabric_json {
         fabric_json.mainClass
     } else if let Some(forge_json) = forge_json {
         forge_json.mainClass.clone()
+    } else if let Some((optifine_json, _)) = &optifine_json {
+        optifine_json.mainClass.clone()
     } else {
         version_json.mainClass.clone()
     });
@@ -311,11 +325,34 @@ fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> 
     Ok(serde_json::from_str(&config_json)?)
 }
 
+fn find_jar_files(dir_path: &Path) -> Result<Vec<PathBuf>, IoError> {
+    let mut jar_files = Vec::new();
+
+    // Recursively traverse the directory
+    for entry in std::fs::read_dir(dir_path).map_err(io_err!(dir_path))? {
+        let entry = entry.map_err(io_err!(dir_path))?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            // If the entry is a directory, recursively search it
+            jar_files.extend(find_jar_files(&path)?);
+        } else if let Some(extension) = path.extension() {
+            // If the entry is a file, check if it has a .jar extension
+            if extension == "jar" {
+                jar_files.push(path);
+            }
+        }
+    }
+
+    Ok(jar_files)
+}
+
 fn get_class_path(
     version_json: &VersionDetails,
     instance_dir: &Path,
     fabric_json: Option<&FabricJSON>,
     forge_json: Option<&JsonForgeDetails>,
+    optifine_json: Option<&(JsonOptifine, PathBuf)>,
 ) -> LauncherResult<String> {
     let mut class_path = String::new();
 
@@ -324,6 +361,19 @@ fn get_class_path(
         let forge_classpath =
             std::fs::read_to_string(&classpath_path).map_err(io_err!(classpath_path))?;
         class_path.push_str(&forge_classpath);
+    }
+
+    if optifine_json.is_some() {
+        let jar_file_location = instance_dir.join(".minecraft/libraries");
+        let jar_files = find_jar_files(&jar_file_location)?;
+        for jar_file in jar_files {
+            class_path.push_str(
+                jar_file
+                    .to_str()
+                    .ok_or(LauncherError::PathBufToString(jar_file.clone()))?,
+            );
+            class_path.push(CLASSPATH_SEPARATOR);
+        }
     }
 
     version_json
@@ -359,11 +409,15 @@ fn get_class_path(
         }
     }
 
-    let jar_path = instance_dir
-        .join(".minecraft")
-        .join("versions")
-        .join(&version_json.id)
-        .join(format!("{}.jar", version_json.id));
+    let jar_path = instance_dir.join(".minecraft").join("versions");
+
+    let jar_path = if let Some((_, jar)) = optifine_json {
+        jar.to_owned()
+    } else {
+        jar_path
+            .join(&version_json.id)
+            .join(format!("{}.jar", version_json.id))
+    };
     let jar_path = jar_path
         .to_str()
         .ok_or(LauncherError::PathBufToString(jar_path.clone()))?;
