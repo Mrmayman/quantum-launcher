@@ -192,6 +192,14 @@ impl Application for Launcher {
                             Message::UninstallLoaderEnd,
                         );
                     }
+                    if menu.config.mod_type == "OptiFine" {
+                        return Command::perform(
+                            instance_mod_installer::optifine::uninstall_wrapped(
+                                self.selected_instance.clone().unwrap(),
+                            ),
+                            Message::UninstallLoaderEnd,
+                        );
+                    }
                 }
             }
             Message::UninstallLoaderEnd(result) => {

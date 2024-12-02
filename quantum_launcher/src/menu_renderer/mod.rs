@@ -347,8 +347,11 @@ impl MenuEditMods {
                     .padding(5)
                 )
                 .on_press_maybe(
-                    (self.config.mod_type == "Fabric" || self.config.mod_type == "Forge")
-                        .then_some(Message::UninstallLoaderStart)
+                    (matches!(
+                        self.config.mod_type.as_str(),
+                        "Forge" | "Fabric" | "OptiFine"
+                    ))
+                    .then_some(Message::UninstallLoaderStart)
                 ),
                 button_with_icon(icon_manager::download(), "Download Mods")
                     .on_press(Message::InstallModsOpen)

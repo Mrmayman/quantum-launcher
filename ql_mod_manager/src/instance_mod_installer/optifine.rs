@@ -98,12 +98,56 @@ pub async fn install_optifine(
     run_hook(&new_installer_path, &optifine_path).await?;
 
     download_libraries(instance_name, &dot_minecraft_path, progress_sender.as_ref()).await?;
-    update_instance_config_json(&instance_path)?;
+    update_instance_config_json(&instance_path, "OptiFine".to_owned())?;
     if let Some(progress) = &progress_sender {
         progress.send(OptifineInstallProgress::P5Done).unwrap();
     }
     info!("Finished installing OptiFine");
 
+    Ok(())
+}
+
+pub async fn uninstall_wrapped(instance_name: String) -> Result<(), String> {
+    uninstall(&instance_name)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
+    let instance_path = file_utils::get_launcher_dir()?
+        .join("instances")
+        .join(&instance_name);
+
+    let optifine_path = instance_path.join("optifine");
+
+    tokio::fs::remove_dir_all(&optifine_path)
+        .await
+        .map_err(io_err!(optifine_path))?;
+    update_instance_config_json(&instance_path, "Vanilla".to_owned())?;
+
+    let dot_minecraft_path = instance_path.join(".minecraft");
+    let libraries_path = dot_minecraft_path.join("libraries");
+    tokio::fs::remove_dir_all(&libraries_path)
+        .await
+        .map_err(io_err!(libraries_path))?;
+
+    let versions_path = dot_minecraft_path.join("versions");
+    let entries = std::fs::read_dir(&versions_path).map_err(io_err!(versions_path))?;
+    for entry in entries.into_iter().filter_map(Result::ok) {
+        let path = entry.path();
+        // Check if the entry is a directory and contains the keyword
+        if !path.is_dir() {
+            continue;
+        }
+
+        if let Some(Some(file_name)) = path.file_name().map(|n| n.to_str()) {
+            if file_name.to_lowercase().contains("Opti") {
+                tokio::fs::remove_dir_all(&path)
+                    .await
+                    .map_err(io_err!(path))?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -226,12 +270,15 @@ async fn compile_hook(
     })
 }
 
-fn update_instance_config_json(instance_path: &Path) -> Result<(), OptifineError> {
+fn update_instance_config_json(
+    instance_path: &Path,
+    mod_type: String,
+) -> Result<(), OptifineError> {
     let config_path = instance_path.join("config.json");
     let config = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
     let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
 
-    config.mod_type = "OptiFine".to_string();
+    config.mod_type = mod_type;
     let config = serde_json::to_string(&config)?;
     std::fs::write(&config_path, config).map_err(io_err!(config_path))?;
     Ok(())
