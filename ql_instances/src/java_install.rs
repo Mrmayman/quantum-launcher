@@ -21,7 +21,7 @@ use crate::{
 pub enum JavaInstallProgress {
     P1Started,
     P2 {
-        progress: usize,
+        done: usize,
         out_of: usize,
         name: String,
     },
@@ -170,7 +170,7 @@ async fn java_install_fn(
         info!("Installing file ({file_num}/{num_files}): {file_name}");
         if let Some(java_install_progress_sender) = java_install_progress_sender {
             let _ = java_install_progress_sender.send(JavaInstallProgress::P2 {
-                progress: *file_num,
+                done: *file_num,
                 out_of: num_files,
                 name: file_name.to_owned(),
             });

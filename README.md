@@ -36,9 +36,9 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - `.minecraft` located at `YOUR_INSTANCE/.minecraft/`.
 
 # To-do (in the future)
-- Add ability to enable and disable mods.
-- Autodownload for NeoForge, Quilt and OptiFine.
-- A built in mod store using the Modrinth API (available in the experimental version, clone the repo and compile it. Warning: Not stable or fully functional)
+- Uninstaller for OptiFine.
+- Installer for NeoForge, Quilt.
+- A built in mod store using the Modrinth API (**incomplete**)
 - Integration with Omniarchive, special support for old and rare Minecraft versions (with fixes for skins/sounds)
 - A local server hosting system (without port forwarding).
 - macOS support.

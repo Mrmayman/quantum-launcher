@@ -5,13 +5,16 @@ use ql_instances::{
     err, info, AssetRedownloadProgress, JavaInstallProgress, LogEvent, LogLine, UpdateProgress,
 };
 use ql_mod_manager::{
-    instance_mod_installer::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
+    instance_mod_installer::{
+        fabric::FabricInstallProgress, forge::ForgeInstallProgress,
+        optifine::OptifineInstallProgress,
+    },
     mod_manager::{ModConfig, ModIndex, Search},
 };
 
 use crate::launcher_state::{
-    reload_instances, InstanceLog, Launcher, MenuInstallJava, MenuLaunch, MenuLauncherUpdate,
-    MenuRedownloadAssets, Message, State,
+    reload_instances, InstanceLog, Launcher, MenuInstallFabric, MenuInstallForge, MenuInstallJava,
+    MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets, Message, State,
 };
 
 impl Launcher {
@@ -24,7 +27,7 @@ impl Launcher {
             }) => {
                 if let Some(receiver) = java_recv.take() {
                     if let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
-                        info!("Started install of Java");
+                        info!("Installing Java");
                         self.state = State::InstallJava(MenuInstallJava {
                             num: 0.0,
                             recv: receiver,
@@ -47,18 +50,7 @@ impl Launcher {
                     *asset_recv = Some(receiver);
                 }
 
-                let mut killed_processes = Vec::new();
-                for (name, process) in &self.processes {
-                    if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
-                        // Game process has exited.
-                        killed_processes.push(name.to_owned());
-                    } else {
-                        Launcher::read_game_logs(&mut self.logs, process, name);
-                    }
-                }
-                for name in killed_processes {
-                    self.processes.remove(&name);
-                }
+                self.tick_processes_and_logs();
 
                 if let Some(config) = self.config.clone() {
                     return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
@@ -77,95 +69,9 @@ impl Launcher {
             }
             State::Error { .. } => {}
             State::DeleteInstance(_) => {}
-            State::InstallFabric(menu) => {
-                if let Some(receiver) = &menu.progress_receiver {
-                    while let Ok(progress) = receiver.try_recv() {
-                        menu.progress_num = match progress {
-                            FabricInstallProgress::P1Start => 0.0,
-                            FabricInstallProgress::P2Library { done, out_of } => {
-                                done as f32 / out_of as f32
-                            }
-                            FabricInstallProgress::P3Done => 1.0,
-                        }
-                    }
-                }
-            }
-            State::InstallForge(menu) => {
-                while let Ok(message) = menu.forge_progress_receiver.try_recv() {
-                    menu.forge_progress_num = match message {
-                        ForgeInstallProgress::P1Start => 0.0,
-                        ForgeInstallProgress::P2DownloadingJson => 1.0,
-                        ForgeInstallProgress::P3DownloadingInstaller => 2.0,
-                        ForgeInstallProgress::P4RunningInstaller => 3.0,
-                        ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
-                            3.0 + (num as f32 / out_of as f32)
-                        }
-                        ForgeInstallProgress::P6Done => 4.0,
-                    };
-
-                    menu.forge_message = match message {
-                        ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
-                        ForgeInstallProgress::P2DownloadingJson => "Downloading JSON".to_owned(),
-                        ForgeInstallProgress::P3DownloadingInstaller => {
-                            "Downloading installer".to_owned()
-                        }
-                        ForgeInstallProgress::P4RunningInstaller => "Running Installer".to_owned(),
-                        ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
-                            format!("Downloading Library ({num}/{out_of})")
-                        }
-                        ForgeInstallProgress::P6Done => "Done!".to_owned(),
-                    };
-                }
-
-                while let Ok(message) = menu.java_progress_receiver.try_recv() {
-                    match message {
-                        JavaInstallProgress::P1Started => {
-                            menu.is_java_getting_installed = true;
-                            menu.java_progress_num = 0.0;
-                            menu.java_message = Some("Started...".to_owned());
-                        }
-                        JavaInstallProgress::P2 {
-                            progress,
-                            out_of,
-                            name,
-                        } => {
-                            menu.java_progress_num = progress as f32 / out_of as f32;
-                            menu.java_message =
-                                Some(format!("Downloading ({progress}/{out_of}): {name}"));
-                        }
-                        JavaInstallProgress::P3Done => {
-                            menu.is_java_getting_installed = false;
-                            menu.java_message = None;
-                        }
-                    }
-                }
-            }
-            State::UpdateFound(MenuLauncherUpdate {
-                receiver,
-                progress,
-                progress_message,
-                ..
-            }) => {
-                while let Some(Ok(message)) =
-                    receiver.as_ref().map(std::sync::mpsc::Receiver::try_recv)
-                {
-                    match message {
-                        UpdateProgress::P1Start => {}
-                        UpdateProgress::P2Backup => {
-                            *progress = 1.0;
-                            *progress_message = Some("Backing up current version".to_owned());
-                        }
-                        UpdateProgress::P3Download => {
-                            *progress = 2.0;
-                            *progress_message = Some("Downloading new version".to_owned());
-                        }
-                        UpdateProgress::P4Extract => {
-                            *progress = 3.0;
-                            *progress_message = Some("Extracting new version".to_owned());
-                        }
-                    }
-                }
-            }
+            State::InstallFabric(menu) => menu.tick(),
+            State::InstallForge(menu) => menu.tick(),
+            State::UpdateFound(menu) => menu.tick(),
             State::InstallJava(menu) => {
                 let finished_install = menu.tick();
                 if finished_install {
@@ -187,6 +93,9 @@ impl Launcher {
                 if let Some(results) = &menu.results {
                     let mut commands = Vec::new();
                     for result in &results.hits {
+                        if commands.len() > 64 {
+                            break;
+                        }
                         if !self.images_downloads_in_progress.contains(&result.title)
                             && !result.icon_url.is_empty()
                         {
@@ -196,10 +105,6 @@ impl Launcher {
                                 Search::download_image(result.icon_url.clone(), true),
                                 Message::InstallModsImageDownloaded,
                             ));
-                        }
-
-                        if commands.len() > 10 {
-                            break;
                         }
                     }
 
@@ -230,7 +135,58 @@ impl Launcher {
                     }
                 }
             }
-            State::InstallOptifine(_) => {}
+            State::InstallOptifine(menu) => {
+                if let Some(progress) = &mut menu.progress {
+                    while let Ok(message) = progress.optifine_install_progress.try_recv() {
+                        match message {
+                            OptifineInstallProgress::P1Start => {
+                                progress.optifine_install_num = 0.0;
+                                progress.optifine_install_message = "Starting...".to_owned();
+                            }
+                            OptifineInstallProgress::P2CompilingHook => {
+                                progress.optifine_install_num = 1.0;
+                                progress.optifine_install_message = "Compiling hook...".to_owned();
+                            }
+                            OptifineInstallProgress::P3RunningHook => {
+                                progress.optifine_install_num = 2.0;
+                                progress.optifine_install_message = "Running hook...".to_owned();
+                            }
+                            OptifineInstallProgress::P4DownloadingLibraries { done, total } => {
+                                progress.optifine_install_num = 2.0 + (done as f32 / total as f32);
+                                progress.optifine_install_message = format!(
+                                    "Downloading libraries ({done}/{total})",
+                                    done = done,
+                                    total = total
+                                );
+                            }
+                            OptifineInstallProgress::P5Done => {
+                                progress.optifine_install_num = 3.0;
+                                progress.optifine_install_message = "Done!".to_owned();
+                            }
+                        }
+                    }
+
+                    while let Ok(message) = progress.java_install_progress.try_recv() {
+                        match message {
+                            JavaInstallProgress::P1Started => {
+                                progress.java_install_num = 0.0;
+                                progress.java_install_message = "Starting...".to_owned();
+                                progress.is_java_being_installed = true;
+                            }
+                            JavaInstallProgress::P2 { done, out_of, name } => {
+                                progress.java_install_num = done as f32 / out_of as f32;
+                                progress.java_install_message =
+                                    format!("Downloading ({done}/{out_of}): {name}");
+                            }
+                            JavaInstallProgress::P3Done => {
+                                progress.java_install_num = 1.0;
+                                progress.java_install_message = "Done!".to_owned();
+                                progress.is_java_being_installed = false;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         let mut commands = Vec::new();
@@ -252,6 +208,21 @@ impl Launcher {
             Command::none()
         } else {
             Command::batch(commands)
+        }
+    }
+
+    fn tick_processes_and_logs(&mut self) {
+        let mut killed_processes = Vec::new();
+        for (name, process) in &self.processes {
+            if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
+                // Game process has exited.
+                killed_processes.push(name.to_owned());
+            } else {
+                Launcher::read_game_logs(&mut self.logs, process, name);
+            }
+        }
+        for name in killed_processes {
+            self.processes.remove(&name);
         }
     }
 
@@ -303,6 +274,97 @@ impl Launcher {
     }
 }
 
+impl MenuLauncherUpdate {
+    fn tick(&mut self) {
+        while let Some(Ok(message)) = self
+            .receiver
+            .as_ref()
+            .map(std::sync::mpsc::Receiver::try_recv)
+        {
+            match message {
+                UpdateProgress::P1Start => {}
+                UpdateProgress::P2Backup => {
+                    self.progress = 1.0;
+                    self.progress_message = Some("Backing up current version".to_owned());
+                }
+                UpdateProgress::P3Download => {
+                    self.progress = 2.0;
+                    self.progress_message = Some("Downloading new version".to_owned());
+                }
+                UpdateProgress::P4Extract => {
+                    self.progress = 3.0;
+                    self.progress_message = Some("Extracting new version".to_owned());
+                }
+            }
+        }
+    }
+}
+
+impl MenuInstallForge {
+    fn tick(&mut self) {
+        while let Ok(message) = self.forge_progress_receiver.try_recv() {
+            self.forge_progress_num = match message {
+                ForgeInstallProgress::P1Start => 0.0,
+                ForgeInstallProgress::P2DownloadingJson => 1.0,
+                ForgeInstallProgress::P3DownloadingInstaller => 2.0,
+                ForgeInstallProgress::P4RunningInstaller => 3.0,
+                ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
+                    3.0 + (num as f32 / out_of as f32)
+                }
+                ForgeInstallProgress::P6Done => 4.0,
+            };
+
+            self.forge_message = match message {
+                ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
+                ForgeInstallProgress::P2DownloadingJson => "Downloading JSON".to_owned(),
+                ForgeInstallProgress::P3DownloadingInstaller => "Downloading installer".to_owned(),
+                ForgeInstallProgress::P4RunningInstaller => "Running Installer".to_owned(),
+                ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
+                    format!("Downloading Library ({num}/{out_of})")
+                }
+                ForgeInstallProgress::P6Done => "Done!".to_owned(),
+            };
+        }
+        while let Ok(message) = self.java_progress_receiver.try_recv() {
+            match message {
+                JavaInstallProgress::P1Started => {
+                    self.is_java_getting_installed = true;
+                    self.java_progress_num = 0.0;
+                    self.java_message = Some("Started...".to_owned());
+                }
+                JavaInstallProgress::P2 {
+                    done: progress,
+                    out_of,
+                    name,
+                } => {
+                    self.java_progress_num = progress as f32 / out_of as f32;
+                    self.java_message = Some(format!("Downloading ({progress}/{out_of}): {name}"));
+                }
+                JavaInstallProgress::P3Done => {
+                    self.is_java_getting_installed = false;
+                    self.java_message = None;
+                }
+            }
+        }
+    }
+}
+
+impl MenuInstallFabric {
+    fn tick(&mut self) {
+        if let Some(receiver) = &self.progress_receiver {
+            while let Ok(progress) = receiver.try_recv() {
+                self.progress_num = match progress {
+                    FabricInstallProgress::P1Start => 0.0,
+                    FabricInstallProgress::P2Library { done, out_of } => {
+                        done as f32 / out_of as f32
+                    }
+                    FabricInstallProgress::P3Done => 1.0,
+                }
+            }
+        }
+    }
+}
+
 fn get_date(timestamp: &str) -> Option<String> {
     let time: i64 = timestamp.parse().ok()?;
     let seconds = time / 1000;
@@ -323,7 +385,7 @@ impl MenuInstallJava {
                     "Starting up (2/2)".clone_into(&mut self.message);
                 }
                 JavaInstallProgress::P2 {
-                    progress,
+                    done: progress,
                     out_of,
                     name,
                 } => {

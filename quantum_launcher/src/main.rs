@@ -9,7 +9,7 @@ use iced::{
 use launcher_state::{
     reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
     MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
-    SelectedMod, SelectedState, State,
+    OptifineInstallProgressData, SelectedMod, SelectedState, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -522,10 +522,27 @@ impl Application for Launcher {
                 if let Some(handle) = handle {
                     let path = handle.path().to_owned();
 
+                    let (p_sender, p_recv) = std::sync::mpsc::channel();
+                    let (j_sender, j_recv) = std::sync::mpsc::channel();
+
+                    self.state = State::InstallOptifine(MenuInstallOptifine {
+                        progress: Some(OptifineInstallProgressData {
+                            optifine_install_progress: p_recv,
+                            optifine_install_num: 0.0,
+                            java_install_progress: j_recv,
+                            java_install_num: 0.0,
+                            is_java_being_installed: false,
+                            optifine_install_message: String::new(),
+                            java_install_message: String::new(),
+                        }),
+                    });
+
                     return Command::perform(
                         ql_mod_manager::instance_mod_installer::optifine::install_optifine_wrapped(
                             self.selected_instance.clone().unwrap(),
                             path,
+                            Some(p_sender),
+                            Some(j_sender),
                         ),
                         Message::InstallOptifineEnd,
                     );

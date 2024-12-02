@@ -18,6 +18,7 @@ use ql_mod_manager::{
     instance_mod_installer::{
         fabric::{FabricInstallProgress, FabricVersion},
         forge::ForgeInstallProgress,
+        optifine::OptifineInstallProgress,
     },
     mod_manager::{ModConfig, ModIndex, ProjectInfo, Search},
 };
@@ -236,14 +237,17 @@ pub enum State {
 }
 
 pub struct MenuInstallOptifine {
-    pub progress: Option<InstallOptifineProgress>,
+    pub progress: Option<OptifineInstallProgressData>,
 }
 
-pub struct InstallOptifineProgress {
-    pub optifine_install_progress: Receiver<()>,
+pub struct OptifineInstallProgressData {
+    pub optifine_install_progress: Receiver<OptifineInstallProgress>,
     pub optifine_install_num: f32,
-    pub java_install_progress: Receiver<()>,
+    pub optifine_install_message: String,
+    pub java_install_progress: Receiver<JavaInstallProgress>,
     pub java_install_num: f32,
+    pub java_install_message: String,
+    pub is_java_being_installed: bool,
 }
 
 pub struct InstanceLog {

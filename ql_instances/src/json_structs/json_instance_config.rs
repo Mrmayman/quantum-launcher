@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// - `"Vanilla"`
 /// - `"Fabric"`
 /// - `"Forge"` (coming soon)
-/// - `"Optifine"` (coming soon)
+/// - `"OptiFine"`
 /// - `"Quilt"` (coming soon)
 ///
 /// ## `java_override`

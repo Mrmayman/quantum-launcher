@@ -275,28 +275,51 @@ const OPTIFINE_DOWNLOADS: &str = "https://optifine.net/downloads";
 
 impl MenuInstallOptifine {
     pub fn view(&self) -> Element {
-        widget::column!(
-            button_with_icon(icon_manager::back(), "Back").on_press(Message::ManageModsScreenOpen),
-            widget::container(
-                widget::column!(
-                    widget::text("Install OptiFine").size(20),
-                    "Step 1: Open the OptiFine download page and download the installer.",
-                    widget::button("Open download page")
-                        .on_press(Message::OpenDir(OPTIFINE_DOWNLOADS.to_owned()))
-                )
-                .padding(10)
-                .spacing(10)
-            ),
-            widget::container(
-                widget::column!(
-                    "Step 2: Select the installer file",
-                    widget::button("Select File")
-                        .on_press(Message::InstallOptifineSelectInstallerStart)
-                )
-                .padding(10)
-                .spacing(10)
+        if let Some(progress) = &self.progress {
+            widget::column!(
+                widget::text("Installing OptiFine...").size(20),
+                widget::progress_bar(0.0..=3.0, progress.optifine_install_num),
+                widget::text(&progress.optifine_install_message),
+                if progress.is_java_being_installed {
+                    widget::column!(widget::container(
+                        widget::column!(
+                            "Installing Java",
+                            widget::progress_bar(0.0..=1.0, progress.java_install_num),
+                            widget::text(&progress.java_install_message),
+                        )
+                        .spacing(10)
+                        .padding(10)
+                    ))
+                } else {
+                    widget::column!()
+                },
             )
-        )
+        } else {
+            widget::column!(
+                button_with_icon(icon_manager::back(), "Back")
+                    .on_press(Message::ManageModsScreenOpen),
+                widget::container(
+                    widget::column!(
+                        widget::text("Install OptiFine").size(20),
+                        "Step 1: Open the OptiFine download page and download the installer.",
+                        "WARNING: Make sure to download the correct version.",
+                        widget::button("Open download page")
+                            .on_press(Message::OpenDir(OPTIFINE_DOWNLOADS.to_owned()))
+                    )
+                    .padding(10)
+                    .spacing(10)
+                ),
+                widget::container(
+                    widget::column!(
+                        "Step 2: Select the installer file",
+                        widget::button("Select File")
+                            .on_press(Message::InstallOptifineSelectInstallerStart)
+                    )
+                    .padding(10)
+                    .spacing(10)
+                )
+            )
+        }
         .padding(10)
         .spacing(10)
         .into()
