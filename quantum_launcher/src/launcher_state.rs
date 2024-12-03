@@ -84,6 +84,8 @@ pub enum Message {
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
     InstallModsDownload(usize),
     InstallModsDownloadComplete(Result<String, String>),
+    InstallModsUpdateCheckResult(Option<Vec<(String, String)>>),
+    InstallModsUpdateCheckToggle(usize, bool),
     InstallOptifineScreenOpen,
     InstallOptifineSelectInstallerStart,
     InstallOptifineSelectInstallerEnd(Option<rfd::FileHandle>),
@@ -215,6 +217,7 @@ pub struct MenuModsDownload {
     pub is_loading_search: bool,
     pub mods_download_in_progress: HashSet<String>,
     pub mod_index: ModIndex,
+    pub available_updates: Vec<(String, String, bool)>,
 }
 
 pub struct MenuLauncherSettings;

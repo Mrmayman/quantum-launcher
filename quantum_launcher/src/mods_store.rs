@@ -50,10 +50,15 @@ impl Launcher {
             result_data: HashMap::new(),
             mods_download_in_progress: HashSet::new(),
             mod_index,
+            available_updates: Vec::new(),
         };
         let command = menu.search_modrinth();
+        let check_for_updates = Command::perform(
+            ql_mod_manager::mod_manager::check_for_updates(selected_instance.clone()),
+            Message::InstallModsUpdateCheckResult,
+        );
         self.state = State::ModsDownload(menu);
-        Ok(command)
+        Ok(Command::batch(vec![command, check_for_updates]))
     }
 }
 

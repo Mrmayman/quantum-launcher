@@ -1,9 +1,11 @@
 use std::{
+    cmp::Ordering,
     collections::HashSet,
     path::{Path, PathBuf},
 };
 
 use async_recursion::async_recursion;
+use chrono::DateTime;
 use ql_instances::{
     err, file_utils, info, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
@@ -39,7 +41,7 @@ pub async fn download_mod(id: String, instance_name: String) -> Result<String, M
     Ok(id)
 }
 
-fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError> {
+pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError> {
     let config_json = get_config_json(instance_dir)?;
 
     Ok(match config_json.mod_type.as_str() {
@@ -53,7 +55,7 @@ fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError>
     .map(str::to_owned))
 }
 
-fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf), ModrinthError> {
+pub fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf), ModrinthError> {
     let instance_dir = file_utils::get_launcher_dir()?
         .join("instances")
         .join(instance_name);
@@ -64,7 +66,7 @@ fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf), M
     Ok((instance_dir, mods_dir))
 }
 
-fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModrinthError> {
+pub fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModrinthError> {
     let version_json_path = instance_dir.join("details.json");
     let version_json: String =
         std::fs::read_to_string(&version_json_path).map_err(io_err!(version_json_path))?;
@@ -212,10 +214,10 @@ impl ModDownloader {
         println!("- Getting download info");
         let download_info = ModVersion::download(id).await?;
 
-        let download_version = download_info
+        let mut download_versions: Vec<ModVersion> = download_info
             .iter()
             .filter(|v| v.game_versions.contains(&self.version))
-            .find(|v| {
+            .filter(|v| {
                 if let Some(loader) = &self.loader {
                     v.loaders.contains(loader)
                 } else {
@@ -223,6 +225,14 @@ impl ModDownloader {
                 }
             })
             .cloned()
+            .collect();
+
+        // Sort by date published
+        download_versions.sort_by(version_sort);
+
+        let download_version = download_versions
+            .into_iter()
+            .next()
             .ok_or(ModrinthError::NoCompatibleVersionFound)?;
 
         Ok(download_version)
@@ -245,6 +255,28 @@ impl ModDownloader {
         }
         Ok(())
     }
+}
+
+pub fn version_sort(a: &ModVersion, b: &ModVersion) -> Ordering {
+    let a = &a.date_published;
+    let b = &b.date_published;
+    let a = match DateTime::parse_from_rfc3339(a) {
+        Ok(date) => date,
+        Err(err) => {
+            err!("Couldn't parse date {a}: {err}");
+            return Ordering::Equal;
+        }
+    };
+
+    let b = match DateTime::parse_from_rfc3339(b) {
+        Ok(date) => date,
+        Err(err) => {
+            err!("Couldn't parse date {b}: {err}");
+            return Ordering::Equal;
+        }
+    };
+
+    a.cmp(&b)
 }
 
 fn add_mod_to_index(
@@ -276,6 +308,7 @@ fn add_mod_to_index(
             manually_installed,
             enabled: true,
             installed_version: download_version.version_number.clone(),
+            version_release_time: download_version.date_published.clone(),
         },
     );
 }

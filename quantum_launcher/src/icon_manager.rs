@@ -17,6 +17,7 @@ pub fn icon_with_size<'a>(codepoint: char, size: u16) -> Element<'a> {
 macro_rules! icon_define {
     ($name:ident, $unicode:expr) => {
         paste! {
+            #[allow(dead_code)]
             pub fn $name<'a>() -> Element<'a> {
                 icon($unicode)
             }
@@ -36,4 +37,7 @@ icon_define!(play, '\u{e803}');
 icon_define!(folder, '\u{e800}');
 icon_define!(download, '\u{e805}');
 icon_define!(settings, '\u{e806}');
-// icon_define!(save, '\u{e807}');
+icon_define!(save, '\u{e807}');
+icon_define!(tick, '\u{e808}');
+icon_define!(toggle, '\u{f204}');
+icon_define!(update, '\u{e809}');

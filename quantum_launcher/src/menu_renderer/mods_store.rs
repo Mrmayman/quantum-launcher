@@ -87,6 +87,32 @@ impl MenuModsDownload {
                         }))
                     })
                 },
+                if !self.available_updates.is_empty() {
+                    widget::column!(widget::scrollable(
+                        widget::column!(
+                            "Updates Available!",
+                            widget::container(
+                                widget::column(self.available_updates.iter().enumerate().map(
+                                    |(i, (_, name, is_enabled))| {
+                                        widget::checkbox(format!("- {name}"), *is_enabled)
+                                            .on_toggle(move |b| {
+                                                Message::InstallModsUpdateCheckToggle(i, b)
+                                            })
+                                            .text_size(12)
+                                            .into()
+                                    }
+                                ))
+                                .padding(10)
+                                .spacing(10)
+                            ),
+                            button_with_icon(icon_manager::update(), "Update"),
+                        )
+                        .padding(10)
+                        .spacing(10)
+                    ))
+                } else {
+                    widget::column!()
+                },
             )
             .padding(10)
             .spacing(10)

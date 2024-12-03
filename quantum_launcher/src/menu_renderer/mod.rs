@@ -246,9 +246,9 @@ impl MenuEditInstance {
                 widget::container(
                     widget::column![
                         "Allocated memory",
-                        "For normal Minecraft, allocate 2 - 3 GB",
-                        "For old versions, allocate 512 MB - 1 GB",
-                        "For heavy modpacks or very high render distances, allocate 4 - 8 GB",
+                        widget::text("For normal Minecraft, allocate 2 - 3 GB").size(12),
+                        widget::text("For old versions, allocate 512 MB - 1 GB").size(12),
+                        widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB").size(12),
                         widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, self.slider_value, Message::EditInstanceMemoryChanged).step(0.1),
                         widget::text(&self.slider_text),
                     ]
@@ -406,10 +406,10 @@ impl MenuEditMods {
                 widget::row!(
                     button_with_icon(icon_manager::delete(), "Delete")
                         .on_press(Message::ManageModsDeleteSelected),
-                    button_with_icon(icon_manager::play(), "Toggle On/Off")
+                    button_with_icon(icon_manager::toggle(), "Toggle On/Off")
                         .on_press(Message::ManageModsToggleSelected),
                     button_with_icon(
-                        icon_manager::play(),
+                        icon_manager::tick(),
                         if matches!(self.selected_state, SelectedState::All) {
                             "Unselect All"
                         } else {
@@ -679,7 +679,21 @@ impl MenuLauncherSettings {
             widget::column!(
                 button_with_icon(icon_manager::back(), "Back")
                     .on_press(Message::LaunchScreenOpen(None)),
-                config_view
+                config_view,
+                widget::container(
+                    widget::column!(
+                        widget::button("Open Website").on_press(Message::OpenDir(
+                            "https://mrmayman.github.io/quantumlauncher".to_owned()
+                        )),
+                        widget::button("Open Github Repo").on_press(Message::OpenDir(
+                            "https://github.com/Mrmayman/quantum-launcher".to_owned()
+                        )),
+                        widget::button("Join our discord")
+                            .on_press(Message::OpenDir("https://discord.gg/bWqRaSXar5".to_owned())),
+                    )
+                    .padding(10)
+                    .spacing(10)
+                ),
             )
             .padding(10)
             .spacing(10),

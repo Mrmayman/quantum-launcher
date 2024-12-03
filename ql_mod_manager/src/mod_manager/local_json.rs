@@ -10,6 +10,7 @@ pub struct ModConfig {
     pub name: String,
     pub manually_installed: bool,
     pub installed_version: String,
+    pub version_release_time: String,
     pub enabled: bool,
     pub description: String,
     pub icon_url: Option<String>,

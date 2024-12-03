@@ -1,9 +1,6 @@
 use crate::{
-    download::GameDownloader,
-    error::LauncherError,
-    info, io_err,
-    json_structs::json_version::{LibraryDownloads, VersionDetails},
-    LAUNCHER_VERSION,
+    download::GameDownloader, error::LauncherError, info, io_err,
+    json_structs::json_version::LibraryDownloads, LAUNCHER_VERSION,
 };
 
 use super::launch::GameLauncher;
@@ -37,14 +34,10 @@ impl GameLauncher {
         &self,
         client: &reqwest::Client,
     ) -> Result<(), LauncherError> {
-        let json_path = self.instance_dir.join("details.json");
-        let json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
-        let json: VersionDetails = serde_json::from_str(&json)?;
-
         info!("Downloading missing native libraries");
-        let bar = indicatif::ProgressBar::new(json.libraries.len() as u64);
+        let bar = indicatif::ProgressBar::new(self.version_json.libraries.len() as u64);
 
-        for library in &json.libraries {
+        for library in &self.version_json.libraries {
             if !GameDownloader::download_libraries_library_is_allowed(library) {
                 continue;
             }

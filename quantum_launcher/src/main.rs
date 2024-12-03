@@ -8,8 +8,8 @@ use iced::{
 };
 use launcher_state::{
     reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
-    MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
-    OptifineInstallProgressData, SelectedMod, SelectedState, State,
+    MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuModsDownload,
+    Message, OptifineInstallProgressData, SelectedMod, SelectedState, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -561,6 +561,20 @@ impl Application for Launcher {
                     self.set_error(err)
                 } else {
                     self.go_to_launch_screen_with_message("Installed OptiFine".to_owned())
+                }
+            }
+            Message::InstallModsUpdateCheckResult(updates) => {
+                if let (Some(updates), State::ModsDownload(menu)) = (updates, &mut self.state) {
+                    menu.available_updates =
+                        updates.into_iter().map(|(a, b)| (a, b, true)).collect();
+                }
+            }
+            Message::InstallModsUpdateCheckToggle(idx, t) => {
+                if let State::ModsDownload(MenuModsDownload {
+                    available_updates, ..
+                }) = &mut self.state
+                {
+                    available_updates.get_mut(idx).map(|(_, _, b)| *b = t);
                 }
             }
         }
