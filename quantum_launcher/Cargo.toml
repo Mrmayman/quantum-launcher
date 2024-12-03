@@ -10,7 +10,12 @@ license = "GPL-3.0-only"
 repository = "https://github.com/Mrmayman/quantum-launcher/"
 readme = "../README.md"
 
+build = "build.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+embed-resource = "3"
 
 [dependencies]
 ql_instances = { path = "../ql_instances" }
