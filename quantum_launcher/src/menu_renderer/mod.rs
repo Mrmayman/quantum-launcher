@@ -7,10 +7,10 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        GameProcess, InstanceLog, Launcher, MenuCreateInstance, MenuDeleteInstance,
-        MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava,
-        MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
-        SelectedMod, SelectedState,
+        CreateInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog, Launcher,
+        MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric,
+        MenuInstallForge, MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
+        MenuLauncherUpdate, Message, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -186,7 +186,7 @@ fn get_instances_section<'a>(
             .width(200),
             widget::row![
                 button_with_icon(icon_manager::create(), "New")
-                    .on_press(Message::CreateInstanceScreenOpen)
+                    .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
                     .width(97),
                 button_with_icon(icon_manager::delete(), "Delete")
                     .on_press_maybe(
@@ -331,7 +331,8 @@ impl MenuEditMods {
         let mod_installer = if self.config.mod_type == "Vanilla" {
             widget::column![
                 widget::button("Install OptiFine").on_press(Message::InstallOptifineScreenOpen),
-                widget::button("Install Fabric").on_press(Message::InstallFabricScreenOpen),
+                widget::button("Install Fabric")
+                    .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen)),
                 widget::button("Install Forge").on_press(Message::InstallForgeStart),
                 widget::button("Install Quilt"),
                 widget::button("Install NeoForge"),
@@ -489,18 +490,18 @@ impl MenuCreateInstance {
                         .padding(5)
                 ).on_press_maybe((self.progress_receiver.is_none()).then_some(Message::LaunchScreenOpen(None))),
                     widget::combo_box(&self.combo_state, "Select a version...", self.selected_version.as_ref(), |version| {
-                        Message::CreateInstanceVersionSelected(version)
+                        Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
                     }),
                 widget::text_input("Enter instance name...", &self.instance_name)
-                    .on_input(Message::CreateInstanceNameInput),
+                    .on_input(|n| Message::CreateInstance(CreateInstanceMessage::NameInput(n))),
                 widget::tooltip(
-                    widget::checkbox("Download assets?", self.download_assets).on_toggle(Message::CreateInstanceChangeAssetToggle),
+                    widget::checkbox("Download assets?", self.download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
                     widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
                     widget::tooltip::Position::FollowCursor),
                 widget::button(widget::row![icon_manager::create(), "Create Instance"]
                         .spacing(10)
                         .padding(5)
-                ).on_press_maybe((self.selected_version.is_some() && !self.instance_name.is_empty() && self.progress_receiver.is_none()).then(|| Message::CreateInstanceStart)),
+                ).on_press_maybe((self.selected_version.is_some() && !self.instance_name.is_empty() && self.progress_receiver.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
                 widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance").size(12),
                 progress_bar,
             ]
@@ -553,12 +554,12 @@ impl MenuInstallFabric {
                 widget::pick_list(
                     self.fabric_versions.as_slice(),
                     self.fabric_version.as_ref(),
-                    Message::InstallFabricVersionSelected
+                    |n| Message::InstallFabric(InstallFabricMessage::VersionSelected(n))
                 ),
                 widget::button("Install Fabric").on_press_maybe(
                     self.fabric_version
                         .is_some()
-                        .then(|| Message::InstallFabricClicked)
+                        .then(|| Message::InstallFabric(InstallFabricMessage::ButtonClicked))
                 ),
             ]
             .padding(10)

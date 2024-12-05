@@ -30,11 +30,30 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+pub enum InstallFabricMessage {
+    End(Result<(), String>),
+    VersionSelected(String),
+    VersionsLoaded(Result<Vec<FabricVersion>, String>),
+    ButtonClicked,
+    ScreenOpen,
+}
+
+#[derive(Debug, Clone)]
+pub enum CreateInstanceMessage {
+    ScreenOpen,
+    VersionsLoaded(Result<Arc<Vec<String>>, String>),
+    VersionSelected(String),
+    NameInput(String),
+    Start,
+    End(Result<(), String>),
+    ChangeAssetToggle(bool),
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
     OpenDir(String),
-    InstallFabricEnd(Result<(), String>),
-    InstallFabricVersionSelected(String),
-    InstallFabricVersionsLoaded(Result<Vec<FabricVersion>, String>),
+    InstallFabric(InstallFabricMessage),
+    CreateInstance(CreateInstanceMessage),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
     LaunchStart,
@@ -44,13 +63,6 @@ pub enum Message {
     LaunchEnd(GameLaunchResult),
     LaunchKill,
     LaunchKillEnd(Result<(), String>),
-    CreateInstanceScreenOpen,
-    CreateInstanceVersionsLoaded(Result<Arc<Vec<String>>, String>),
-    CreateInstanceVersionSelected(String),
-    CreateInstanceNameInput(String),
-    CreateInstanceStart,
-    CreateInstanceEnd(Result<(), String>),
-    CreateInstanceChangeAssetToggle(bool),
     EditInstance,
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
@@ -61,8 +73,6 @@ pub enum Message {
     ManageModsDeleteFinished(Result<Vec<String>, String>),
     ManageModsToggleSelected,
     ManageModsToggleFinished(Result<(), String>),
-    InstallFabricClicked,
-    InstallFabricScreenOpen,
     InstallForgeStart,
     InstallForgeEnd(Result<(), String>),
     UninstallLoaderStart,

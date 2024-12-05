@@ -12,8 +12,8 @@ use ql_instances::{
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
-    GameProcess, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, Message,
-    SelectedState, State,
+    CreateInstanceMessage, GameProcess, Launcher, MenuCreateInstance, MenuEditInstance,
+    MenuEditMods, Message, SelectedState, State,
 };
 
 impl Launcher {
@@ -133,10 +133,9 @@ impl Launcher {
         if SKIP_LISTING_VERSIONS {
             Command::none()
         } else {
-            Command::perform(
-                ql_instances::list_versions(),
-                Message::CreateInstanceVersionsLoaded,
-            )
+            Command::perform(ql_instances::list_versions(), |n| {
+                Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n))
+            })
         }
     }
 
@@ -182,7 +181,7 @@ impl Launcher {
                     Some(sender),
                     menu.download_assets,
                 ),
-                Message::CreateInstanceEnd,
+                |n| Message::CreateInstance(CreateInstanceMessage::End(n)),
             );
         }
         Command::none()

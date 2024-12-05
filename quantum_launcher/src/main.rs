@@ -25,9 +25,9 @@ use iced::{
     Application, Command, Settings,
 };
 use launcher_state::{
-    reload_instances, Launcher, MenuDeleteInstance, MenuInstallFabric, MenuInstallForge,
-    MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuModsDownload,
-    Message, OptifineInstallProgressData, SelectedMod, SelectedState, State,
+    reload_instances, Launcher, MenuDeleteInstance, MenuInstallForge, MenuInstallOptifine,
+    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuModsDownload, Message,
+    OptifineInstallProgressData, SelectedMod, SelectedState, State,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -47,9 +47,12 @@ mod icon_manager;
 mod launcher_state;
 mod menu_renderer;
 mod message_handler;
+mod message_update;
 mod mods_store;
 mod stylesheet;
 mod tick;
+
+const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
 impl Application for Launcher {
     type Executor = executor::Default;
@@ -58,15 +61,24 @@ impl Application for Launcher {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+        let load_icon_command = load_window_icon();
+        let check_for_updates_command = Command::perform(
+            ql_instances::check_for_updates_wrapped(),
+            Message::UpdateCheckResult,
+        );
+
+        let command = if let Some(command) = load_icon_command {
+            Command::batch(vec![command, check_for_updates_command])
+        } else {
+            check_for_updates_command
+        };
+
         (
             match Launcher::new(None) {
                 Ok(launcher) => launcher,
                 Err(error) => Launcher::with_error(&error.to_string()),
             },
-            Command::perform(
-                ql_instances::check_for_updates_wrapped(),
-                Message::UpdateCheckResult,
-            ),
+            command,
         )
     }
 
@@ -84,22 +96,7 @@ impl Application for Launcher {
             Message::LaunchEnd(result) => {
                 return self.finish_launching(result);
             }
-            Message::CreateInstanceScreenOpen => return self.go_to_create_screen(),
-            Message::CreateInstanceVersionsLoaded(result) => {
-                self.create_instance_finish_loading_versions_list(result);
-            }
-            Message::CreateInstanceVersionSelected(selected_version) => {
-                self.select_created_instance_version(selected_version);
-            }
-            Message::CreateInstanceNameInput(name) => self.update_created_instance_name(name),
-            Message::CreateInstanceStart => return self.create_instance(),
-            Message::CreateInstanceEnd(result) => match result {
-                Ok(()) => match Launcher::new(Some("Created New Instance".to_owned())) {
-                    Ok(launcher) => *self = launcher,
-                    Err(err) => self.set_error(err.to_string()),
-                },
-                Err(n) => self.state = State::Error { error: n },
-            },
+            Message::CreateInstance(message) => return self.update_create_instance(message),
             Message::DeleteInstanceMenu => {
                 self.state = State::DeleteInstance(MenuDeleteInstance {});
             }
@@ -132,60 +129,8 @@ impl Application for Launcher {
                     self.set_error(err.to_string());
                 }
             }
-            Message::InstallFabricScreenOpen => {
-                self.state = State::InstallFabric(MenuInstallFabric {
-                    fabric_version: None,
-                    fabric_versions: Vec::new(),
-                    progress_receiver: None,
-                    progress_num: 0.0,
-                });
-
-                return Command::perform(
-                    instance_mod_installer::fabric::get_list_of_versions(),
-                    Message::InstallFabricVersionsLoaded,
-                );
-            }
-            Message::InstallFabricVersionsLoaded(result) => match result {
-                Ok(list_of_versions) => {
-                    if let State::InstallFabric(menu) = &mut self.state {
-                        menu.fabric_versions = list_of_versions
-                            .iter()
-                            .map(|ver| ver.version.clone())
-                            .collect();
-                    }
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::InstallFabricVersionSelected(selection) => {
-                if let State::InstallFabric(menu) = &mut self.state {
-                    menu.fabric_version = Some(selection);
-                }
-            }
-            Message::InstallFabricClicked => {
-                if let State::InstallFabric(menu) = &mut self.state {
-                    let (sender, receiver) = std::sync::mpsc::channel();
-                    menu.progress_receiver = Some(receiver);
-
-                    return Command::perform(
-                        instance_mod_installer::fabric::install_wrapped(
-                            menu.fabric_version.clone().unwrap(),
-                            self.selected_instance.clone().unwrap(),
-                            Some(sender),
-                        ),
-                        Message::InstallFabricEnd,
-                    );
-                }
-            }
-            Message::InstallFabricEnd(result) => match result {
-                Ok(()) => self.go_to_launch_screen_with_message("Installed Fabric".to_owned()),
-                Err(err) => self.set_error(err),
-            },
+            Message::InstallFabric(message) => return self.update_install_fabric(message),
             Message::OpenDir(dir) => open_file_explorer(&dir),
-            Message::CreateInstanceChangeAssetToggle(toggle) => {
-                if let State::Create(menu) = &mut self.state {
-                    menu.download_assets = toggle;
-                }
-            }
             Message::ErrorCopy => {
                 if let State::Error { error } = &self.state {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
@@ -654,6 +599,18 @@ impl Application for Launcher {
     }
 }
 
+fn load_window_icon() -> Option<Command<Message>> {
+    let icon = iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico));
+    let command = match icon {
+        Ok(icon) => Some(iced::window::change_icon(iced::window::Id::MAIN, icon)),
+        Err(err) => {
+            err!("Could not load icon: {err}");
+            None
+        }
+    };
+    command
+}
+
 impl Launcher {
     fn mod_download(&mut self, index: usize) -> Option<Command<Message>> {
         let State::ModsDownload(menu) = &mut self.state else {
@@ -667,9 +624,7 @@ impl Launcher {
             err!("Couldn't download mod: Not present in results");
             return None;
         };
-        let Some(selected_instance) = &self.selected_instance else {
-            return None;
-        };
+        let selected_instance = self.selected_instance.as_ref()?;
 
         menu.mods_download_in_progress
             .insert(hit.project_id.clone());

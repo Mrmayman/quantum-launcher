@@ -6,6 +6,7 @@ fn main() {
     if let Ok(target_os) = target_os {
         if target_os == "windows" {
             println!("cargo::rerun-if-changed=../assets/icon/ql_logo.rc");
+            println!("cargo::rerun-if-changed=../assets/icon/ql_logo.ico");
             let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
             let manifest_dir = PathBuf::from(manifest_dir);
             let manifest_dir = manifest_dir.parent().unwrap();

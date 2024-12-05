@@ -5,6 +5,6 @@
 - `ClientInstaller.java` taken from
   [minecraft-launcher](https://github.com/alexivkin/minecraft-launcher/blob/master/ClientInstaller36.java)
   (licensed under Apache 2.0) for connecting to Forge installer.
-- QuantumLauncher logo made by exsclt (@exsclt_35289 on Discord)
+- QuantumLauncher logo made by Aurlt (@exsclt_35289 on Discord)
 
 - `Hook.java` made by Mrmayman for connecting to OptiFine installer.
