@@ -328,50 +328,56 @@ impl MenuInstallOptifine {
 
 impl MenuEditMods {
     pub fn view(&self, selected_instance: &str) -> Element {
-        let mod_installer = if self.config.mod_type == "Vanilla" {
-            widget::column![
-                widget::button("Install OptiFine").on_press(Message::InstallOptifineScreenOpen),
-                widget::button("Install Fabric")
-                    .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen)),
-                widget::button("Install Forge").on_press(Message::InstallForgeStart),
-                widget::button("Install Quilt"),
-                widget::button("Install NeoForge"),
-            ]
-        } else {
-            widget::column![
-                widget::button(
-                    widget::row![
-                        icon_manager::delete(),
-                        widget::text(format!("Uninstall {}", self.config.mod_type))
-                    ]
-                    .spacing(10)
-                    .padding(5)
-                )
-                .on_press_maybe(
-                    (matches!(
-                        self.config.mod_type.as_str(),
-                        "Forge" | "Fabric" | "OptiFine"
-                    ))
-                    .then_some(Message::UninstallLoaderStart)
-                ),
-                button_with_icon(icon_manager::download(), "Download Mods")
-                    .on_press(Message::InstallModsOpen)
-            ]
-        }
-        .spacing(5);
-
-        let side_pane = widget::column![
-            widget::button(
-                widget::row![icon_manager::back(), "Back"]
-                    .spacing(10)
-                    .padding(5)
+        if let Some(progress) = &self.mod_update_progress {
+            return widget::column!(
+                widget::text("Updating mods").size(20),
+                widget::progress_bar(0.0..=1.0, progress.num),
+                widget::text(&progress.message),
             )
-            .on_press(Message::LaunchScreenOpen(None)),
-            mod_installer,
-            self.open_mod_folder_button(selected_instance),
-        ]
-        .padding(10)
-        .spacing(20);
+            .padding(10)
+            .spacing(10)
+            .into();
+        }
+
+        let mod_installer = self.get_mod_installer_buttons();
+
+        let mod_update_pane = if self.available_updates.is_empty() {
+            widget::column!()
+        } else {
+            widget::column!(
+                "Mod Updates Available!",
+                widget::column(self.available_updates.iter().enumerate().map(
+                    |(i, (_, name, is_enabled))| {
+                        widget::checkbox(format!("{name}"), *is_enabled)
+                            .on_toggle(move |b| Message::ManageModsUpdateCheckToggle(i, b))
+                            .text_size(12)
+                            .into()
+                    }
+                ))
+                .spacing(10),
+                button_with_icon(icon_manager::update(), "Update")
+                    .on_press(Message::ManageModsUpdateMods),
+            )
+            .padding(10)
+            .spacing(10)
+            .width(200)
+        };
+
+        let side_pane = widget::scrollable(
+            widget::column!(
+                widget::button(
+                    widget::row![icon_manager::back(), "Back"]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .on_press(Message::LaunchScreenOpen(None)),
+                mod_installer,
+                self.open_mod_folder_button(selected_instance),
+                widget::container(mod_update_pane),
+            )
+            .padding(10)
+            .spacing(20),
+        );
 
         let mod_list = self.get_mod_list();
 
@@ -379,6 +385,78 @@ impl MenuEditMods {
             .padding(10)
             .spacing(10)
             .into()
+    }
+
+    fn get_mod_installer_buttons(&self) -> widget::Column<'_, Message, LauncherTheme> {
+        let mod_installer = match self.config.mod_type.as_str() {
+            "Vanilla" => {
+                widget::column![
+                    widget::button("Install OptiFine").on_press(Message::InstallOptifineScreenOpen),
+                    widget::button("Install Fabric")
+                        .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen)),
+                    widget::button("Install Forge").on_press(Message::InstallForgeStart),
+                    widget::button("Install Quilt"),
+                    widget::button("Install NeoForge"),
+                ]
+            }
+            "Forge" => {
+                widget::column!(
+                    widget::button("Install OptiFine"),
+                    self.get_uninstall_panel(
+                        &self.config.mod_type,
+                        Message::UninstallLoaderStart,
+                        true
+                    )
+                )
+            }
+            "OptiFine" => {
+                widget::column!(
+                    widget::button("Install Forge"),
+                    self.get_uninstall_panel(
+                        &self.config.mod_type,
+                        Message::UninstallLoaderStart,
+                        false
+                    ),
+                )
+            }
+            "Fabric" => {
+                self.get_uninstall_panel(&self.config.mod_type, Message::UninstallLoaderStart, true)
+            }
+            _ => {
+                widget::column!(widget::text(format!(
+                    "Unknown mod type: {}",
+                    self.config.mod_type
+                )))
+            }
+        }
+        .spacing(5);
+        mod_installer
+    }
+
+    fn get_uninstall_panel(
+        &self,
+        mod_type: &str,
+        uninstall_loader_message: Message,
+        download_mods: bool,
+    ) -> iced::widget::Column<'_, Message, LauncherTheme> {
+        widget::column!(
+            widget::button(
+                widget::row!(
+                    icon_manager::delete(),
+                    widget::text(format!("Uninstall {}", mod_type))
+                )
+                .spacing(10)
+                .padding(5)
+            )
+            .on_press(uninstall_loader_message),
+            if download_mods {
+                widget::column!(button_with_icon(icon_manager::download(), "Download Mods")
+                    .on_press(Message::InstallModsOpen))
+            } else {
+                widget::column!()
+            },
+        )
+        .spacing(5)
     }
 
     fn open_mod_folder_button(&self, selected_instance: &str) -> Element {
@@ -533,11 +611,12 @@ impl MenuInstallFabric {
     pub fn view(&self, selected_instance: &str) -> Element {
         if self.progress_receiver.is_some() {
             widget::column!(
-                "Installing Fabric...",
-                widget::progress_bar(0.0..=1.0, self.progress_num)
+                widget::text("Installing Fabric...").size(20),
+                widget::progress_bar(0.0..=1.0, self.progress_num),
+                widget::text(&self.progress_message),
             )
             .padding(10)
-            .spacing(20)
+            .spacing(10)
             .into()
         } else {
             widget::column![
@@ -571,31 +650,31 @@ impl MenuInstallFabric {
 
 impl MenuInstallForge {
     pub fn view(&self) -> Element {
-        let progress_bar = widget::column!(
+        let main_block = widget::column!(
+            widget::text("Installing forge...").size(20),
             iced::widget::progress_bar(0.0..=4.0, self.forge_progress_num),
             widget::text(&self.forge_message)
-        );
+        )
+        .spacing(10);
 
         if self.is_java_getting_installed {
             if let Some(message) = &self.java_message {
                 widget::column!(
-                    "Installing forge...",
-                    progress_bar,
+                    main_block,
                     widget::progress_bar(0.0..=1.0, self.java_progress_num),
                     widget::text(message)
                 )
             } else {
                 widget::column!(
-                    "Installing forge...",
-                    progress_bar,
+                    main_block,
                     iced::widget::progress_bar(0.0..=1.0, self.java_progress_num),
                 )
             }
         } else {
-            widget::column!("Installing forge...", progress_bar)
+            main_block
         }
         .padding(20)
-        .spacing(20)
+        .spacing(10)
         .into()
     }
 }

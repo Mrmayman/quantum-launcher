@@ -4,7 +4,7 @@ use ql_instances::{err, error::IoError, file_utils};
 
 use crate::mod_manager::ModIndex;
 
-use super::ModrinthError;
+use super::ModError;
 
 pub async fn toggle_mods_wrapped(id: Vec<String>, instance_name: String) -> Result<(), String> {
     toggle_mods(&id, &instance_name)
@@ -12,7 +12,7 @@ pub async fn toggle_mods_wrapped(id: Vec<String>, instance_name: String) -> Resu
         .map_err(|err| err.to_string())
 }
 
-async fn toggle_mods(id: &[String], instance_name: &str) -> Result<(), ModrinthError> {
+async fn toggle_mods(id: &[String], instance_name: &str) -> Result<(), ModError> {
     let mut index = ModIndex::get(instance_name)?;
 
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -41,7 +41,7 @@ async fn toggle_mods(id: &[String], instance_name: &str) -> Result<(), ModrinthE
     Ok(())
 }
 
-async fn rename_file(a: &Path, b: &Path) -> Result<(), ModrinthError> {
+async fn rename_file(a: &Path, b: &Path) -> Result<(), ModError> {
     if let Err(err) = tokio::fs::rename(a, b).await {
         if let std::io::ErrorKind::NotFound = err.kind() {
             err!("Cannot find file for renaming, skipping: {a:?} -> {b:?}");

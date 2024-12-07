@@ -25,9 +25,9 @@ use iced::{
     Application, Command, Settings,
 };
 use launcher_state::{
-    reload_instances, Launcher, MenuDeleteInstance, MenuInstallForge, MenuInstallOptifine,
-    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuModsDownload, Message,
-    OptifineInstallProgressData, SelectedMod, SelectedState, State,
+    reload_instances, Launcher, MenuDeleteInstance, MenuEditMods, MenuInstallForge,
+    MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
+    OptifineInstallProgressData, SelectedMod, SelectedState, State, UpdateModsProgress,
 };
 
 use message_handler::{format_memory, open_file_explorer};
@@ -124,11 +124,10 @@ impl Application for Launcher {
                         format_memory(menu_edit_instance.config.ram_in_mb);
                 }
             }
-            Message::ManageModsScreenOpen => {
-                if let Err(err) = self.go_to_edit_mods_menu() {
-                    self.set_error(err.to_string());
-                }
-            }
+            Message::ManageModsScreenOpen => match self.go_to_edit_mods_menu() {
+                Ok(command) => return command,
+                Err(err) => self.set_error(err.to_string()),
+            },
             Message::InstallFabric(message) => return self.update_install_fabric(message),
             Message::OpenDir(dir) => open_file_explorer(&dir),
             Message::ErrorCopy => {
@@ -526,18 +525,35 @@ impl Application for Launcher {
                     self.go_to_launch_screen_with_message("Installed OptiFine".to_owned())
                 }
             }
-            Message::InstallModsUpdateCheckResult(updates) => {
-                if let (Some(updates), State::ModsDownload(menu)) = (updates, &mut self.state) {
+            Message::ManageModsUpdateCheckResult(updates) => {
+                if let (Some(updates), State::EditMods(menu)) = (updates, &mut self.state) {
                     menu.available_updates =
                         updates.into_iter().map(|(a, b)| (a, b, true)).collect();
                 }
             }
-            Message::InstallModsUpdateCheckToggle(idx, t) => {
-                if let State::ModsDownload(MenuModsDownload {
+            Message::ManageModsUpdateCheckToggle(idx, t) => {
+                if let State::EditMods(MenuEditMods {
                     available_updates, ..
                 }) = &mut self.state
                 {
                     available_updates.get_mut(idx).map(|(_, _, b)| *b = t);
+                }
+            }
+            Message::ManageModsUpdateMods => return self.update_mods(),
+            Message::ManageModsUpdateModsFinished(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    self.update_mod_index();
+                    if let State::EditMods(menu) = &mut self.state {
+                        menu.available_updates.clear();
+                    }
+                    return Command::perform(
+                        ql_mod_manager::mod_manager::check_for_updates(
+                            self.selected_instance.clone().unwrap(),
+                        ),
+                        Message::ManageModsUpdateCheckResult,
+                    );
                 }
             }
         }
@@ -584,7 +600,7 @@ impl Application for Launcher {
                 widget::progress_bar(0.0..=1.0, menu.num),
             )
             .padding(10)
-            .spacing(20)
+            .spacing(10)
             .into(),
             State::InstallOptifine(menu) => menu.view(),
         }
@@ -654,6 +670,33 @@ impl Launcher {
                 Ok(idx) => menu.mods = idx,
                 Err(err) => self.set_error(err),
             }
+        }
+    }
+
+    fn update_mods(&mut self) -> Command<Message> {
+        if let State::EditMods(menu) = &mut self.state {
+            let updates = menu
+                .available_updates
+                .clone()
+                .into_iter()
+                .map(|(n, _, _)| n)
+                .collect();
+            let (sender, receiver) = std::sync::mpsc::channel();
+            menu.mod_update_progress = Some(UpdateModsProgress {
+                recv: receiver,
+                num: 0.0,
+                message: "Starting...".to_owned(),
+            });
+            Command::perform(
+                ql_mod_manager::mod_manager::apply_updates_wrapped(
+                    self.selected_instance.clone().unwrap(),
+                    updates,
+                    Some(sender),
+                ),
+                Message::ManageModsUpdateModsFinished,
+            )
+        } else {
+            Command::none()
         }
     }
 }

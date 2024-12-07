@@ -45,7 +45,11 @@ pub fn get_url(name: &str) -> String {
 
 pub enum FabricInstallProgress {
     P1Start,
-    P2Library { done: usize, out_of: usize },
+    P2Library {
+        done: usize,
+        out_of: usize,
+        message: String,
+    },
     P3Done,
 }
 
@@ -86,7 +90,7 @@ pub async fn install(
 
     let json: FabricJSON = serde_json::from_str(&json)?;
 
-    info!("Started installing fabric");
+    info!("Started installing fabric: {game_version}, {loader_version}");
 
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P1Start)?;
@@ -94,16 +98,19 @@ pub async fn install(
 
     let number_of_libraries = json.libraries.len();
     for (i, library) in json.libraries.iter().enumerate() {
-        println!(
+        let message = format!(
             "Downloading fabric library ({} / {number_of_libraries}) {}",
             i + 1,
             library.name
         );
 
+        println!("{message}");
+
         if let Some(progress) = &progress {
             progress.send(FabricInstallProgress::P2Library {
                 done: i + 1,
                 out_of: number_of_libraries,
+                message,
             })?;
         }
 

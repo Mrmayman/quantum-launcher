@@ -2,6 +2,7 @@ use tokio::process::{Child, Command};
 
 use crate::{
     download::GameDownloader,
+    err,
     error::{IoError, LauncherError, LauncherResult},
     file_utils, info, io_err,
     java_install::{self, JavaInstallProgress},
@@ -16,6 +17,7 @@ use crate::{
     },
 };
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     process::Stdio,
     sync::{mpsc::Sender, Arc, Mutex},
@@ -391,12 +393,23 @@ impl GameLauncher {
         optifine_json: Option<&(JsonOptifine, PathBuf)>,
     ) -> LauncherResult<String> {
         let mut class_path = String::new();
+        let mut classpath_entries = HashSet::new();
 
         if forge_json.is_some() {
             let classpath_path = self.instance_dir.join("forge/classpath.txt");
             let forge_classpath =
                 std::fs::read_to_string(&classpath_path).map_err(io_err!(classpath_path))?;
+
             class_path.push_str(&forge_classpath);
+
+            let classpath_entries_path = self.instance_dir.join("forge/clean_classpath.txt");
+            if let Ok(forge_classpath_entries) = std::fs::read_to_string(&classpath_entries_path) {
+                for entry in forge_classpath_entries.lines() {
+                    classpath_entries.insert(entry.to_owned());
+                }
+            } else {
+                err!("Your forge installation is outdated, please uninstall and reinstall forge")
+            }
         }
 
         if optifine_json.is_some() {
@@ -412,10 +425,18 @@ impl GameLauncher {
             }
         }
 
-        self.add_libs_to_classpath(&mut class_path)?;
+        self.add_libs_to_classpath(&mut class_path, &mut classpath_entries)?;
 
         if let Some(fabric_json) = fabric_json {
             for library in &fabric_json.libraries {
+                let mut skip = false;
+                if let Some(name) = remove_version_from_library(&library.name) {
+                    skip = !classpath_entries.insert(name);
+                }
+                if skip {
+                    continue;
+                }
+
                 let library_path = self.instance_dir.join("libraries").join(library.get_path());
                 class_path.push_str(
                     library_path
@@ -442,27 +463,49 @@ impl GameLauncher {
         Ok(class_path)
     }
 
-    fn add_libs_to_classpath(&self, class_path: &mut String) -> Result<(), LauncherError> {
+    fn add_libs_to_classpath(
+        &self,
+        class_path: &mut String,
+        classpath_entries: &mut HashSet<String>,
+    ) -> Result<(), LauncherError> {
         self.version_json
             .libraries
             .iter()
-            .filter_map(|n| match n.downloads.as_ref() {
-                Some(LibraryDownloads::Normal { artifact, .. }) => Some(artifact),
+            .filter_map(|n| match (&n.name, n.downloads.as_ref()) {
+                (Some(name), Some(LibraryDownloads::Normal { artifact, .. })) => {
+                    Some((name, artifact))
+                }
                 _ => None,
             })
-            .map(|artifact| {
-                let library_path = self.instance_dir.join("libraries").join(&artifact.path);
-                if library_path.exists() {
-                    let Some(library_path) = library_path.to_str() else {
-                        return Err(LauncherError::PathBufToString(library_path));
-                    };
-                    class_path.push_str(library_path);
-                    class_path.push(CLASSPATH_SEPARATOR);
-                }
-                Ok(())
+            .map(|(name, artifact)| {
+                self.add_entry_to_classpath(name, classpath_entries, artifact, class_path)
             })
             .find(std::result::Result::is_err)
             .unwrap_or(Ok(()))?;
+        Ok(())
+    }
+
+    fn add_entry_to_classpath(
+        &self,
+        name: &String,
+        classpath_entries: &mut HashSet<String>,
+        artifact: &crate::json_structs::json_version::LibraryDownloadArtifact,
+        class_path: &mut String,
+    ) -> Result<(), LauncherError> {
+        if let Some(name) = remove_version_from_library(name) {
+            if classpath_entries.contains(&name) {
+                return Ok(());
+            }
+            classpath_entries.insert(name);
+        }
+        let library_path = self.instance_dir.join("libraries").join(&artifact.path);
+        if library_path.exists() {
+            let Some(library_path) = library_path.to_str() else {
+                return Err(LauncherError::PathBufToString(library_path));
+            };
+            class_path.push_str(library_path);
+            class_path.push(CLASSPATH_SEPARATOR);
+        }
         Ok(())
     }
 
@@ -484,6 +527,20 @@ impl GameLauncher {
                 .await?,
             ))
         }
+    }
+}
+
+fn remove_version_from_library(library: &str) -> Option<String> {
+    // Split the input string by colons
+    let parts: Vec<&str> = library.split(':').collect();
+
+    // Ensure the input has exactly three parts (group, name, version)
+    if parts.len() == 3 {
+        // Return the first two parts joined by a colon
+        Some(format!("{}:{}", parts[0], parts[1]))
+    } else {
+        // Return None if the input format is incorrect
+        None
     }
 }
 

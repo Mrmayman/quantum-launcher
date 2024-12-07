@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ql_instances::{file_utils, io_err};
 use serde::{Deserialize, Serialize};
 
-use super::{ModFile, ModrinthError};
+use super::{ModError, ModFile};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ModConfig {
@@ -28,7 +28,7 @@ pub struct ModIndex {
 }
 
 impl ModIndex {
-    pub fn get(instance_name: &str) -> Result<Self, ModrinthError> {
+    pub fn get(instance_name: &str) -> Result<Self, ModError> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let mods_dir = launcher_dir
             .join("instances")
@@ -53,7 +53,7 @@ impl ModIndex {
         }
     }
 
-    pub fn save(&self) -> Result<(), ModrinthError> {
+    pub fn save(&self) -> Result<(), ModError> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let mods_dir = launcher_dir
             .join("instances")

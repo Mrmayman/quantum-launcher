@@ -1,5 +1,5 @@
+use crate::mod_manager::ModError;
 use crate::mod_manager::ModIndex;
-use crate::mod_manager::ModrinthError;
 use ql_instances::err;
 use ql_instances::error::IoError;
 use ql_instances::file_utils;
@@ -18,7 +18,7 @@ pub async fn delete_mods_wrapped(
         .map(|()| id)
 }
 
-pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), ModrinthError> {
+pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), ModError> {
     info!("Deleting mods: {{");
     let mut index = ModIndex::get(instance_name)?;
 
@@ -91,7 +91,7 @@ pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), Modri
     Ok(())
 }
 
-fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), ModrinthError> {
+fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), ModError> {
     if let Some(mod_info) = index.mods.remove(id) {
         for file in &mod_info.files {
             if mod_info.enabled {
@@ -106,7 +106,7 @@ fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), 
     Ok(())
 }
 
-fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModrinthError> {
+fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModError> {
     let path = mods_dir.join(file);
     if let Err(err) = std::fs::remove_file(&path) {
         if let std::io::ErrorKind::NotFound = err.kind() {

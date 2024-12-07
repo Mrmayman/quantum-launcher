@@ -89,7 +89,7 @@ impl Search {
         url
     }
 
-    pub async fn search(query: Query) -> Result<(Self, Instant), ModrinthError> {
+    pub async fn search(query: Query) -> Result<(Self, Instant), ModError> {
         let _lock = ql_instances::RATE_LIMITER.lock().await;
         let instant = Instant::now();
         let url = Search::get_search_url(&query);
@@ -140,7 +140,7 @@ impl Search {
     }
 }
 
-pub enum ModrinthError {
+pub enum ModError {
     RequestError(RequestError),
     Serde(serde_json::Error),
     Io(IoError),
@@ -148,34 +148,34 @@ pub enum ModrinthError {
     NoFilesFound,
 }
 
-impl Display for ModrinthError {
+impl Display for ModError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "could not perform mod action: ")?;
         match self {
-            ModrinthError::RequestError(err) => write!(f, "(request) {err}"),
-            ModrinthError::Serde(err) => write!(f, "(json) {err}"),
-            ModrinthError::Io(err) => write!(f, "(io) {err}"),
-            ModrinthError::NoCompatibleVersionFound => {
+            ModError::RequestError(err) => write!(f, "(request) {err}"),
+            ModError::Serde(err) => write!(f, "(json) {err}"),
+            ModError::Io(err) => write!(f, "(io) {err}"),
+            ModError::NoCompatibleVersionFound => {
                 write!(f, "no compatible version found when downloading mod")
             }
-            ModrinthError::NoFilesFound => write!(f, "no files found for mod"),
+            ModError::NoFilesFound => write!(f, "no files found for mod"),
         }
     }
 }
 
-impl From<RequestError> for ModrinthError {
+impl From<RequestError> for ModError {
     fn from(value: RequestError) -> Self {
         Self::RequestError(value)
     }
 }
 
-impl From<serde_json::Error> for ModrinthError {
+impl From<serde_json::Error> for ModError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde(value)
     }
 }
 
-impl From<IoError> for ModrinthError {
+impl From<IoError> for ModError {
     fn from(value: IoError) -> Self {
         Self::Io(value)
     }

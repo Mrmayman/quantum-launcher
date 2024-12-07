@@ -9,12 +9,12 @@ use ql_mod_manager::{
         fabric::FabricInstallProgress, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ModConfig, ModIndex, Search},
+    mod_manager::{ApplyUpdateProgress, ModConfig, ModIndex, Search},
 };
 
 use crate::launcher_state::{
-    reload_instances, InstanceLog, Launcher, MenuInstallFabric, MenuInstallForge, MenuInstallJava,
-    MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets, Message, State,
+    reload_instances, InstanceLog, Launcher, MenuEditMods, MenuInstallFabric, MenuInstallForge,
+    MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets, Message, State,
 };
 
 impl Launcher {
@@ -66,6 +66,11 @@ impl Launcher {
             State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
             State::EditMods(menu) => {
                 menu.sorted_dependencies = sort_dependencies(&menu.mods.mods);
+
+                let has_finished = menu.tick_mod_update_progress();
+                if has_finished {
+                    menu.mod_update_progress = None;
+                }
             }
             State::Error { .. } => {}
             State::DeleteInstance(_) => {}
@@ -355,7 +360,12 @@ impl MenuInstallFabric {
             while let Ok(progress) = receiver.try_recv() {
                 self.progress_num = match progress {
                     FabricInstallProgress::P1Start => 0.0,
-                    FabricInstallProgress::P2Library { done, out_of } => {
+                    FabricInstallProgress::P2Library {
+                        done,
+                        out_of,
+                        message,
+                    } => {
+                        self.progress_message = message;
                         done as f32 / out_of as f32
                     }
                     FabricInstallProgress::P3Done => 1.0,
@@ -420,4 +430,25 @@ pub fn sort_dependencies(map: &HashMap<String, ModConfig>) -> Vec<(String, ModCo
     });
 
     entries
+}
+
+impl MenuEditMods {
+    pub fn tick_mod_update_progress(&mut self) -> bool {
+        if let Some(progress) = &mut self.mod_update_progress {
+            while let Ok(message) = progress.recv.try_recv() {
+                match message {
+                    ApplyUpdateProgress::P1DeleteMods => {
+                        progress.num = 0.0;
+                        progress.message = "Deleting old versions".to_owned();
+                    }
+                    ApplyUpdateProgress::P2DownloadMod { done, out_of } => {
+                        progress.num = 0.2 + (done as f32 / out_of as f32) * 0.8;
+                        progress.message = format!("Downloading mods ({done}/{out_of})");
+                    }
+                    ApplyUpdateProgress::P3Done => return true,
+                }
+            }
+        }
+        false
+    }
 }

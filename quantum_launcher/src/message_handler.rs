@@ -265,7 +265,7 @@ impl Launcher {
         Ok(())
     }
 
-    pub fn go_to_edit_mods_menu(&mut self) -> LauncherResult<()> {
+    pub fn go_to_edit_mods_menu(&mut self) -> LauncherResult<Command<Message>> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
@@ -284,12 +284,17 @@ impl Launcher {
                     selected_mods: HashSet::new(),
                     sorted_dependencies: Vec::new(),
                     selected_state: SelectedState::None,
+                    available_updates: Vec::new(),
+                    mod_update_progress: None,
                 });
             }
             Err(err) => self.set_error(err),
         }
 
-        Ok(())
+        Ok(Command::perform(
+            ql_mod_manager::mod_manager::check_for_updates(self.selected_instance.clone().unwrap()),
+            Message::ManageModsUpdateCheckResult,
+        ))
     }
 }
 

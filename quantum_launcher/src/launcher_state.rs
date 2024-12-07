@@ -20,7 +20,7 @@ use ql_mod_manager::{
         forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ModConfig, ModIndex, ProjectInfo, Search},
+    mod_manager::{ApplyUpdateProgress, ModConfig, ModIndex, ProjectInfo, Search},
 };
 use tokio::process::Child;
 
@@ -73,6 +73,8 @@ pub enum Message {
     ManageModsDeleteFinished(Result<Vec<String>, String>),
     ManageModsToggleSelected,
     ManageModsToggleFinished(Result<(), String>),
+    ManageModsUpdateMods,
+    ManageModsUpdateModsFinished(Result<(), String>),
     InstallForgeStart,
     InstallForgeEnd(Result<(), String>),
     UninstallLoaderStart,
@@ -94,8 +96,8 @@ pub enum Message {
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
     InstallModsDownload(usize),
     InstallModsDownloadComplete(Result<String, String>),
-    InstallModsUpdateCheckResult(Option<Vec<(String, String)>>),
-    InstallModsUpdateCheckToggle(usize, bool),
+    ManageModsUpdateCheckResult(Option<Vec<(String, String)>>),
+    ManageModsUpdateCheckToggle(usize, bool),
     InstallOptifineScreenOpen,
     InstallOptifineSelectInstallerStart,
     InstallOptifineSelectInstallerEnd(Option<rfd::FileHandle>),
@@ -147,6 +149,8 @@ pub struct MenuEditMods {
     pub selected_mods: HashSet<SelectedMod>,
     pub sorted_dependencies: Vec<(String, ModConfig)>,
     pub selected_state: SelectedState,
+    pub available_updates: Vec<(String, String, bool)>,
+    pub mod_update_progress: Option<UpdateModsProgress>,
 }
 
 pub struct MenuCreateInstance {
@@ -167,6 +171,7 @@ pub struct MenuInstallFabric {
     pub fabric_versions: Vec<String>,
     pub progress_receiver: Option<Receiver<FabricInstallProgress>>,
     pub progress_num: f32,
+    pub progress_message: String,
 }
 
 pub struct MenuInstallForge {
@@ -227,7 +232,6 @@ pub struct MenuModsDownload {
     pub is_loading_search: bool,
     pub mods_download_in_progress: HashSet<String>,
     pub mod_index: ModIndex,
-    pub available_updates: Vec<(String, String, bool)>,
 }
 
 pub struct MenuLauncherSettings;
@@ -247,6 +251,12 @@ pub enum State {
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(MenuModsDownload),
     LauncherSettings,
+}
+
+pub struct UpdateModsProgress {
+    pub recv: Receiver<ApplyUpdateProgress>,
+    pub num: f32,
+    pub message: String,
 }
 
 pub struct MenuInstallOptifine {

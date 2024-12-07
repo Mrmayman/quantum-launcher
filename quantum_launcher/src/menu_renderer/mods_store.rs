@@ -6,6 +6,7 @@ use std::{
 
 use comrak::nodes::NodeValue;
 use iced::widget::{self, image::Handle};
+use ql_mod_manager::mod_manager::Entry;
 
 use crate::{
     icon_manager,
@@ -15,52 +16,17 @@ use crate::{
 use super::{button_with_icon, Element};
 
 impl MenuModsDownload {
-    pub fn view_main(&self, icons: &HashMap<String, Handle>) -> Element {
+    /// Renders the main store page, with the search bar,
+    /// back button and list of searched mods.
+    fn view_main(&self, icons: &HashMap<String, Handle>) -> Element {
         let mods_list = match self.results.as_ref() {
-            Some(results) => widget::column(results.hits.iter().enumerate().map(|(i, hit)| {
-                widget::row!(
-                    widget::button(
-                        widget::row![icon_manager::download()]
-                            .spacing(10)
-                            .padding(5)
-                    )
-                    .height(70)
-                    .on_press_maybe(
-                        (!self.mods_download_in_progress.contains(&hit.project_id)
-                            && !self.mod_index.mods.contains_key(&hit.project_id))
-                        .then_some(Message::InstallModsDownload(i))
-                    ),
-                    widget::button(
-                        widget::row!(
-                            if let Some(icon) = icons.get(&hit.icon_url) {
-                                widget::column!(widget::image(icon.clone()))
-                            } else {
-                                widget::column!(widget::text(""))
-                            },
-                            widget::column!(
-                                icon_manager::download_with_size(20),
-                                widget::text(Self::format_downloads(hit.downloads)).size(12),
-                            )
-                            .align_items(iced::Alignment::Center)
-                            .width(40)
-                            .height(60)
-                            .spacing(5),
-                            widget::column!(
-                                widget::text(&hit.title).size(16),
-                                widget::text(safe_slice(&hit.description, 50)).size(12),
-                            )
-                            .spacing(5),
-                            widget::horizontal_space()
-                        )
-                        .padding(5)
-                        .spacing(10),
-                    )
-                    .height(70)
-                    .on_press(Message::InstallModsClick(i))
-                )
-                .spacing(5)
-                .into()
-            })),
+            Some(results) => widget::column(
+                results
+                    .hits
+                    .iter()
+                    .enumerate()
+                    .map(|(i, hit)| self.view_mod_entry(i, hit, icons)),
+            ),
             None => {
                 widget::column!(widget::text(if self.is_loading_search {
                     "Loading..."
@@ -87,32 +53,6 @@ impl MenuModsDownload {
                         }))
                     })
                 },
-                if !self.available_updates.is_empty() {
-                    widget::column!(widget::scrollable(
-                        widget::column!(
-                            "Updates Available!",
-                            widget::container(
-                                widget::column(self.available_updates.iter().enumerate().map(
-                                    |(i, (_, name, is_enabled))| {
-                                        widget::checkbox(format!("- {name}"), *is_enabled)
-                                            .on_toggle(move |b| {
-                                                Message::InstallModsUpdateCheckToggle(i, b)
-                                            })
-                                            .text_size(12)
-                                            .into()
-                                    }
-                                ))
-                                .padding(10)
-                                .spacing(10)
-                            ),
-                            button_with_icon(icon_manager::update(), "Update"),
-                        )
-                        .padding(10)
-                        .spacing(10)
-                    ))
-                } else {
-                    widget::column!()
-                },
             )
             .padding(10)
             .spacing(10)
@@ -124,45 +64,103 @@ impl MenuModsDownload {
         .into()
     }
 
+    /// Renders a single mod entry (and button) in the search results.
+    fn view_mod_entry(&self, i: usize, hit: &Entry, icons: &HashMap<String, Handle>) -> Element {
+        widget::row!(
+            widget::button(
+                widget::row![icon_manager::download()]
+                    .spacing(10)
+                    .padding(5)
+            )
+            .height(70)
+            .on_press_maybe(
+                (!self.mods_download_in_progress.contains(&hit.project_id)
+                    && !self.mod_index.mods.contains_key(&hit.project_id))
+                .then_some(Message::InstallModsDownload(i))
+            ),
+            widget::button(
+                widget::row!(
+                    if let Some(icon) = icons.get(&hit.icon_url) {
+                        widget::column!(widget::image(icon.clone()))
+                    } else {
+                        widget::column!(widget::text(""))
+                    },
+                    widget::column!(
+                        icon_manager::download_with_size(20),
+                        widget::text(Self::format_downloads(hit.downloads)).size(12),
+                    )
+                    .align_items(iced::Alignment::Center)
+                    .width(40)
+                    .height(60)
+                    .spacing(5),
+                    widget::column!(
+                        widget::text(&hit.title).size(16),
+                        widget::text(safe_slice(&hit.description, 50)).size(12),
+                    )
+                    .spacing(5),
+                    widget::horizontal_space()
+                )
+                .padding(5)
+                .spacing(10),
+            )
+            .height(70)
+            .on_press(Message::InstallModsClick(i))
+        )
+        .spacing(5)
+        .into()
+    }
+
     pub fn view<'a>(
         &'a self,
         icons: &'a HashMap<String, Handle>,
         images_to_load: &'a Mutex<HashSet<String>>,
     ) -> Element<'a> {
-        if let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) {
-            if let Some(hit) = results.hits.get(*selection) {
-                let project_info = if let Some(info) = self.result_data.get(&hit.project_id) {
-                    widget::column!(Self::parse_markdown(&info.body, images_to_load, icons))
-                } else {
-                    widget::column!(widget::text("Loading..."))
-                };
+        // If we opened a mod (`self.opened_mod`) then
+        // render the mod description page.
+        // else render the main store page.
+        let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) else {
+            return self.view_main(icons);
+        };
+        let Some(hit) = results.hits.get(*selection) else {
+            return self.view_main(icons);
+        };
+        self.view_project_description(hit, images_to_load, icons)
+    }
 
-                widget::scrollable(
-                    widget::column!(
-                        button_with_icon(icon_manager::back(), "Back")
-                            .on_press(Message::InstallModsBackToMainScreen),
-                        widget::row!(
-                            if let Some(icon) = icons.get(&hit.icon_url) {
-                                widget::column!(widget::image(icon.clone()))
-                            } else {
-                                widget::column!(widget::text(""))
-                            },
-                            widget::text(&hit.title).size(24)
-                        )
-                        .spacing(10),
-                        widget::text(&hit.description).size(20),
-                        project_info
-                    )
-                    .padding(20)
-                    .spacing(20),
-                )
-                .into()
-            } else {
-                self.view_main(icons)
-            }
+    /// Renders the mod description page.
+    fn view_project_description<'a>(
+        &'a self,
+        hit: &'a Entry,
+        images_to_load: &'a Mutex<HashSet<String>>,
+        icons: &'a HashMap<String, Handle>,
+    ) -> Element<'a> {
+        // Parses the markdown description of the mod.
+        let markdown_description = if let Some(info) = self.result_data.get(&hit.project_id) {
+            widget::column!(Self::parse_markdown(&info.body, images_to_load, icons))
         } else {
-            self.view_main(icons)
-        }
+            widget::column!(widget::text("Loading..."))
+        };
+
+        widget::scrollable(
+            widget::column!(
+                button_with_icon(icon_manager::back(), "Back")
+                    .on_press(Message::InstallModsBackToMainScreen),
+                widget::row!(
+                    if let Some(icon) = icons.get(&hit.icon_url) {
+                        widget::column!(widget::image(icon.clone()))
+                    } else {
+                        widget::column!(widget::text(""))
+                    },
+                    widget::text(&hit.title).size(24)
+                )
+                .spacing(10),
+                widget::text(&hit.description).size(20),
+                markdown_description
+            )
+            .padding(20)
+            .spacing(20),
+        )
+        .into()
     }
 
     pub fn parse_markdown<'a>(

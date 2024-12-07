@@ -49,6 +49,7 @@ impl Launcher {
                     fabric_versions: Vec::new(),
                     progress_receiver: None,
                     progress_num: 0.0,
+                    progress_message: String::new(),
                 });
 
                 return Command::perform(

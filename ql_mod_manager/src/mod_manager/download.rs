@@ -13,7 +13,7 @@ use ql_instances::{
 };
 use reqwest::Client;
 
-use super::{ModConfig, ModIndex, ModVersion, ModrinthError, ProjectInfo};
+use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
 
 pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {
     download_mod(id, instance_name)
@@ -21,7 +21,7 @@ pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<S
         .map_err(|err| err.to_string())
 }
 
-pub async fn download_mod(id: String, instance_name: String) -> Result<String, ModrinthError> {
+pub async fn download_mod(id: String, instance_name: String) -> Result<String, ModError> {
     // Download one mod at a time
     let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
         g
@@ -41,7 +41,7 @@ pub async fn download_mod(id: String, instance_name: String) -> Result<String, M
     Ok(id)
 }
 
-pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthError> {
+pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModError> {
     let config_json = get_config_json(instance_dir)?;
 
     Ok(match config_json.mod_type.as_str() {
@@ -55,7 +55,7 @@ pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModrinthEr
     .map(str::to_owned))
 }
 
-pub fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf), ModrinthError> {
+pub fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf), ModError> {
     let instance_dir = file_utils::get_launcher_dir()?
         .join("instances")
         .join(instance_name);
@@ -66,7 +66,7 @@ pub fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf
     Ok((instance_dir, mods_dir))
 }
 
-pub fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModrinthError> {
+pub fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModError> {
     let version_json_path = instance_dir.join("details.json");
     let version_json: String =
         std::fs::read_to_string(&version_json_path).map_err(io_err!(version_json_path))?;
@@ -74,7 +74,7 @@ pub fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModrinthE
     Ok(version_json)
 }
 
-fn get_config_json(instance_dir: &Path) -> Result<InstanceConfigJson, ModrinthError> {
+fn get_config_json(instance_dir: &Path) -> Result<InstanceConfigJson, ModError> {
     let config_file_path = instance_dir.join("config.json");
     let config_json =
         std::fs::read_to_string(&config_file_path).map_err(io_err!(config_file_path))?;
@@ -92,7 +92,7 @@ struct ModDownloader {
 }
 
 impl ModDownloader {
-    fn new(instance_name: &str) -> Result<ModDownloader, ModrinthError> {
+    fn new(instance_name: &str) -> Result<ModDownloader, ModError> {
         let (instance_dir, mods_dir) = get_instance_and_mod_dir(instance_name)?;
         let version_json = get_version_json(&instance_dir)?;
         let index = ModIndex::get(instance_name)?;
@@ -115,7 +115,7 @@ impl ModDownloader {
         id: &str,
         dependent: Option<&str>,
         manually_installed: bool,
-    ) -> Result<(), ModrinthError> {
+    ) -> Result<(), ModError> {
         info!("Getting project info (id: {id})");
 
         if self.is_already_installed(id, dependent) {
@@ -210,7 +210,7 @@ impl ModDownloader {
         }
     }
 
-    async fn get_download_version(&self, id: &str) -> Result<ModVersion, ModrinthError> {
+    async fn get_download_version(&self, id: &str) -> Result<ModVersion, ModError> {
         println!("- Getting download info");
         let download_info = ModVersion::download(id).await?;
 
@@ -232,13 +232,13 @@ impl ModDownloader {
 
         let download_version = download_versions
             .into_iter()
-            .next()
-            .ok_or(ModrinthError::NoCompatibleVersionFound)?;
+            .last()
+            .ok_or(ModError::NoCompatibleVersionFound)?;
 
         Ok(download_version)
     }
 
-    async fn download_file(&self, download_version: &ModVersion) -> Result<(), ModrinthError> {
+    async fn download_file(&self, download_version: &ModVersion) -> Result<(), ModError> {
         if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
             let file_bytes =
                 file_utils::download_file_to_bytes(&self.client, &primary_file.url, true).await?;

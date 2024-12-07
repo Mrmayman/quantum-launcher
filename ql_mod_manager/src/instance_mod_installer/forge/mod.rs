@@ -259,11 +259,14 @@ impl ForgeInstaller {
         num_libraries: usize,
         libraries_dir: &Path,
         classpath: &mut String,
+        clean_classpath: &mut String,
     ) -> Result<bool, ForgeInstallError> {
         let parts: Vec<&str> = library.name.split(':').collect();
         let class = parts[0];
         let lib = parts[1];
         let ver = parts[2];
+
+        clean_classpath.push_str(&format!("{}:{}\n", parts[0], parts[1]));
 
         let (file, path) = Self::get_filename_and_path(lib, ver, library, class)?;
 
@@ -538,6 +541,8 @@ pub async fn install(
         .run_installer_and_get_classpath(&installer_name, installer_path, j_progress)
         .await?;
 
+    let mut clean_classpath = String::new();
+
     let forge_json = ForgeInstaller::get_forge_json(&installer_file)?;
 
     let num_libraries = forge_json
@@ -559,6 +564,7 @@ pub async fn install(
                 num_libraries,
                 &libraries_dir,
                 &mut classpath,
+                &mut clean_classpath,
             )
             .await?
         {
@@ -568,6 +574,10 @@ pub async fn install(
 
     let classpath_path = installer.forge_dir.join("classpath.txt");
     std::fs::write(&classpath_path, &classpath).map_err(io_err!(classpath_path))?;
+
+    let clean_classpath_path = installer.forge_dir.join("clean_classpath.txt");
+    std::fs::write(&clean_classpath_path, &clean_classpath)
+        .map_err(io_err!(clean_classpath_path))?;
 
     let json_path = installer.forge_dir.join("details.json");
     std::fs::write(&json_path, serde_json::to_string(&forge_json)?).map_err(io_err!(json_path))?;
