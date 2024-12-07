@@ -81,7 +81,7 @@ impl Launcher {
                 self.create_instance_finish_loading_versions_list(result);
             }
             CreateInstanceMessage::VersionSelected(selected_version) => {
-                self.select_created_instance_version(selected_version)
+                self.select_created_instance_version(selected_version);
             }
             CreateInstanceMessage::NameInput(name) => self.update_created_instance_name(name),
             CreateInstanceMessage::Start => return self.create_instance(),

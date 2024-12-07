@@ -63,7 +63,7 @@ pub async fn install_optifine(
 
     let instance_path = file_utils::get_launcher_dir()?
         .join("instances")
-        .join(&instance_name);
+        .join(instance_name);
 
     create_details_json(&instance_path)?;
 
@@ -116,7 +116,7 @@ pub async fn uninstall_wrapped(instance_name: String) -> Result<(), String> {
 pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
     let instance_path = file_utils::get_launcher_dir()?
         .join("instances")
-        .join(&instance_name);
+        .join(instance_name);
 
     let optifine_path = instance_path.join("optifine");
 
@@ -152,8 +152,8 @@ pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
 }
 
 async fn create_hook_java_file(
-    dot_minecraft_path: &PathBuf,
-    optifine_path: &PathBuf,
+    dot_minecraft_path: &Path,
+    optifine_path: &Path,
 ) -> Result<(), OptifineError> {
     let hook = include_str!("../../../assets/Hook.java")
         .replace("REPLACE_WITH_MC_PATH", dot_minecraft_path.to_str().unwrap());
@@ -233,20 +233,21 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
             ),
             "Hook",
         ])
-        .current_dir(&optifine_path)
+        .current_dir(optifine_path)
         .output()
         .map_err(io_err!(java_path))?;
-    Ok(if !output.status.success() {
+    if !output.status.success() {
         return Err(OptifineError::JavaFail(
             String::from_utf8(output.stdout).unwrap(),
             String::from_utf8(output.stderr).unwrap(),
         ));
-    })
+    }
+    Ok(())
 }
 
 async fn compile_hook(
-    new_installer_path: &PathBuf,
-    optifine_path: &PathBuf,
+    new_installer_path: &Path,
+    optifine_path: &Path,
     java_progress_sender: Option<Sender<JavaInstallProgress>>,
 ) -> Result<(), OptifineError> {
     let javac_path =
@@ -262,12 +263,13 @@ async fn compile_hook(
         .current_dir(optifine_path)
         .output()
         .map_err(io_err!(javac_path))?;
-    Ok(if !output.status.success() {
+    if !output.status.success() {
         return Err(OptifineError::JavacFail(
             String::from_utf8(output.stdout).unwrap(),
             String::from_utf8(output.stderr).unwrap(),
         ));
-    })
+    }
+    Ok(())
 }
 
 fn update_instance_config_json(

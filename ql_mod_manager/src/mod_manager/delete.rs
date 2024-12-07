@@ -63,7 +63,7 @@ pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), ModEr
                     mod_info.dependents.remove(&dependent);
                 }
             } else {
-                err!("Dependent {id} does not exist")
+                err!("Dependent {id} does not exist");
             }
         }
 

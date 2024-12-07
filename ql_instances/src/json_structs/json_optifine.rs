@@ -20,7 +20,7 @@ impl JsonOptifine {
     pub fn read(instance_name: &str) -> Result<(Self, PathBuf), JsonFileError> {
         let dot_minecraft_dir = file_utils::get_launcher_dir()?
             .join("instances")
-            .join(&instance_name)
+            .join(instance_name)
             .join(".minecraft/versions");
 
         let optifine_version_dir =
@@ -29,7 +29,7 @@ impl JsonOptifine {
                     std::io::ErrorKind::NotFound,
                     "Could not find OptiFine directory",
                 ),
-                path: dot_minecraft_dir.to_owned(),
+                path: dot_minecraft_dir.clone(),
             })?;
 
         let (json, jar) = find_and_read_json_with_jar(&optifine_version_dir)?;

@@ -72,8 +72,7 @@ impl Launcher {
                     menu.mod_update_progress = None;
                 }
             }
-            State::Error { .. } => {}
-            State::DeleteInstance(_) => {}
+            State::Error { .. } | State::DeleteInstance => {}
             State::InstallFabric(menu) => menu.tick(),
             State::InstallForge(menu) => menu.tick(),
             State::UpdateFound(menu) => menu.tick(),
@@ -146,27 +145,26 @@ impl Launcher {
                         match message {
                             OptifineInstallProgress::P1Start => {
                                 progress.optifine_install_num = 0.0;
-                                progress.optifine_install_message = "Starting...".to_owned();
+                                "Starting...".clone_into(&mut progress.optifine_install_message);
                             }
                             OptifineInstallProgress::P2CompilingHook => {
                                 progress.optifine_install_num = 1.0;
-                                progress.optifine_install_message = "Compiling hook...".to_owned();
+                                "Compiling hook..."
+                                    .clone_into(&mut progress.optifine_install_message);
                             }
                             OptifineInstallProgress::P3RunningHook => {
                                 progress.optifine_install_num = 2.0;
-                                progress.optifine_install_message = "Running hook...".to_owned();
+                                "Running hook..."
+                                    .clone_into(&mut progress.optifine_install_message);
                             }
                             OptifineInstallProgress::P4DownloadingLibraries { done, total } => {
                                 progress.optifine_install_num = 2.0 + (done as f32 / total as f32);
-                                progress.optifine_install_message = format!(
-                                    "Downloading libraries ({done}/{total})",
-                                    done = done,
-                                    total = total
-                                );
+                                progress.optifine_install_message =
+                                    format!("Downloading libraries ({done}/{total})");
                             }
                             OptifineInstallProgress::P5Done => {
                                 progress.optifine_install_num = 3.0;
-                                progress.optifine_install_message = "Done!".to_owned();
+                                "Done!".clone_into(&mut progress.optifine_install_message);
                             }
                         }
                     }
@@ -175,7 +173,7 @@ impl Launcher {
                         match message {
                             JavaInstallProgress::P1Started => {
                                 progress.java_install_num = 0.0;
-                                progress.java_install_message = "Starting...".to_owned();
+                                "Starting...".clone_into(&mut progress.java_install_message);
                                 progress.is_java_being_installed = true;
                             }
                             JavaInstallProgress::P2 { done, out_of, name } => {
@@ -185,7 +183,7 @@ impl Launcher {
                             }
                             JavaInstallProgress::P3Done => {
                                 progress.java_install_num = 1.0;
-                                progress.java_install_message = "Done!".to_owned();
+                                "Done!".clone_into(&mut progress.java_install_message);
                                 progress.is_java_being_installed = false;
                             }
                         }
@@ -445,7 +443,7 @@ impl MenuEditMods {
                 match message {
                     ApplyUpdateProgress::P1DeleteMods => {
                         progress.num = 0.0;
-                        progress.message = "Deleting old versions".to_owned();
+                        "Deleting old versions".clone_into(&mut progress.message);
                     }
                     ApplyUpdateProgress::P2DownloadMod { done, out_of } => {
                         progress.num = 0.2 + (done as f32 / out_of as f32) * 0.8;

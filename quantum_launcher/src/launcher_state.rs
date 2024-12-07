@@ -166,8 +166,6 @@ pub struct MenuCreateInstance {
     pub combo_state: iced::widget::combo_box::State<String>,
 }
 
-pub struct MenuDeleteInstance {}
-
 pub enum MenuInstallFabric {
     Loading,
     Loaded {
@@ -248,14 +246,14 @@ pub enum State {
     EditMods(MenuEditMods),
     Create(MenuCreateInstance),
     Error { error: String },
-    DeleteInstance(MenuDeleteInstance),
+    DeleteInstance,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
     InstallOptifine(MenuInstallOptifine),
     InstallJava(MenuInstallJava),
     RedownloadAssets(MenuRedownloadAssets),
     UpdateFound(MenuLauncherUpdate),
-    ModsDownload(MenuModsDownload),
+    ModsDownload(Box<MenuModsDownload>),
     LauncherSettings,
 }
 

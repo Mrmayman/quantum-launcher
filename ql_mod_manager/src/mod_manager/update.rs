@@ -96,10 +96,10 @@ pub async fn check_for_updates(selected_instance: String) -> Option<Vec<(String,
         }
     }
 
-    if !updated_mods.is_empty() {
-        info!("Found mod updates");
-    } else {
+    if updated_mods.is_empty() {
         info!("No mod updates found");
+    } else {
+        info!("Found mod updates");
     }
 
     Some(updated_mods)

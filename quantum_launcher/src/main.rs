@@ -25,11 +25,12 @@ use iced::{
     Application, Command, Settings,
 };
 use launcher_state::{
-    reload_instances, Launcher, MenuDeleteInstance, MenuEditMods, MenuInstallForge,
-    MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
-    OptifineInstallProgressData, SelectedMod, SelectedState, State, UpdateModsProgress,
+    reload_instances, Launcher, MenuEditMods, MenuInstallForge, MenuInstallOptifine, MenuLaunch,
+    MenuLauncherSettings, MenuLauncherUpdate, Message, OptifineInstallProgressData, SelectedMod,
+    SelectedState, State, UpdateModsProgress,
 };
 
+use menu_renderer::menu_delete_instance_view;
 use message_handler::{format_memory, open_file_explorer};
 use ql_instances::{
     err, file_utils, info,
@@ -98,7 +99,7 @@ impl Application for Launcher {
             }
             Message::CreateInstance(message) => return self.update_create_instance(message),
             Message::DeleteInstanceMenu => {
-                self.state = State::DeleteInstance(MenuDeleteInstance {});
+                self.state = State::DeleteInstance;
             }
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::LaunchScreenOpen(message) => {
@@ -520,9 +521,9 @@ impl Application for Launcher {
             }
             Message::InstallOptifineEnd(result) => {
                 if let Err(err) = result {
-                    self.set_error(err)
+                    self.set_error(err);
                 } else {
-                    self.go_to_launch_screen_with_message("Installed OptiFine".to_owned())
+                    self.go_to_launch_screen_with_message("Installed OptiFine".to_owned());
                 }
             }
             Message::ManageModsUpdateCheckResult(updates) => {
@@ -536,7 +537,9 @@ impl Application for Launcher {
                     available_updates, ..
                 }) = &mut self.state
                 {
-                    available_updates.get_mut(idx).map(|(_, _, b)| *b = t);
+                    if let Some((_, _, b)) = available_updates.get_mut(idx) {
+                        *b = t;
+                    }
                 }
             }
             Message::ManageModsUpdateMods => return self.update_mods(),
@@ -578,7 +581,9 @@ impl Application for Launcher {
             State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Create(menu) => menu.view(),
-            State::DeleteInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::DeleteInstance => {
+                menu_delete_instance_view(self.selected_instance.as_ref().unwrap())
+            }
             State::Error { error } => widget::scrollable(
                 widget::column!(
                     widget::text(format!("Error: {error}")),
@@ -617,14 +622,13 @@ impl Application for Launcher {
 
 fn load_window_icon() -> Option<Command<Message>> {
     let icon = iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico));
-    let command = match icon {
+    match icon {
         Ok(icon) => Some(iced::window::change_icon(iced::window::Id::MAIN, icon)),
         Err(err) => {
             err!("Could not load icon: {err}");
             None
         }
-    };
-    command
+    }
 }
 
 impl Launcher {

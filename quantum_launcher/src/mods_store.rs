@@ -52,7 +52,7 @@ impl Launcher {
             mod_index,
         };
         let command = menu.search_modrinth();
-        self.state = State::ModsDownload(menu);
+        self.state = State::ModsDownload(Box::new(menu));
         Ok(command)
     }
 }

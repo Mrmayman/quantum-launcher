@@ -189,7 +189,7 @@ impl Launcher {
     }
 
     pub fn delete_selected_instance(&mut self) {
-        if let State::DeleteInstance(_) = &self.state {
+        if let State::DeleteInstance = &self.state {
             match file_utils::get_launcher_dir() {
                 Ok(launcher_dir) => {
                     let instances_dir = launcher_dir.join("instances");

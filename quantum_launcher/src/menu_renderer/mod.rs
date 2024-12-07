@@ -8,9 +8,9 @@ use crate::{
     icon_manager,
     launcher_state::{
         CreateInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog, Launcher,
-        MenuCreateInstance, MenuDeleteInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric,
-        MenuInstallForge, MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
-        MenuLauncherUpdate, Message, SelectedMod, SelectedState,
+        MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge,
+        MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate,
+        Message, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -151,7 +151,7 @@ fn get_left_pane<'a>(
 }
 
 fn get_play_button<'a>(
-    username: &'a String,
+    username: &'a str,
     selected_instance: Option<&'a String>,
     processes: &'a HashMap<String, GameProcess>,
 ) -> widget::Column<'a, Message, LauncherTheme> {
@@ -169,29 +169,25 @@ fn get_play_button<'a>(
             widget::text("Username contains spaces!").size(12),
             widget::tooltip::Position::FollowCursor,
         ))
-    } else {
-        if let Some(selected_instance) = selected_instance {
-            widget::column!(if processes.contains_key(selected_instance) {
-                button_with_icon(icon_manager::play(), "Kill")
-                    .on_press(Message::LaunchKill)
-                    .width(98)
-            } else {
-                play_button.on_press(Message::LaunchStart)
-            })
+    } else if let Some(selected_instance) = selected_instance {
+        widget::column!(if processes.contains_key(selected_instance) {
+            button_with_icon(icon_manager::play(), "Kill")
+                .on_press(Message::LaunchKill)
+                .width(98)
         } else {
-            widget::column!(widget::tooltip(
-                play_button,
-                widget::text("Select an instance first!").size(12),
-                widget::tooltip::Position::FollowCursor,
-            ))
-        }
+            play_button.on_press(Message::LaunchStart)
+        })
+    } else {
+        widget::column!(widget::tooltip(
+            play_button,
+            widget::text("Select an instance first!").size(12),
+            widget::tooltip::Position::FollowCursor,
+        ))
     };
     play_button
 }
 
-fn get_files_button<'a>(
-    selected_instance: Option<&'a String>,
-) -> widget::Button<'a, Message, LauncherTheme> {
+fn get_files_button(selected_instance: Option<&String>) -> widget::Button<Message, LauncherTheme> {
     button_with_icon(icon_manager::folder(), "Files")
         .on_press_maybe((selected_instance.is_some()).then(|| {
             let launcher_dir = file_utils::get_launcher_dir().unwrap();
@@ -364,7 +360,7 @@ impl MenuInstallOptifine {
 }
 
 impl MenuEditMods {
-    pub fn view(&self, selected_instance: &str) -> Element {
+    pub fn view<'a>(&'a self, selected_instance: &'a str) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
             return widget::column!(
                 widget::text("Updating mods").size(20),
@@ -385,7 +381,7 @@ impl MenuEditMods {
                 "Mod Updates Available!",
                 widget::column(self.available_updates.iter().enumerate().map(
                     |(i, (_, name, is_enabled))| {
-                        widget::checkbox(format!("{name}"), *is_enabled)
+                        widget::checkbox(name, *is_enabled)
                             .on_toggle(move |b| Message::ManageModsUpdateCheckToggle(i, b))
                             .text_size(12)
                             .into()
@@ -409,7 +405,7 @@ impl MenuEditMods {
                 )
                 .on_press(Message::LaunchScreenOpen(None)),
                 mod_installer,
-                self.open_mod_folder_button(selected_instance),
+                Self::open_mod_folder_button(selected_instance),
                 widget::container(mod_update_pane),
             )
             .padding(10)
@@ -439,7 +435,7 @@ impl MenuEditMods {
             "Forge" => {
                 widget::column!(
                     widget::button("Install OptiFine"),
-                    self.get_uninstall_panel(
+                    Self::get_uninstall_panel(
                         &self.config.mod_type,
                         Message::UninstallLoaderStart,
                         true
@@ -449,16 +445,18 @@ impl MenuEditMods {
             "OptiFine" => {
                 widget::column!(
                     widget::button("Install Forge"),
-                    self.get_uninstall_panel(
+                    Self::get_uninstall_panel(
                         &self.config.mod_type,
                         Message::UninstallLoaderStart,
                         false
                     ),
                 )
             }
-            "Fabric" => {
-                self.get_uninstall_panel(&self.config.mod_type, Message::UninstallLoaderStart, true)
-            }
+            "Fabric" => Self::get_uninstall_panel(
+                &self.config.mod_type,
+                Message::UninstallLoaderStart,
+                true,
+            ),
             _ => {
                 widget::column!(widget::text(format!(
                     "Unknown mod type: {}",
@@ -471,7 +469,6 @@ impl MenuEditMods {
     }
 
     fn get_uninstall_panel(
-        &self,
         mod_type: &str,
         uninstall_loader_message: Message,
         download_mods: bool,
@@ -480,7 +477,7 @@ impl MenuEditMods {
             widget::button(
                 widget::row!(
                     icon_manager::delete(),
-                    widget::text(format!("Uninstall {}", mod_type))
+                    widget::text(format!("Uninstall {mod_type}"))
                 )
                 .spacing(10)
                 .padding(5)
@@ -496,7 +493,7 @@ impl MenuEditMods {
         .spacing(5)
     }
 
-    fn open_mod_folder_button(&self, selected_instance: &str) -> Element {
+    fn open_mod_folder_button(selected_instance: &str) -> Element {
         button_with_icon(icon_manager::folder(), "Go to Mods Folder")
             .on_press({
                 let launcher_dir = file_utils::get_launcher_dir().unwrap();
@@ -627,21 +624,19 @@ impl MenuCreateInstance {
     }
 }
 
-impl MenuDeleteInstance {
-    pub fn view(&self, selected_instance: &str) -> Element {
-        widget::column![
-            widget::text(format!(
-                "Are you SURE you want to DELETE the Instance: {}?",
-                &selected_instance
-            )),
-            "All your data, including worlds will be lost.",
-            widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-            widget::button("No").on_press(Message::LaunchScreenOpen(None)),
-        ]
-        .padding(10)
-        .spacing(10)
-        .into()
-    }
+pub fn menu_delete_instance_view(selected_instance: &str) -> Element {
+    widget::column![
+        widget::text(format!(
+            "Are you SURE you want to DELETE the Instance: {}?",
+            &selected_instance
+        )),
+        "All your data, including worlds will be lost.",
+        widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
+        widget::button("No").on_press(Message::LaunchScreenOpen(None)),
+    ]
+    .padding(10)
+    .spacing(10)
+    .into()
 }
 
 impl MenuInstallFabric {

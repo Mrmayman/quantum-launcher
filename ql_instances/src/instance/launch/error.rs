@@ -18,6 +18,7 @@ pub enum GameLaunchError {
     PathBufToString(PathBuf),
     JavaInstall(JavaInstallError),
     CommandError(std::io::Error),
+    OutdatedForgeInstall,
 }
 
 impl Display for GameLaunchError {
@@ -42,6 +43,7 @@ impl Display for GameLaunchError {
             Self::PathBufToString(err) => write!(f, "couldn't convert pathbuf to string: {err:?}"),
             Self::JavaInstall(err) => write!(f, "(java install) {err}"),
             Self::CommandError(err) => write!(f, "(command) {err}"),
+            Self::OutdatedForgeInstall => write!(f, "outdated forge install. Please uninstall and reinstall.\nSelect your instance, go to Mods -> Uninstall Forge, then Install Forge."),
         }
     }
 }

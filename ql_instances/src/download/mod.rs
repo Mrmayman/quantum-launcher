@@ -66,7 +66,8 @@ impl GameDownloader {
         };
         let network_client = Client::new();
         let version_json =
-            GameDownloader::new_download_version_json(&network_client, version, &sender).await?;
+            GameDownloader::new_download_version_json(&network_client, version, sender.as_ref())
+                .await?;
 
         Ok(Self {
             instance_dir,
@@ -465,7 +466,7 @@ impl GameDownloader {
     async fn new_download_version_json(
         network_client: &Client,
         version: &str,
-        sender: &Option<Sender<DownloadProgress>>,
+        sender: Option<&Sender<DownloadProgress>>,
     ) -> Result<VersionDetails, DownloadError> {
         info!("Started downloading version manifest JSON.");
         if let Some(sender) = sender {

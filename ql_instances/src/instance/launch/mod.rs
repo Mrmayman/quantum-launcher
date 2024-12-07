@@ -3,7 +3,6 @@ use tokio::process::{Child, Command};
 
 use crate::{
     download::GameDownloader,
-    err,
     error::IoError,
     file_utils, info, io_err,
     java_install::{self, JavaInstallProgress},
@@ -94,8 +93,8 @@ impl GameLauncher {
         let version_json = read_version_json(&instance_dir)?;
 
         Ok(Self {
-            instance_name,
             username,
+            instance_name,
             java_install_progress_sender,
             asset_redownload_progress,
             instance_dir,
@@ -133,9 +132,7 @@ impl GameLauncher {
             replace_var(argument, "auth_player_name", &self.username);
             replace_var(argument, "version_name", &self.version_json.id);
             let Some(minecraft_dir_path) = self.minecraft_dir.to_str() else {
-                return Err(GameLaunchError::PathBufToString(
-                    self.minecraft_dir.to_owned(),
-                ));
+                return Err(GameLaunchError::PathBufToString(self.minecraft_dir.clone()));
             };
             replace_var(argument, "game_directory", minecraft_dir_path);
 
@@ -231,7 +228,7 @@ impl GameLauncher {
         info!("Redownloading legacy assets");
         let game_downloader = GameDownloader::with_existing_instance(
             self.version_json.clone(),
-            self.instance_dir.to_owned(),
+            self.instance_dir.clone(),
             None,
         );
         game_downloader
@@ -369,13 +366,13 @@ impl GameLauncher {
         java_arguments: &mut Vec<String>,
         fabric_json: Option<FabricJSON>,
         forge_json: Option<JsonForgeDetails>,
-        optifine_json: Option<(JsonOptifine, PathBuf)>,
+        optifine_json: Option<&(JsonOptifine, PathBuf)>,
     ) -> Result<(), GameLaunchError> {
         java_arguments.push("-cp".to_owned());
         java_arguments.push(self.get_class_path(
             fabric_json.as_ref(),
             forge_json.as_ref(),
-            optifine_json.as_ref(),
+            optifine_json,
         )?);
         java_arguments.push(if let Some(fabric_json) = fabric_json {
             fabric_json.mainClass
@@ -411,7 +408,7 @@ impl GameLauncher {
                     classpath_entries.insert(entry.to_owned());
                 }
             } else {
-                err!("Your forge installation is outdated, please uninstall and reinstall forge")
+                return Err(GameLaunchError::OutdatedForgeInstall);
             }
         }
 
@@ -490,7 +487,7 @@ impl GameLauncher {
 
     fn add_entry_to_classpath(
         &self,
-        name: &String,
+        name: &str,
         classpath_entries: &mut HashSet<String>,
         artifact: &crate::json_structs::json_version::LibraryDownloadArtifact,
         class_path: &mut String,
@@ -566,7 +563,7 @@ pub async fn launch(
     asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
 ) -> Result<Child, GameLaunchError> {
     if username.contains(' ') || username.is_empty() {
-        return Err(GameLaunchError::UsernameIsInvalid(username.to_owned()));
+        return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
     }
 
     let mut game_launcher = GameLauncher::new(
@@ -594,7 +591,7 @@ pub async fn launch(
         &mut java_arguments,
         fabric_json,
         forge_json,
-        optifine_json,
+        optifine_json.as_ref(),
     )?;
 
     let mut command = game_launcher.get_java_command().await?;
