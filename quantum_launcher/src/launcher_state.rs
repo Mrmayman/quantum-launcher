@@ -18,7 +18,7 @@ use ql_instances::{
 };
 use ql_mod_manager::{
     instance_mod_installer::{
-        fabric::{FabricInstallProgress, FabricVersion},
+        fabric::{FabricInstallProgress, FabricVersionListItem},
         forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
@@ -35,7 +35,7 @@ use crate::{
 pub enum InstallFabricMessage {
     End(Result<(), String>),
     VersionSelected(String),
-    VersionsLoaded(Result<Vec<FabricVersion>, String>),
+    VersionsLoaded(Result<Vec<FabricVersionListItem>, String>),
     ButtonClicked,
     ScreenOpen,
 }
@@ -168,12 +168,16 @@ pub struct MenuCreateInstance {
 
 pub struct MenuDeleteInstance {}
 
-pub struct MenuInstallFabric {
-    pub fabric_version: Option<String>,
-    pub fabric_versions: Vec<String>,
-    pub progress_receiver: Option<Receiver<FabricInstallProgress>>,
-    pub progress_num: f32,
-    pub progress_message: String,
+pub enum MenuInstallFabric {
+    Loading,
+    Loaded {
+        fabric_version: Option<String>,
+        fabric_versions: Vec<String>,
+        progress_receiver: Option<Receiver<FabricInstallProgress>>,
+        progress_num: f32,
+        progress_message: String,
+    },
+    Unsupported,
 }
 
 pub struct MenuInstallForge {

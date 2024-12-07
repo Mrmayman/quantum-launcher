@@ -341,7 +341,7 @@ impl ForgeInstaller {
         file: &str,
     ) -> Result<(), ForgeInstallError> {
         let classpath_item = libraries_dir.join(format!("{path}/{file}{CLASSPATH_SEPARATOR}"));
-        println!("adding library to classpath {classpath_item:?}");
+        // println!("adding library to classpath {classpath_item:?}");
         classpath.push_str(
             classpath_item
                 .to_str()

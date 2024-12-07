@@ -279,6 +279,8 @@ impl Launcher {
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
+        let is_vanilla = config_json.mod_type == "Vanilla";
+
         match ModIndex::get(self.selected_instance.as_ref().unwrap()).map_err(|err| err.to_string())
         {
             Ok(idx) => {
@@ -295,10 +297,16 @@ impl Launcher {
             Err(err) => self.set_error(err),
         }
 
-        Ok(Command::perform(
-            ql_mod_manager::mod_manager::check_for_updates(self.selected_instance.clone().unwrap()),
-            Message::ManageModsUpdateCheckResult,
-        ))
+        Ok(if is_vanilla {
+            Command::none()
+        } else {
+            Command::perform(
+                ql_mod_manager::mod_manager::check_for_updates(
+                    self.selected_instance.clone().unwrap(),
+                ),
+                Message::ManageModsUpdateCheckResult,
+            )
+        })
     }
 }
 

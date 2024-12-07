@@ -356,16 +356,22 @@ impl MenuInstallForge {
 
 impl MenuInstallFabric {
     fn tick(&mut self) {
-        if let Some(receiver) = &self.progress_receiver {
+        if let Self::Loaded {
+            progress_receiver: Some(receiver),
+            progress_num,
+            progress_message,
+            ..
+        } = self
+        {
             while let Ok(progress) = receiver.try_recv() {
-                self.progress_num = match progress {
+                *progress_num = match progress {
                     FabricInstallProgress::P1Start => 0.0,
                     FabricInstallProgress::P2Library {
                         done,
                         out_of,
                         message,
                     } => {
-                        self.progress_message = message;
+                        *progress_message = message;
                         done as f32 / out_of as f32
                     }
                     FabricInstallProgress::P3Done => 1.0,

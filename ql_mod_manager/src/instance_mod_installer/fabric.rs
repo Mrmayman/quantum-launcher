@@ -8,7 +8,7 @@ use ql_instances::{
     error::IoError,
     file_utils::{self, RequestError},
     info, io_err,
-    json_structs::{json_fabric::FabricJSON, json_version::VersionDetails},
+    json_structs::{json_fabric::FabricJSON, json_version::VersionDetails, JsonFileError},
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -21,12 +21,31 @@ async fn download_file_to_string(client: &Client, url: &str) -> Result<String, R
     file_utils::download_file_to_string(client, &format!("{FABRIC_URL}/{url}"), false).await
 }
 
-pub async fn get_list_of_versions() -> Result<Vec<FabricVersion>, String> {
+async fn get_version_json(instance_name: &str) -> Result<VersionDetails, JsonFileError> {
+    let launcher_dir = file_utils::get_launcher_dir()?;
+    let instance_dir = launcher_dir.join("instances").join(instance_name);
+
+    let version_json_path = instance_dir.join("details.json");
+    let version_json = tokio::fs::read_to_string(&version_json_path)
+        .await
+        .map_err(io_err!(version_json_path))?;
+    Ok(serde_json::from_str(&version_json)?)
+}
+
+pub async fn get_list_of_versions(
+    instance_name: String,
+) -> Result<Vec<FabricVersionListItem>, String> {
     let client = Client::new();
-    // The first one is the latest version.
-    let version_list = download_file_to_string(&client, "v2/versions/loader")
+
+    let version_json = get_version_json(&instance_name)
         .await
         .map_err(|err| err.to_string())?;
+
+    // The first one is the latest version.
+    let version_list =
+        download_file_to_string(&client, &format!("v2/versions/loader/{}", version_json.id))
+            .await
+            .map_err(|err| err.to_string())?;
 
     serde_json::from_str(&version_list).map_err(|err| err.to_string())
 }
@@ -198,6 +217,11 @@ pub async fn install_wrapped(
     install(&loader_version, &instance_name, progress)
         .await
         .map_err(|err| err.to_string())
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FabricVersionListItem {
+    pub loader: FabricVersion,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

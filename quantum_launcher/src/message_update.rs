@@ -13,29 +13,46 @@ impl Launcher {
                 Err(err) => self.set_error(err),
             },
             InstallFabricMessage::VersionSelected(selection) => {
-                if let State::InstallFabric(menu) = &mut self.state {
-                    menu.fabric_version = Some(selection);
+                if let State::InstallFabric(MenuInstallFabric::Loaded { fabric_version, .. }) =
+                    &mut self.state
+                {
+                    *fabric_version = Some(selection);
                 }
             }
             InstallFabricMessage::VersionsLoaded(result) => match result {
                 Ok(list_of_versions) => {
                     if let State::InstallFabric(menu) = &mut self.state {
-                        menu.fabric_versions = list_of_versions
-                            .iter()
-                            .map(|ver| ver.version.clone())
-                            .collect();
+                        if list_of_versions.is_empty() {
+                            *menu = MenuInstallFabric::Unsupported;
+                        } else {
+                            *menu = MenuInstallFabric::Loaded {
+                                fabric_version: None,
+                                fabric_versions: list_of_versions
+                                    .iter()
+                                    .map(|ver| ver.loader.version.clone())
+                                    .collect(),
+                                progress_receiver: None,
+                                progress_num: 0.0,
+                                progress_message: String::new(),
+                            };
+                        }
                     }
                 }
                 Err(err) => self.set_error(err),
             },
             InstallFabricMessage::ButtonClicked => {
-                if let State::InstallFabric(menu) = &mut self.state {
+                if let State::InstallFabric(MenuInstallFabric::Loaded {
+                    fabric_version,
+                    progress_receiver,
+                    ..
+                }) = &mut self.state
+                {
                     let (sender, receiver) = std::sync::mpsc::channel();
-                    menu.progress_receiver = Some(receiver);
+                    *progress_receiver = Some(receiver);
 
                     return Command::perform(
                         instance_mod_installer::fabric::install_wrapped(
-                            menu.fabric_version.clone().unwrap(),
+                            fabric_version.clone().unwrap(),
                             self.selected_instance.clone().unwrap(),
                             Some(sender),
                         ),
@@ -44,16 +61,12 @@ impl Launcher {
                 }
             }
             InstallFabricMessage::ScreenOpen => {
-                self.state = State::InstallFabric(MenuInstallFabric {
-                    fabric_version: None,
-                    fabric_versions: Vec::new(),
-                    progress_receiver: None,
-                    progress_num: 0.0,
-                    progress_message: String::new(),
-                });
+                self.state = State::InstallFabric(MenuInstallFabric::Loading);
 
                 return Command::perform(
-                    instance_mod_installer::fabric::get_list_of_versions(),
+                    instance_mod_installer::fabric::get_list_of_versions(
+                        self.selected_instance.clone().unwrap(),
+                    ),
                     |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m)),
                 );
             }

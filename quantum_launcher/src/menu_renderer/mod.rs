@@ -646,42 +646,55 @@ impl MenuDeleteInstance {
 
 impl MenuInstallFabric {
     pub fn view(&self, selected_instance: &str) -> Element {
-        if self.progress_receiver.is_some() {
-            widget::column!(
-                widget::text("Installing Fabric...").size(20),
-                widget::progress_bar(0.0..=1.0, self.progress_num),
-                widget::text(&self.progress_message),
-            )
-            .padding(10)
-            .spacing(10)
-            .into()
-        } else {
-            widget::column![
-                widget::button(
-                    widget::row![icon_manager::back(), "Back"]
-                        .spacing(10)
-                        .padding(5)
+        match self {
+            MenuInstallFabric::Loading => {
+                widget::column![widget::text("Loading Fabric version list...").size(20)]
+            }
+            MenuInstallFabric::Loaded {
+                fabric_version,
+                fabric_versions,
+                progress_receiver,
+                progress_num,
+                progress_message,
+            } => {
+                if progress_receiver.is_some() {
+                    widget::column!(
+                        widget::text("Installing Fabric...").size(20),
+                        widget::progress_bar(0.0..=1.0, *progress_num),
+                        widget::text(progress_message),
+                    )
+                } else {
+                    widget::column![
+                        button_with_icon(icon_manager::back(), "Back")
+                            .on_press(Message::LaunchScreenOpen(None)),
+                        widget::text(format!(
+                            "Select Fabric Version for instance {}",
+                            &selected_instance
+                        )),
+                        widget::pick_list(
+                            fabric_versions.as_slice(),
+                            fabric_version.as_ref(),
+                            |n| Message::InstallFabric(InstallFabricMessage::VersionSelected(n))
+                        ),
+                        widget::button("Install Fabric").on_press_maybe(
+                            fabric_version.is_some().then(|| Message::InstallFabric(
+                                InstallFabricMessage::ButtonClicked
+                            ))
+                        ),
+                    ]
+                }
+            }
+            MenuInstallFabric::Unsupported => {
+                widget::column!(
+                    button_with_icon(icon_manager::back(), "Back")
+                        .on_press(Message::LaunchScreenOpen(None)),
+                    "Fabric is unsupported for this Minecraft version."
                 )
-                .on_press(Message::LaunchScreenOpen(None)),
-                widget::text(format!(
-                    "Select Fabric Version for instance {}",
-                    &selected_instance
-                )),
-                widget::pick_list(
-                    self.fabric_versions.as_slice(),
-                    self.fabric_version.as_ref(),
-                    |n| Message::InstallFabric(InstallFabricMessage::VersionSelected(n))
-                ),
-                widget::button("Install Fabric").on_press_maybe(
-                    self.fabric_version
-                        .is_some()
-                        .then(|| Message::InstallFabric(InstallFabricMessage::ButtonClicked))
-                ),
-            ]
-            .padding(10)
-            .spacing(20)
-            .into()
+            }
         }
+        .padding(10)
+        .spacing(10)
+        .into()
     }
 }
 
