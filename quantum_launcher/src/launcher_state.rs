@@ -8,9 +8,11 @@ use std::{
 use iced::widget::image::Handle;
 use ql_instances::{
     err,
-    error::{LauncherError, LauncherResult},
+    error::IoError,
     file_utils, io_err,
-    json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
+    json_structs::{
+        json_instance_config::InstanceConfigJson, json_version::VersionDetails, JsonFileError,
+    },
     AssetRedownloadProgress, DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine,
     UpdateCheckInfo, UpdateProgress,
 };
@@ -298,7 +300,7 @@ pub struct GameProcess {
 }
 
 impl Launcher {
-    pub fn new(message: Option<String>) -> LauncherResult<Self> {
+    pub fn new(message: Option<String>) -> Result<Self, JsonFileError> {
         let subdirectories = reload_instances()?;
 
         let (config, theme, style) = load_config_and_theme()?;
@@ -379,7 +381,7 @@ impl Launcher {
 }
 
 fn load_config_and_theme(
-) -> Result<(Option<LauncherConfig>, LauncherTheme, LauncherStyle), LauncherError> {
+) -> Result<(Option<LauncherConfig>, LauncherTheme, LauncherStyle), JsonFileError> {
     let config = LauncherConfig::load()?;
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherTheme::Dark,
@@ -402,7 +404,7 @@ fn load_config_and_theme(
     Ok((Some(config), theme, style))
 }
 
-pub fn reload_instances() -> Result<Vec<String>, LauncherError> {
+pub fn reload_instances() -> Result<Vec<String>, IoError> {
     let dir_path = file_utils::get_launcher_dir()?;
     std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 

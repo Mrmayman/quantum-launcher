@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_instances::{err, error::LauncherError, file_utils, io_err};
+use ql_instances::{err, file_utils, io_err, json_structs::JsonFileError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -14,7 +14,7 @@ pub struct LauncherConfig {
 }
 
 impl LauncherConfig {
-    pub fn load() -> Result<Self, LauncherError> {
+    pub fn load() -> Result<Self, JsonFileError> {
         let config_path = file_utils::get_launcher_dir()?.join("config.json");
         if !config_path.exists() {
             return LauncherConfig::create(&config_path);
@@ -31,7 +31,7 @@ impl LauncherConfig {
         Ok(config)
     }
 
-    pub async fn save(&self) -> Result<(), LauncherError> {
+    pub async fn save(&self) -> Result<(), JsonFileError> {
         let config_path = file_utils::get_launcher_dir()?.join("config.json");
         let config = serde_json::to_string(&self)?;
 
@@ -45,7 +45,7 @@ impl LauncherConfig {
         self.save().await.map_err(|err| err.to_string())
     }
 
-    fn create(path: &Path) -> Result<Self, LauncherError> {
+    fn create(path: &Path) -> Result<Self, JsonFileError> {
         let config = LauncherConfig::default();
 
         std::fs::write(path, serde_json::to_string(&config)?.as_bytes()).map_err(io_err!(path))?;

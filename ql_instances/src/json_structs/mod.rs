@@ -52,8 +52,8 @@ pub enum JsonFileError {
 impl Display for JsonFileError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            JsonFileError::SerdeError(err) => write!(f, "error reading json from file: {err}"),
-            JsonFileError::Io(err) => write!(f, "error reading json from file: {err}"),
+            JsonFileError::SerdeError(err) => write!(f, "error parsing json: {err}"),
+            JsonFileError::Io(err) => write!(f, "error reading/writing json from file: {err}"),
         }
     }
 }

@@ -1,9 +1,10 @@
+use error::GameLaunchError;
 use tokio::process::{Child, Command};
 
 use crate::{
     download::GameDownloader,
     err,
-    error::{IoError, LauncherError, LauncherResult},
+    error::IoError,
     file_utils, info, io_err,
     java_install::{self, JavaInstallProgress},
     json_structs::{
@@ -22,6 +23,8 @@ use std::{
     process::Stdio,
     sync::{mpsc::Sender, Arc, Mutex},
 };
+
+pub(super) mod error;
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
@@ -80,7 +83,7 @@ impl GameLauncher {
         username: String,
         java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
         asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
-    ) -> Result<Self, LauncherError> {
+    ) -> Result<Self, GameLaunchError> {
         let instance_dir = get_instance_dir(&instance_name)?;
 
         let minecraft_dir = instance_dir.join(".minecraft");
@@ -102,7 +105,7 @@ impl GameLauncher {
         })
     }
 
-    async fn init_game_arguments(&self) -> LauncherResult<Vec<String>> {
+    async fn init_game_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
         let mut game_arguments: Vec<String> =
             if let Some(arguments) = &self.version_json.minecraftArguments {
                 arguments.split(' ').map(ToOwned::to_owned).collect()
@@ -114,7 +117,7 @@ impl GameLauncher {
                     .map(ToOwned::to_owned)
                     .collect()
             } else {
-                return Err(LauncherError::VersionJsonNoArgumentsField(Box::new(
+                return Err(GameLaunchError::VersionJsonNoArgumentsField(Box::new(
                     self.version_json.clone(),
                 )));
             };
@@ -125,12 +128,12 @@ impl GameLauncher {
     async fn fill_game_arguments(
         &self,
         game_arguments: &mut [String],
-    ) -> Result<(), LauncherError> {
+    ) -> Result<(), GameLaunchError> {
         for argument in game_arguments.iter_mut() {
             replace_var(argument, "auth_player_name", &self.username);
             replace_var(argument, "version_name", &self.version_json.id);
             let Some(minecraft_dir_path) = self.minecraft_dir.to_str() else {
-                return Err(LauncherError::PathBufToString(
+                return Err(GameLaunchError::PathBufToString(
                     self.minecraft_dir.to_owned(),
                 ));
             };
@@ -157,7 +160,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    async fn set_assets_argument(&self, argument: &mut String) -> Result<(), LauncherError> {
+    async fn set_assets_argument(&self, argument: &mut String) -> Result<(), GameLaunchError> {
         let old_assets_path_v2 = file_utils::get_launcher_dir()?
             .join("assets")
             .join(&self.version_json.assetIndex.id);
@@ -186,7 +189,7 @@ impl GameLauncher {
             };
 
             let Some(assets_path) = assets_path_fixed.to_str() else {
-                return Err(LauncherError::PathBufToString(assets_path_fixed));
+                return Err(GameLaunchError::PathBufToString(assets_path_fixed));
             };
             replace_var(argument, "assets_root", assets_path);
             replace_var(argument, "game_assets", assets_path);
@@ -210,7 +213,7 @@ impl GameLauncher {
                 file_utils::get_launcher_dir()?.join("assets/null")
             };
             let Some(assets_path) = assets_path_fixed.to_str() else {
-                return Err(LauncherError::PathBufToString(assets_path_fixed));
+                return Err(GameLaunchError::PathBufToString(assets_path_fixed));
             };
             replace_var(argument, "assets_root", assets_path);
             replace_var(argument, "game_assets", assets_path);
@@ -218,13 +221,13 @@ impl GameLauncher {
         Ok(())
     }
 
-    fn create_mods_dir(&self) -> LauncherResult<()> {
+    fn create_mods_dir(&self) -> Result<(), IoError> {
         let mods_dir = self.minecraft_dir.join("mods");
         std::fs::create_dir_all(&mods_dir).map_err(io_err!(mods_dir))?;
         Ok(())
     }
 
-    async fn redownload_legacy_assets(&self) -> Result<(), LauncherError> {
+    async fn redownload_legacy_assets(&self) -> Result<(), GameLaunchError> {
         info!("Redownloading legacy assets");
         let game_downloader = GameDownloader::with_existing_instance(
             self.version_json.clone(),
@@ -237,7 +240,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    async fn init_java_arguments(&self) -> LauncherResult<Vec<String>> {
+    fn init_java_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
         let natives_path = self.instance_dir.join("libraries").join("natives");
 
         let mut args = vec![
@@ -248,7 +251,7 @@ impl GameLauncher {
                 "-Djava.library.path={}",
                 natives_path
                     .to_str()
-                    .ok_or(LauncherError::PathBufToString(natives_path.clone()))?
+                    .ok_or(GameLaunchError::PathBufToString(natives_path.clone()))?
             ),
             self.config_json.get_ram_argument(),
         ];
@@ -263,7 +266,7 @@ impl GameLauncher {
     fn setup_fabric(
         &self,
         java_arguments: &mut Vec<String>,
-    ) -> Result<Option<FabricJSON>, LauncherError> {
+    ) -> Result<Option<FabricJSON>, GameLaunchError> {
         if self.config_json.mod_type != "Fabric" {
             return Ok(None);
         }
@@ -278,7 +281,7 @@ impl GameLauncher {
         &self,
         java_arguments: &mut Vec<String>,
         game_arguments: &mut Vec<String>,
-    ) -> Result<Option<JsonForgeDetails>, LauncherError> {
+    ) -> Result<Option<JsonForgeDetails>, GameLaunchError> {
         if self.config_json.mod_type != "Forge" {
             return Ok(None);
         }
@@ -312,7 +315,7 @@ impl GameLauncher {
     async fn setup_optifine(
         &self,
         game_arguments: &mut Vec<String>,
-    ) -> LauncherResult<Option<(JsonOptifine, PathBuf)>> {
+    ) -> Result<Option<(JsonOptifine, PathBuf)>, GameLaunchError> {
         if self.config_json.mod_type != "OptiFine" {
             return Ok(None);
         }
@@ -328,7 +331,7 @@ impl GameLauncher {
         Ok(Some((optifine_json, jar)))
     }
 
-    fn fill_java_arguments(&self, java_arguments: &mut Vec<String>) -> LauncherResult<()> {
+    fn fill_java_arguments(&self, java_arguments: &mut Vec<String>) -> Result<(), GameLaunchError> {
         for argument in java_arguments {
             replace_var(
                 argument,
@@ -341,21 +344,21 @@ impl GameLauncher {
                 "library_directory",
                 library_directory
                     .to_str()
-                    .ok_or(LauncherError::PathBufToString(library_directory.clone()))?,
+                    .ok_or(GameLaunchError::PathBufToString(library_directory.clone()))?,
             );
             replace_var(argument, "version_name", &self.version_json.id);
         }
         Ok(())
     }
 
-    fn setup_logging(&self, java_arguments: &mut Vec<String>) -> Result<(), LauncherError> {
+    fn setup_logging(&self, java_arguments: &mut Vec<String>) -> Result<(), GameLaunchError> {
         if let Some(logging) = &self.version_json.logging {
             let logging_path = self
                 .instance_dir
                 .join(format!("logging-{}", logging.client.file.id));
             let logging_path = logging_path
                 .to_str()
-                .ok_or(LauncherError::PathBufToString(logging_path.clone()))?;
+                .ok_or(GameLaunchError::PathBufToString(logging_path.clone()))?;
             java_arguments.push(format!("-Dlog4j.configurationFile={logging_path}"));
         }
         Ok(())
@@ -367,7 +370,7 @@ impl GameLauncher {
         fabric_json: Option<FabricJSON>,
         forge_json: Option<JsonForgeDetails>,
         optifine_json: Option<(JsonOptifine, PathBuf)>,
-    ) -> Result<(), LauncherError> {
+    ) -> Result<(), GameLaunchError> {
         java_arguments.push("-cp".to_owned());
         java_arguments.push(self.get_class_path(
             fabric_json.as_ref(),
@@ -391,7 +394,7 @@ impl GameLauncher {
         fabric_json: Option<&FabricJSON>,
         forge_json: Option<&JsonForgeDetails>,
         optifine_json: Option<&(JsonOptifine, PathBuf)>,
-    ) -> LauncherResult<String> {
+    ) -> Result<String, GameLaunchError> {
         let mut class_path = String::new();
         let mut classpath_entries = HashSet::new();
 
@@ -419,7 +422,7 @@ impl GameLauncher {
                 class_path.push_str(
                     jar_file
                         .to_str()
-                        .ok_or(LauncherError::PathBufToString(jar_file.clone()))?,
+                        .ok_or(GameLaunchError::PathBufToString(jar_file.clone()))?,
                 );
                 class_path.push(CLASSPATH_SEPARATOR);
             }
@@ -441,7 +444,7 @@ impl GameLauncher {
                 class_path.push_str(
                     library_path
                         .to_str()
-                        .ok_or(LauncherError::PathBufToString(library_path.clone()))?,
+                        .ok_or(GameLaunchError::PathBufToString(library_path.clone()))?,
                 );
                 class_path.push(CLASSPATH_SEPARATOR);
             }
@@ -457,7 +460,7 @@ impl GameLauncher {
         };
         let jar_path = jar_path
             .to_str()
-            .ok_or(LauncherError::PathBufToString(jar_path.clone()))?;
+            .ok_or(GameLaunchError::PathBufToString(jar_path.clone()))?;
         class_path.push_str(jar_path);
 
         Ok(class_path)
@@ -467,7 +470,7 @@ impl GameLauncher {
         &self,
         class_path: &mut String,
         classpath_entries: &mut HashSet<String>,
-    ) -> Result<(), LauncherError> {
+    ) -> Result<(), GameLaunchError> {
         self.version_json
             .libraries
             .iter()
@@ -491,7 +494,7 @@ impl GameLauncher {
         classpath_entries: &mut HashSet<String>,
         artifact: &crate::json_structs::json_version::LibraryDownloadArtifact,
         class_path: &mut String,
-    ) -> Result<(), LauncherError> {
+    ) -> Result<(), GameLaunchError> {
         if let Some(name) = remove_version_from_library(name) {
             if classpath_entries.contains(&name) {
                 return Ok(());
@@ -501,7 +504,7 @@ impl GameLauncher {
         let library_path = self.instance_dir.join("libraries").join(&artifact.path);
         if library_path.exists() {
             let Some(library_path) = library_path.to_str() else {
-                return Err(LauncherError::PathBufToString(library_path));
+                return Err(GameLaunchError::PathBufToString(library_path));
             };
             class_path.push_str(library_path);
             class_path.push(CLASSPATH_SEPARATOR);
@@ -509,7 +512,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    async fn get_java_command(&mut self) -> LauncherResult<Command> {
+    async fn get_java_command(&mut self) -> Result<Command, GameLaunchError> {
         if let Some(java_override) = &self.config_json.java_override {
             Ok(Command::new(java_override))
         } else {
@@ -561,9 +564,9 @@ pub async fn launch(
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
     enable_logger: bool,
     asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
-) -> LauncherResult<Child> {
+) -> Result<Child, GameLaunchError> {
     if username.contains(' ') || username.is_empty() {
-        return Err(LauncherError::UsernameIsInvalid(username.to_owned()));
+        return Err(GameLaunchError::UsernameIsInvalid(username.to_owned()));
     }
 
     let mut game_launcher = GameLauncher::new(
@@ -577,7 +580,7 @@ pub async fn launch(
     game_launcher.create_mods_dir()?;
 
     let mut game_arguments = game_launcher.init_game_arguments().await?;
-    let mut java_arguments = game_launcher.init_java_arguments().await?;
+    let mut java_arguments = game_launcher.init_java_arguments()?;
 
     let fabric_json = game_launcher.setup_fabric(&mut java_arguments)?;
     let forge_json = game_launcher
@@ -607,7 +610,7 @@ pub async fn launch(
     }
     .current_dir(&game_launcher.minecraft_dir);
 
-    let result = command.spawn().map_err(LauncherError::CommandError)?;
+    let result = command.spawn().map_err(GameLaunchError::CommandError)?;
 
     Ok(result)
 }
@@ -661,10 +664,7 @@ pub enum AssetRedownloadProgress {
 /// This applies to early development builds of the
 /// launcher (before v0.1), most people won't ever
 /// need to run this aside from the early beta testers.
-fn migrate_to_new_assets_path(
-    old_assets_path: &Path,
-    assets_path: &Path,
-) -> Result<(), LauncherError> {
+fn migrate_to_new_assets_path(old_assets_path: &Path, assets_path: &Path) -> Result<(), IoError> {
     info!("Migrating old assets to new path...");
     copy_dir_recursive(old_assets_path, assets_path)?;
     std::fs::remove_dir_all(old_assets_path).map_err(io_err!(old_assets_path))?;
@@ -696,9 +696,9 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     Ok(())
 }
 
-fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
+fn get_instance_dir(instance_name: &str) -> Result<PathBuf, GameLaunchError> {
     if instance_name.is_empty() {
-        return Err(LauncherError::InstanceNotFound);
+        return Err(GameLaunchError::InstanceNotFound);
     }
 
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -709,7 +709,7 @@ fn get_instance_dir(instance_name: &str) -> LauncherResult<PathBuf> {
 
     let instance_dir = instances_folder_dir.join(instance_name);
     if !instance_dir.exists() {
-        return Err(LauncherError::InstanceNotFound);
+        return Err(GameLaunchError::InstanceNotFound);
     }
     Ok(instance_dir)
 }

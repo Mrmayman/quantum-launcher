@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::{error::LauncherResult, json_structs::json_manifest::Manifest};
+use crate::json_structs::{json_manifest::Manifest, JsonDownloadError};
 
-async fn list() -> LauncherResult<Vec<String>> {
+async fn list() -> Result<Vec<String>, JsonDownloadError> {
     let manifest = Manifest::download().await?;
     Ok(manifest.versions.iter().map(|n| n.id.clone()).collect())
 }

@@ -1,12 +1,12 @@
 use crate::{
-    download::GameDownloader, error::LauncherError, info, io_err,
-    json_structs::json_version::LibraryDownloads, LAUNCHER_VERSION,
+    download::GameDownloader, info, io_err, json_structs::json_version::LibraryDownloads,
+    LAUNCHER_VERSION,
 };
 
-use super::launch::GameLauncher;
+use super::launch::{error::GameLaunchError, GameLauncher};
 
 impl GameLauncher {
-    pub async fn migrate_old_instances(&self) -> Result<(), LauncherError> {
+    pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {
         let launcher_version_path = self.instance_dir.join("launcher_version.txt");
         let mut version = if launcher_version_path.exists() {
             std::fs::read_to_string(&launcher_version_path)
@@ -33,7 +33,7 @@ impl GameLauncher {
     async fn migrate_download_missing_native_libs(
         &self,
         client: &reqwest::Client,
-    ) -> Result<(), LauncherError> {
+    ) -> Result<(), GameLaunchError> {
         info!("Downloading missing native libraries");
         let bar = indicatif::ProgressBar::new(self.version_json.libraries.len() as u64);
 

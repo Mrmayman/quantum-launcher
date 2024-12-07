@@ -113,50 +113,29 @@ impl MenuLaunch {
 }
 
 fn get_left_pane<'a>(
-    config: Option<&LauncherConfig>,
+    config: Option<&'a LauncherConfig>,
     pick_list: Element<'a>,
-    selected_instance: Option<&String>,
-    processes: &HashMap<String, GameProcess>,
+    selected_instance: Option<&'a String>,
+    processes: &'a HashMap<String, GameProcess>,
     footer_text: Element<'a>,
 ) -> Element<'a> {
+    let username = &config.as_ref().unwrap().username;
+
+    let play_button = get_play_button(username, selected_instance, processes);
+
+    let files_button = get_files_button(selected_instance);
+
     widget::column![
         widget::column![
             "Username:",
-            widget::text_input("Enter username...", &config.as_ref().unwrap().username)
+            widget::text_input("Enter username...", username)
                 .on_input(Message::LaunchUsernameSet)
                 .width(200),
         ]
         .spacing(5),
         pick_list,
         widget::column!(
-            widget::row![
-                button_with_icon(icon_manager::folder(), "Files")
-                    .on_press_maybe((selected_instance.is_some()).then(|| {
-                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                        Message::OpenDir(
-                            launcher_dir
-                                .join("instances")
-                                .join(selected_instance.as_ref().unwrap())
-                                .join(".minecraft")
-                                .to_str()
-                                .unwrap()
-                                .to_owned(),
-                        )
-                    }))
-                    .width(97),
-                if let Some(selected_instance) = selected_instance {
-                    if processes.contains_key(selected_instance) {
-                        button_with_icon(icon_manager::play(), "Kill").on_press(Message::LaunchKill)
-                    } else {
-                        button_with_icon(icon_manager::play(), "Play")
-                            .on_press(Message::LaunchStart)
-                    }
-                } else {
-                    button_with_icon(icon_manager::play(), "Play")
-                }
-                .width(98),
-            ]
-            .spacing(5),
+            widget::row![files_button, play_button].spacing(5),
             widget::row!(
                 button_with_icon(icon_manager::settings(), "Settings & About...")
                     .width(200)
@@ -169,6 +148,64 @@ fn get_left_pane<'a>(
     .padding(10)
     .spacing(20)
     .into()
+}
+
+fn get_play_button<'a>(
+    username: &'a String,
+    selected_instance: Option<&'a String>,
+    processes: &'a HashMap<String, GameProcess>,
+) -> widget::Column<'a, Message, LauncherTheme> {
+    let play_button = button_with_icon(icon_manager::play(), "Play").width(98);
+
+    let play_button = if username.is_empty() {
+        widget::column!(widget::tooltip(
+            play_button,
+            widget::text("Username is empty!").size(12),
+            widget::tooltip::Position::FollowCursor,
+        ))
+    } else if username.contains(' ') {
+        widget::column!(widget::tooltip(
+            play_button,
+            widget::text("Username contains spaces!").size(12),
+            widget::tooltip::Position::FollowCursor,
+        ))
+    } else {
+        if let Some(selected_instance) = selected_instance {
+            widget::column!(if processes.contains_key(selected_instance) {
+                button_with_icon(icon_manager::play(), "Kill")
+                    .on_press(Message::LaunchKill)
+                    .width(98)
+            } else {
+                play_button.on_press(Message::LaunchStart)
+            })
+        } else {
+            widget::column!(widget::tooltip(
+                play_button,
+                widget::text("Select an instance first!").size(12),
+                widget::tooltip::Position::FollowCursor,
+            ))
+        }
+    };
+    play_button
+}
+
+fn get_files_button<'a>(
+    selected_instance: Option<&'a String>,
+) -> widget::Button<'a, Message, LauncherTheme> {
+    button_with_icon(icon_manager::folder(), "Files")
+        .on_press_maybe((selected_instance.is_some()).then(|| {
+            let launcher_dir = file_utils::get_launcher_dir().unwrap();
+            Message::OpenDir(
+                launcher_dir
+                    .join("instances")
+                    .join(selected_instance.as_ref().unwrap())
+                    .join(".minecraft")
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+            )
+        }))
+        .width(97)
 }
 
 fn get_instances_section<'a>(

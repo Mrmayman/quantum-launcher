@@ -1,4 +1,0 @@
-# Override for aarch64 architecture
-# [target.aarch64-unknown-linux-gnu]
-# Do not specify a custom linker; this will make it use the default one
-# rustflags = []

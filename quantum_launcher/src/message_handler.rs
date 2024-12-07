@@ -6,8 +6,9 @@ use std::{
 use chrono::Datelike;
 use iced::Command;
 use ql_instances::{
-    error::LauncherResult, file_utils, io_err,
-    json_structs::json_instance_config::InstanceConfigJson, DownloadProgress, GameLaunchResult,
+    file_utils, io_err,
+    json_structs::{json_instance_config::InstanceConfigJson, JsonFileError},
+    DownloadProgress, GameLaunchResult,
 };
 use ql_mod_manager::mod_manager::ModIndex;
 
@@ -228,7 +229,7 @@ impl Launcher {
         }
     }
 
-    pub fn edit_instance(&mut self, selected_instance: String) -> LauncherResult<()> {
+    pub fn edit_instance(&mut self, selected_instance: String) -> Result<(), JsonFileError> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
@@ -249,7 +250,10 @@ impl Launcher {
         Ok(())
     }
 
-    pub fn save_config(instance_name: &str, config: &InstanceConfigJson) -> LauncherResult<()> {
+    pub fn save_config(
+        instance_name: &str,
+        config: &InstanceConfigJson,
+    ) -> Result<(), JsonFileError> {
         let mut config = config.clone();
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
@@ -265,7 +269,7 @@ impl Launcher {
         Ok(())
     }
 
-    pub fn go_to_edit_mods_menu(&mut self) -> LauncherResult<Command<Message>> {
+    pub fn go_to_edit_mods_menu(&mut self) -> Result<Command<Message>, JsonFileError> {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("instances")
