@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 
 use iced::widget;
 use ql_instances::{file_utils, LAUNCHER_VERSION_NAME};
@@ -248,7 +248,7 @@ fn get_instances_section<'a>(
 }
 
 impl MenuEditInstance {
-    pub fn view<'element>(&self, selected_instance: &str) -> Element<'element> {
+    pub fn view<'a>(&'a self, selected_instance: &'a str) -> Element<'a> {
         // 2 ^ 8 = 256 MB
         const MEM_256_MB_IN_TWOS_EXPONENT: f32 = 8.0;
         // 2 ^ 13 = 8192 MB
@@ -265,7 +265,7 @@ impl MenuEditInstance {
                     widget::column![
                         "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
                         widget::text_input(
-                            "Enter Java override",
+                            "Enter Java override path...",
                             self.config
                                 .java_override
                                 .as_deref()
@@ -297,10 +297,67 @@ impl MenuEditInstance {
                     .padding(10)
                     .spacing(10)
                 ),
+                widget::container(
+                    widget::column!(
+                        "Java arguments:",
+                        widget::column!(
+                            self.get_java_args_list(
+                                self.config.java_args.as_ref(),
+                                |i| Message::EditInstanceJavaArgDelete(i),
+                                Arc::new(|n, i| Message::EditInstanceJavaArgEdit(n, i))
+                            ),
+                            button_with_icon(icon_manager::create(), "Add")
+                                .on_press(Message::EditInstanceJavaArgsAdd)
+                        )
+                    ).padding(10).spacing(10)
+                ),
+                widget::container(
+                    widget::column!(
+                        "Game arguments:",
+                        widget::column!(
+                            self.get_java_args_list(
+                                self.config.game_args.as_ref(),
+                                |i| Message::EditInstanceGameArgDelete(i),
+                                Arc::new(|n, i| Message::EditInstanceGameArgEdit(n, i))
+                            ),
+                            button_with_icon(icon_manager::create(), "Add")
+                                .on_press(Message::EditInstanceGameArgsAdd)
+                        )
+                    ).padding(10).spacing(10)
+                )
             ]
             .padding(10)
             .spacing(20)
         ).into()
+    }
+
+    fn get_java_args_list(
+        &self,
+        args: Option<&Vec<String>>,
+        mut delete_msg: impl FnMut(usize) -> Message,
+        edit_msg: Arc<dyn Fn(String, usize) -> Message>,
+    ) -> Element {
+        const ITEM_SIZE: u16 = 10;
+
+        let Some(args) = args else {
+            return widget::column!().into();
+        };
+        widget::column(args.iter().enumerate().map(|(i, arg)| {
+            let edit_msg = edit_msg.clone();
+            widget::row!(
+                widget::button(
+                    widget::row![icon_manager::delete_with_size(ITEM_SIZE)]
+                        .align_items(iced::Alignment::Center)
+                        .padding(5)
+                )
+                .on_press(delete_msg(i)),
+                widget::text_input("Enter argument...", arg)
+                    .size(ITEM_SIZE + 8)
+                    .on_input(move |n| edit_msg(n, i))
+            )
+            .into()
+        }))
+        .into()
     }
 }
 

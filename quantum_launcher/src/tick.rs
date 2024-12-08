@@ -234,7 +234,10 @@ impl Launcher {
         process: &crate::launcher_state::GameProcess,
         name: &String,
     ) {
-        while let Ok(message) = process.receiver.try_recv() {
+        let Some(receiver) = process.receiver.as_ref() else {
+            return;
+        };
+        while let Ok(message) = receiver.try_recv() {
             let message = match message {
                 LogLine::Info(LogEvent {
                     logger,

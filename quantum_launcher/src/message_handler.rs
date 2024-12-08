@@ -59,6 +59,8 @@ impl Launcher {
                     Some(sender),
                     instance_config.enable_logger.unwrap_or(true),
                     Some(asset_sender),
+                    instance_config.game_args.unwrap_or_default(),
+                    instance_config.java_args.unwrap_or_default(),
                 ),
                 Message::LaunchEnd,
             );
@@ -82,34 +84,42 @@ impl Launcher {
     pub fn finish_launching(&mut self, result: GameLaunchResult) -> Command<Message> {
         match result {
             GameLaunchResult::Ok(child) => {
-                if let Some(selected_instance) = self.selected_instance.clone() {
-                    if let (Some(stdout), Some(stderr)) = {
-                        let mut child = child.lock().unwrap();
-                        (child.stdout.take(), child.stderr.take())
-                    } {
-                        let (sender, receiver) = std::sync::mpsc::channel();
-
-                        self.processes.insert(
-                            selected_instance.clone(),
-                            GameProcess {
-                                child: child.clone(),
-                                receiver,
-                            },
-                        );
-
-                        return Command::perform(
-                            ql_instances::read_logs_wrapped(
-                                stdout,
-                                stderr,
-                                child,
-                                sender,
-                                selected_instance,
-                            ),
-                            Message::LaunchEndedLog,
-                        );
-                    }
-                } else {
+                let Some(selected_instance) = self.selected_instance.clone() else {
                     eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.");
+                    return Command::none();
+                };
+                if let (Some(stdout), Some(stderr)) = {
+                    let mut child = child.lock().unwrap();
+                    (child.stdout.take(), child.stderr.take())
+                } {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+
+                    self.processes.insert(
+                        selected_instance.clone(),
+                        GameProcess {
+                            child: child.clone(),
+                            receiver: Some(receiver),
+                        },
+                    );
+
+                    return Command::perform(
+                        ql_instances::read_logs_wrapped(
+                            stdout,
+                            stderr,
+                            child,
+                            sender,
+                            selected_instance,
+                        ),
+                        Message::LaunchEndedLog,
+                    );
+                } else {
+                    self.processes.insert(
+                        selected_instance.clone(),
+                        GameProcess {
+                            child: child.clone(),
+                            receiver: None,
+                        },
+                    );
                 }
             }
             GameLaunchResult::Err(err) => self.set_error(err),

@@ -8,28 +8,39 @@ use serde::{Deserialize, Serialize};
 /// Can be one of:
 /// - `"Vanilla"`
 /// - `"Fabric"`
-/// - `"Forge"` (coming soon)
+/// - `"Forge"`
 /// - `"OptiFine"`
 /// - `"Quilt"` (coming soon)
 ///
 /// ## `java_override`
-/// DEPRECATED: NO FUNCTIONALITY
+/// If you want to use your own Java installation
+/// instead of the auto-installed one, specify
+/// the path to the `java` executable here.
 ///
 /// ## `ram_in_mb`
 /// The amount of RAM in megabytes the instance should have.
+///
+/// ## `enable_logger`
+/// - `true` (default): Show log output in launcher.
+///   May not show all log output, especially during a crash.
+/// - `false`: Print raw, unformatted log output to the console.
+///   This is useful for debugging, but may be hard to read.
+///
+/// ## `java_args`, `game_args`
+/// These are optional lists of additional
+/// arguments to pass to Java and the game.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InstanceConfigJson {
+    pub mod_type: String,
     pub java_override: Option<String>,
     pub ram_in_mb: usize,
-    pub mod_type: String,
     pub enable_logger: Option<bool>,
+    pub java_args: Option<Vec<String>>,
+    pub game_args: Option<Vec<String>>,
 }
 
 impl InstanceConfigJson {
-    /// Returns the amount of RAM in megabytes as a String.
-    ///
-    /// This is the format that the Java arguments understand.
-    pub fn get_ram_in_string(&self) -> String {
+    fn get_ram_in_string(&self) -> String {
         format!("{}M", self.ram_in_mb)
     }
 

@@ -50,6 +50,8 @@ pub async fn launch_wrapped(
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
     enable_logger: bool,
     asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
+    game_args: Vec<String>,
+    java_args: Vec<String>,
 ) -> GameLaunchResult {
     match launch(
         instance_name,
@@ -57,6 +59,8 @@ pub async fn launch_wrapped(
         java_install_progress_sender,
         enable_logger,
         asset_redownload_progress,
+        game_args,
+        java_args,
     )
     .await
     {
@@ -561,6 +565,8 @@ pub async fn launch(
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
     enable_logger: bool,
     asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
+    game_args: Vec<String>,
+    java_args: Vec<String>,
 ) -> Result<Child, GameLaunchError> {
     if username.contains(' ') || username.is_empty() {
         return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
@@ -599,7 +605,14 @@ pub async fn launch(
     info!("Java args: {java_arguments:?}\n");
     info!("Game args: {game_arguments:?}\n");
 
-    let mut command = command.args(java_arguments.iter().chain(game_arguments.iter()));
+    let mut command = command.args(
+        java_args
+            .iter()
+            .filter(|n| !n.is_empty())
+            .chain(java_arguments.iter())
+            .chain(game_arguments.iter())
+            .chain(game_args.iter().filter(|n| !n.is_empty())),
+    );
     command = if enable_logger {
         command.stdout(Stdio::piped()).stderr(Stdio::piped())
     } else {
@@ -607,9 +620,9 @@ pub async fn launch(
     }
     .current_dir(&game_launcher.minecraft_dir);
 
-    let result = command.spawn().map_err(GameLaunchError::CommandError)?;
+    let child = command.spawn().map_err(GameLaunchError::CommandError)?;
 
-    Ok(result)
+    Ok(child)
 }
 
 fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {

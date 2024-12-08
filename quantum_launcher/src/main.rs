@@ -559,6 +559,54 @@ impl Application for Launcher {
                     );
                 }
             }
+            Message::EditInstanceJavaArgsAdd => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.config
+                        .java_args
+                        .get_or_insert_with(Vec::new)
+                        .push(String::new());
+                }
+            }
+            Message::EditInstanceJavaArgEdit(msg, idx) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    if let Some(args) = &mut menu.config.java_args {
+                        if let Some(arg) = args.get_mut(idx) {
+                            *arg = msg;
+                        }
+                    }
+                }
+            }
+            Message::EditInstanceJavaArgDelete(idx) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    if let Some(args) = &mut menu.config.java_args {
+                        args.remove(idx);
+                    }
+                }
+            }
+            Message::EditInstanceGameArgsAdd => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.config
+                        .game_args
+                        .get_or_insert_with(Vec::new)
+                        .push(String::new());
+                }
+            }
+            Message::EditInstanceGameArgEdit(msg, idx) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    if let Some(args) = &mut menu.config.game_args {
+                        if let Some(arg) = args.get_mut(idx) {
+                            *arg = msg;
+                        }
+                    }
+                }
+            }
+            Message::EditInstanceGameArgDelete(idx) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    if let Some(args) = &mut menu.config.game_args {
+                        args.remove(idx);
+                    }
+                }
+            }
         }
         Command::none()
     }

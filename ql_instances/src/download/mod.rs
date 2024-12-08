@@ -452,6 +452,8 @@ impl GameDownloader {
             ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
             mod_type: "Vanilla".to_owned(),
             enable_logger: Some(true),
+            java_args: None,
+            game_args: None,
         };
         let config_json = serde_json::to_string(&config_json)?;
 

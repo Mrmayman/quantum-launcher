@@ -69,6 +69,12 @@ pub enum Message {
     EditInstanceJavaOverride(String),
     EditInstanceMemoryChanged(f32),
     EditInstanceLoggingToggle(bool),
+    EditInstanceJavaArgsAdd,
+    EditInstanceJavaArgEdit(String, usize),
+    EditInstanceJavaArgDelete(usize),
+    EditInstanceGameArgsAdd,
+    EditInstanceGameArgEdit(String, usize),
+    EditInstanceGameArgDelete(usize),
     ManageModsScreenOpen,
     ManageModsToggleCheckbox((String, String), bool),
     ManageModsDeleteSelected,
@@ -298,7 +304,7 @@ pub struct Launcher {
 
 pub struct GameProcess {
     pub child: Arc<Mutex<Child>>,
-    pub receiver: Receiver<LogLine>,
+    pub receiver: Option<Receiver<LogLine>>,
 }
 
 impl Launcher {
