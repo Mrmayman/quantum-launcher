@@ -10,7 +10,7 @@ use crate::{
         CreateInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog, Launcher,
         MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge,
         MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate,
-        Message, SelectedMod, SelectedState,
+        Message, ModListEntry, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -303,8 +303,8 @@ impl MenuEditInstance {
                         widget::column!(
                             self.get_java_args_list(
                                 self.config.java_args.as_ref(),
-                                |i| Message::EditInstanceJavaArgDelete(i),
-                                Arc::new(|n, i| Message::EditInstanceJavaArgEdit(n, i))
+                                Message::EditInstanceJavaArgDelete,
+                                Arc::new(Message::EditInstanceJavaArgEdit)
                             ),
                             button_with_icon(icon_manager::create(), "Add")
                                 .on_press(Message::EditInstanceJavaArgsAdd)
@@ -317,8 +317,8 @@ impl MenuEditInstance {
                         widget::column!(
                             self.get_java_args_list(
                                 self.config.game_args.as_ref(),
-                                |i| Message::EditInstanceGameArgDelete(i),
-                                Arc::new(|n, i| Message::EditInstanceGameArgEdit(n, i))
+                                Message::EditInstanceGameArgDelete,
+                                Arc::new(Message::EditInstanceGameArgEdit)
                             ),
                             button_with_icon(icon_manager::create(), "Add")
                                 .on_press(Message::EditInstanceGameArgsAdd)
@@ -568,7 +568,7 @@ impl MenuEditMods {
     }
 
     fn get_mod_list(&self) -> Element {
-        if self.sorted_dependencies.is_empty() {
+        if self.sorted_mods_list.is_empty() {
             widget::column!("Download some mods to get started")
         } else {
             widget::column!(
@@ -599,35 +599,49 @@ impl MenuEditMods {
     fn get_mod_list_contents(&self) -> Element {
         widget::scrollable(
             widget::column({
-                self.sorted_dependencies.iter().map(|(id, config)| {
-                    // let config_name = config.name.clone();
-                    widget::row!(
-                        if config.manually_installed {
-                            widget::row!(widget::checkbox(
-                                format!(
-                                    "{}{}",
-                                    if config.enabled { "" } else { "(DISABLED) " },
-                                    config.name
-                                ),
-                                self.selected_mods.contains(&SelectedMod {
-                                    name: config.name.clone(),
-                                    id: (*id).clone()
-                                })
-                            )
-                            .on_toggle(move |t| {
-                                Message::ManageModsToggleCheckbox(
-                                    (config.name.clone(), id.clone()),
-                                    t,
+                self.sorted_mods_list
+                    .iter()
+                    .map(|mod_list_entry| match mod_list_entry {
+                        ModListEntry::Downloaded { id, config } => widget::row!(
+                            if config.manually_installed {
+                                widget::row!(widget::checkbox(
+                                    format!(
+                                        "{}{}",
+                                        if config.enabled { "" } else { "(DISABLED) " },
+                                        config.name
+                                    ),
+                                    self.selected_mods.contains(&SelectedMod::Downloaded {
+                                        name: config.name.clone(),
+                                        id: (*id).clone()
+                                    })
                                 )
-                            }))
-                        } else {
-                            widget::row!(widget::text(format!("- (DEPENDENCY) {}", config.name)))
-                        },
-                        widget::horizontal_space(),
-                        widget::text(&config.installed_version).width(100).size(12),
-                    )
-                    .into()
-                })
+                                .on_toggle(move |t| {
+                                    Message::ManageModsToggleCheckbox(
+                                        (config.name.clone(), id.clone()),
+                                        t,
+                                    )
+                                }))
+                            } else {
+                                widget::row!(widget::text(format!(
+                                    "- (DEPENDENCY) {}",
+                                    config.name
+                                )))
+                            },
+                            widget::horizontal_space(),
+                            widget::text(&config.installed_version).width(100).size(12),
+                        )
+                        .into(),
+                        ModListEntry::Local { file_name } => widget::row!(widget::checkbox(
+                            file_name.clone(),
+                            self.selected_mods.contains(&SelectedMod::Local {
+                                file_name: file_name.clone()
+                            })
+                        )
+                        .on_toggle(move |t| {
+                            Message::ManageModsToggleCheckboxLocal(file_name.clone(), t)
+                        }))
+                        .into(),
+                    })
             })
             .padding(10)
             .spacing(10),

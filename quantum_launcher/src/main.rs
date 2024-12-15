@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use colored::Colorize;
 use iced::{
@@ -33,7 +33,9 @@ use launcher_state::{
 use menu_renderer::menu_delete_instance_view;
 use message_handler::{format_memory, open_file_explorer};
 use ql_instances::{
-    err, file_utils, info,
+    err,
+    error::IoError,
+    file_utils, info,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
     UpdateCheckInfo, LAUNCHER_VERSION_NAME,
 };
@@ -354,13 +356,32 @@ impl Application for Launcher {
                     return value;
                 }
             }
+            Message::ManageModsToggleCheckboxLocal(name, enable) => {
+                if let State::EditMods(menu) = &mut self.state {
+                    if enable {
+                        menu.selected_mods
+                            .insert(SelectedMod::Local { file_name: name });
+                        menu.selected_state = SelectedState::Some;
+                    } else {
+                        menu.selected_mods
+                            .remove(&SelectedMod::Local { file_name: name });
+                        menu.selected_state = if menu.selected_mods.is_empty() {
+                            SelectedState::None
+                        } else {
+                            SelectedState::Some
+                        };
+                    }
+                }
+            }
             Message::ManageModsToggleCheckbox((name, id), enable) => {
                 if let State::EditMods(menu) = &mut self.state {
                     if enable {
-                        menu.selected_mods.insert(SelectedMod { name, id });
+                        menu.selected_mods
+                            .insert(SelectedMod::Downloaded { name, id });
                         menu.selected_state = SelectedState::Some;
                     } else {
-                        menu.selected_mods.remove(&SelectedMod { name, id });
+                        menu.selected_mods
+                            .remove(&SelectedMod::Downloaded { name, id });
                         menu.selected_state = if menu.selected_mods.is_empty() {
                             SelectedState::None
                         } else {
@@ -374,10 +395,16 @@ impl Application for Launcher {
                     let ids = menu
                         .selected_mods
                         .iter()
-                        .map(|SelectedMod { name: _name, id }| id.clone())
+                        .filter_map(|s_mod| {
+                            if let SelectedMod::Downloaded { id, .. } = s_mod {
+                                Some(id.clone())
+                            } else {
+                                None
+                            }
+                        })
                         .collect();
 
-                    return Command::perform(
+                    let command = Command::perform(
                         ql_mod_manager::mod_manager::delete_mods_wrapped(
                             ids,
                             self.selected_instance.clone().unwrap(),
@@ -385,13 +412,37 @@ impl Application for Launcher {
                         Message::ManageModsDeleteFinished,
                     );
 
-                    //                     Command::perform(
-                    //     ql_mod_manager::modrinth::delete_mod_wrapped(
-                    //         id.to_owned(),
-                    //         self.selected_instance.clone().unwrap(),
-                    //     ),
-                    //     Message::ManageModsDeleteFinished,
-                    // )
+                    let mods_dir = file_utils::get_launcher_dir()
+                        .unwrap()
+                        .join("instances")
+                        .join(self.selected_instance.as_ref().unwrap())
+                        .join(".minecraft/mods");
+                    let file_paths = menu
+                        .selected_mods
+                        .iter()
+                        .filter_map(|s_mod| {
+                            if let SelectedMod::Local { file_name } = s_mod {
+                                Some(file_name.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .map(|n| mods_dir.join(n))
+                        .map(delete_file_wrapper)
+                        .map(|n| Command::perform(n, Message::ManageModsLocalDeleteFinished));
+                    let delete_local_command = Command::batch(file_paths);
+
+                    return Command::batch(vec![command, delete_local_command]);
+                }
+            }
+            Message::ManageModsLocalDeleteFinished(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                }
+            }
+            Message::ManageModsLocalIndexLoaded(hash_set) => {
+                if let State::EditMods(menu) = &mut self.state {
+                    menu.locally_installed_mods = hash_set;
                 }
             }
             Message::ManageModsDeleteFinished(result) => match result {
@@ -438,11 +489,18 @@ impl Application for Launcher {
                                 .mods
                                 .iter()
                                 .filter_map(|(id, mod_info)| {
-                                    mod_info.manually_installed.then_some(SelectedMod {
-                                        name: mod_info.name.clone(),
-                                        id: id.clone(),
-                                    })
+                                    mod_info
+                                        .manually_installed
+                                        .then_some(SelectedMod::Downloaded {
+                                            name: mod_info.name.clone(),
+                                            id: id.clone(),
+                                        })
                                 })
+                                .chain(menu.locally_installed_mods.iter().map(|n| {
+                                    SelectedMod::Local {
+                                        file_name: n.clone(),
+                                    }
+                                }))
                                 .collect();
                             menu.selected_state = SelectedState::All;
                         }
@@ -459,7 +517,13 @@ impl Application for Launcher {
                     let ids = menu
                         .selected_mods
                         .iter()
-                        .map(|SelectedMod { name: _name, id }| id.clone())
+                        .filter_map(|s_mod| {
+                            if let SelectedMod::Downloaded { id, .. } = s_mod {
+                                Some(id.clone())
+                            } else {
+                                None
+                            }
+                        })
                         .collect();
                     return Command::perform(
                         ql_mod_manager::mod_manager::toggle_mods_wrapped(
@@ -568,13 +632,13 @@ impl Application for Launcher {
                 }
             }
             Message::EditInstanceJavaArgEdit(msg, idx) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    if let Some(args) = &mut menu.config.java_args {
-                        if let Some(arg) = args.get_mut(idx) {
-                            *arg = msg;
-                        }
-                    }
-                }
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = menu.config.java_args.as_mut() else {
+                    return Command::none();
+                };
+                add_to_arguments_list(msg, args, idx);
             }
             Message::EditInstanceJavaArgDelete(idx) => {
                 if let State::EditInstance(menu) = &mut self.state {
@@ -592,13 +656,13 @@ impl Application for Launcher {
                 }
             }
             Message::EditInstanceGameArgEdit(msg, idx) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    if let Some(args) = &mut menu.config.game_args {
-                        if let Some(arg) = args.get_mut(idx) {
-                            *arg = msg;
-                        }
-                    }
-                }
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = &mut menu.config.game_args else {
+                    return Command::none();
+                };
+                add_to_arguments_list(msg, args, idx);
             }
             Message::EditInstanceGameArgDelete(idx) => {
                 if let State::EditInstance(menu) = &mut self.state {
@@ -666,6 +730,31 @@ impl Application for Launcher {
     fn scale_factor(&self) -> f64 {
         1.0
     }
+}
+
+fn add_to_arguments_list(msg: String, args: &mut Vec<String>, mut idx: usize) {
+    if msg.contains(' ') {
+        args.remove(idx);
+        for s in msg.split(' ').filter(|n| !n.is_empty()) {
+            args.insert(idx, s.to_owned());
+            idx += 1;
+        }
+    } else if let Some(arg) = args.get_mut(idx) {
+        *arg = msg;
+    }
+}
+
+async fn delete_file_wrapper(path: PathBuf) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    tokio::fs::remove_file(&path).await.map_err(|error| {
+        IoError::Io {
+            error,
+            path: path.to_owned(),
+        }
+        .to_string()
+    })
 }
 
 fn load_window_icon() -> Option<Command<Message>> {

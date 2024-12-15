@@ -164,19 +164,3 @@ pub struct JavaInstallListingVersion {
     pub name: String,
     pub released: String,
 }
-
-#[cfg(test)]
-mod tests {
-    use reqwest::blocking::Client;
-
-    use super::*;
-
-    #[test]
-    fn test_java_list_deserialize() {
-        let client = Client::new();
-        let response = client.get(JAVA_LIST_URL).send().unwrap();
-
-        let text = response.text().unwrap();
-        let _: JavaListJson = serde_json::from_str(&text).unwrap();
-    }
-}

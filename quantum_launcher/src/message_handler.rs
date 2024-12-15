@@ -6,7 +6,7 @@ use std::{
 use chrono::Datelike;
 use iced::Command;
 use ql_instances::{
-    file_utils, io_err,
+    err, file_utils, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, JsonFileError},
     DownloadProgress, GameLaunchResult,
 };
@@ -281,42 +281,89 @@ impl Launcher {
 
     pub fn go_to_edit_mods_menu(&mut self) -> Result<Command<Message>, JsonFileError> {
         let launcher_dir = file_utils::get_launcher_dir()?;
-        let config_path = launcher_dir
-            .join("instances")
-            .join(self.selected_instance.as_ref().unwrap())
-            .join("config.json");
+        let selected_instance = self.selected_instance.clone().unwrap();
+        let instance_path = launcher_dir.join("instances").join(&selected_instance);
+        let config_path = instance_path.join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         let is_vanilla = config_json.mod_type == "Vanilla";
 
-        match ModIndex::get(self.selected_instance.as_ref().unwrap()).map_err(|err| err.to_string())
-        {
-            Ok(idx) => {
-                self.state = State::EditMods(MenuEditMods {
-                    config: config_json,
-                    mods: idx,
-                    selected_mods: HashSet::new(),
-                    sorted_dependencies: Vec::new(),
-                    selected_state: SelectedState::None,
-                    available_updates: Vec::new(),
-                    mod_update_progress: None,
-                });
-            }
-            Err(err) => self.set_error(err),
-        }
+        Ok(
+            match ModIndex::get(self.selected_instance.as_ref().unwrap())
+                .map_err(|err| err.to_string())
+            {
+                Ok(idx) => {
+                    let locally_installed_mods =
+                        MenuEditMods::update_locally_installed_mods(&idx, selected_instance);
 
-        Ok(if is_vanilla {
-            Command::none()
-        } else {
-            Command::perform(
-                ql_mod_manager::mod_manager::check_for_updates(
-                    self.selected_instance.clone().unwrap(),
-                ),
-                Message::ManageModsUpdateCheckResult,
-            )
-        })
+                    self.state = State::EditMods(MenuEditMods {
+                        config: config_json,
+                        mods: idx,
+                        selected_mods: HashSet::new(),
+                        sorted_mods_list: Vec::new(),
+                        selected_state: SelectedState::None,
+                        available_updates: Vec::new(),
+                        mod_update_progress: None,
+                        locally_installed_mods: HashSet::new(),
+                    });
+
+                    let update_cmd = if is_vanilla {
+                        Command::none()
+                    } else {
+                        Command::perform(
+                            ql_mod_manager::mod_manager::check_for_updates(
+                                self.selected_instance.clone().unwrap(),
+                            ),
+                            Message::ManageModsUpdateCheckResult,
+                        )
+                    };
+
+                    Command::batch(vec![locally_installed_mods, update_cmd])
+                }
+                Err(err) => {
+                    self.set_error(err);
+                    Command::none()
+                }
+            },
+        )
+    }
+}
+
+pub async fn get_locally_installed_mods(
+    selected_instance: String,
+    blacklist: Vec<String>,
+) -> HashSet<String> {
+    let mods_dir_path = file_utils::get_launcher_dir()
+        .unwrap()
+        .join("instances")
+        .join(&selected_instance)
+        .join(".minecraft/mods");
+    match tokio::fs::read_dir(&mods_dir_path).await {
+        Ok(mut dir) => {
+            let mut set = HashSet::new();
+            while let Ok(Some(entry)) = dir.next_entry().await {
+                let path = entry.path();
+                let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+                    continue;
+                };
+                if blacklist.contains(&file_name.to_owned()) {
+                    continue;
+                }
+                let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
+                    continue;
+                };
+                if extension == "jar" {
+                    set.insert(file_name.to_owned());
+                }
+            }
+            set
+        }
+        Err(_) => {
+            err!("Error reading mods directory");
+            HashSet::new()
+        }
     }
 }
 

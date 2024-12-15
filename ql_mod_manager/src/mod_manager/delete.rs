@@ -9,16 +9,20 @@ use std::collections::HashSet;
 use std::path::Path;
 
 pub async fn delete_mods_wrapped(
-    id: Vec<String>,
+    ids: Vec<String>,
     instance_name: String,
 ) -> Result<Vec<String>, String> {
-    delete_mods(&id, &instance_name)
+    if ids.is_empty() {
+        return Ok(ids);
+    }
+
+    delete_mods(&ids, &instance_name)
         .await
         .map_err(|err| err.to_string())
-        .map(|()| id)
+        .map(|()| ids)
 }
 
-pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), ModError> {
+pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModError> {
     info!("Deleting mods: {{");
     let mut index = ModIndex::get(instance_name)?;
 
@@ -30,7 +34,7 @@ pub async fn delete_mods(id: &[String], instance_name: &str) -> Result<(), ModEr
 
     // let mut downloaded_mods = HashSet::new();
 
-    for id in id {
+    for id in ids {
         println!("- Deleting mod {id}");
         delete_mod(&mut index, id, &mods_dir)?;
         // delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;

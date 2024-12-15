@@ -5,7 +5,7 @@ use std::{
     time::Instant,
 };
 
-use iced::widget::image::Handle;
+use iced::{widget::image::Handle, Command};
 use ql_instances::{
     err,
     error::IoError,
@@ -28,6 +28,7 @@ use tokio::process::Child;
 
 use crate::{
     config::LauncherConfig,
+    message_handler::get_locally_installed_mods,
     stylesheet::styles::{LauncherStyle, LauncherTheme, STYLE},
 };
 
@@ -77,8 +78,11 @@ pub enum Message {
     EditInstanceGameArgDelete(usize),
     ManageModsScreenOpen,
     ManageModsToggleCheckbox((String, String), bool),
+    ManageModsToggleCheckboxLocal(String, bool),
     ManageModsDeleteSelected,
     ManageModsDeleteFinished(Result<Vec<String>, String>),
+    ManageModsLocalDeleteFinished(Result<(), String>),
+    ManageModsLocalIndexLoaded(HashSet<String>),
     ManageModsToggleSelected,
     ManageModsToggleFinished(Result<(), String>),
     ManageModsUpdateMods,
@@ -140,9 +144,9 @@ pub struct MenuEditInstance {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-pub struct SelectedMod {
-    pub name: String,
-    pub id: String,
+pub enum SelectedMod {
+    Downloaded { name: String, id: String },
+    Local { file_name: String },
 }
 
 pub enum SelectedState {
@@ -151,14 +155,39 @@ pub enum SelectedState {
     None,
 }
 
+#[derive(Debug)]
+pub enum ModListEntry {
+    Downloaded { id: String, config: Box<ModConfig> },
+    Local { file_name: String },
+}
+
 pub struct MenuEditMods {
     pub config: InstanceConfigJson,
     pub mods: ModIndex,
+    pub locally_installed_mods: HashSet<String>,
     pub selected_mods: HashSet<SelectedMod>,
-    pub sorted_dependencies: Vec<(String, ModConfig)>,
+    pub sorted_mods_list: Vec<ModListEntry>,
     pub selected_state: SelectedState,
     pub available_updates: Vec<(String, String, bool)>,
     pub mod_update_progress: Option<UpdateModsProgress>,
+}
+
+impl MenuEditMods {
+    pub fn update_locally_installed_mods(
+        idx: &ModIndex,
+        selected_instance: String,
+    ) -> Command<Message> {
+        let mut blacklist = Vec::new();
+        for mod_info in idx.mods.values() {
+            for file in mod_info.files.iter() {
+                blacklist.push(file.filename.clone());
+            }
+        }
+        Command::perform(
+            get_locally_installed_mods(selected_instance, blacklist),
+            Message::ManageModsLocalIndexLoaded,
+        )
+    }
 }
 
 pub struct MenuCreateInstance {

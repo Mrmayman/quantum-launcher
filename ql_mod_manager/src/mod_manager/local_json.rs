@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{ModError, ModFile};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModConfig {
     pub name: String,
     pub manually_installed: bool,

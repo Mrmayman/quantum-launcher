@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use iced::Command;
 use ql_instances::{
@@ -14,7 +14,8 @@ use ql_mod_manager::{
 
 use crate::launcher_state::{
     reload_instances, InstanceLog, Launcher, MenuEditMods, MenuInstallFabric, MenuInstallForge,
-    MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets, Message, State,
+    MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets, Message, ModListEntry,
+    State,
 };
 
 impl Launcher {
@@ -65,12 +66,18 @@ impl Launcher {
             }
             State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
             State::EditMods(menu) => {
-                menu.sorted_dependencies = sort_dependencies(&menu.mods.mods);
+                menu.sorted_mods_list =
+                    sort_dependencies(&menu.mods.mods, &menu.locally_installed_mods);
 
                 let has_finished = menu.tick_mod_update_progress();
                 if has_finished {
                     menu.mod_update_progress = None;
                 }
+
+                return MenuEditMods::update_locally_installed_mods(
+                    &menu.mods,
+                    self.selected_instance.clone().unwrap(),
+                );
             }
             State::Error { .. } | State::DeleteInstance => {}
             State::InstallFabric(menu) => menu.tick(),
@@ -418,22 +425,38 @@ impl MenuInstallJava {
     }
 }
 
-pub fn sort_dependencies(map: &HashMap<String, ModConfig>) -> Vec<(String, ModConfig)> {
-    let mut entries: Vec<(String, ModConfig)> =
-        map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-    entries.sort_by(|(_, val1), (_, val2)| {
-        // First, sort based on the custom condition
-        let cond1 = val1.manually_installed;
-        let cond2 = val2.manually_installed;
-
-        match (cond1, cond2) {
-            // If both are true or both are false, fall back to alphabetical sorting
-            (true, true) | (false, false) => val1.name.cmp(&val2.name),
-            // If only cond1 is true, it should come first (higher priority)
-            (true, false) => std::cmp::Ordering::Less,
-            // If only cond2 is true, it should come first
-            (false, true) => std::cmp::Ordering::Greater,
+pub fn sort_dependencies(
+    downloaded_mods: &HashMap<String, ModConfig>,
+    locally_installed_mods: &HashSet<String>,
+) -> Vec<ModListEntry> {
+    let mut entries: Vec<ModListEntry> = downloaded_mods
+        .iter()
+        .map(|(k, v)| ModListEntry::Downloaded {
+            id: k.clone(),
+            config: Box::new(v.clone()),
+        })
+        .chain(locally_installed_mods.iter().map(|n| ModListEntry::Local {
+            file_name: n.clone(),
+        }))
+        .collect();
+    entries.sort_by(|val1, val2| match (val1, val2) {
+        (
+            ModListEntry::Downloaded { config, .. },
+            ModListEntry::Downloaded {
+                config: config2, ..
+            },
+        ) => config.name.cmp(&config2.name),
+        (ModListEntry::Downloaded { .. }, ModListEntry::Local { .. }) => std::cmp::Ordering::Less,
+        (ModListEntry::Local { .. }, ModListEntry::Downloaded { .. }) => {
+            std::cmp::Ordering::Greater
         }
+        (
+            ModListEntry::Local { file_name, .. },
+            ModListEntry::Local {
+                file_name: file_name2,
+                ..
+            },
+        ) => file_name.cmp(file_name2),
     });
 
     entries
