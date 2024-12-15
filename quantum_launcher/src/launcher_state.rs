@@ -22,7 +22,7 @@ use ql_mod_manager::{
         forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ApplyUpdateProgress, ModConfig, ModIndex, ProjectInfo, Search},
+    mod_manager::{ApplyUpdateProgress, Loader, ModConfig, ModIndex, ProjectInfo, Search},
 };
 use tokio::process::Child;
 
@@ -53,29 +53,34 @@ pub enum CreateInstanceMessage {
 }
 
 #[derive(Debug, Clone)]
+pub enum EditInstanceMessage {
+    MenuOpen,
+    JavaOverride(String),
+    MemoryChanged(f32),
+    LoggingToggle(bool),
+    JavaArgsAdd,
+    JavaArgEdit(String, usize),
+    JavaArgDelete(usize),
+    GameArgsAdd,
+    GameArgEdit(String, usize),
+    GameArgDelete(usize),
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
-    OpenDir(String),
     InstallFabric(InstallFabricMessage),
     CreateInstance(CreateInstanceMessage),
+    EditInstance(EditInstanceMessage),
+    CoreOpenDir(String),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
     LaunchStart,
-    DeleteInstanceMenu,
-    DeleteInstance,
     LaunchScreenOpen(Option<String>),
     LaunchEnd(GameLaunchResult),
     LaunchKill,
     LaunchKillEnd(Result<(), String>),
-    EditInstance,
-    EditInstanceJavaOverride(String),
-    EditInstanceMemoryChanged(f32),
-    EditInstanceLoggingToggle(bool),
-    EditInstanceJavaArgsAdd,
-    EditInstanceJavaArgEdit(String, usize),
-    EditInstanceJavaArgDelete(usize),
-    EditInstanceGameArgsAdd,
-    EditInstanceGameArgEdit(String, usize),
-    EditInstanceGameArgDelete(usize),
+    DeleteInstanceMenu,
+    DeleteInstance,
     ManageModsScreenOpen,
     ManageModsToggleCheckbox((String, String), bool),
     ManageModsToggleCheckboxLocal(String, bool),
@@ -89,11 +94,13 @@ pub enum Message {
     ManageModsUpdateModsFinished(Result<(), String>),
     InstallForgeStart,
     InstallForgeEnd(Result<(), String>),
-    UninstallLoaderStart,
-    UninstallLoaderEnd(Result<(), String>),
-    ErrorCopy,
-    Tick,
-    TickConfigSaved(Result<(), String>),
+    UninstallLoaderFabricStart,
+    UninstallLoaderForgeStart,
+    UninstallLoaderOptiFineStart,
+    UninstallLoaderEnd(Result<Loader, String>),
+    CoreErrorCopy,
+    CoreTick,
+    CoreTickConfigSaved(Result<(), String>),
     LaunchEndedLog(Result<ExitStatus, String>),
     LaunchCopyLog,
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
@@ -113,11 +120,11 @@ pub enum Message {
     InstallOptifineScreenOpen,
     InstallOptifineSelectInstallerStart,
     InstallOptifineSelectInstallerEnd(Option<rfd::FileHandle>),
+    InstallOptifineEnd(Result<(), String>),
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
     ManageModsSelectAll,
-    InstallOptifineEnd(Result<(), String>),
 }
 
 #[derive(Default)]

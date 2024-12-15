@@ -13,6 +13,8 @@ use ql_instances::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+use crate::mod_manager::Loader;
+
 use super::{change_instance_type, ChangeConfigError};
 
 const FABRIC_URL: &str = "https://meta.fabricmc.net";
@@ -123,7 +125,7 @@ pub async fn install(
             library.name
         );
 
-        println!("{message}");
+        info!("{message}");
 
         if let Some(progress) = &progress {
             progress.send(FabricInstallProgress::P2Library {
@@ -203,10 +205,11 @@ pub async fn uninstall(instance_name: &str) -> Result<(), FabricInstallError> {
     Ok(())
 }
 
-pub async fn uninstall_wrapped(instance_name: String) -> Result<(), String> {
+pub async fn uninstall_wrapped(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
         .map_err(|err| err.to_string())
+        .map(|_| Loader::Fabric)
 }
 
 pub async fn install_wrapped(

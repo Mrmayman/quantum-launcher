@@ -1,3 +1,4 @@
+use crate::err;
 use std::{
     fmt::Display,
     process::ExitStatus,
@@ -78,7 +79,7 @@ pub async fn read_logs(
                                     xml_cache.clear();
                                 },
                                 Err(err) => {
-                                    println!("[error] Could not parse XML: {err}\n{text}\n");
+                                    err!("Could not parse XML: {err}\n{text}\n");
                                 }
                             }
 

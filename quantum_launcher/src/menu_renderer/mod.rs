@@ -7,10 +7,10 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        CreateInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog, Launcher,
-        MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge,
-        MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate,
-        Message, ModListEntry, SelectedMod, SelectedState,
+        CreateInstanceMessage, EditInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog,
+        Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric,
+        MenuInstallForge, MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
+        MenuLauncherUpdate, Message, ModListEntry, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -191,7 +191,7 @@ fn get_files_button(selected_instance: Option<&String>) -> widget::Button<Messag
     button_with_icon(icon_manager::folder(), "Files")
         .on_press_maybe((selected_instance.is_some()).then(|| {
             let launcher_dir = file_utils::get_launcher_dir().unwrap();
-            Message::OpenDir(
+            Message::CoreOpenDir(
                 launcher_dir
                     .join("instances")
                     .join(selected_instance.as_ref().unwrap())
@@ -230,7 +230,10 @@ fn get_instances_section<'a>(
             .spacing(5),
             widget::row![
                 button_with_icon(icon_manager::settings(), "Edit")
-                    .on_press_maybe((selected_instance.is_some()).then_some(Message::EditInstance))
+                    .on_press_maybe(
+                        (selected_instance.is_some())
+                            .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen))
+                    )
                     .width(97),
                 button_with_icon(icon_manager::download(), "Mods")
                     .on_press_maybe(
@@ -271,7 +274,7 @@ impl MenuEditInstance {
                                 .as_deref()
                                 .unwrap_or_default()
                         )
-                        .on_input(Message::EditInstanceJavaOverride)
+                        .on_input(|t| Message::EditInstance(EditInstanceMessage::JavaOverride(t)))
                     ]
                     .padding(10)
                     .spacing(10)
@@ -282,7 +285,7 @@ impl MenuEditInstance {
                         widget::text("For normal Minecraft, allocate 2 - 3 GB").size(12),
                         widget::text("For old versions, allocate 512 MB - 1 GB").size(12),
                         widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB").size(12),
-                        widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, self.slider_value, Message::EditInstanceMemoryChanged).step(0.1),
+                        widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, self.slider_value, |n| Message::EditInstance(EditInstanceMessage::MemoryChanged(n))).step(0.1),
                         widget::text(&self.slider_text),
                     ]
                     .padding(10)
@@ -291,7 +294,7 @@ impl MenuEditInstance {
                 widget::container(
                     widget::column![
                         widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
-                            .on_toggle(Message::EditInstanceLoggingToggle),
+                            .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
                         widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12)
                     ]
                     .padding(10)
@@ -303,11 +306,11 @@ impl MenuEditInstance {
                         widget::column!(
                             self.get_java_args_list(
                                 self.config.java_args.as_ref(),
-                                Message::EditInstanceJavaArgDelete,
-                                Arc::new(Message::EditInstanceJavaArgEdit)
+                                |n| Message::EditInstance(EditInstanceMessage::JavaArgDelete(n)),
+                                Arc::new(|n, i| Message::EditInstance(EditInstanceMessage::JavaArgEdit(n, i)))
                             ),
                             button_with_icon(icon_manager::create(), "Add")
-                                .on_press(Message::EditInstanceJavaArgsAdd)
+                                .on_press(Message::EditInstance(EditInstanceMessage::JavaArgsAdd))
                         )
                     ).padding(10).spacing(10)
                 ),
@@ -317,11 +320,11 @@ impl MenuEditInstance {
                         widget::column!(
                             self.get_java_args_list(
                                 self.config.game_args.as_ref(),
-                                Message::EditInstanceGameArgDelete,
-                                Arc::new(Message::EditInstanceGameArgEdit)
+                                |n| Message::EditInstance(EditInstanceMessage::GameArgDelete(n)),
+                                Arc::new(|n, i| Message::EditInstance(EditInstanceMessage::GameArgEdit(n, i)))
                             ),
                             button_with_icon(icon_manager::create(), "Add")
-                                .on_press(Message::EditInstanceGameArgsAdd)
+                                .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
                         )
                     ).padding(10).spacing(10)
                 )
@@ -394,7 +397,7 @@ impl MenuInstallOptifine {
                         "Step 1: Open the OptiFine download page and download the installer.",
                         "WARNING: Make sure to download the correct version.",
                         widget::button("Open download page")
-                            .on_press(Message::OpenDir(OPTIFINE_DOWNLOADS.to_owned()))
+                            .on_press(Message::CoreOpenDir(OPTIFINE_DOWNLOADS.to_owned()))
                     )
                     .padding(10)
                     .spacing(10)
@@ -494,7 +497,7 @@ impl MenuEditMods {
                     widget::button("Install OptiFine"),
                     Self::get_uninstall_panel(
                         &self.config.mod_type,
-                        Message::UninstallLoaderStart,
+                        Message::UninstallLoaderForgeStart,
                         true
                     )
                 )
@@ -504,14 +507,14 @@ impl MenuEditMods {
                     widget::button("Install Forge"),
                     Self::get_uninstall_panel(
                         &self.config.mod_type,
-                        Message::UninstallLoaderStart,
+                        Message::UninstallLoaderOptiFineStart,
                         false
                     ),
                 )
             }
             "Fabric" => Self::get_uninstall_panel(
                 &self.config.mod_type,
-                Message::UninstallLoaderStart,
+                Message::UninstallLoaderFabricStart,
                 true,
             ),
             _ => {
@@ -554,7 +557,7 @@ impl MenuEditMods {
         button_with_icon(icon_manager::folder(), "Go to Mods Folder")
             .on_press({
                 let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                Message::OpenDir(
+                Message::CoreOpenDir(
                     launcher_dir
                         .join("instances")
                         .join(selected_instance)
@@ -878,14 +881,15 @@ impl MenuLauncherSettings {
                 config_view,
                 widget::container(
                     widget::column!(
-                        widget::button("Open Website").on_press(Message::OpenDir(
+                        widget::button("Open Website").on_press(Message::CoreOpenDir(
                             "https://mrmayman.github.io/quantumlauncher".to_owned()
                         )),
-                        widget::button("Open Github Repo").on_press(Message::OpenDir(
+                        widget::button("Open Github Repo").on_press(Message::CoreOpenDir(
                             "https://github.com/Mrmayman/quantum-launcher".to_owned()
                         )),
-                        widget::button("Join our discord")
-                            .on_press(Message::OpenDir("https://discord.gg/bWqRaSXar5".to_owned())),
+                        widget::button("Join our discord").on_press(Message::CoreOpenDir(
+                            "https://discord.gg/bWqRaSXar5".to_owned()
+                        )),
                     )
                     .padding(10)
                     .spacing(10)

@@ -190,6 +190,7 @@ pub struct Query {
     pub open_source: bool,
 }
 
+#[derive(Debug, Clone)]
 pub enum Loader {
     Forge,
     Fabric,
@@ -198,6 +199,8 @@ pub enum Loader {
     Modloader,
     Rift,
     Neoforge,
+    // Note: Modrinth doesn't support searching for OptiFine mods.
+    OptiFine,
 }
 
 impl Display for Loader {
@@ -213,6 +216,7 @@ impl Display for Loader {
                 Loader::Modloader => "modloader",
                 Loader::Rift => "rift",
                 Loader::Neoforge => "neoforge",
+                Loader::OptiFine => "optifine",
             }
         )
     }

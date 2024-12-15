@@ -162,7 +162,7 @@ async fn java_install_fn(
         }
         JavaFile::link { target } => {
             // TODO: Deal with java install symlink.
-            println!("[fixme:install_java] Deal with symlink {file_name} -> {target}");
+            err!("[fixme:install_java] Deal with symlink {file_name} -> {target}");
         }
     }
     {

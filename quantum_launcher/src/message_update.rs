@@ -1,8 +1,12 @@
 use iced::Command;
 use ql_mod_manager::instance_mod_installer;
 
-use crate::launcher_state::{
-    CreateInstanceMessage, InstallFabricMessage, Launcher, MenuInstallFabric, Message, State,
+use crate::{
+    launcher_state::{
+        CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, Launcher,
+        MenuInstallFabric, Message, State,
+    },
+    message_handler::format_memory,
 };
 
 impl Launcher {
@@ -99,5 +103,90 @@ impl Launcher {
             }
         }
         Command::none()
+    }
+
+    pub fn update_edit_instance(&mut self, message: EditInstanceMessage) -> Command<Message> {
+        match message {
+            EditInstanceMessage::MenuOpen => self.edit_instance_wrapped(),
+            EditInstanceMessage::JavaOverride(n) => {
+                if let State::EditInstance(menu_edit_instance) = &mut self.state {
+                    menu_edit_instance.config.java_override = Some(n);
+                }
+            }
+            EditInstanceMessage::MemoryChanged(new_slider_value) => {
+                if let State::EditInstance(menu_edit_instance) = &mut self.state {
+                    menu_edit_instance.slider_value = new_slider_value;
+                    menu_edit_instance.config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
+                    menu_edit_instance.slider_text =
+                        format_memory(menu_edit_instance.config.ram_in_mb);
+                }
+            }
+            EditInstanceMessage::LoggingToggle(t) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.config.enable_logger = Some(t);
+                }
+            }
+            EditInstanceMessage::JavaArgsAdd => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.config
+                        .java_args
+                        .get_or_insert_with(Vec::new)
+                        .push(String::new());
+                }
+            }
+            EditInstanceMessage::JavaArgEdit(msg, idx) => {
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = menu.config.java_args.as_mut() else {
+                    return Command::none();
+                };
+                add_to_arguments_list(msg, args, idx);
+            }
+            EditInstanceMessage::JavaArgDelete(idx) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    if let Some(args) = &mut menu.config.java_args {
+                        args.remove(idx);
+                    }
+                }
+            }
+            EditInstanceMessage::GameArgsAdd => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.config
+                        .game_args
+                        .get_or_insert_with(Vec::new)
+                        .push(String::new());
+                }
+            }
+            EditInstanceMessage::GameArgEdit(msg, idx) => {
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = &mut menu.config.game_args else {
+                    return Command::none();
+                };
+                add_to_arguments_list(msg, args, idx);
+            }
+            EditInstanceMessage::GameArgDelete(idx) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    if let Some(args) = &mut menu.config.game_args {
+                        args.remove(idx);
+                    }
+                }
+            }
+        }
+        Command::none()
+    }
+}
+
+fn add_to_arguments_list(msg: String, args: &mut Vec<String>, mut idx: usize) {
+    if msg.contains(' ') {
+        args.remove(idx);
+        for s in msg.split(' ').filter(|n| !n.is_empty()) {
+            args.insert(idx, s.to_owned());
+            idx += 1;
+        }
+    } else if let Some(arg) = args.get_mut(idx) {
+        *arg = msg;
     }
 }

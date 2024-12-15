@@ -15,7 +15,7 @@ use ql_instances::{
         json_java_list::JavaVersion,
         json_version::VersionDetails,
     },
-    JavaInstallProgress,
+    pt, JavaInstallProgress,
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -59,7 +59,7 @@ impl ForgeInstaller {
         create_mods_dir(&instance_dir)?;
         create_lock_file(&instance_dir)?;
 
-        println!("- Downloading JSON");
+        pt!("Downloading JSON");
         if let Some(progress) = &f_progress {
             progress
                 .send(ForgeInstallProgress::P2DownloadingJson)
@@ -102,7 +102,7 @@ impl ForgeInstaller {
             ("installer", "universal")
         };
 
-        println!("- Downloading Installer");
+        pt!("Downloading Installer");
         self.send_progress(ForgeInstallProgress::P3DownloadingInstaller);
 
         let installer_file = self.try_downloading_from_urls(&[
@@ -169,7 +169,7 @@ impl ForgeInstaller {
             std::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
                 .map_err(io_err!(launcher_profiles_json_microsoft_store_path))?;
 
-            println!("- Compiling Installer");
+            pt!("Compiling Installer");
             self.send_progress(ForgeInstallProgress::P4RunningInstaller);
 
             let output = Command::new(&javac_path)
@@ -187,7 +187,7 @@ impl ForgeInstaller {
             let java_path =
                 java_install::get_java_binary(JavaVersion::Java21, "java", None).await?;
 
-            println!("- Running Installer");
+            pt!("Running Installer");
             let output = Command::new(&java_path)
                 .args([
                     "-cp",
@@ -316,9 +316,7 @@ impl ForgeInstaller {
                     std::fs::write(&dest, bytes).map_err(io_err!(dest))?;
                 }
                 Err(err) => {
-                    eprintln!(
-                        "[error] Error downloading library: {err}\n        Trying pack.xz version"
-                    );
+                    err!("Error downloading library: {err}\n        Trying pack.xz version");
                     let result = self.unpack_augmented_library(dest_str, &url).await;
                     if result.is_not_found() {
                         err!("Error 404 not found. Skipping...");
@@ -355,15 +353,15 @@ impl ForgeInstaller {
         dest_str: &str,
         url: &str,
     ) -> Result<(), ForgeInstallError> {
-        println!("- Unpacking augmented library");
-        println!("- Downloading File");
+        pt!("Unpacking augmented library");
+        pt!("Downloading File");
         let bytes =
             file_utils::download_file_to_bytes(&self.client, &format!("{url}.pack.xz"), false)
                 .await?;
-        println!("- Extracting pack.xz");
+        pt!("Extracting pack.xz");
         let temp_extract_xz = Self::extract_zip_file(&bytes)?;
 
-        println!("- Reading signature");
+        pt!("Reading signature");
         let extracted_pack_path = temp_extract_xz.path().join(format!("{dest_str}.pack"));
         let mut extracted_pack =
             std::fs::File::open(&extracted_pack_path).map_err(io_err!(extracted_pack_path))?;
@@ -394,7 +392,7 @@ impl ForgeInstaller {
             .join(format!("{dest_str}.pack.crop",));
         std::fs::write(&cropped_pack_path, &pack_crop).map_err(io_err!(cropped_pack_path))?;
 
-        println!("- Unpacking extracted file");
+        pt!("Unpacking extracted file");
         let unpack200_path =
             java_install::get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
         let output = Command::new(&unpack200_path)

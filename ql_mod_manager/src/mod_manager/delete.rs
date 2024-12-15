@@ -4,6 +4,7 @@ use ql_instances::err;
 use ql_instances::error::IoError;
 use ql_instances::file_utils;
 use ql_instances::info;
+use ql_instances::pt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -23,7 +24,7 @@ pub async fn delete_mods_wrapped(
 }
 
 pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModError> {
-    info!("Deleting mods: {{");
+    info!("Deleting mods:");
     let mut index = ModIndex::get(instance_name)?;
 
     let launcher_dir = file_utils::get_launcher_dir()?;
@@ -35,7 +36,7 @@ pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModE
     // let mut downloaded_mods = HashSet::new();
 
     for id in ids {
-        println!("- Deleting mod {id}");
+        pt!("Deleting mod {id}");
         delete_mod(&mut index, id, &mods_dir)?;
         // delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;
     }
@@ -45,7 +46,7 @@ pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModE
     loop {
         iteration += 1;
         has_been_removed = false;
-        println!("- Iteration {iteration}");
+        pt!("Iteration {iteration}");
         let mut removed_dependents_map = HashMap::new();
 
         for (mod_id, mod_info) in &index.mods {
@@ -75,7 +76,7 @@ pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModE
 
         for (mod_id, mod_info) in &index.mods {
             if !mod_info.manually_installed && mod_info.dependents.is_empty() {
-                println!("- Deleting child {}", mod_info.name);
+                pt!("Deleting child {}", mod_info.name);
                 orphaned_mods.insert(mod_id.clone());
             }
         }
@@ -91,7 +92,7 @@ pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModE
     }
 
     index.save()?;
-    println!("}} Done deleting mods");
+    info!("Finished deleting mods");
     Ok(())
 }
 
@@ -114,7 +115,7 @@ fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModError> {
     let path = mods_dir.join(file);
     if let Err(err) = std::fs::remove_file(&path) {
         if let std::io::ErrorKind::NotFound = err.kind() {
-            eprintln!("[warning] File does not exist, skipping: {path:?}");
+            err!("File does not exist, skipping: {path:?}");
         } else {
             let err = IoError::Io {
                 error: err,
@@ -158,7 +159,7 @@ fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModError> {
 //     info!("Deleting mod {id}");
 //     let already_deleted = !downloaded_mods.insert(id.to_owned());
 //     if already_deleted {
-//         println!("- Already deleted, skipping");
+//         pt!("Already deleted, skipping");
 //         return Ok(());
 //     }
 

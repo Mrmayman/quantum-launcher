@@ -17,6 +17,8 @@ use ql_instances::{
     JavaInstallProgress,
 };
 
+use crate::mod_manager::Loader;
+
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 // javac -cp OptiFine_1.21.1_HD_U_J1.jar Hook.java -d .
@@ -107,10 +109,11 @@ pub async fn install_optifine(
     Ok(())
 }
 
-pub async fn uninstall_wrapped(instance_name: String) -> Result<(), String> {
+pub async fn uninstall_wrapped(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
         .map_err(|err| err.to_string())
+        .map(|_| Loader::OptiFine)
 }
 
 pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {

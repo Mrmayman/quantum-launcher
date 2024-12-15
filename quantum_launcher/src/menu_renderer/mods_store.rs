@@ -248,7 +248,7 @@ impl MenuModsDownload {
                     }));
                 }
                 widget::button(children)
-                    .on_press(Message::OpenDir(node_link.url.clone()))
+                    .on_press(Message::CoreOpenDir(node_link.url.clone()))
                     .into()
             }
             NodeValue::FrontMatter(_) => {

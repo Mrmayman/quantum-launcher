@@ -31,7 +31,7 @@ use launcher_state::{
 };
 
 use menu_renderer::menu_delete_instance_view;
-use message_handler::{format_memory, open_file_explorer};
+use message_handler::open_file_explorer;
 use ql_instances::{
     err,
     error::IoError,
@@ -111,69 +111,49 @@ impl Application for Launcher {
                     self.go_to_launch_screen();
                 }
             }
-            Message::EditInstance => {
-                self.edit_instance_wrapped();
-            }
-            Message::EditInstanceJavaOverride(n) => {
-                if let State::EditInstance(menu_edit_instance) = &mut self.state {
-                    menu_edit_instance.config.java_override = Some(n);
-                }
-            }
-            Message::EditInstanceMemoryChanged(new_slider_value) => {
-                if let State::EditInstance(menu_edit_instance) = &mut self.state {
-                    menu_edit_instance.slider_value = new_slider_value;
-                    menu_edit_instance.config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
-                    menu_edit_instance.slider_text =
-                        format_memory(menu_edit_instance.config.ram_in_mb);
-                }
-            }
+            Message::EditInstance(message) => return self.update_edit_instance(message),
             Message::ManageModsScreenOpen => match self.go_to_edit_mods_menu() {
                 Ok(command) => return command,
                 Err(err) => self.set_error(err.to_string()),
             },
             Message::InstallFabric(message) => return self.update_install_fabric(message),
-            Message::OpenDir(dir) => open_file_explorer(&dir),
-            Message::ErrorCopy => {
+            Message::CoreOpenDir(dir) => open_file_explorer(&dir),
+            Message::CoreErrorCopy => {
                 if let State::Error { error } = &self.state {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
                 }
             }
-            Message::Tick => return self.tick(),
-            Message::UninstallLoaderStart => {
-                if let State::EditMods(menu) = &self.state {
-                    if menu.config.mod_type == "Fabric" {
-                        return Command::perform(
-                            instance_mod_installer::fabric::uninstall_wrapped(
-                                self.selected_instance.clone().unwrap(),
-                            ),
-                            Message::UninstallLoaderEnd,
-                        );
-                    }
-                    if menu.config.mod_type == "Forge" {
-                        return Command::perform(
-                            instance_mod_installer::forge::uninstall_wrapped(
-                                self.selected_instance.clone().unwrap(),
-                            ),
-                            Message::UninstallLoaderEnd,
-                        );
-                    }
-                    if menu.config.mod_type == "OptiFine" {
-                        return Command::perform(
-                            instance_mod_installer::optifine::uninstall_wrapped(
-                                self.selected_instance.clone().unwrap(),
-                            ),
-                            Message::UninstallLoaderEnd,
-                        );
-                    }
-                }
+            Message::CoreTick => return self.tick(),
+            Message::UninstallLoaderForgeStart => {
+                return Command::perform(
+                    instance_mod_installer::forge::uninstall_wrapped(
+                        self.selected_instance.clone().unwrap(),
+                    ),
+                    Message::UninstallLoaderEnd,
+                );
             }
-            Message::UninstallLoaderEnd(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    self.go_to_launch_screen_with_message("Uninstalled Fabric".to_owned());
-                }
+            Message::UninstallLoaderOptiFineStart => {
+                return Command::perform(
+                    instance_mod_installer::optifine::uninstall_wrapped(
+                        self.selected_instance.clone().unwrap(),
+                    ),
+                    Message::UninstallLoaderEnd,
+                );
             }
+            Message::UninstallLoaderFabricStart => {
+                return Command::perform(
+                    instance_mod_installer::fabric::uninstall_wrapped(
+                        self.selected_instance.clone().unwrap(),
+                    ),
+                    Message::UninstallLoaderEnd,
+                );
+            }
+            Message::UninstallLoaderEnd(result) => match result {
+                Ok(loader) => {
+                    self.go_to_launch_screen_with_message(format!("Uninstalled {loader}"))
+                }
+                Err(err) => self.set_error(err),
+            },
             Message::InstallForgeStart => {
                 let (f_sender, f_receiver) = std::sync::mpsc::channel();
                 let (j_sender, j_receiver) = std::sync::mpsc::channel();
@@ -206,9 +186,7 @@ impl Application for Launcher {
             Message::LaunchEndedLog(result) => match result {
                 Ok(status) => {
                     info!("Game exited with status: {status}");
-                    if !status.success() {
-                        self.set_game_crashed(status);
-                    }
+                    self.set_game_crashed(status);
                 }
                 Err(err) => self.set_error(err),
             },
@@ -236,7 +214,7 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
-            Message::TickConfigSaved(result) | Message::LaunchKillEnd(result) => {
+            Message::CoreTickConfigSaved(result) | Message::LaunchKillEnd(result) => {
                 if let Err(err) = result {
                     self.set_error(err);
                 }
@@ -507,11 +485,6 @@ impl Application for Launcher {
                     }
                 }
             }
-            Message::EditInstanceLoggingToggle(t) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    menu.config.enable_logger = Some(t);
-                }
-            }
             Message::ManageModsToggleSelected => {
                 if let State::EditMods(menu) = &self.state {
                     let ids = menu
@@ -623,54 +596,6 @@ impl Application for Launcher {
                     );
                 }
             }
-            Message::EditInstanceJavaArgsAdd => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    menu.config
-                        .java_args
-                        .get_or_insert_with(Vec::new)
-                        .push(String::new());
-                }
-            }
-            Message::EditInstanceJavaArgEdit(msg, idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = menu.config.java_args.as_mut() else {
-                    return Command::none();
-                };
-                add_to_arguments_list(msg, args, idx);
-            }
-            Message::EditInstanceJavaArgDelete(idx) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    if let Some(args) = &mut menu.config.java_args {
-                        args.remove(idx);
-                    }
-                }
-            }
-            Message::EditInstanceGameArgsAdd => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    menu.config
-                        .game_args
-                        .get_or_insert_with(Vec::new)
-                        .push(String::new());
-                }
-            }
-            Message::EditInstanceGameArgEdit(msg, idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = &mut menu.config.game_args else {
-                    return Command::none();
-                };
-                add_to_arguments_list(msg, args, idx);
-            }
-            Message::EditInstanceGameArgDelete(idx) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    if let Some(args) = &mut menu.config.game_args {
-                        args.remove(idx);
-                    }
-                }
-            }
         }
         Command::none()
     }
@@ -678,7 +603,8 @@ impl Application for Launcher {
     fn subscription(&self) -> iced::Subscription<Self::Message> {
         const UPDATES_PER_SECOND: u64 = 12;
 
-        iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND)).map(|_| Message::Tick)
+        iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
+            .map(|_| Message::CoreTick)
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
@@ -700,7 +626,7 @@ impl Application for Launcher {
                 widget::column!(
                     widget::text(format!("Error: {error}")),
                     widget::button("Back").on_press(Message::LaunchScreenOpen(None)),
-                    widget::button("Copy Error").on_press(Message::ErrorCopy),
+                    widget::button("Copy Error").on_press(Message::CoreErrorCopy),
                 )
                 .padding(10)
                 .spacing(10),
@@ -729,18 +655,6 @@ impl Application for Launcher {
 
     fn scale_factor(&self) -> f64 {
         1.0
-    }
-}
-
-fn add_to_arguments_list(msg: String, args: &mut Vec<String>, mut idx: usize) {
-    if msg.contains(' ') {
-        args.remove(idx);
-        for s in msg.split(' ').filter(|n| !n.is_empty()) {
-            args.insert(idx, s.to_owned());
-            idx += 1;
-        }
-    } else if let Some(arg) = args.get_mut(idx) {
-        *arg = msg;
     }
 }
 
@@ -798,7 +712,7 @@ impl Launcher {
         if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
             *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
             if let Some(log) = self.logs.get_mut(self.selected_instance.as_ref().unwrap()) {
-                log.has_crashed = true;
+                log.has_crashed = !status.success();
             }
         }
     }

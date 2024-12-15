@@ -85,7 +85,7 @@ impl Launcher {
         match result {
             GameLaunchResult::Ok(child) => {
                 let Some(selected_instance) = self.selected_instance.clone() else {
-                    eprintln!("[warning] Game Launched, but unknown instance!\n          This is a bug, please report it if found.");
+                    err!("Game Launched, but unknown instance!\n          This is a bug, please report it if found.");
                     return Command::none();
                 };
                 if let (Some(stdout), Some(stderr)) = {

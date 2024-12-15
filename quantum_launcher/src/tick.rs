@@ -54,7 +54,7 @@ impl Launcher {
                 self.tick_processes_and_logs();
 
                 if let Some(config) = self.config.clone() {
-                    return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
+                    return Command::perform(config.save_wrapped(), Message::CoreTickConfigSaved);
                 }
             }
             State::EditInstance(menu) => {
@@ -126,7 +126,7 @@ impl Launcher {
             }
             State::LauncherSettings => {
                 if let Some(config) = self.config.clone() {
-                    return Command::perform(config.save_wrapped(), Message::TickConfigSaved);
+                    return Command::perform(config.save_wrapped(), Message::CoreTickConfigSaved);
                 }
             }
             State::RedownloadAssets(menu) => {

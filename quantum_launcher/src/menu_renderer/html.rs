@@ -128,7 +128,7 @@ impl MenuModsDownload {
                                 children = widget::column!(widget::text(&url));
                             }
                             *element = widget::button(children)
-                                .on_press(Message::OpenDir(url.clone()))
+                                .on_press(Message::CoreOpenDir(url.clone()))
                                 .into();
                         } else {
                             *element = widget::text("[HTML error: malformed link]]").into();

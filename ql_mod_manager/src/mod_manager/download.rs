@@ -9,7 +9,7 @@ use chrono::DateTime;
 use ql_instances::{
     err, file_utils, info, io_err,
     json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
-    MOD_DOWNLOAD_LOCK,
+    pt, MOD_DOWNLOAD_LOCK,
 };
 use reqwest::Client;
 
@@ -36,7 +36,7 @@ pub async fn download_mod(id: String, instance_name: String) -> Result<String, M
 
     downloader.index.save()?;
 
-    println!("- Finished");
+    pt!("Finished");
 
     Ok(id)
 }
@@ -119,7 +119,7 @@ impl ModDownloader {
         info!("Getting project info (id: {id})");
 
         if self.is_already_installed(id, dependent) {
-            println!("- Already installed mod {id}, skipping.");
+            pt!("Already installed mod {id}, skipping.");
             return Ok(());
         }
 
@@ -127,12 +127,9 @@ impl ModDownloader {
 
         if !self.has_compatible_loader(&project_info) {
             if let Some(loader) = &self.loader {
-                println!("- Mod {} doesn't support {loader}", project_info.title);
+                pt!("Mod {} doesn't support {loader}", project_info.title);
             } else {
-                println!(
-                    "[error] Mod {} doesn't support unknown loader!",
-                    project_info.title
-                );
+                err!("Mod {} doesn't support unknown loader!", project_info.title);
             }
             return Ok(());
         }
@@ -141,7 +138,7 @@ impl ModDownloader {
 
         let download_version = self.get_download_version(id).await?;
 
-        // println!("- Getting dependencies");
+        // pt!("Getting dependencies");
         // let dependencies = Dependencies::download(id).await?;
         let dependency_list = HashSet::new();
 
@@ -211,7 +208,7 @@ impl ModDownloader {
     }
 
     async fn get_download_version(&self, id: &str) -> Result<ModVersion, ModError> {
-        println!("- Getting download info");
+        pt!("Getting download info");
         let download_info = ModVersion::download(id).await?;
 
         let mut download_versions: Vec<ModVersion> = download_info
@@ -245,7 +242,7 @@ impl ModDownloader {
             let file_path = self.mods_dir.join(&primary_file.filename);
             std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
         } else {
-            println!("- Didn't find primary file, checking secondary files...");
+            pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
                 let file_bytes =
                     file_utils::download_file_to_bytes(&self.client, &file.url, true).await?;
@@ -315,11 +312,11 @@ fn add_mod_to_index(
 
 fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>) {
     if let Some(dependent) = dependent {
-        println!(
-            "- Downloading {}: Dependency of {dependent}",
+        pt!(
+            "Downloading {}: Dependency of {dependent}",
             project_info.title
         );
     } else {
-        println!("- Downloading {}", project_info.title);
+        pt!("Downloading {}", project_info.title);
     }
 }

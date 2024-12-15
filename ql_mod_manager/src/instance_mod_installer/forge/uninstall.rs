@@ -1,6 +1,6 @@
 use ql_instances::{file_utils, io_err};
 
-use crate::instance_mod_installer::change_instance_type;
+use crate::{instance_mod_installer::change_instance_type, mod_manager::Loader};
 
 use super::error::ForgeInstallError;
 
@@ -14,6 +14,9 @@ pub async fn uninstall(instance: &str) -> Result<(), ForgeInstallError> {
     Ok(())
 }
 
-pub async fn uninstall_wrapped(instance: String) -> Result<(), String> {
-    uninstall(&instance).await.map_err(|err| err.to_string())
+pub async fn uninstall_wrapped(instance: String) -> Result<Loader, String> {
+    uninstall(&instance)
+        .await
+        .map_err(|err| err.to_string())
+        .map(|_| Loader::Forge)
 }
