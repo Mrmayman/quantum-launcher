@@ -544,8 +544,13 @@ impl MenuEditMods {
             )
             .on_press(uninstall_loader_message),
             if download_mods {
-                widget::column!(button_with_icon(icon_manager::download(), "Download Mods")
-                    .on_press(Message::InstallModsOpen))
+                widget::column!(
+                    button_with_icon(icon_manager::download(), "Download Mods")
+                        .on_press(Message::InstallModsOpen),
+                    widget::text("Warning: the mod store is\nexperimental and may have bugs")
+                        .size(12)
+                )
+                .spacing(5)
             } else {
                 widget::column!()
             },
@@ -554,19 +559,20 @@ impl MenuEditMods {
     }
 
     fn open_mod_folder_button(selected_instance: &str) -> Element {
+        let path = {
+            if let Ok(launcher_dir) = file_utils::get_launcher_dir() {
+                let path = launcher_dir
+                    .join("instances")
+                    .join(selected_instance)
+                    .join(".minecraft/mods");
+                path.exists().then_some(path.to_str().unwrap().to_owned())
+            } else {
+                None
+            }
+        };
+
         button_with_icon(icon_manager::folder(), "Go to Mods Folder")
-            .on_press({
-                let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                Message::CoreOpenDir(
-                    launcher_dir
-                        .join("instances")
-                        .join(selected_instance)
-                        .join(".minecraft/mods")
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
-                )
-            })
+            .on_press_maybe(path.map(Message::CoreOpenDir))
             .into()
     }
 
