@@ -876,11 +876,9 @@ fn process_args(mut args: std::env::Args, info: &mut ArgumentInfo) -> Option<()>
     --help           : Print a list of valid command line flags
     --version        : Print the launcher version
     --command        : Run a command with the launcher in headless mode (command line)
-                       For more info, type {}
     --list-instances : Print a list of instances (name, version and type (Vanilla/Fabric/Forge/...))
 "#,
                     format!("{program} [FLAGS]").yellow(),
-                    format!("{program} --command help").yellow()
                 );
             }
             "--version" => {

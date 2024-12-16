@@ -138,33 +138,15 @@ impl ModDownloader {
 
         let download_version = self.get_download_version(id).await?;
 
-        // pt!("Getting dependencies");
-        // let dependencies = Dependencies::download(id).await?;
-        let dependency_list = HashSet::new();
+        pt!("Getting dependencies");
+        let mut dependency_list = HashSet::new();
 
-        /*for dependency in &dependencies.projects {
-            if !dependency.game_versions.contains(&self.version) {
-                eprintln!(
-                    "[warn] Dependency {} doesn't support version {}",
-                    dependency.title, self.version
-                );
-                continue;
+        for dependency in &download_version.dependencies {
+            if dependency_list.insert(dependency.project_id.clone()) {
+                self.download_project(&dependency.project_id, Some(id), false)
+                    .await?;
             }
-
-            if let Some(loader) = &self.loader {
-                if !dependency.loaders.contains(loader) {
-                    eprintln!(
-                        "[warn] Dependency {} doesn't support loader {loader}",
-                        dependency.title
-                    );
-                    continue;
-                }
-            }
-
-            self.download_project(&dependency.id, Some(id), false)
-                .await?;
-            dependency_list.insert(dependency.id.clone());
-        }*/
+        }
 
         if !self.index.mods.contains_key(id) {
             self.download_file(&download_version).await?;

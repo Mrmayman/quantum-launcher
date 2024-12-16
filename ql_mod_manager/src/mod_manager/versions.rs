@@ -21,6 +21,7 @@ pub struct ModVersion {
     pub status: String,
     // pub requested_status: Option<String>,
     pub files: Vec<ModFile>,
+    pub dependencies: Vec<Dependency>,
 }
 
 impl ModVersion {
@@ -39,6 +40,14 @@ impl ModVersion {
             .map_err(|err| err.to_string())
             .map(|n| (n, project_id))
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Dependency {
+    pub version_id: Option<serde_json::Value>,
+    pub project_id: String,
+    pub file_name: Option<serde_json::Value>,
+    pub dependency_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -154,6 +154,7 @@ async fn java_install_fn(
                 file_utils::download_file_to_bytes(client, &downloads.raw.url, false).await?;
             std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.clone()))?;
             if *executable {
+                #[cfg(target_family = "unix")]
                 file_utils::set_executable(&file_path)?;
             }
         }

@@ -259,6 +259,13 @@ impl GameLauncher {
 
         if self.version_json.r#type == "old_beta" || self.version_json.r#type == "old_alpha" {
             args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
+            if self.version_json.id.starts_with("c0.") {
+                args.push("-Dhttp.proxyPort=11701".to_owned());
+            } else if self.version_json.r#type == "old_alpha" {
+                args.push("-Dhttp.proxyPort=11702".to_owned());
+            } else {
+                args.push("-Dhttp.proxyPort=11705".to_owned());
+            }
         }
 
         Ok(args)

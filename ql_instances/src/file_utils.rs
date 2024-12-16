@@ -101,12 +101,6 @@ pub fn set_executable(path: &Path) -> Result<(), IoError> {
     std::fs::set_permissions(path, perms).map_err(io_err!(path))
 }
 
-#[cfg(target_family = "windows")]
-pub fn set_executable(_path: &Path) -> Result<(), IoError> {
-    // On Windows, executability is determined by the file extension and content.
-    Ok(())
-}
-
 // #[cfg(unix)]
 // use std::os::unix::fs::symlink;
 
