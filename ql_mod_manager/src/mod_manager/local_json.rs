@@ -14,6 +14,9 @@ pub struct ModConfig {
     pub enabled: bool,
     pub description: String,
     pub icon_url: Option<String>,
+    /// Source platform where the mod was downloaded from.
+    /// Eg: "modrinth", "curseforge" (coming soon).
+    pub project_source: String,
     pub project_id: String,
     pub files: Vec<ModFile>,
     pub supported_versions: Vec<String>,

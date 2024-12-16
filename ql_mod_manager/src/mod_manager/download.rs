@@ -15,6 +15,8 @@ use reqwest::Client;
 
 use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
 
+pub const SOURCE_ID_MODRINTH: &str = "modrinth";
+
 pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {
     download_mod(id, instance_name)
         .await
@@ -142,6 +144,14 @@ impl ModDownloader {
         let mut dependency_list = HashSet::new();
 
         for dependency in &download_version.dependencies {
+            if dependency.dependency_type != "required" {
+                pt!(
+                    "Skipping dependency (not required: {}) {}",
+                    dependency.dependency_type,
+                    dependency.project_id
+                );
+                continue;
+            }
             if dependency_list.insert(dependency.project_id.clone()) {
                 self.download_project(&dependency.project_id, Some(id), false)
                     .await?;
@@ -288,6 +298,7 @@ fn add_mod_to_index(
             enabled: true,
             installed_version: download_version.version_number.clone(),
             version_release_time: download_version.date_published.clone(),
+            project_source: SOURCE_ID_MODRINTH.to_owned(),
         },
     );
 }
