@@ -15,6 +15,10 @@
 # This file is modified by Mrmayman, ApicalShark on 2024
 
 name: Release
+
+permissions:
+  contents: write
+
 on:
   workflow_dispatch: # allows manual triggering
 
