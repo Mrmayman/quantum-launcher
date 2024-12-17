@@ -41,3 +41,8 @@ icon_define!(save, '\u{e807}');
 icon_define!(tick, '\u{e808}');
 icon_define!(toggle, '\u{f204}');
 icon_define!(update, '\u{e809}');
+icon_define!(page, '\u{e80a}');
+icon_define!(github, '\u{f09b}');
+icon_define!(chat, '\u{e80b}');
+icon_define!(arrow_up, '\u{f102}');
+icon_define!(arrow_down, '\u{f103}');

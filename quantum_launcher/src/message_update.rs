@@ -174,6 +174,50 @@ impl Launcher {
                     }
                 }
             }
+            EditInstanceMessage::JavaArgShiftUp(idx) => {
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = &mut menu.config.java_args else {
+                    return Command::none();
+                };
+                if idx > 0 {
+                    args.swap(idx, idx - 1);
+                }
+            }
+            EditInstanceMessage::JavaArgShiftDown(idx) => {
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = &mut menu.config.java_args else {
+                    return Command::none();
+                };
+                if idx + 1 < args.len() {
+                    args.swap(idx, idx + 1);
+                }
+            }
+            EditInstanceMessage::GameArgShiftUp(idx) => {
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = &mut menu.config.game_args else {
+                    return Command::none();
+                };
+                if idx > 0 {
+                    args.swap(idx, idx - 1);
+                }
+            }
+            EditInstanceMessage::GameArgShiftDown(idx) => {
+                let State::EditInstance(menu) = &mut self.state else {
+                    return Command::none();
+                };
+                let Some(args) = &mut menu.config.game_args else {
+                    return Command::none();
+                };
+                if idx + 1 < args.len() {
+                    args.swap(idx, idx + 1);
+                }
+            }
         }
         Command::none()
     }

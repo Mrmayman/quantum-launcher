@@ -710,9 +710,13 @@ impl Launcher {
 
     fn set_game_crashed(&mut self, status: std::process::ExitStatus) {
         if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
-            *message = format!("Game Crashed with code: {status}\nCheck Logs for more information");
+            let has_crashed = !status.success();
+            if has_crashed {
+                *message =
+                    format!("Game Crashed with code: {status}\nCheck Logs for more information");
+            }
             if let Some(log) = self.logs.get_mut(self.selected_instance.as_ref().unwrap()) {
-                log.has_crashed = !status.success();
+                log.has_crashed = has_crashed;
             }
         }
     }

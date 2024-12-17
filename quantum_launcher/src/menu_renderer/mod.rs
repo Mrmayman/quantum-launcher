@@ -307,6 +307,8 @@ impl MenuEditInstance {
                             self.get_java_args_list(
                                 self.config.java_args.as_ref(),
                                 |n| Message::EditInstance(EditInstanceMessage::JavaArgDelete(n)),
+                                |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftUp(n)),
+                                |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftDown(n)),
                                 Arc::new(|n, i| Message::EditInstance(EditInstanceMessage::JavaArgEdit(n, i)))
                             ),
                             button_with_icon(icon_manager::create(), "Add")
@@ -321,6 +323,8 @@ impl MenuEditInstance {
                             self.get_java_args_list(
                                 self.config.game_args.as_ref(),
                                 |n| Message::EditInstance(EditInstanceMessage::GameArgDelete(n)),
+                                |n| Message::EditInstance(EditInstanceMessage::GameArgShiftUp(n)),
+                                |n| Message::EditInstance(EditInstanceMessage::GameArgShiftDown(n)),
                                 Arc::new(|n, i| Message::EditInstance(EditInstanceMessage::GameArgEdit(n, i)))
                             ),
                             button_with_icon(icon_manager::create(), "Add")
@@ -337,7 +341,9 @@ impl MenuEditInstance {
     fn get_java_args_list(
         &self,
         args: Option<&Vec<String>>,
-        mut delete_msg: impl FnMut(usize) -> Message,
+        mut msg_delete: impl FnMut(usize) -> Message,
+        mut msg_up: impl FnMut(usize) -> Message,
+        mut msg_down: impl FnMut(usize) -> Message,
         edit_msg: Arc<dyn Fn(String, usize) -> Message>,
     ) -> Element {
         const ITEM_SIZE: u16 = 10;
@@ -353,7 +359,19 @@ impl MenuEditInstance {
                         .align_items(iced::Alignment::Center)
                         .padding(5)
                 )
-                .on_press(delete_msg(i)),
+                .on_press(msg_delete(i)),
+                widget::button(
+                    widget::row![icon_manager::arrow_up_with_size(ITEM_SIZE)]
+                        .align_items(iced::Alignment::Center)
+                        .padding(5)
+                )
+                .on_press(msg_up(i)),
+                widget::button(
+                    widget::row![icon_manager::arrow_down_with_size(ITEM_SIZE)]
+                        .align_items(iced::Alignment::Center)
+                        .padding(5)
+                )
+                .on_press(msg_down(i)),
                 widget::text_input("Enter argument...", arg)
                     .size(ITEM_SIZE + 8)
                     .on_input(move |n| edit_msg(n, i))
@@ -887,15 +905,19 @@ impl MenuLauncherSettings {
                 config_view,
                 widget::container(
                     widget::column!(
-                        widget::button("Open Website").on_press(Message::CoreOpenDir(
-                            "https://mrmayman.github.io/quantumlauncher".to_owned()
-                        )),
-                        widget::button("Open Github Repo").on_press(Message::CoreOpenDir(
-                            "https://github.com/Mrmayman/quantum-launcher".to_owned()
-                        )),
-                        widget::button("Join our discord").on_press(Message::CoreOpenDir(
-                            "https://discord.gg/bWqRaSXar5".to_owned()
-                        )),
+                        button_with_icon(icon_manager::page(), "Open Website").on_press(
+                            Message::CoreOpenDir(
+                                "https://mrmayman.github.io/quantumlauncher".to_owned()
+                            )
+                        ),
+                        button_with_icon(icon_manager::github(), "Open Github Repo").on_press(
+                            Message::CoreOpenDir(
+                                "https://github.com/Mrmayman/quantum-launcher".to_owned()
+                            )
+                        ),
+                        button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
+                            Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
+                        ),
                     )
                     .padding(10)
                     .spacing(10)

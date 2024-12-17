@@ -61,9 +61,13 @@ pub enum EditInstanceMessage {
     JavaArgsAdd,
     JavaArgEdit(String, usize),
     JavaArgDelete(usize),
+    JavaArgShiftUp(usize),
+    JavaArgShiftDown(usize),
     GameArgsAdd,
     GameArgEdit(String, usize),
     GameArgDelete(usize),
+    GameArgShiftUp(usize),
+    GameArgShiftDown(usize),
 }
 
 #[derive(Debug, Clone)]
