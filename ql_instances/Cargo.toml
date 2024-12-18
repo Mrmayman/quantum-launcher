@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dirs = "*"
-reqwest = { version = "0.12", features = ["blocking"] }
+ql_core = { path = "../ql_core" }
+
+reqwest = { version = "0.12" }
 semver = "1"
 zip-extract = "0.1"
-lazy_static = "1"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -20,5 +20,3 @@ colored = "2"
 indicatif = "0.17"
 
 tokio = { version = "1", features = ["macros", "process"] }
-futures = "0.3"
-chrono = "0.4"

@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use iced::Command;
-use ql_instances::{
-    err, info, AssetRedownloadProgress, JavaInstallProgress, LogEvent, LogLine, UpdateProgress,
-};
+use ql_core::{err, info, JavaInstallProgress};
+use ql_instances::{AssetRedownloadProgress, LogEvent, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{
         fabric::FabricInstallProgress, forge::ForgeInstallProgress,

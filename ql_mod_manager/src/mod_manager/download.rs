@@ -6,12 +6,14 @@ use std::{
 
 use async_recursion::async_recursion;
 use chrono::DateTime;
-use ql_instances::{
+use ql_core::{
     err, file_utils, info, io_err,
-    json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
-    pt, MOD_DOWNLOAD_LOCK,
+    json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    pt,
 };
 use reqwest::Client;
+
+use crate::rate_limiter::MOD_DOWNLOAD_LOCK;
 
 use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
 

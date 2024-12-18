@@ -1,4 +1,4 @@
-use ql_instances::{file_utils, io_err};
+use ql_core::{file_utils, io_err};
 
 use crate::{instance_mod_installer::change_instance_type, mod_manager::Loader};
 

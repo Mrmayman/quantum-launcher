@@ -1,10 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::{file_utils, io_err, IoError, JsonFileError};
 use serde::{Deserialize, Serialize};
-
-use crate::{error::IoError, file_utils, io_err};
-
-use super::JsonFileError;
 
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case)]

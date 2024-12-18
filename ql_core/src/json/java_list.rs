@@ -1,10 +1,9 @@
 use std::fmt::Display;
 
+use crate::file_utils;
 use serde::{Deserialize, Serialize};
 
-use crate::file_utils;
-
-use super::JsonDownloadError;
+use crate::JsonDownloadError;
 
 pub const JAVA_LIST_URL: &str = "https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
@@ -35,8 +34,8 @@ impl Display for JavaVersion {
     }
 }
 
-impl From<crate::json_structs::json_version::JavaVersion> for JavaVersion {
-    fn from(version: crate::json_structs::json_version::JavaVersion) -> Self {
+impl From<crate::json::version::JavaVersion> for JavaVersion {
+    fn from(version: crate::json::version::JavaVersion) -> Self {
         match version.majorVersion {
             8 => JavaVersion::Java8,
             16 => JavaVersion::Java16,

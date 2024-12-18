@@ -8,27 +8,20 @@ use std::{
     sync::mpsc::{SendError, Sender},
 };
 
-use futures::StreamExt;
 use indicatif::ProgressBar;
+use ql_core::{
+    do_jobs, err, file_utils, info, io_err,
+    json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    IoError, JsonDownloadError, RequestError,
+};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use zip_extract::ZipExtractError;
 
-/// Limit on how many files to download concurrently.
-const JOBS: usize = 64;
-
 use crate::{
-    err,
-    error::IoError,
-    file_utils::{self, RequestError},
-    info,
     instance::launch::AssetRedownloadProgress,
-    io_err,
-    json_structs::{
-        json_instance_config::InstanceConfigJson, json_manifest::Manifest,
-        json_profiles::ProfileJson, json_version::VersionDetails, JsonDownloadError,
-    },
+    json_structs::{json_manifest::Manifest, json_profiles::ProfileJson},
 };
 
 use self::{constants::DEFAULT_RAM_MB_FOR_INSTANCE, progress::DownloadProgress};
@@ -579,25 +572,4 @@ impl Display for DownloadError {
             DownloadError::NativesOutsideDirRemove => write!(f, "download error: tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"),
         }
     }
-}
-
-pub async fn do_jobs<ResultType>(
-    results: impl Iterator<Item = impl std::future::Future<Output = ResultType>>,
-) -> Vec<ResultType> {
-    let mut tasks = futures::stream::FuturesUnordered::new();
-    let mut outputs = Vec::new();
-
-    for result in results {
-        tasks.push(result);
-        if tasks.len() > JOBS {
-            if let Some(task) = tasks.next().await {
-                outputs.push(task);
-            }
-        }
-    }
-
-    while let Some(task) = tasks.next().await {
-        outputs.push(task);
-    }
-    outputs
 }

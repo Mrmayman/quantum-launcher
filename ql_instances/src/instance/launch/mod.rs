@@ -1,20 +1,16 @@
+use crate::download::GameDownloader;
 use error::GameLaunchError;
-use tokio::process::{Child, Command};
-
-use crate::{
-    download::GameDownloader,
-    error::IoError,
-    file_utils, info, io_err,
-    java_install::{self, JavaInstallProgress},
-    json_structs::{
-        json_fabric::FabricJSON,
-        json_forge::JsonForgeDetails,
-        json_instance_config::InstanceConfigJson,
-        json_java_list::JavaVersion,
-        json_optifine::JsonOptifine,
-        json_version::{LibraryDownloads, VersionDetails},
-        JsonFileError,
+use ql_core::{
+    file_utils, get_java_binary, info, io_err,
+    json::{
+        fabric::FabricJSON,
+        forge::JsonForgeDetails,
+        instance_config::InstanceConfigJson,
+        java_list::JavaVersion,
+        optifine::JsonOptifine,
+        version::{LibraryDownloadArtifact, LibraryDownloads, VersionDetails},
     },
+    IoError, JavaInstallProgress, JsonFileError,
 };
 use std::{
     collections::HashSet,
@@ -22,6 +18,7 @@ use std::{
     process::Stdio,
     sync::{mpsc::Sender, Arc, Mutex},
 };
+use tokio::process::{Child, Command};
 
 pub(super) mod error;
 
@@ -529,7 +526,7 @@ impl GameLauncher {
         &self,
         name: &str,
         classpath_entries: &mut HashSet<String>,
-        artifact: &crate::json_structs::json_version::LibraryDownloadArtifact,
+        artifact: &LibraryDownloadArtifact,
         class_path: &mut String,
     ) -> Result<(), GameLaunchError> {
         if let Some(name) = remove_version_from_library(name) {
@@ -559,12 +556,7 @@ impl GameLauncher {
                 JavaVersion::Java8
             };
             Ok(Command::new(
-                java_install::get_java_binary(
-                    version,
-                    "java",
-                    self.java_install_progress_sender.take(),
-                )
-                .await?,
+                get_java_binary(version, "java", self.java_install_progress_sender.take()).await?,
             ))
         }
     }

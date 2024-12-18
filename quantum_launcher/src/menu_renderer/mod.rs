@@ -1,7 +1,8 @@
 use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 
 use iced::widget;
-use ql_instances::{file_utils, LAUNCHER_VERSION_NAME};
+use ql_core::file_utils;
+use ql_instances::LAUNCHER_VERSION_NAME;
 
 use crate::{
     config::LauncherConfig,

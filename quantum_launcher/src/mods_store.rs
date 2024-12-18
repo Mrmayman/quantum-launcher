@@ -4,9 +4,9 @@ use std::{
 };
 
 use iced::Command;
-use ql_instances::{
+use ql_core::{
     file_utils, io_err,
-    json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
+    json::{instance_config::InstanceConfigJson, version::VersionDetails},
 };
 use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
 

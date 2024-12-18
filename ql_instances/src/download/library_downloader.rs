@@ -4,17 +4,17 @@ use std::{
     sync::Mutex,
 };
 
+use ql_core::{
+    do_jobs, file_utils, info, io_err,
+    json::version::{
+        Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
+    },
+    IoError,
+};
 use reqwest::Client;
 use zip_extract::ZipExtractError;
 
-use crate::{
-    download::{do_jobs, progress::DownloadProgress},
-    error::IoError,
-    file_utils, info, io_err,
-    json_structs::json_version::{
-        Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
-    },
-};
+use crate::download::progress::DownloadProgress;
 
 use super::{constants::OS_NAME, DownloadError, GameDownloader};
 

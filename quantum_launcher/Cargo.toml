@@ -20,6 +20,7 @@ embed-resource = "3"
 [dependencies]
 ql_instances = { path = "../ql_instances" }
 ql_mod_manager = { path = "../ql_mod_manager" }
+ql_core = { path = "../ql_core" }
 
 # For the GUI
 iced = { version = "0.12", features = ["tokio", "image"] }

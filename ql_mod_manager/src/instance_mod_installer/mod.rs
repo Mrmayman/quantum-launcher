@@ -1,8 +1,6 @@
 use std::{fmt::Display, path::Path};
 
-use ql_instances::{
-    error::IoError, io_err, json_structs::json_instance_config::InstanceConfigJson,
-};
+use ql_core::{io_err, json::instance_config::InstanceConfigJson, IoError};
 
 pub mod fabric;
 pub mod forge;

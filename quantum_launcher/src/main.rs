@@ -32,13 +32,12 @@ use launcher_state::{
 
 use menu_renderer::menu_delete_instance_view;
 use message_handler::open_file_explorer;
-use ql_instances::{
-    err,
-    error::IoError,
-    file_utils, info,
-    json_structs::{json_instance_config::InstanceConfigJson, json_version::VersionDetails},
-    UpdateCheckInfo, LAUNCHER_VERSION_NAME,
+use ql_core::{
+    err, file_utils, info,
+    json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    IoError,
 };
+use ql_instances::{UpdateCheckInfo, LAUNCHER_VERSION_NAME};
 use ql_mod_manager::{
     instance_mod_installer,
     mod_manager::{ModIndex, ProjectInfo},

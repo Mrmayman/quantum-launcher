@@ -8,15 +8,11 @@ use std::{
     },
 };
 
+use ql_core::{err, file_utils, info, io_err, IoError, RequestError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    err,
-    error::IoError,
-    file_utils::{self, RequestError},
-    info, io_err, LAUNCHER_VERSION,
-};
+use crate::LAUNCHER_VERSION;
 
 #[derive(Debug, Clone)]
 pub enum UpdateCheckInfo {

@@ -6,14 +6,14 @@ use std::{
 };
 
 use error::{ForgeInstallError, Is404NotFound};
-use ql_instances::{
-    err, file_utils, info, io_err, java_install,
-    json_structs::{
-        json_forge::{
+use ql_core::{
+    err, file_utils, get_java_binary, info, io_err,
+    json::{
+        forge::{
             JsonForgeDetails, JsonForgeDetailsLibrary, JsonForgeInstallProfile, JsonForgeVersions,
         },
-        json_java_list::JavaVersion,
-        json_version::VersionDetails,
+        java_list::JavaVersion,
+        version::VersionDetails,
     },
     pt, JavaInstallProgress,
 };
@@ -153,8 +153,7 @@ impl ForgeInstaller {
         std::fs::create_dir_all(&libraries_dir).map_err(io_err!(libraries_dir))?;
 
         let classpath = if self.major_version >= 14 {
-            let javac_path =
-                java_install::get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
+            let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
             let java_source_file = include_str!("../../../../assets/ClientInstaller.java");
 
             let source_path = self.forge_dir.join("ClientInstaller.java");
@@ -184,8 +183,7 @@ impl ForgeInstaller {
                     String::from_utf8(output.stderr)?,
                 ));
             }
-            let java_path =
-                java_install::get_java_binary(JavaVersion::Java21, "java", None).await?;
+            let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
 
             pt!("Running Installer");
             let output = Command::new(&java_path)
@@ -393,8 +391,7 @@ impl ForgeInstaller {
         std::fs::write(&cropped_pack_path, &pack_crop).map_err(io_err!(cropped_pack_path))?;
 
         pt!("Unpacking extracted file");
-        let unpack200_path =
-            java_install::get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
+        let unpack200_path = get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
         let output = Command::new(&unpack200_path)
             .args(&[format!("{dest_str}.pack.crop",), dest_str.to_owned()])
             .output()

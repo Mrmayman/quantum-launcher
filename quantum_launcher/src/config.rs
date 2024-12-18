@@ -1,7 +1,6 @@
-use std::path::Path;
-
-use ql_instances::{err, file_utils, io_err, json_structs::JsonFileError};
+use ql_core::{err, file_utils, io_err, JsonFileError};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct LauncherConfig {

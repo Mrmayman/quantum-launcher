@@ -1,5 +1,7 @@
-use ql_instances::{err, file_utils};
+use ql_core::{err, file_utils};
 use serde::{Deserialize, Serialize};
+
+use crate::rate_limiter::RATE_LIMITER;
 
 use super::ModError;
 
@@ -41,7 +43,7 @@ pub struct ProjectInfo {
 
 impl ProjectInfo {
     pub async fn download(id: String) -> Result<Self, ModError> {
-        let _lock = ql_instances::RATE_LIMITER.lock().await;
+        let _lock = RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{id}");
         let client = reqwest::Client::new();
         let file = file_utils::download_file_to_string(&client, &url, true).await?;

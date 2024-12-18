@@ -1,4 +1,3 @@
-use crate::err;
 use std::{
     fmt::Display,
     process::ExitStatus,
@@ -14,7 +13,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use crate::{error::IoError, file_utils, io_err, json_structs::json_version::VersionDetails};
+use ql_core::{err, file_utils, io_err, json::version::VersionDetails, IoError};
 
 pub async fn read_logs_wrapped(
     stdout: ChildStdout,

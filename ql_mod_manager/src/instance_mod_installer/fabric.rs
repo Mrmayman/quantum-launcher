@@ -4,11 +4,10 @@ use std::{
     sync::mpsc::{SendError, Sender},
 };
 
-use ql_instances::{
-    error::IoError,
-    file_utils::{self, RequestError},
-    info, io_err,
-    json_structs::{json_fabric::FabricJSON, json_version::VersionDetails, JsonFileError},
+use ql_core::{
+    file_utils, info, io_err,
+    json::{fabric::FabricJSON, version::VersionDetails},
+    IoError, JsonFileError, RequestError,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

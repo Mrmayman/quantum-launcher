@@ -1,9 +1,6 @@
 use std::{fmt::Display, num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
-use ql_instances::{
-    error::IoError, file_utils::RequestError, java_install::JavaInstallError,
-    json_structs::JsonDownloadError,
-};
+use ql_core::{IoError, JavaInstallError, JsonDownloadError, RequestError};
 use zip_extract::ZipExtractError;
 
 use crate::instance_mod_installer::ChangeConfigError;

@@ -1,13 +1,9 @@
-use crate::mod_manager::ModError;
-use crate::mod_manager::ModIndex;
-use ql_instances::err;
-use ql_instances::error::IoError;
-use ql_instances::file_utils;
-use ql_instances::info;
-use ql_instances::pt;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::path::Path;
+use crate::mod_manager::{ModError, ModIndex};
+use ql_core::{err, file_utils, info, pt, IoError};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 pub async fn delete_mods_wrapped(
     ids: Vec<String>,

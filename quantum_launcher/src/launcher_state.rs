@@ -6,15 +6,14 @@ use std::{
 };
 
 use iced::{widget::image::Handle, Command};
+use ql_core::{
+    err, file_utils, io_err,
+    json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    IoError, JavaInstallProgress, JsonFileError,
+};
 use ql_instances::{
-    err,
-    error::IoError,
-    file_utils, io_err,
-    json_structs::{
-        json_instance_config::InstanceConfigJson, json_version::VersionDetails, JsonFileError,
-    },
-    AssetRedownloadProgress, DownloadProgress, GameLaunchResult, JavaInstallProgress, LogLine,
-    UpdateCheckInfo, UpdateProgress,
+    AssetRedownloadProgress, DownloadProgress, GameLaunchResult, LogLine, UpdateCheckInfo,
+    UpdateProgress,
 };
 use ql_mod_manager::{
     instance_mod_installer::{

@@ -5,16 +5,13 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use ql_instances::{
-    error::IoError,
-    file_utils::{self, RequestError},
-    info, io_err,
-    java_install::{self, JavaInstallError},
-    json_structs::{
-        json_instance_config::InstanceConfigJson, json_java_list::JavaVersion,
-        json_optifine::JsonOptifine, json_version::VersionDetails, JsonFileError,
+use ql_core::{
+    file_utils, get_java_binary, info, io_err,
+    json::{
+        instance_config::InstanceConfigJson, java_list::JavaVersion, optifine::JsonOptifine,
+        version::VersionDetails,
     },
-    JavaInstallProgress,
+    IoError, JavaInstallError, JavaInstallProgress, JsonFileError, RequestError,
 };
 
 use crate::mod_manager::Loader;
@@ -225,7 +222,7 @@ async fn download_libraries(
 }
 
 async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(), OptifineError> {
-    let java_path = java_install::get_java_binary(JavaVersion::Java21, "java", None).await?;
+    let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
     let output = Command::new(&java_path)
         .args([
             "-cp",
@@ -253,8 +250,7 @@ async fn compile_hook(
     optifine_path: &Path,
     java_progress_sender: Option<Sender<JavaInstallProgress>>,
 ) -> Result<(), OptifineError> {
-    let javac_path =
-        java_install::get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
+    let javac_path = get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
     let output = Command::new(&javac_path)
         .args([
             "-cp",

@@ -1,8 +1,10 @@
 use std::sync::mpsc::Sender;
 
+use ql_core::{file_utils, info, io_err};
+
 use crate::{
     download::{progress::DownloadProgress, DownloadError, GameDownloader},
-    file_utils, info, io_err, LAUNCHER_VERSION_NAME,
+    LAUNCHER_VERSION_NAME,
 };
 
 /// Creates a Minecraft instance. The argument types have been made owned objects

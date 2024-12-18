@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_instances::{err, error::IoError, file_utils};
+use ql_core::{err, file_utils, IoError};
 
 use crate::mod_manager::ModIndex;
 

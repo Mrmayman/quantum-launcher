@@ -6,16 +6,12 @@ use std::{
 };
 
 use crate::{
-    download::do_jobs,
-    err,
-    error::IoError,
-    file_utils::{self, RequestError},
-    info, io_err,
-    json_structs::{
-        json_java_files::{JavaFile, JavaFilesJson},
-        json_java_list::{JavaListJson, JavaVersion},
-        JsonDownloadError,
+    do_jobs, err, file_utils, info, io_err,
+    json::{
+        java_files::{JavaFile, JavaFilesJson},
+        java_list::{JavaListJson, JavaVersion},
     },
+    IoError, JsonDownloadError, RequestError,
 };
 
 pub enum JavaInstallProgress {

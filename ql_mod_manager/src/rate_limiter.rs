@@ -1,9 +1,8 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use lazy_static::lazy_static;
-use tokio::{sync::Mutex, time::Instant};
+use tokio::sync::Mutex;
 
-lazy_static! {
+lazy_static::lazy_static! {
     pub static ref RATE_LIMITER: RateLimiter = RateLimiter::default();
     pub static ref MOD_DOWNLOAD_LOCK: Mutex<()> = Mutex::new(());
 }

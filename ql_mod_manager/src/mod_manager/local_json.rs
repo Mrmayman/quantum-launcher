@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use ql_instances::{file_utils, io_err};
+use ql_core::{file_utils, io_err};
 use serde::{Deserialize, Serialize};
 
 use super::{ModError, ModFile};

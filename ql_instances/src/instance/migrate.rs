@@ -1,7 +1,6 @@
-use crate::{
-    download::GameDownloader, info, io_err, json_structs::json_version::LibraryDownloads,
-    LAUNCHER_VERSION,
-};
+use ql_core::{info, io_err, json::version::LibraryDownloads};
+
+use crate::{download::GameDownloader, LAUNCHER_VERSION};
 
 use super::launch::{error::GameLaunchError, GameLauncher};
 

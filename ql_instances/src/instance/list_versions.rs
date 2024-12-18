@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::json_structs::{json_manifest::Manifest, JsonDownloadError};
+use ql_core::JsonDownloadError;
+
+use crate::json_structs::json_manifest::Manifest;
 
 async fn list() -> Result<Vec<String>, JsonDownloadError> {
     let manifest = Manifest::download().await?;

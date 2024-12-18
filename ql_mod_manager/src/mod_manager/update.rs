@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_instances::info;
+use ql_core::info;
 
 use crate::mod_manager::{
     download::{get_instance_and_mod_dir, get_loader_type, get_version_json, version_sort},

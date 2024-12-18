@@ -1,11 +1,10 @@
 use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
-use ql_instances::{
-    error::IoError,
-    file_utils::{self, RequestError},
-};
+use ql_core::{file_utils, IoError, RequestError};
 use serde::{Deserialize, Serialize};
+
+use crate::rate_limiter::RATE_LIMITER;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Search {
@@ -90,7 +89,7 @@ impl Search {
     }
 
     pub async fn search(query: Query) -> Result<(Self, Instant), ModError> {
-        let _lock = ql_instances::RATE_LIMITER.lock().await;
+        let _lock = RATE_LIMITER.lock().await;
         let instant = Instant::now();
         let url = Search::get_search_url(&query);
         // println!("{url}");
