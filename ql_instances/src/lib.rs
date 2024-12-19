@@ -6,7 +6,7 @@ mod launcher_update_detector;
 pub use download::{constants::OS_NAME, progress::DownloadProgress, DownloadError};
 pub use instance::create::{create_instance, create_instance_wrapped};
 pub use instance::launch::{launch, launch_wrapped, AssetRedownloadProgress, GameLaunchResult};
-pub use instance::list_versions::list_versions;
+pub use instance::list_versions::{list_versions, ListEntry};
 pub use instance::read_log::{
     read_logs, read_logs_wrapped, LogEvent, LogLine, LogMessage, ReadError,
 };

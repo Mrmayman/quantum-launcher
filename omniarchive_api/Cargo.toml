@@ -1,0 +1,12 @@
+[package]
+name = "omniarchive_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ql_core = { path = "../ql_core" }
+
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
+reqwest = "0.12"
+# async-recursion = "1"

@@ -12,8 +12,8 @@ use ql_core::{
     IoError, JavaInstallProgress, JsonFileError,
 };
 use ql_instances::{
-    AssetRedownloadProgress, DownloadProgress, GameLaunchResult, LogLine, UpdateCheckInfo,
-    UpdateProgress,
+    AssetRedownloadProgress, DownloadProgress, GameLaunchResult, ListEntry, LogLine,
+    UpdateCheckInfo, UpdateProgress,
 };
 use ql_mod_manager::{
     instance_mod_installer::{
@@ -43,8 +43,8 @@ pub enum InstallFabricMessage {
 #[derive(Debug, Clone)]
 pub enum CreateInstanceMessage {
     ScreenOpen,
-    VersionsLoaded(Result<Vec<String>, String>),
-    VersionSelected(String),
+    VersionsLoaded(Result<Vec<ListEntry>, String>),
+    VersionSelected(ListEntry),
     NameInput(String),
     Start,
     End(Result<(), String>),
@@ -202,13 +202,13 @@ impl MenuEditMods {
 
 pub struct MenuCreateInstance {
     pub instance_name: String,
-    pub selected_version: Option<String>,
-    pub versions: Vec<String>,
+    pub selected_version: Option<ListEntry>,
+    pub versions: Vec<ListEntry>,
     pub progress_receiver: Option<Receiver<DownloadProgress>>,
     pub progress_number: Option<f32>,
     pub progress_text: Option<String>,
     pub download_assets: bool,
-    pub combo_state: iced::widget::combo_box::State<String>,
+    pub combo_state: iced::widget::combo_box::State<ListEntry>,
 }
 
 pub enum MenuInstallFabric {

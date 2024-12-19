@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["quantum_launcher", "ql_instances", "ql_mod_manager", "ql_core"]
+members = ["quantum_launcher", "ql_instances", "ql_mod_manager", "ql_core", "omniarchive_api"]
 
 # [profile.dev]
 # opt-level = 1

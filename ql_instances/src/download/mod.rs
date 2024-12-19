@@ -9,6 +9,7 @@ use std::{
 };
 
 use indicatif::ProgressBar;
+use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err, file_utils, info, io_err,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
@@ -22,6 +23,7 @@ use zip_extract::ZipExtractError;
 use crate::{
     instance::launch::AssetRedownloadProgress,
     json_structs::{json_manifest::Manifest, json_profiles::ProfileJson},
+    ListEntry,
 };
 
 use self::{constants::DEFAULT_RAM_MB_FOR_INSTANCE, progress::DownloadProgress};
@@ -35,6 +37,7 @@ const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
+    pub version: ListEntry,
     network_client: Client,
     sender: Option<Sender<DownloadProgress>>,
 }
@@ -51,7 +54,7 @@ impl GameDownloader {
     /// Leave as `None` if not required.
     pub async fn new(
         instance_name: &str,
-        version: &str,
+        version: &ListEntry,
         sender: Option<Sender<DownloadProgress>>,
     ) -> Result<GameDownloader, DownloadError> {
         let Some(instance_dir) = GameDownloader::new_get_instance_dir(instance_name).await? else {
@@ -59,13 +62,14 @@ impl GameDownloader {
         };
         let network_client = Client::new();
         let version_json =
-            GameDownloader::new_download_version_json(&network_client, version, sender.as_ref())
+            GameDownloader::new_download_version_json(&network_client, &version, sender.as_ref())
                 .await?;
 
         Ok(Self {
             instance_dir,
             version_json,
             network_client,
+            version: version.clone(),
             sender,
         })
     }
@@ -76,11 +80,13 @@ impl GameDownloader {
         sender: Option<Sender<DownloadProgress>>,
     ) -> Self {
         let network_client = Client::new();
+        let version = ListEntry::Normal(version_json.id.clone());
         Self {
             instance_dir,
             version_json,
             network_client,
             sender,
+            version,
         }
     }
 
@@ -88,12 +94,12 @@ impl GameDownloader {
         info!("Downloading game jar file.");
         self.send_progress(DownloadProgress::DownloadingJar)?;
 
-        let jar_bytes = file_utils::download_file_to_bytes(
-            &self.network_client,
-            &self.version_json.downloads.client.url,
-            false,
-        )
-        .await?;
+        let url = match &self.version {
+            ListEntry::Normal(_) => &self.version_json.downloads.client.url,
+            ListEntry::Omniarchive { url, .. } => url,
+        };
+        let jar_bytes =
+            file_utils::download_file_to_bytes(&self.network_client, url, false).await?;
 
         let version_dir = self
             .instance_dir
@@ -460,7 +466,7 @@ impl GameDownloader {
 
     async fn new_download_version_json(
         network_client: &Client,
-        version: &str,
+        version: &ListEntry,
         sender: Option<&Sender<DownloadProgress>>,
     ) -> Result<VersionDetails, DownloadError> {
         info!("Started downloading version manifest JSON.");
@@ -469,8 +475,16 @@ impl GameDownloader {
         }
         let manifest = Manifest::download().await?;
 
-        let Some(version) = manifest.versions.iter().find(|n| n.id == version) else {
-            return Err(DownloadError::VersionNotFoundInManifest(version.to_owned()));
+        let version = match version {
+            ListEntry::Normal(name) => manifest.find_name(name)?,
+            ListEntry::Omniarchive { category, name, .. } => match category {
+                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-")?,
+                MinecraftVersionCategory::Classic => manifest.find_fuzzy(name, "c0.")?,
+                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(name, "a1.")?,
+                MinecraftVersionCategory::Beta => manifest.find_fuzzy(name, "b1.")?,
+                MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c")?,
+                MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618")?,
+            },
         };
 
         info!("Started downloading version details JSON.");

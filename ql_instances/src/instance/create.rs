@@ -4,7 +4,7 @@ use ql_core::{file_utils, info, io_err};
 
 use crate::{
     download::{progress::DownloadProgress, DownloadError, GameDownloader},
-    LAUNCHER_VERSION_NAME,
+    ListEntry, LAUNCHER_VERSION_NAME,
 };
 
 /// Creates a Minecraft instance. The argument types have been made owned objects
@@ -24,7 +24,7 @@ use crate::{
 /// of `ql_instances::create_instance`.
 pub async fn create_instance_wrapped(
     instance_name: String,
-    version: String,
+    version: ListEntry,
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
 ) -> Result<(), String> {
@@ -48,7 +48,7 @@ pub async fn create_instance_wrapped(
 /// Check the [`DownloadError`] documentation (if there is, lol). This is crap code and you must have standards.
 pub async fn create_instance(
     instance_name: &str,
-    version: String,
+    version: ListEntry,
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
 ) -> Result<(), DownloadError> {

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ql_core = { path = "../ql_core" }
+omniarchive_api = { path = "../omniarchive_api" }
 
 reqwest = { version = "0.12" }
 semver = "1"
@@ -20,3 +21,4 @@ colored = "2"
 indicatif = "0.17"
 
 tokio = { version = "1", features = ["macros", "process"] }
+strsim = "0.11"

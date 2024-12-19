@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::mpsc};
 use chrono::Datelike;
 use iced::Command;
 use ql_core::{err, file_utils, io_err, json::instance_config::InstanceConfigJson, JsonFileError};
-use ql_instances::{DownloadProgress, GameLaunchResult};
+use ql_instances::{DownloadProgress, GameLaunchResult, ListEntry};
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
@@ -145,7 +145,7 @@ impl Launcher {
 
     pub fn create_instance_finish_loading_versions_list(
         &mut self,
-        result: Result<Vec<String>, String>,
+        result: Result<Vec<ListEntry>, String>,
     ) {
         match result {
             Ok(version_list) => {
@@ -158,7 +158,7 @@ impl Launcher {
         }
     }
 
-    pub fn select_created_instance_version(&mut self, selected_version: String) {
+    pub fn select_created_instance_version(&mut self, selected_version: ListEntry) {
         if let State::Create(menu) = &mut self.state {
             menu.selected_version = Some(selected_version);
         }
