@@ -54,52 +54,18 @@ lazy_static::lazy_static! {
         Mutex::new(LoggingState::create());
 }
 
+/// Print an informational message.
+/// Saved to a log file.
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {
         let plain_text = format!("[info] {}\n", format_args!($($arg)*));
-
-        {
-            let mut logger = $crate::print::LOGGER.lock().unwrap();
-            if let Some(logger) = &mut *logger {
-                logger.write_str(&plain_text);
-            }
-        }
 
         if cfg!(windows) {
             println!("{plain_text}")
         } else {
             println!("{} {}", colored::Colorize::yellow("[info]"), format_args!($($arg)*))
         }
-    };
-}
-
-#[macro_export]
-macro_rules! err {
-    ($($arg:tt)*) => {
-        // Ugly hack to fix compiler error
-        if true {
-            let plain_text = format!("[error] {}\n", format_args!($($arg)*));
-            {
-                let mut logger = $crate::print::LOGGER.lock().unwrap();
-                if let Some(logger) = &mut *logger {
-                    logger.write_str(&plain_text);
-                }
-            }
-
-            if cfg!(windows) {
-                eprintln!("{plain_text}")
-            } else {
-                eprintln!("{} {}", colored::Colorize::red("[error]"), format_args!($($arg)*))
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! pt {
-    ($($arg:tt)*) => {
-        let plain_text = format!("[plain] {}\n", format_args!($($arg)*));
 
         {
             let mut logger = $crate::print::LOGGER.lock().unwrap();
@@ -107,11 +73,52 @@ macro_rules! pt {
                 logger.write_str(&plain_text);
             }
         }
+    };
+}
+
+/// Print an error message.
+/// Saved to a log file.
+#[macro_export]
+macro_rules! err {
+    ($($arg:tt)*) => {
+        // Ugly hack to fix compiler error
+        if true {
+            let plain_text = format!("[error] {}\n", format_args!($($arg)*));
+
+            if cfg!(windows) {
+                eprintln!("{plain_text}")
+            } else {
+                eprintln!("{} {}", colored::Colorize::red("[error]"), format_args!($($arg)*))
+            }
+
+            {
+                let mut logger = $crate::print::LOGGER.lock().unwrap();
+                if let Some(logger) = &mut *logger {
+                    logger.write_str(&plain_text);
+                }
+            }
+        }
+    };
+}
+
+/// Print a point message, ie. a small step in some process.
+/// Saved to a log file.
+#[macro_export]
+macro_rules! pt {
+    ($($arg:tt)*) => {
+        let plain_text = format!("[plain] {}\n", format_args!($($arg)*));
 
         if cfg!(windows) {
             println!("- {}", format_args!($($arg)*))
         } else {
             println!("{} {}", colored::Colorize::bold("-"), format_args!($($arg)*))
+        }
+
+        {
+            let mut logger = $crate::print::LOGGER.lock().unwrap();
+            if let Some(logger) = &mut *logger {
+                logger.write_str(&plain_text);
+            }
         }
     };
 }

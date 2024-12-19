@@ -10,13 +10,9 @@ A minimalistic Minecraft launcher for Windows and Linux written in *Rust* with t
 # Features
 - Lightweight and responsive. No more minute-long loading screens, no more laggy buttons
 - Automatically manages Java installations
-## Instances:
 - Isolate your different game versions with instances!
-- Create or delete an Instance easily.
-## Modding:
-- Install fabric and forge with one click.
-- Build in mod store to download your favorite mods (experimental feature, will be released in next update)
-
+- Install fabric, forge or optifine with ease
+- Build in mod store to download your favorite mods
 # Downloads and Building
 - You can download the stable version from the website linked above, or from the *Releases*
 - Or, you can compile the launcher to get the latest experimental version (with potentially broken and untested features).

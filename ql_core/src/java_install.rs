@@ -24,11 +24,11 @@ pub enum JavaInstallProgress {
     P3Done,
 }
 
-/// Returns a `PathBuf` pointing to the Java executable.
+/// Returns a `PathBuf` pointing to a Java executable of your choice.
 /// You can select which Java version you want through the `version` argument.
 ///
-/// The name argument can be made "java" for launching the game, unless you want something else like "javac"
-/// (the java compiler).
+/// The name argument can be made "java" for launching the game,
+/// unless you want something else like "javac" (the java compiler).
 ///
 /// This downloads and installs Java if not already installed,
 /// and if already installed, uses the existing installation.

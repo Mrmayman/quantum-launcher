@@ -32,6 +32,14 @@ impl Display for IoError {
     }
 }
 
+/// Simple tool to convert an `std::io::Error` into an [`IoError`],
+/// an error type that includes the path that caused the error.
+///
+/// # Example
+/// ```no_run
+/// let path = PathBuf::from("file.txt");
+/// let result = std::fs::read_to_string(&path).map_err(io_err!(path));
+/// ```
 #[macro_export]
 macro_rules! io_err {
     ($path:expr) => {

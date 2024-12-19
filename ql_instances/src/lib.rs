@@ -3,8 +3,7 @@ mod instance;
 pub mod json_structs;
 mod launcher_update_detector;
 
-pub use download::constants::OS_NAME;
-pub use download::progress::DownloadProgress;
+pub use download::{constants::OS_NAME, progress::DownloadProgress, DownloadError};
 pub use instance::create::{create_instance, create_instance_wrapped};
 pub use instance::launch::{launch, launch_wrapped, AssetRedownloadProgress, GameLaunchResult};
 pub use instance::list_versions::list_versions;
@@ -12,8 +11,8 @@ pub use instance::read_log::{
     read_logs, read_logs_wrapped, LogEvent, LogLine, LogMessage, ReadError,
 };
 pub use launcher_update_detector::{
-    check_for_updates, check_for_updates_wrapped, install_update, install_update_wrapped,
-    UpdateCheckInfo, UpdateError, UpdateProgress,
+    check_for_launcher_updates, check_for_launcher_updates_wrapped, install_launcher_update,
+    install_launcher_update_wrapped, UpdateCheckInfo, UpdateError, UpdateProgress,
 };
 
 use semver::{BuildMetadata, Prerelease};

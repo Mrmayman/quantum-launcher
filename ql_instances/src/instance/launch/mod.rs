@@ -425,16 +425,16 @@ impl GameLauncher {
 
                 for entry in forge_classpath
                     .split(CLASSPATH_SEPARATOR)
-                    .filter(|n| !n.is_empty())
+                    .filter(|n| n.split_whitespace().find(|n| !n.is_empty()).is_some())
                 {
                     // /net/minecraftforge/forge/1.21.1-52.0.28/forge-1.21.1-52.0.28-universal.jar
                     let entry = entry
                         .strip_prefix(forge_libs_dir)
-                        .ok_or(GameLaunchError::OutdatedForgeInstall)?;
+                        .ok_or(GameLaunchError::ForgeInstallUpgradeStripPrefixError)?;
 
                     // /.net.minecraftforge:forge
-                    let entry =
-                        transform_path(entry).ok_or(GameLaunchError::OutdatedForgeInstall)?;
+                    let entry = transform_path(entry)
+                        .ok_or(GameLaunchError::ForgeInstallUpgradeTransformPathError)?;
 
                     // net.minecraftforge:forge
                     let entry = &entry[2..];

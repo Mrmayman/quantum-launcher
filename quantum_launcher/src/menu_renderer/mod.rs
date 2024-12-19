@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use iced::widget;
 use ql_core::file_utils;
@@ -305,12 +305,12 @@ impl MenuEditInstance {
                     widget::column!(
                         "Java arguments:",
                         widget::column!(
-                            self.get_java_args_list(
+                            Self::get_java_args_list(
                                 self.config.java_args.as_ref(),
                                 |n| Message::EditInstance(EditInstanceMessage::JavaArgDelete(n)),
                                 |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftUp(n)),
                                 |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftDown(n)),
-                                Arc::new(|n, i| Message::EditInstance(EditInstanceMessage::JavaArgEdit(n, i)))
+                                &|n, i| Message::EditInstance(EditInstanceMessage::JavaArgEdit(n, i))
                             ),
                             button_with_icon(icon_manager::create(), "Add")
                                 .on_press(Message::EditInstance(EditInstanceMessage::JavaArgsAdd))
@@ -321,12 +321,12 @@ impl MenuEditInstance {
                     widget::column!(
                         "Game arguments:",
                         widget::column!(
-                            self.get_java_args_list(
+                            Self::get_java_args_list(
                                 self.config.game_args.as_ref(),
                                 |n| Message::EditInstance(EditInstanceMessage::GameArgDelete(n)),
                                 |n| Message::EditInstance(EditInstanceMessage::GameArgShiftUp(n)),
                                 |n| Message::EditInstance(EditInstanceMessage::GameArgShiftDown(n)),
-                                Arc::new(|n, i| Message::EditInstance(EditInstanceMessage::GameArgEdit(n, i)))
+                                &|n, i| Message::EditInstance(EditInstanceMessage::GameArgEdit(n, i))
                             ),
                             button_with_icon(icon_manager::create(), "Add")
                                 .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
@@ -339,21 +339,19 @@ impl MenuEditInstance {
         ).into()
     }
 
-    fn get_java_args_list(
-        &self,
-        args: Option<&Vec<String>>,
+    fn get_java_args_list<'a>(
+        args: Option<&'a Vec<String>>,
         mut msg_delete: impl FnMut(usize) -> Message,
         mut msg_up: impl FnMut(usize) -> Message,
         mut msg_down: impl FnMut(usize) -> Message,
-        edit_msg: Arc<dyn Fn(String, usize) -> Message>,
-    ) -> Element {
+        edit_msg: &'a dyn Fn(String, usize) -> Message,
+    ) -> Element<'a> {
         const ITEM_SIZE: u16 = 10;
 
         let Some(args) = args else {
             return widget::column!().into();
         };
         widget::column(args.iter().enumerate().map(|(i, arg)| {
-            let edit_msg = edit_msg.clone();
             widget::row!(
                 widget::button(
                     widget::row![icon_manager::delete_with_size(ITEM_SIZE)]

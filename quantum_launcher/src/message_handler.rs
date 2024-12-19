@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::{mpsc, Arc},
-};
+use std::{collections::HashSet, sync::mpsc};
 
 use chrono::Datelike;
 use iced::Command;
@@ -109,15 +106,14 @@ impl Launcher {
                         ),
                         Message::LaunchEndedLog,
                     );
-                } else {
-                    self.processes.insert(
-                        selected_instance.clone(),
-                        GameProcess {
-                            child: child.clone(),
-                            receiver: None,
-                        },
-                    );
                 }
+                self.processes.insert(
+                    selected_instance.clone(),
+                    GameProcess {
+                        child: child.clone(),
+                        receiver: None,
+                    },
+                );
             }
             GameLaunchResult::Err(err) => self.set_error(err),
         }
@@ -149,7 +145,7 @@ impl Launcher {
 
     pub fn create_instance_finish_loading_versions_list(
         &mut self,
-        result: Result<Arc<Vec<String>>, String>,
+        result: Result<Vec<String>, String>,
     ) {
         match result {
             Ok(version_list) => {
@@ -337,30 +333,27 @@ pub async fn get_locally_installed_mods(
         .join("instances")
         .join(&selected_instance)
         .join(".minecraft/mods");
-    match tokio::fs::read_dir(&mods_dir_path).await {
-        Ok(mut dir) => {
-            let mut set = HashSet::new();
-            while let Ok(Some(entry)) = dir.next_entry().await {
-                let path = entry.path();
-                let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
-                    continue;
-                };
-                if blacklist.contains(&file_name.to_owned()) {
-                    continue;
-                }
-                let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
-                    continue;
-                };
-                if extension == "jar" {
-                    set.insert(file_name.to_owned());
-                }
+    if let Ok(mut dir) = tokio::fs::read_dir(&mods_dir_path).await {
+        let mut set = HashSet::new();
+        while let Ok(Some(entry)) = dir.next_entry().await {
+            let path = entry.path();
+            let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if blacklist.contains(&file_name.to_owned()) {
+                continue;
             }
-            set
+            let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if extension == "jar" {
+                set.insert(file_name.to_owned());
+            }
         }
-        Err(_) => {
-            err!("Error reading mods directory");
-            HashSet::new()
-        }
+        set
+    } else {
+        err!("Error reading mods directory");
+        HashSet::new()
     }
 }
 

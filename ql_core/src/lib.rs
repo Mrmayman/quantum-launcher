@@ -1,7 +1,19 @@
+//! Core utilities shared between the various crates.
+//!
+//! # Contains
+//! - Java auto-installer
+//! - File utilities
+//! - Error types
+//! - JSON structs for version, instance config, Fabric, Forge, OptiFine, etc
+//! - Logging macros
+
 mod error;
+/// Common utilities for working with files.
 pub mod file_utils;
 mod java_install;
+/// JSON structs for version, instance config, Fabric, Forge, OptiFine, etc.
 pub mod json;
+/// Logging macros.
 pub mod print;
 
 pub use error::{IoError, JsonDownloadError, JsonFileError};
@@ -12,6 +24,7 @@ pub use java_install::{get_java_binary, JavaInstallError, JavaInstallProgress};
 /// Limit on how many files to download concurrently.
 const JOBS: usize = 64;
 
+/// Perform multiple async tasks concurrently.
 pub async fn do_jobs<ResultType>(
     results: impl Iterator<Item = impl std::future::Future<Output = ResultType>>,
 ) -> Vec<ResultType> {

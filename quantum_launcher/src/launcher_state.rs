@@ -43,7 +43,7 @@ pub enum InstallFabricMessage {
 #[derive(Debug, Clone)]
 pub enum CreateInstanceMessage {
     ScreenOpen,
-    VersionsLoaded(Result<Arc<Vec<String>>, String>),
+    VersionsLoaded(Result<Vec<String>, String>),
     VersionSelected(String),
     NameInput(String),
     Start,
@@ -189,7 +189,7 @@ impl MenuEditMods {
     ) -> Command<Message> {
         let mut blacklist = Vec::new();
         for mod_info in idx.mods.values() {
-            for file in mod_info.files.iter() {
+            for file in &mod_info.files {
                 blacklist.push(file.filename.clone());
             }
         }

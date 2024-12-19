@@ -45,6 +45,7 @@ impl ModVersion {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[allow(clippy::struct_field_names)]
 pub struct Dependency {
     pub version_id: Option<serde_json::Value>,
     pub project_id: String,

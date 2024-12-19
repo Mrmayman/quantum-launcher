@@ -16,6 +16,27 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+//! QuantumLauncher is a Minecraft launcher written in Rust using the Iced GUI framework.
+//!
+//! For more information see the `../../README.md` file.
+//!
+//! # Crate Structure
+//! - `quantum_launcher` - The GUI frontend
+//! - `ql_instances` - Instance management, updating and launching
+//! - `ql_mod_manager` - Mod management and installation
+//! - `ql_core` - Core utilities and shared code
+//!
+//! # Brief Overview of the codebase
+//! The architecture of the launcher is based on the
+//! Model-View-Controller pattern (AKA the thing used in iced).
+//!
+//! - The `Launcher` struct is the main controller of the application.
+//! - `view()` renders the app's view based on the current state.
+//! - `update()` processes messages and updates the state accordingly.
+//!
+//! So it's a back-and-forth between `Message`s coming from interaction,
+//! and code to deal with the messages in `update()`.
+
 use std::{path::PathBuf, time::Duration};
 
 use colored::Colorize;
@@ -65,7 +86,7 @@ impl Application for Launcher {
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let load_icon_command = load_window_icon();
         let check_for_updates_command = Command::perform(
-            ql_instances::check_for_updates_wrapped(),
+            ql_instances::check_for_launcher_updates_wrapped(),
             Message::UpdateCheckResult,
         );
 
@@ -254,7 +275,7 @@ impl Application for Launcher {
                     *progress_message = Some("Starting Update".to_owned());
 
                     return Command::perform(
-                        ql_instances::install_update_wrapped(url.clone(), sender),
+                        ql_instances::install_launcher_update_wrapped(url.clone(), sender),
                         Message::UpdateDownloadEnd,
                     );
                 }

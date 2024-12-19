@@ -11,14 +11,18 @@ use crate::{error::IoError, io_err};
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
     let launcher_directory = config_directory.join("QuantumLauncher");
-    std::fs::create_dir_all(&launcher_directory).map_err(|err| IoError::Io {
-        error: err,
-        path: launcher_directory.clone(),
-    })?;
+    std::fs::create_dir_all(&launcher_directory).map_err(io_err!(launcher_directory))?;
 
     Ok(launcher_directory)
 }
 
+/// Downloads a file from the given URL into a `String`.
+///
+/// # Arguments
+/// - `client`: the reqwest client to use for the request
+/// - `url`: the URL to download from
+/// - `user_agent`: whether to use the quantum launcher
+///   user agent (required for modrinth)
 pub async fn download_file_to_string(
     client: &Client,
     url: &str,
@@ -42,6 +46,13 @@ pub async fn download_file_to_string(
     }
 }
 
+/// Downloads a file from the given URL into a `Vec<u8>`.
+///
+/// # Arguments
+/// - `client`: the reqwest client to use for the request
+/// - `url`: the URL to download from
+/// - `user_agent`: whether to use the quantum launcher
+///  user agent (required for modrinth)
 pub async fn download_file_to_bytes(
     client: &Client,
     url: &str,
@@ -91,6 +102,10 @@ impl Display for RequestError {
     }
 }
 
+/// Sets the executable bit on a file.
+///
+/// This makes a file executable on Unix systems,
+/// ie. it can be run as a program.
 #[cfg(target_family = "unix")]
 pub fn set_executable(path: &Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;

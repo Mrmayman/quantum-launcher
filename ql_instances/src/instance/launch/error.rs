@@ -15,8 +15,12 @@ pub enum GameLaunchError {
     PathBufToString(PathBuf),
     JavaInstall(JavaInstallError),
     CommandError(std::io::Error),
-    OutdatedForgeInstall,
+    ForgeInstallUpgradeTransformPathError,
+    ForgeInstallUpgradeStripPrefixError,
 }
+
+const FORGE_UPGRADE_MESSAGE: &str = r#"outdated forge install. Please uninstall and reinstall.
+Select your instance, go to Mods -> Uninstall Forge, then Install Forge."#;
 
 impl Display for GameLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -40,7 +44,14 @@ impl Display for GameLaunchError {
             Self::PathBufToString(err) => write!(f, "couldn't convert pathbuf to string: {err:?}"),
             Self::JavaInstall(err) => write!(f, "(java install) {err}"),
             Self::CommandError(err) => write!(f, "(command) {err}"),
-            Self::OutdatedForgeInstall => write!(f, "outdated forge install. Please uninstall and reinstall.\nSelect your instance, go to Mods -> Uninstall Forge, then Install Forge."),
+            Self::ForgeInstallUpgradeTransformPathError => write!(
+                f,
+                "error upgrading forge install (transforming path)\n{FORGE_UPGRADE_MESSAGE}"
+            ),
+            Self::ForgeInstallUpgradeStripPrefixError => write!(
+                f,
+                "error upgrading forge install (removing prefix)\n{FORGE_UPGRADE_MESSAGE}"
+            ),
         }
     }
 }

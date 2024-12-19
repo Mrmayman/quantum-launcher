@@ -20,8 +20,14 @@ pub enum UpdateCheckInfo {
     NewVersion { url: String },
 }
 
-pub async fn check_for_updates_wrapped() -> Result<UpdateCheckInfo, String> {
-    check_for_updates().await.map_err(|err| err.to_string())
+/// A wrapper around [`check_for_launcher_updates`]
+/// that returns a `String` error instead of a `UpdateError`.
+///
+/// Helpful for use with `iced::Command`.
+pub async fn check_for_launcher_updates_wrapped() -> Result<UpdateCheckInfo, String> {
+    check_for_launcher_updates()
+        .await
+        .map_err(|err| err.to_string())
 }
 
 async fn download_release_info() -> Result<String, RequestError> {
@@ -43,7 +49,13 @@ async fn download_release_info() -> Result<String, RequestError> {
     }
 }
 
-pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
+/// Checks for any launcher updates to be installed.
+///
+/// Returns `Ok(UpdateCheckInfo::UpToDate)` if the launcher is up to date.
+///
+/// Returns `Ok(UpdateCheckInfo::NewVersion { url })` if there is a new version available.
+/// (url pointing to zip file containing new version executable).
+pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError> {
     let json = download_release_info().await?;
     let json: Vec<GithubRelease> = serde_json::from_str(&json)?;
 
@@ -96,11 +108,14 @@ pub async fn check_for_updates() -> Result<UpdateCheckInfo, UpdateError> {
     }
 }
 
-pub async fn install_update_wrapped(
+/// A wrapper around [`install_launcher_update`] that returns a
+/// `String` error instead of a `UpdateError`.
+/// Helpful for use with `iced::Command`.
+pub async fn install_launcher_update_wrapped(
     url: String,
     progress: Sender<UpdateProgress>,
 ) -> Result<(), String> {
-    install_update(url, progress)
+    install_launcher_update(url, progress)
         .await
         .map_err(|err| err.to_string())
 }
@@ -112,7 +127,16 @@ pub enum UpdateProgress {
     P4Extract,
 }
 
-pub async fn install_update(
+/// Installs a new version of the launcher.
+/// The launcher will be backed up, the new version
+/// will be downloaded and extracted.
+///
+/// The new version will be started and the current process will exit.
+///
+/// # Arguments
+/// - `url`: The url to the zip file containing the new version of the launcher.
+/// - `progress`: A channel to send progress updates to.
+pub async fn install_launcher_update(
     url: String,
     progress: Sender<UpdateProgress>,
 ) -> Result<(), UpdateError> {
