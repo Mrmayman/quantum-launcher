@@ -1,6 +1,12 @@
 [workspace]
 
-members = ["quantum_launcher", "ql_instances", "ql_mod_manager", "ql_core", "omniarchive_api"]
+members = [
+    "quantum_launcher",
+    "crates/ql_instances",
+    "crates/ql_mod_manager",
+    "crates/ql_core",
+    "crates/omniarchive_api",
+]
 
 # [profile.dev]
 # opt-level = 1

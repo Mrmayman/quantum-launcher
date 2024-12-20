@@ -18,9 +18,9 @@ build = "build.rs"
 embed-resource = "3"
 
 [dependencies]
-ql_instances = { path = "../ql_instances" }
-ql_mod_manager = { path = "../ql_mod_manager" }
-ql_core = { path = "../ql_core" }
+ql_instances = { path = "../crates/ql_instances" }
+ql_mod_manager = { path = "../crates/ql_mod_manager" }
+ql_core = { path = "../crates/ql_core" }
 
 # For the GUI
 iced = { version = "0.12", features = ["tokio", "image"] }
@@ -29,15 +29,21 @@ iced = { version = "0.12", features = ["tokio", "image"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-tokio = { version = "1", features = ["fs"] } # For managing async tasks
-colored = "2"                                # For colored text output
-chrono = "0.4"                               # For managing the logging time/date
-paste = "1"                                  # For the icon widget macro
-lazy_static = "1"                            # For the global style variable
+# For managing async tasks
+tokio = { version = "1", features = ["fs"] }
+# For colored text output
+colored = "2"
+# For managing the logging time/date
+chrono = "0.4"
+# For the icon widget macro
+paste = "1"
+# For the global style variable
+lazy_static = "1"
+# For the file picker
+rfd = "0.15"
 
 comrak = "0.28" # For markdown parsing (displaying mod pages)
+image = "0.24"
 # We be implementing a full blown HTML renderer in iced with this one
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
-rfd = "0.15"
-image = "0.24"
