@@ -14,6 +14,7 @@ pub use launcher_update_detector::{
     check_for_launcher_updates, check_for_launcher_updates_wrapped, install_launcher_update,
     install_launcher_update_wrapped, UpdateCheckInfo, UpdateError, UpdateProgress,
 };
+pub use omniarchive_api::ScrapeProgress;
 
 use semver::{BuildMetadata, Prerelease};
 

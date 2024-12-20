@@ -1,6 +1,9 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    sync::{mpsc::Sender, Arc},
+};
 
-use omniarchive_api::{MinecraftVersionCategory, WebScrapeError};
+use omniarchive_api::{MinecraftVersionCategory, ScrapeProgress, WebScrapeError};
 use ql_core::{err, JsonDownloadError};
 
 use crate::json_structs::json_manifest::Manifest;
@@ -50,7 +53,7 @@ impl Display for ListEntry {
     }
 }
 
-async fn list() -> Result<Vec<ListEntry>, ListError> {
+async fn list(sender: Option<Arc<Sender<ScrapeProgress>>>) -> Result<Vec<ListEntry>, ListError> {
     let manifest = Manifest::download().await?;
     let mut version_list: Vec<ListEntry> = manifest
         .versions
@@ -61,7 +64,7 @@ async fn list() -> Result<Vec<ListEntry>, ListError> {
         })
         .collect();
 
-    if let Err(err) = add_omniarchive_versions(&mut version_list).await {
+    if let Err(err) = add_omniarchive_versions(&mut version_list, sender).await {
         err!("error getting omniarchive version list: {err}");
         version_list.extend(manifest.versions.iter().filter_map(|n| {
             (!(n.r#type == "release" || n.r#type == "snapshot"))
@@ -72,14 +75,16 @@ async fn list() -> Result<Vec<ListEntry>, ListError> {
     Ok(version_list)
 }
 
-async fn add_omniarchive_versions(normal_list: &mut Vec<ListEntry>) -> Result<(), ListError> {
+async fn add_omniarchive_versions(
+    normal_list: &mut Vec<ListEntry>,
+    progress: Option<Arc<Sender<ScrapeProgress>>>,
+) -> Result<(), ListError> {
     for category in MinecraftVersionCategory::all().into_iter().rev() {
-        let versions = category.download_index().await?;
+        let versions = category.download_index(progress.clone()).await?;
         for url in versions.into_iter().rev() {
             let name = if let Some(name) = url
                 .strip_prefix("https://vault.omniarchive.uk/archive/java/client-")
-                .map(|n| n.strip_suffix(".jar"))
-                .flatten()
+                .and_then(|n| n.strip_suffix(".jar"))
             {
                 name.to_owned()
             } else {
@@ -96,6 +101,8 @@ async fn add_omniarchive_versions(normal_list: &mut Vec<ListEntry>) -> Result<()
 }
 
 /// Returns a list of all available versions of the game.
-pub async fn list_versions() -> Result<Vec<ListEntry>, String> {
-    list().await.map_err(|n| n.to_string())
+pub async fn list_versions(
+    sender: Option<Arc<Sender<ScrapeProgress>>>,
+) -> Result<Vec<ListEntry>, String> {
+    list(sender).await.map_err(|n| n.to_string())
 }

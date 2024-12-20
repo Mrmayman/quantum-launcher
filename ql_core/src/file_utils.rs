@@ -52,7 +52,7 @@ pub async fn download_file_to_string(
 /// - `client`: the reqwest client to use for the request
 /// - `url`: the URL to download from
 /// - `user_agent`: whether to use the quantum launcher
-///  user agent (required for modrinth)
+///   user agent (required for modrinth)
 pub async fn download_file_to_bytes(
     client: &Client,
     url: &str,

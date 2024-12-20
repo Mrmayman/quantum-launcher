@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use iced::Command;
 use ql_core::{err, info, JavaInstallProgress};
-use ql_instances::{AssetRedownloadProgress, LogEvent, LogLine, UpdateProgress};
+use ql_instances::{AssetRedownloadProgress, LogEvent, LogLine, ScrapeProgress, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{
         fabric::FabricInstallProgress, forge::ForgeInstallProgress,
@@ -12,9 +12,9 @@ use ql_mod_manager::{
 };
 
 use crate::launcher_state::{
-    reload_instances, InstanceLog, Launcher, MenuEditMods, MenuInstallFabric, MenuInstallForge,
-    MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets, Message, ModListEntry,
-    State,
+    reload_instances, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric,
+    MenuInstallForge, MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets,
+    Message, ModListEntry, State,
 };
 
 impl Launcher {
@@ -63,7 +63,7 @@ impl Launcher {
                     self.set_error(err.to_string());
                 }
             }
-            State::Create(menu) => Launcher::update_instance_creation_progress_bar(menu),
+            State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
                 menu.sorted_mods_list =
                     sort_dependencies(&menu.mods.mods, &menu.locally_installed_mods);
@@ -479,5 +479,41 @@ impl MenuEditMods {
             }
         }
         false
+    }
+}
+
+impl MenuCreateInstance {
+    pub fn tick(&mut self) {
+        match self {
+            MenuCreateInstance::Loading {
+                progress_receiver,
+                progress_number,
+            } => {
+                while let Ok(progress) = progress_receiver.try_recv() {
+                    if let ScrapeProgress::ScrapedFile = progress {
+                        *progress_number += 1.0;
+                    }
+                    if *progress_number > 21.0 {
+                        err!("More than 20 indexes scraped: {progress_number}")
+                    }
+                }
+            }
+            MenuCreateInstance::Loaded {
+                progress_receiver: Some(receiver),
+                progress_number,
+                progress_text,
+                ..
+            } => {
+                while let Ok(progress) = receiver.try_recv() {
+                    if let Some(progress_text) = progress_text {
+                        *progress_text = progress.to_string();
+                    }
+                    if let Some(progress_num) = progress_number {
+                        *progress_num = progress.into();
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }

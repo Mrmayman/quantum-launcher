@@ -678,46 +678,73 @@ impl MenuEditMods {
 
 impl MenuCreateInstance {
     pub fn view(&self) -> Element {
-        let progress_bar = if let Some(progress_number) = self.progress_number {
-            if let Some(progress_text) = &self.progress_text {
-                widget::column![
-                    widget::progress_bar(RangeInclusive::new(0.0, 10.0), progress_number),
-                    widget::text(progress_text),
-                ]
-            } else {
-                widget::column![]
-            }
-        } else {
-            widget::column![]
-        };
-
-        widget::scrollable(
-            widget::column![
-                widget::button(
-                    widget::row![icon_manager::back(), "Back"]
-                        .spacing(10)
-                        .padding(5)
-                ).on_press_maybe((self.progress_receiver.is_none()).then_some(Message::LaunchScreenOpen(None))),
-                    widget::combo_box(&self.combo_state, "Select a version...", self.selected_version.as_ref(), |version| {
-                        Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
-                    }),
-                widget::text_input("Enter instance name...", &self.instance_name)
-                    .on_input(|n| Message::CreateInstance(CreateInstanceMessage::NameInput(n))),
-                widget::tooltip(
-                    widget::checkbox("Download assets?", self.download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
-                    widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
-                    widget::tooltip::Position::FollowCursor),
-                widget::button(widget::row![icon_manager::create(), "Create Instance"]
-                        .spacing(10)
-                        .padding(5)
-                ).on_press_maybe((self.selected_version.is_some() && !self.instance_name.is_empty() && self.progress_receiver.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
-                widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance").size(12),
-                progress_bar,
+        match self {
+            MenuCreateInstance::Loading {
+                progress_number, ..
+            } => widget::column![
+                widget::text("Loading version list...").size(20),
+                widget::progress_bar(0.0..=21.0, *progress_number),
+                widget::text(if *progress_number >= 1.0 {
+                    format!("Downloading OmniArchive list {progress_number} / 20")
+                } else {
+                    "Downloading official version list".to_owned()
+                })
             ]
+            .padding(10)
             .spacing(10)
-            .padding(10),
-        )
-        .into()
+            .into(),
+            MenuCreateInstance::Loaded {
+                instance_name,
+                selected_version,
+                progress_receiver,
+                progress_number,
+                progress_text,
+                download_assets,
+                combo_state,
+                ..
+            } => {
+                let progress_bar = if let Some(progress_number) = progress_number {
+                    if let Some(progress_text) = progress_text {
+                        widget::column![
+                            widget::progress_bar(RangeInclusive::new(0.0, 10.0), *progress_number),
+                            widget::text(progress_text),
+                        ]
+                    } else {
+                        widget::column![]
+                    }
+                } else {
+                    widget::column![]
+                };
+
+                widget::scrollable(
+                    widget::column![
+                        widget::button(
+                            widget::row![icon_manager::back(), "Back"]
+                                .spacing(10)
+                                .padding(5)
+                        ).on_press_maybe((progress_receiver.is_none()).then_some(Message::LaunchScreenOpen(None))),
+                            widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
+                                Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
+                            }),
+                        widget::text_input("Enter instance name...", instance_name)
+                            .on_input(|n| Message::CreateInstance(CreateInstanceMessage::NameInput(n))),
+                        widget::tooltip(
+                            widget::checkbox("Download assets?", *download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
+                            widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
+                            widget::tooltip::Position::FollowCursor),
+                        widget::button(widget::row![icon_manager::create(), "Create Instance"]
+                                .spacing(10)
+                                .padding(5)
+                        ).on_press_maybe((selected_version.is_some() && !instance_name.is_empty() && progress_receiver.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
+                        widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance").size(12),
+                        progress_bar,
+                    ]
+                    .spacing(10)
+                    .padding(10),
+                )
+                .into()
+            }
+        }
     }
 }
 

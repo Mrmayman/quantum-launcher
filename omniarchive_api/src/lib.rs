@@ -1,4 +1,8 @@
-use std::{collections::HashSet, rc::Rc};
+use std::{
+    collections::HashSet,
+    rc::Rc,
+    sync::{mpsc::Sender, Arc},
+};
 
 use html5ever::tendril::TendrilSink;
 use markup5ever_rcdom::Node;
@@ -6,6 +10,12 @@ use ql_core::file_utils;
 
 mod error;
 pub use error::WebScrapeError;
+
+pub enum ScrapeProgress {
+    Started,
+    ScrapedFile,
+    Done,
+}
 
 #[derive(Clone, Debug)]
 pub enum MinecraftVersionCategory {
@@ -43,7 +53,10 @@ impl MinecraftVersionCategory {
         )
     }
 
-    pub async fn download_index(&self) -> Result<Vec<String>, WebScrapeError> {
+    pub async fn download_index(
+        &self,
+        progress: Option<Arc<Sender<ScrapeProgress>>>,
+    ) -> Result<Vec<String>, WebScrapeError> {
         let url = self.get_url();
 
         let client = reqwest::Client::new();
@@ -52,21 +65,50 @@ impl MinecraftVersionCategory {
         let mut deeper_buffer = Vec::new();
         let mut visited = HashSet::new();
 
-        let mut links = scrape_links(&client, &url, &mut buffer, &mut visited).await?;
+        if let Some(progress) = &progress {
+            progress.send(ScrapeProgress::Started).unwrap();
+        }
+
+        let mut links = scrape_links(
+            &client,
+            &url,
+            &mut buffer,
+            &mut visited,
+            progress.as_deref(),
+        )
+        .await?;
 
         while !buffer.is_empty() || !deeper_buffer.is_empty() {
             for link in &buffer {
-                let scraped_links =
-                    scrape_links(&client, &link, &mut deeper_buffer, &mut visited).await?;
+                let scraped_links = scrape_links(
+                    &client,
+                    link,
+                    &mut deeper_buffer,
+                    &mut visited,
+                    progress.as_deref(),
+                )
+                .await?;
                 links.extend_from_slice(&scraped_links);
             }
             buffer.clear();
             for link in &deeper_buffer {
-                let scraped_links = scrape_links(&client, &link, &mut buffer, &mut visited).await?;
+                let scraped_links = scrape_links(
+                    &client,
+                    link,
+                    &mut buffer,
+                    &mut visited,
+                    progress.as_deref(),
+                )
+                .await?;
                 links.extend_from_slice(&scraped_links);
             }
             deeper_buffer.clear();
         }
+
+        if let Some(progress) = &progress {
+            progress.send(ScrapeProgress::Done).unwrap();
+        }
+
         Ok(links)
     }
 }
@@ -76,12 +118,18 @@ async fn scrape_links(
     url: &str,
     deeper_buffer: &mut Vec<String>,
     visited: &mut HashSet<String>,
+    progress: Option<&Sender<ScrapeProgress>>,
 ) -> Result<Vec<String>, WebScrapeError> {
     if !visited.insert(url.to_owned()) {
         return Ok(Vec::new());
     }
 
     let file = file_utils::download_file_to_string(client, url, true).await?;
+
+    if let Some(progress) = progress {
+        progress.send(ScrapeProgress::ScrapedFile).unwrap();
+    }
+
     let dom = html5ever::parse_document(
         markup5ever_rcdom::RcDom::default(),
         html5ever::ParseOpts::default(),
@@ -123,12 +171,12 @@ fn find_elem(dom: &Node, element_name: &str) -> Result<Rc<Node>, WebScrapeError>
     dom.children
         .borrow()
         .iter()
-        .cloned()
         .find(|n| match &n.data {
             markup5ever_rcdom::NodeData::Element { name, .. } => {
                 name.local.to_string() == element_name
             }
             _ => false,
         })
+        .cloned()
         .ok_or(WebScrapeError::ElementNotFound(element_name.to_owned()))
 }

@@ -4,7 +4,7 @@ use ql_mod_manager::instance_mod_installer;
 use crate::{
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, Launcher,
-        MenuInstallFabric, Message, State,
+        MenuCreateInstance, MenuInstallFabric, Message, State,
     },
     message_handler::format_memory,
 };
@@ -90,15 +90,15 @@ impl Launcher {
             CreateInstanceMessage::NameInput(name) => self.update_created_instance_name(name),
             CreateInstanceMessage::Start => return self.create_instance(),
             CreateInstanceMessage::End(result) => match result {
-                Ok(()) => match Launcher::new(Some("Created New Instance".to_owned())) {
-                    Ok(launcher) => *self = launcher,
-                    Err(err) => self.set_error(err.to_string()),
-                },
+                Ok(()) => self.go_to_launch_screen_with_message("Created Instance".to_owned()),
                 Err(n) => self.state = State::Error { error: n },
             },
             CreateInstanceMessage::ChangeAssetToggle(t) => {
-                if let State::Create(menu) = &mut self.state {
-                    menu.download_assets = t;
+                if let State::Create(MenuCreateInstance::Loaded {
+                    download_assets, ..
+                }) = &mut self.state
+                {
+                    *download_assets = t;
                 }
             }
         }

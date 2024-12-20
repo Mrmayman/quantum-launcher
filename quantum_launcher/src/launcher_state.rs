@@ -13,7 +13,7 @@ use ql_core::{
 };
 use ql_instances::{
     AssetRedownloadProgress, DownloadProgress, GameLaunchResult, ListEntry, LogLine,
-    UpdateCheckInfo, UpdateProgress,
+    ScrapeProgress, UpdateCheckInfo, UpdateProgress,
 };
 use ql_mod_manager::{
     instance_mod_installer::{
@@ -200,15 +200,20 @@ impl MenuEditMods {
     }
 }
 
-pub struct MenuCreateInstance {
-    pub instance_name: String,
-    pub selected_version: Option<ListEntry>,
-    pub versions: Vec<ListEntry>,
-    pub progress_receiver: Option<Receiver<DownloadProgress>>,
-    pub progress_number: Option<f32>,
-    pub progress_text: Option<String>,
-    pub download_assets: bool,
-    pub combo_state: iced::widget::combo_box::State<ListEntry>,
+pub enum MenuCreateInstance {
+    Loading {
+        progress_receiver: Receiver<ScrapeProgress>,
+        progress_number: f32,
+    },
+    Loaded {
+        instance_name: String,
+        selected_version: Option<ListEntry>,
+        progress_receiver: Option<Receiver<DownloadProgress>>,
+        progress_number: Option<f32>,
+        progress_text: Option<String>,
+        download_assets: bool,
+        combo_state: Box<iced::widget::combo_box::State<ListEntry>>,
+    },
 }
 
 pub enum MenuInstallFabric {
@@ -330,6 +335,7 @@ pub struct InstanceLog {
 pub struct Launcher {
     pub state: State,
     pub selected_instance: Option<String>,
+    pub version_list_cache: Option<Vec<ListEntry>>,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
     pub processes: HashMap<String, GameProcess>,
@@ -369,6 +375,7 @@ impl Launcher {
             images_to_load: Mutex::new(HashSet::new()),
             theme,
             style: STYLE.clone(),
+            version_list_cache: None,
         })
     }
 
@@ -394,6 +401,7 @@ impl Launcher {
             images_to_load: Mutex::new(HashSet::new()),
             theme,
             style: STYLE.clone(),
+            version_list_cache: None,
         }
     }
 

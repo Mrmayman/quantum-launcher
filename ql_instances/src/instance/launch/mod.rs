@@ -425,7 +425,7 @@ impl GameLauncher {
 
                 for entry in forge_classpath
                     .split(CLASSPATH_SEPARATOR)
-                    .filter(|n| n.split_whitespace().find(|n| !n.is_empty()).is_some())
+                    .filter(|n| n.split_whitespace().any(|n| !n.is_empty()))
                 {
                     // /net/minecraftforge/forge/1.21.1-52.0.28/forge-1.21.1-52.0.28-universal.jar
                     let entry = entry

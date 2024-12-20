@@ -29,7 +29,7 @@ impl Manifest {
         self.versions
             .iter()
             .filter(|n| n.id.starts_with(filter))
-            .min_by_key(|choice| strsim::levenshtein(&name, &choice.id))
+            .min_by_key(|choice| strsim::levenshtein(name, &choice.id))
             .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))
     }
 }

@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::mpsc};
+use std::{
+    collections::HashSet,
+    sync::{mpsc, Arc},
+};
 
 use chrono::Datelike;
 use iced::Command;
@@ -121,23 +124,25 @@ impl Launcher {
     }
 
     pub fn go_to_create_screen(&mut self) -> Command<Message> {
-        const SKIP_LISTING_VERSIONS: bool = false;
-
-        self.state = State::Create(MenuCreateInstance {
-            instance_name: String::new(),
-            selected_version: None,
-            versions: Vec::new(),
-            progress_receiver: None,
-            progress_number: None,
-            progress_text: None,
-            download_assets: true,
-            combo_state: iced::widget::combo_box::State::new(Vec::new()),
-        });
-
-        if SKIP_LISTING_VERSIONS {
+        if let Some(versions) = self.version_list_cache.clone() {
+            let combo_state = iced::widget::combo_box::State::new(versions.clone());
+            self.state = State::Create(MenuCreateInstance::Loaded {
+                instance_name: String::new(),
+                selected_version: None,
+                progress_receiver: None,
+                progress_number: None,
+                progress_text: None,
+                download_assets: true,
+                combo_state: Box::new(combo_state),
+            });
             Command::none()
         } else {
-            Command::perform(ql_instances::list_versions(), |n| {
+            let (sender, receiver) = mpsc::channel();
+            self.state = State::Create(MenuCreateInstance::Loading {
+                progress_receiver: receiver,
+                progress_number: 0.0,
+            });
+            Command::perform(ql_instances::list_versions(Some(Arc::new(sender))), |n| {
                 Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n))
             })
         }
@@ -148,42 +153,61 @@ impl Launcher {
         result: Result<Vec<ListEntry>, String>,
     ) {
         match result {
-            Ok(version_list) => {
-                if let State::Create(menu) = &mut self.state {
-                    menu.versions.extend_from_slice(&version_list);
-                    menu.combo_state = iced::widget::combo_box::State::new(menu.versions.clone());
-                }
+            Ok(versions) => {
+                self.version_list_cache = Some(versions.clone());
+                let combo_state = iced::widget::combo_box::State::new(versions.clone());
+                self.state = State::Create(MenuCreateInstance::Loaded {
+                    instance_name: String::new(),
+                    selected_version: None,
+                    progress_receiver: None,
+                    progress_number: None,
+                    progress_text: None,
+                    download_assets: true,
+                    combo_state: Box::new(combo_state),
+                });
             }
             Err(n) => self.state = State::Error { error: n },
         }
     }
 
-    pub fn select_created_instance_version(&mut self, selected_version: ListEntry) {
-        if let State::Create(menu) = &mut self.state {
-            menu.selected_version = Some(selected_version);
+    pub fn select_created_instance_version(&mut self, entry: ListEntry) {
+        if let State::Create(MenuCreateInstance::Loaded {
+            selected_version, ..
+        }) = &mut self.state
+        {
+            *selected_version = Some(entry);
         }
     }
 
     pub fn update_created_instance_name(&mut self, name: String) {
-        if let State::Create(menu) = &mut self.state {
-            menu.instance_name = name;
+        if let State::Create(MenuCreateInstance::Loaded { instance_name, .. }) = &mut self.state {
+            *instance_name = name;
         }
     }
 
     pub fn create_instance(&mut self) -> Command<Message> {
-        if let State::Create(menu) = &mut self.state {
+        if let State::Create(MenuCreateInstance::Loaded {
+            progress_receiver,
+            progress_text,
+            progress_number,
+            instance_name,
+            download_assets,
+            selected_version,
+            ..
+        }) = &mut self.state
+        {
             let (sender, receiver) = mpsc::channel::<DownloadProgress>();
-            menu.progress_receiver = Some(receiver);
-            menu.progress_number = Some(0.0);
-            menu.progress_text = Some("Started download".to_owned());
+            *progress_receiver = Some(receiver);
+            *progress_number = Some(0.0);
+            *progress_text = Some("Started download".to_owned());
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
                 ql_instances::create_instance_wrapped(
-                    menu.instance_name.clone(),
-                    menu.selected_version.clone().unwrap(),
+                    instance_name.clone(),
+                    selected_version.clone().unwrap(),
                     Some(sender),
-                    menu.download_assets,
+                    *download_assets,
                 ),
                 |n| Message::CreateInstance(CreateInstanceMessage::End(n)),
             );
@@ -209,25 +233,10 @@ impl Launcher {
                         return;
                     }
 
-                    match Launcher::new(Some("Deleted Instance".to_owned())) {
-                        Ok(launcher) => *self = launcher,
-                        Err(err) => self.set_error(err.to_string()),
-                    }
+                    self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
+                    self.selected_instance = None;
                 }
                 Err(err) => self.set_error(err.to_string()),
-            }
-        }
-    }
-
-    pub fn update_instance_creation_progress_bar(menu: &mut MenuCreateInstance) {
-        if let Some(receiver) = &menu.progress_receiver {
-            while let Ok(progress) = receiver.try_recv() {
-                if let Some(progress_text) = &mut menu.progress_text {
-                    *progress_text = progress.to_string();
-                }
-                if let Some(progress_num) = &mut menu.progress_number {
-                    *progress_num = progress.into();
-                }
             }
         }
     }

@@ -62,7 +62,7 @@ impl GameDownloader {
         };
         let network_client = Client::new();
         let version_json =
-            GameDownloader::new_download_version_json(&network_client, &version, sender.as_ref())
+            GameDownloader::new_download_version_json(&network_client, version, sender.as_ref())
                 .await?;
 
         Ok(Self {
