@@ -5,8 +5,11 @@ use std::{
 
 use chrono::Datelike;
 use iced::Command;
-use ql_core::{err, file_utils, io_err, json::instance_config::InstanceConfigJson, JsonFileError};
-use ql_instances::{DownloadProgress, GameLaunchResult, ListEntry};
+use ql_core::{
+    err, file_utils, io_err, json::instance_config::InstanceConfigJson, DownloadProgress,
+    JsonFileError,
+};
+use ql_instances::{GameLaunchResult, ListEntry};
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{

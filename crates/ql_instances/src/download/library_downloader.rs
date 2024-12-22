@@ -9,14 +9,12 @@ use ql_core::{
     json::version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
-    IoError,
+    DownloadError, DownloadProgress, IoError,
 };
 use reqwest::Client;
 use zip_extract::ZipExtractError;
 
-use crate::download::progress::DownloadProgress;
-
-use super::{constants::OS_NAME, DownloadError, GameDownloader};
+use super::{constants::OS_NAME, GameDownloader};
 
 impl GameDownloader {
     pub async fn download_libraries(&self) -> Result<(), DownloadError> {

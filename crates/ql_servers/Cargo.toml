@@ -1,0 +1,14 @@
+[package]
+name = "ql_servers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ql_core = { path = "../ql_core" }
+omniarchive_api = { path = "../omniarchive_api" }
+
+reqwest = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "process"] }
+colored = "2"

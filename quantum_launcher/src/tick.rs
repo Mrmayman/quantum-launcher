@@ -10,11 +10,12 @@ use ql_mod_manager::{
     },
     mod_manager::{ApplyUpdateProgress, ModConfig, ModIndex, Search},
 };
+use ql_servers::ServerCreateProgress;
 
 use crate::launcher_state::{
-    reload_instances, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric,
+    get_entries, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric,
     MenuInstallForge, MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets,
-    Message, ModListEntry, State,
+    MenuServerCreate, Message, ModListEntry, State,
 };
 
 impl Launcher {
@@ -87,7 +88,7 @@ impl Launcher {
                 if finished_install {
                     let message = "Installed Java".to_owned();
                     self.state = State::Launch(MenuLaunch::with_message(message));
-                    if let Ok(list) = reload_instances() {
+                    if let Ok(list) = get_entries("instances") {
                         self.instances = Some(list);
                     } else {
                         err!("Failed to reload instances list.");
@@ -138,7 +139,7 @@ impl Launcher {
                         java_recv,
                         asset_recv: None,
                     });
-                    if let Ok(list) = reload_instances() {
+                    if let Ok(list) = get_entries("instances") {
                         self.instances = Some(list);
                     } else {
                         err!("Failed to reload instances list.");
@@ -196,6 +197,37 @@ impl Launcher {
                     }
                 }
             }
+            State::ServerManage(_) => {}
+            State::ServerCreate(menu) => match menu {
+                MenuServerCreate::Loading {
+                    progress_receiver,
+                    progress_number,
+                } => {
+                    while let Ok(progress) = progress_receiver.try_recv() {
+                        if let ScrapeProgress::ScrapedFile = progress {
+                            *progress_number += 1.0;
+                        }
+                        if *progress_number > 21.0 {
+                            *progress_number = 21.0;
+                        }
+                    }
+                }
+                MenuServerCreate::Loaded {
+                    progress_receiver,
+                    progress_number,
+                    ..
+                } => {
+                    while let Some(progress) =
+                        progress_receiver.as_ref().and_then(|n| n.try_recv().ok())
+                    {
+                        *progress_number = match progress {
+                            ServerCreateProgress::P1DownloadingManifest => 0.0,
+                            ServerCreateProgress::P2DownloadingVersionJson => 1.0,
+                            ServerCreateProgress::P3DownloadingServerJar => 2.0,
+                        };
+                    }
+                }
+            },
         }
 
         let mut commands = Vec::new();

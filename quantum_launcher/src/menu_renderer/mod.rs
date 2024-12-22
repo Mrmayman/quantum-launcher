@@ -11,7 +11,8 @@ use crate::{
         CreateInstanceMessage, EditInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog,
         Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric,
         MenuInstallForge, MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
-        MenuLauncherUpdate, Message, ModListEntry, SelectedMod, SelectedState,
+        MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message, ModListEntry, SelectedMod,
+        SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -138,10 +139,22 @@ fn get_left_pane<'a>(
         widget::column!(
             widget::row![files_button, play_button].spacing(5),
             widget::row!(
-                button_with_icon(icon_manager::settings(), "Settings & About...")
-                    .width(200)
-                    .on_press(Message::LauncherSettingsOpen),
+                widget::button(
+                    widget::row![icon_manager::settings(), widget::text("Settings").size(14)]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .width(97)
+                .on_press(Message::LauncherSettingsOpen),
+                widget::button(
+                    widget::row![icon_manager::page(), widget::text("Servers").size(14)]
+                        .spacing(10)
+                        .padding(5)
+                )
+                .width(98)
+                .on_press(Message::ServerManageOpen)
             )
+            .spacing(5)
         )
         .spacing(5),
         footer_text
@@ -685,7 +698,7 @@ impl MenuCreateInstance {
                 widget::text("Loading version list...").size(20),
                 widget::progress_bar(0.0..=21.0, *progress_number),
                 widget::text(if *progress_number >= 1.0 {
-                    format!("Downloading OmniArchive list {progress_number} / 20")
+                    format!("Downloading Omniarchive list {progress_number} / 20")
                 } else {
                     "Downloading official version list".to_owned()
                 })
@@ -952,6 +965,92 @@ impl MenuLauncherSettings {
             .padding(10)
             .spacing(10),
         )
+        .into()
+    }
+}
+
+impl MenuServerManage {
+    pub fn view(&self) -> Element {
+        widget::column!(
+            button_with_icon(icon_manager::back(), "Back")
+                .on_press(Message::LaunchScreenOpen(None)),
+            button_with_icon(icon_manager::create(), "New Server")
+                .on_press(Message::ServerCreateScreenOpen),
+            if !self.server_list.is_empty() {
+                widget::column!(
+                    widget::text("Select Server"),
+                    widget::pick_list(
+                        self.server_list.as_slice(),
+                        self.selected_server.as_ref(),
+                        Message::ServerManageSelectedServer
+                    )
+                    .width(200)
+                )
+                .spacing(10)
+            } else {
+                widget::column!()
+            },
+        )
+        .padding(10)
+        .spacing(10)
+        .into()
+    }
+}
+
+impl MenuServerCreate {
+    pub fn view(&self) -> Element {
+        match self {
+            MenuServerCreate::Loading {
+                progress_number, ..
+            } => {
+                widget::column!(
+                    widget::text("Loading version list...").size(20),
+                    widget::progress_bar(0.0..=21.0, *progress_number),
+                    widget::text(if *progress_number >= 1.0 {
+                        format!("Downloading Omniarchive list {progress_number} / 15")
+                    } else {
+                        "Downloading official version list".to_owned()
+                    })
+                )
+            }
+            MenuServerCreate::Loaded {
+                name,
+                versions,
+                selected_version,
+                progress_receiver: None,
+                ..
+            } => {
+                widget::column!(
+                    button_with_icon(icon_manager::back(), "Back")
+                        .on_press(Message::ServerManageOpen),
+                    widget::text("Create new server").size(20),
+                    widget::text_input("Enter server name...", name)
+                        .on_input(Message::ServerCreateNameInput),
+                    widget::combo_box(
+                        versions,
+                        "Select version...",
+                        selected_version.as_ref(),
+                        Message::ServerCreateVersionSelected
+                    ),
+                    widget::button("Create Server").on_press_maybe(
+                        (selected_version.is_some() && !name.is_empty())
+                            .then(|| Message::ServerCreateStart)
+                    ),
+                )
+            }
+            MenuServerCreate::Loaded {
+                progress_receiver: Some(_),
+                progress_number,
+                ..
+            } => {
+                widget::column!(
+                    widget::text("Creating Server...").size(20),
+                    widget::progress_bar(0.0..=3.0, *progress_number),
+                )
+            }
+        }
+        .padding(10)
+        .spacing(10)
         .into()
     }
 }

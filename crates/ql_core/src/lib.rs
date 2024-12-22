@@ -15,11 +15,13 @@ mod java_install;
 pub mod json;
 /// Logging macros.
 pub mod print;
+mod progress;
 
-pub use error::{IoError, JsonDownloadError, JsonFileError};
+pub use error::{DownloadError, IoError, JsonDownloadError, JsonFileError};
 pub use file_utils::RequestError;
 use futures::StreamExt;
 pub use java_install::{get_java_binary, JavaInstallError, JavaInstallProgress};
+pub use progress::DownloadProgress;
 
 /// Limit on how many files to download concurrently.
 const JOBS: usize = 64;

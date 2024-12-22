@@ -1,7 +1,5 @@
-use ql_core::{file_utils, JsonDownloadError};
+use crate::{file_utils, JsonDownloadError};
 use serde::{Deserialize, Serialize};
-
-use crate::DownloadError;
 
 #[derive(Serialize, Deserialize)]
 pub struct Manifest {
@@ -18,19 +16,15 @@ impl Manifest {
         Ok(serde_json::from_str(&manifest)?)
     }
 
-    pub fn find_name(&self, name: &str) -> Result<&Version, DownloadError> {
-        let Some(version) = self.versions.iter().find(|n| n.id == name) else {
-            return Err(DownloadError::VersionNotFoundInManifest(name.to_owned()));
-        };
-        Ok(version)
+    pub fn find_name(&self, name: &str) -> Option<&Version> {
+        self.versions.iter().find(|n| n.id == name)
     }
 
-    pub fn find_fuzzy(&self, name: &str, filter: &str) -> Result<&Version, DownloadError> {
+    pub fn find_fuzzy(&self, name: &str, filter: &str) -> Option<&Version> {
         self.versions
             .iter()
             .filter(|n| n.id.starts_with(filter))
             .min_by_key(|choice| strsim::levenshtein(name, &choice.id))
-            .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))
     }
 }
 

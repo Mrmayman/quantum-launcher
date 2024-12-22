@@ -8,7 +8,9 @@ use html5ever::tendril::TendrilSink;
 use markup5ever_rcdom::Node;
 use ql_core::file_utils;
 
+mod entry;
 mod error;
+pub use entry::ListEntry;
 pub use error::WebScrapeError;
 
 pub enum ScrapeProgress {
@@ -28,7 +30,7 @@ pub enum MinecraftVersionCategory {
 }
 
 impl MinecraftVersionCategory {
-    pub fn all() -> Vec<MinecraftVersionCategory> {
+    pub fn all_client() -> Vec<MinecraftVersionCategory> {
         vec![
             MinecraftVersionCategory::PreClassic,
             MinecraftVersionCategory::Classic,
@@ -39,9 +41,18 @@ impl MinecraftVersionCategory {
         ]
     }
 
-    fn get_url(&self) -> String {
+    pub fn all_server() -> Vec<MinecraftVersionCategory> {
+        vec![
+            MinecraftVersionCategory::Classic,
+            MinecraftVersionCategory::Alpha,
+            MinecraftVersionCategory::Beta,
+        ]
+    }
+
+    fn get_url(&self, server: bool) -> String {
         format!(
-            "https://vault.omniarchive.uk/archive/java/client-{}/index.html",
+            "https://vault.omniarchive.uk/archive/java/{}-{}/index.html",
+            if server { "server" } else { "client" },
             match self {
                 MinecraftVersionCategory::PreClassic => "preclassic",
                 MinecraftVersionCategory::Classic => "classic",
@@ -56,8 +67,9 @@ impl MinecraftVersionCategory {
     pub async fn download_index(
         &self,
         progress: Option<Arc<Sender<ScrapeProgress>>>,
+        download_server: bool,
     ) -> Result<Vec<String>, WebScrapeError> {
-        let url = self.get_url();
+        let url = self.get_url(download_server);
 
         let client = reqwest::Client::new();
 

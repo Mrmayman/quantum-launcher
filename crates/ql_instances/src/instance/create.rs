@@ -1,11 +1,8 @@
 use std::sync::mpsc::Sender;
 
-use ql_core::{file_utils, info, io_err};
+use ql_core::{file_utils, info, io_err, DownloadError, DownloadProgress};
 
-use crate::{
-    download::{progress::DownloadProgress, DownloadError, GameDownloader},
-    ListEntry, LAUNCHER_VERSION_NAME,
-};
+use crate::{download::GameDownloader, ListEntry, LAUNCHER_VERSION_NAME};
 
 /// Creates a Minecraft instance. The argument types have been made owned objects
 /// for ease of used with `iced::Command` API.

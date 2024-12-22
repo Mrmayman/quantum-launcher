@@ -1,9 +1,7 @@
 pub mod constants;
 mod library_downloader;
-pub mod progress;
 
 use std::{
-    fmt::Display,
     path::{Path, PathBuf},
     sync::mpsc::{SendError, Sender},
 };
@@ -12,21 +10,16 @@ use indicatif::ProgressBar;
 use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err, file_utils, info, io_err,
-    json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    IoError, JsonDownloadError, RequestError,
+    json::{instance_config::InstanceConfigJson, manifest::Manifest, version::VersionDetails},
+    DownloadError, DownloadProgress, IoError, JsonDownloadError,
 };
 use reqwest::Client;
 use serde_json::Value;
 use tokio::sync::Mutex;
-use zip_extract::ZipExtractError;
 
-use crate::{
-    instance::launch::AssetRedownloadProgress,
-    json_structs::{json_manifest::Manifest, json_profiles::ProfileJson},
-    ListEntry,
-};
+use crate::{instance::launch::AssetRedownloadProgress, json_profiles::ProfileJson, ListEntry};
 
-use self::{constants::DEFAULT_RAM_MB_FOR_INSTANCE, progress::DownloadProgress};
+use self::constants::DEFAULT_RAM_MB_FOR_INSTANCE;
 
 const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 
@@ -476,15 +469,18 @@ impl GameDownloader {
         let manifest = Manifest::download().await?;
 
         let version = match version {
-            ListEntry::Normal(name) => manifest.find_name(name)?,
+            ListEntry::Normal(name) => manifest
+                .find_name(name)
+                .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
             ListEntry::Omniarchive { category, name, .. } => match category {
-                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-")?,
-                MinecraftVersionCategory::Classic => manifest.find_fuzzy(name, "c0.")?,
-                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(name, "a1.")?,
-                MinecraftVersionCategory::Beta => manifest.find_fuzzy(name, "b1.")?,
-                MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c")?,
-                MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618")?,
-            },
+                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-"),
+                MinecraftVersionCategory::Classic => manifest.find_fuzzy(name, "c0."),
+                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(name, "a1."),
+                MinecraftVersionCategory::Beta => manifest.find_fuzzy(name, "b1."),
+                MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c"),
+                MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618"),
+            }
+            .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
         };
 
         info!("Started downloading version details JSON.");
@@ -521,69 +517,5 @@ impl GameDownloader {
             sender.send(progress)?;
         }
         Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub enum DownloadError {
-    Json(serde_json::Error),
-    Request(RequestError),
-    Io(IoError),
-    InstanceAlreadyExists,
-    SendProgress(SendError<DownloadProgress>),
-    VersionNotFoundInManifest(String),
-    SerdeFieldNotFound(String),
-    NativesExtractError(ZipExtractError),
-    NativesOutsideDirRemove,
-}
-
-impl From<serde_json::Error> for DownloadError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Json(value)
-    }
-}
-
-impl From<RequestError> for DownloadError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
-}
-
-impl From<IoError> for DownloadError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<SendError<DownloadProgress>> for DownloadError {
-    fn from(value: SendError<DownloadProgress>) -> Self {
-        Self::SendProgress(value)
-    }
-}
-
-impl From<JsonDownloadError> for DownloadError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => DownloadError::from(err),
-            JsonDownloadError::SerdeError(err) => DownloadError::from(err),
-        }
-    }
-}
-
-impl Display for DownloadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DownloadError::Json(err) => write!(f, "download error: json error {err}"),
-            DownloadError::Request(err) => write!(f, "download error: {err}"),
-            DownloadError::Io(err) => write!(f, "download error: {err}"),
-            DownloadError::InstanceAlreadyExists => {
-                write!(f, "download error: instance already exists")
-            }
-            DownloadError::SendProgress(err) => write!(f, "download error: send error: {err}"),
-            DownloadError::VersionNotFoundInManifest(err) => write!(f, "download error: version not found in manifest {err}"),
-            DownloadError::SerdeFieldNotFound(err) => write!(f, "download error: serde field not found \"{err}\""),
-            DownloadError::NativesExtractError(err) => write!(f, "download error: could not extract native libraries: {err}"),
-            DownloadError::NativesOutsideDirRemove => write!(f, "download error: tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"),
-        }
     }
 }

@@ -6,7 +6,7 @@ use std::{
 use omniarchive_api::{ListEntry, MinecraftVersionCategory, ScrapeProgress, WebScrapeError};
 use ql_core::{err, json::manifest::Manifest, JsonDownloadError};
 
-pub enum ListError {
+enum ListError {
     JsonDownloadError(JsonDownloadError),
     WebScrapeError(WebScrapeError),
 }
@@ -45,7 +45,7 @@ async fn list(sender: Option<Arc<Sender<ScrapeProgress>>>) -> Result<Vec<ListEnt
         .collect();
 
     if let Err(err) = add_omniarchive_versions(&mut version_list, sender).await {
-        err!("error getting omniarchive version list: {err}");
+        err!("Error getting omniarchive version list: {err}");
         version_list.extend(manifest.versions.iter().filter_map(|n| {
             (!(n.r#type == "release" || n.r#type == "snapshot"))
                 .then_some(ListEntry::Normal(n.id.clone()))
@@ -59,11 +59,11 @@ async fn add_omniarchive_versions(
     normal_list: &mut Vec<ListEntry>,
     progress: Option<Arc<Sender<ScrapeProgress>>>,
 ) -> Result<(), ListError> {
-    for category in MinecraftVersionCategory::all_client().into_iter().rev() {
-        let versions = category.download_index(progress.clone(), false).await?;
+    for category in MinecraftVersionCategory::all_server().into_iter().rev() {
+        let versions = category.download_index(progress.clone(), true).await?;
         for url in versions.into_iter().rev() {
             let name = if let Some(name) = url
-                .strip_prefix("https://vault.omniarchive.uk/archive/java/client-")
+                .strip_prefix("https://vault.omniarchive.uk/archive/java/server-")
                 .and_then(|n| n.strip_suffix(".jar"))
             {
                 name.to_owned()

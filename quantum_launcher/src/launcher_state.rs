@@ -9,11 +9,11 @@ use iced::{widget::image::Handle, Command};
 use ql_core::{
     err, file_utils, io_err,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    IoError, JavaInstallProgress, JsonFileError,
+    DownloadProgress, IoError, JavaInstallProgress, JsonFileError,
 };
 use ql_instances::{
-    AssetRedownloadProgress, DownloadProgress, GameLaunchResult, ListEntry, LogLine,
-    ScrapeProgress, UpdateCheckInfo, UpdateProgress,
+    AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
+    UpdateProgress,
 };
 use ql_mod_manager::{
     instance_mod_installer::{
@@ -23,6 +23,7 @@ use ql_mod_manager::{
     },
     mod_manager::{ApplyUpdateProgress, Loader, ModConfig, ModIndex, ProjectInfo, Search},
 };
+use ql_servers::ServerCreateProgress;
 use tokio::process::Child;
 
 use crate::{
@@ -120,6 +121,7 @@ pub enum Message {
     InstallModsDownloadComplete(Result<String, String>),
     ManageModsUpdateCheckResult(Option<Vec<(String, String)>>),
     ManageModsUpdateCheckToggle(usize, bool),
+    ManageModsSelectAll,
     InstallOptifineScreenOpen,
     InstallOptifineSelectInstallerStart,
     InstallOptifineSelectInstallerEnd(Option<rfd::FileHandle>),
@@ -127,7 +129,14 @@ pub enum Message {
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
-    ManageModsSelectAll,
+    ServerManageOpen,
+    ServerManageSelectedServer(String),
+    ServerCreateScreenOpen,
+    ServerCreateVersionsLoaded(Result<Vec<ListEntry>, String>),
+    ServerCreateNameInput(String),
+    ServerCreateVersionSelected(ListEntry),
+    ServerCreateStart,
+    ServerCreateEnd(Result<(), String>),
 }
 
 #[derive(Default)]
@@ -305,6 +314,27 @@ pub enum State {
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(Box<MenuModsDownload>),
     LauncherSettings,
+    ServerManage(MenuServerManage),
+    ServerCreate(MenuServerCreate),
+}
+
+pub struct MenuServerManage {
+    pub server_list: Vec<String>,
+    pub selected_server: Option<String>,
+}
+
+pub enum MenuServerCreate {
+    Loading {
+        progress_receiver: Receiver<ScrapeProgress>,
+        progress_number: f32,
+    },
+    Loaded {
+        name: String,
+        versions: iced::widget::combo_box::State<ListEntry>,
+        selected_version: Option<ListEntry>,
+        progress_receiver: Option<Receiver<ServerCreateProgress>>,
+        progress_number: f32,
+    },
 }
 
 pub struct UpdateModsProgress {
@@ -354,7 +384,7 @@ pub struct GameProcess {
 
 impl Launcher {
     pub fn new(message: Option<String>) -> Result<Self, JsonFileError> {
-        let subdirectories = reload_instances()?;
+        let subdirectories = get_entries("instances")?;
 
         let (config, theme, style) = load_config_and_theme()?;
         *STYLE.lock().unwrap() = style;
@@ -411,7 +441,7 @@ impl Launcher {
 
     pub fn go_to_launch_screen(&mut self) {
         self.state = State::Launch(MenuLaunch::default());
-        if let Ok(list) = reload_instances() {
+        if let Ok(list) = get_entries("instances") {
             self.instances = Some(list);
         } else {
             err!("Failed to reload instances list.");
@@ -420,7 +450,7 @@ impl Launcher {
 
     pub fn go_to_launch_screen_with_message(&mut self, message: String) {
         self.state = State::Launch(MenuLaunch::with_message(message));
-        if let Ok(list) = reload_instances() {
+        if let Ok(list) = get_entries("instances") {
             self.instances = Some(list);
         } else {
             err!("Failed to reload instances list.");
@@ -459,11 +489,11 @@ fn load_config_and_theme(
     Ok((Some(config), theme, style))
 }
 
-pub fn reload_instances() -> Result<Vec<String>, IoError> {
+pub fn get_entries(path: &str) -> Result<Vec<String>, IoError> {
     let dir_path = file_utils::get_launcher_dir()?;
     std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 
-    let dir_path = dir_path.join("instances");
+    let dir_path = dir_path.join(path);
     std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
 
     let dir = std::fs::read_dir(&dir_path).map_err(io_err!(dir_path))?;

@@ -1,8 +1,8 @@
 use std::{fmt::Display, path::PathBuf};
 
-use ql_core::{json::version::VersionDetails, IoError, JavaInstallError, JsonFileError};
-
-use crate::download::DownloadError;
+use ql_core::{
+    json::version::VersionDetails, DownloadError, IoError, JavaInstallError, JsonFileError,
+};
 
 pub enum GameLaunchError {
     Io(IoError),

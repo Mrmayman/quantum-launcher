@@ -37,7 +37,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! So it's a back-and-forth between `Message`s coming from interaction,
 //! and code to deal with the messages in `update()`.
 
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use colored::Colorize;
 use iced::{
@@ -46,9 +46,9 @@ use iced::{
     Application, Command, Settings,
 };
 use launcher_state::{
-    reload_instances, Launcher, MenuEditMods, MenuInstallForge, MenuInstallOptifine, MenuLaunch,
-    MenuLauncherSettings, MenuLauncherUpdate, Message, OptifineInstallProgressData, SelectedMod,
-    SelectedState, State, UpdateModsProgress,
+    get_entries, Launcher, MenuEditMods, MenuInstallForge, MenuInstallOptifine, MenuLaunch,
+    MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message,
+    OptifineInstallProgressData, SelectedMod, SelectedState, State, UpdateModsProgress,
 };
 
 use menu_renderer::menu_delete_instance_view;
@@ -616,6 +616,77 @@ impl Application for Launcher {
                     );
                 }
             }
+            Message::ServerManageSelectedServer(selected) => {
+                if let State::ServerManage(menu) = &mut self.state {
+                    menu.selected_server = Some(selected);
+                }
+            }
+            Message::ServerManageOpen => self.go_to_server_manage_menu(),
+            Message::ServerCreateScreenOpen => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                self.state = State::ServerCreate(MenuServerCreate::Loading {
+                    progress_receiver: receiver,
+                    progress_number: 0.0,
+                });
+
+                return Command::perform(
+                    ql_servers::list_versions(Some(Arc::new(sender))),
+                    Message::ServerCreateVersionsLoaded,
+                );
+            }
+            Message::ServerCreateNameInput(new_name) => {
+                if let State::ServerCreate(MenuServerCreate::Loaded { name, .. }) = &mut self.state
+                {
+                    *name = new_name;
+                }
+            }
+            Message::ServerCreateVersionSelected(list_entry) => {
+                if let State::ServerCreate(MenuServerCreate::Loaded {
+                    selected_version, ..
+                }) = &mut self.state
+                {
+                    *selected_version = Some(list_entry);
+                }
+            }
+            Message::ServerCreateStart => {
+                if let State::ServerCreate(MenuServerCreate::Loaded {
+                    name,
+                    selected_version: Some(selected_version),
+                    progress_receiver,
+                    ..
+                }) = &mut self.state
+                {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+                    *progress_receiver = Some(receiver);
+                    return Command::perform(
+                        ql_servers::create_server_wrapped(
+                            name.clone(),
+                            selected_version.clone(),
+                            Some(sender),
+                        ),
+                        Message::ServerCreateEnd,
+                    );
+                }
+            }
+            Message::ServerCreateEnd(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    self.go_to_server_manage_menu();
+                }
+            }
+            Message::ServerCreateVersionsLoaded(vec) => match vec {
+                Ok(vec) => {
+                    self.state = State::ServerCreate(MenuServerCreate::Loaded {
+                        versions: iced::widget::combo_box::State::new(vec),
+                        selected_version: None,
+                        name: String::new(),
+                        progress_receiver: None,
+                        progress_number: 0.0,
+                    });
+                }
+                Err(err) => self.set_error(err),
+            },
         }
         Command::none()
     }
@@ -666,6 +737,8 @@ impl Application for Launcher {
             .spacing(10)
             .into(),
             State::InstallOptifine(menu) => menu.view(),
+            State::ServerManage(menu) => menu.view(),
+            State::ServerCreate(menu) => menu.view(),
         }
     }
 
@@ -778,6 +851,18 @@ impl Launcher {
             Command::none()
         }
     }
+
+    fn go_to_server_manage_menu(&mut self) {
+        match get_entries("servers") {
+            Ok(entries) => {
+                self.state = State::ServerManage(MenuServerManage {
+                    server_list: entries,
+                    selected_server: None,
+                });
+            }
+            Err(err) => self.set_error(err.to_string()),
+        }
+    }
 }
 
 // async fn pick_file() -> Option<PathBuf> {
@@ -813,7 +898,7 @@ fn main() {
     if let Some(op) = info.operation {
         match op {
             ArgumentOperation::ListInstances => {
-                match reload_instances().map_err(|err| err.to_string()) {
+                match get_entries("instances").map_err(|err| err.to_string()) {
                     Ok(instances) => {
                         for instance in instances {
                             let launcher_dir = file_utils::get_launcher_dir().unwrap();

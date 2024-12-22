@@ -1,6 +1,6 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{fmt::Display, path::PathBuf, sync::mpsc::SendError};
 
-use crate::RequestError;
+use crate::{DownloadProgress, RequestError};
 
 // macro_rules! impl_error {
 //     ($from:ident, $to:ident) => {
@@ -105,5 +105,69 @@ impl From<serde_json::Error> for JsonFileError {
 impl From<IoError> for JsonFileError {
     fn from(value: IoError) -> Self {
         Self::Io(value)
+    }
+}
+
+#[derive(Debug)]
+pub enum DownloadError {
+    Json(serde_json::Error),
+    Request(RequestError),
+    Io(IoError),
+    InstanceAlreadyExists,
+    SendProgress(SendError<DownloadProgress>),
+    VersionNotFoundInManifest(String),
+    SerdeFieldNotFound(String),
+    NativesExtractError(zip_extract::ZipExtractError),
+    NativesOutsideDirRemove,
+}
+
+impl From<serde_json::Error> for DownloadError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Json(value)
+    }
+}
+
+impl From<RequestError> for DownloadError {
+    fn from(value: RequestError) -> Self {
+        Self::Request(value)
+    }
+}
+
+impl From<IoError> for DownloadError {
+    fn from(value: IoError) -> Self {
+        Self::Io(value)
+    }
+}
+
+impl From<SendError<DownloadProgress>> for DownloadError {
+    fn from(value: SendError<DownloadProgress>) -> Self {
+        Self::SendProgress(value)
+    }
+}
+
+impl From<JsonDownloadError> for DownloadError {
+    fn from(value: JsonDownloadError) -> Self {
+        match value {
+            JsonDownloadError::RequestError(err) => DownloadError::from(err),
+            JsonDownloadError::SerdeError(err) => DownloadError::from(err),
+        }
+    }
+}
+
+impl Display for DownloadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DownloadError::Json(err) => write!(f, "download error: json error {err}"),
+            DownloadError::Request(err) => write!(f, "download error: {err}"),
+            DownloadError::Io(err) => write!(f, "download error: {err}"),
+            DownloadError::InstanceAlreadyExists => {
+                write!(f, "download error: instance already exists")
+            }
+            DownloadError::SendProgress(err) => write!(f, "download error: send error: {err}"),
+            DownloadError::VersionNotFoundInManifest(err) => write!(f, "download error: version not found in manifest {err}"),
+            DownloadError::SerdeFieldNotFound(err) => write!(f, "download error: serde field not found \"{err}\""),
+            DownloadError::NativesExtractError(err) => write!(f, "download error: could not extract native libraries: {err}"),
+            DownloadError::NativesOutsideDirRemove => write!(f, "download error: tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"),
+        }
     }
 }
