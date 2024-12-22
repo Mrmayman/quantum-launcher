@@ -51,7 +51,7 @@ use launcher_state::{
     OptifineInstallProgressData, SelectedMod, SelectedState, State, UpdateModsProgress,
 };
 
-use menu_renderer::menu_delete_instance_view;
+use menu_renderer::{button_with_icon, menu_delete_instance_view};
 use message_handler::open_file_explorer;
 use ql_core::{
     err, file_utils, info,
@@ -621,7 +621,7 @@ impl Application for Launcher {
                     menu.selected_server = Some(selected);
                 }
             }
-            Message::ServerManageOpen => self.go_to_server_manage_menu(),
+            Message::ServerManageOpen(selection) => self.go_to_server_manage_menu(selection),
             Message::ServerCreateScreenOpen => {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 self.state = State::ServerCreate(MenuServerCreate::Loading {
@@ -668,13 +668,10 @@ impl Application for Launcher {
                     );
                 }
             }
-            Message::ServerCreateEnd(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    self.go_to_server_manage_menu();
-                }
-            }
+            Message::ServerCreateEnd(result) => match result {
+                Ok(name) => self.go_to_server_manage_menu(Some(name)),
+                Err(err) => self.set_error(err),
+            },
             Message::ServerCreateVersionsLoaded(vec) => match vec {
                 Ok(vec) => {
                     self.state = State::ServerCreate(MenuServerCreate::Loaded {
@@ -687,6 +684,17 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
+            Message::ServerDeleteOpen(selected_server) => {
+                self.state = State::ServerDelete { selected_server };
+            }
+            Message::ServerDeleteConfirm => {
+                if let State::ServerDelete { selected_server } = &self.state {
+                    match ql_servers::delete_server(selected_server) {
+                        Ok(()) => self.go_to_server_manage_menu(None),
+                        Err(err) => self.set_error(err),
+                    }
+                }
+            }
         }
         Command::none()
     }
@@ -739,6 +747,18 @@ impl Application for Launcher {
             State::InstallOptifine(menu) => menu.view(),
             State::ServerManage(menu) => menu.view(),
             State::ServerCreate(menu) => menu.view(),
+            State::ServerEdit(menu) => menu.view(),
+            State::ServerDelete { selected_server } => widget::column!(
+                widget::text(format!("Delete server: {selected_server}?")).size(20),
+                "You will lose ALL of your data!",
+                button_with_icon(icon_manager::tick(), "Confirm")
+                    .on_press(Message::ServerDeleteConfirm),
+                button_with_icon(icon_manager::back(), "Back")
+                    .on_press(Message::ServerManageOpen(Some(selected_server.clone()))),
+            )
+            .padding(10)
+            .spacing(10)
+            .into(),
         }
     }
 
@@ -852,12 +872,12 @@ impl Launcher {
         }
     }
 
-    fn go_to_server_manage_menu(&mut self) {
+    fn go_to_server_manage_menu(&mut self, selected_server: Option<String>) {
         match get_entries("servers") {
             Ok(entries) => {
                 self.state = State::ServerManage(MenuServerManage {
                     server_list: entries,
-                    selected_server: None,
+                    selected_server,
                 });
             }
             Err(err) => self.set_error(err.to_string()),

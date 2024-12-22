@@ -207,8 +207,9 @@ impl Launcher {
                         if let ScrapeProgress::ScrapedFile = progress {
                             *progress_number += 1.0;
                         }
-                        if *progress_number > 21.0 {
-                            *progress_number = 21.0;
+                        if *progress_number > 15.0 {
+                            *progress_number = 15.0;
+                            err!("More than 15 indexes scraped: {progress_number}")
                         }
                     }
                 }
@@ -228,6 +229,12 @@ impl Launcher {
                     }
                 }
             },
+            State::ServerEdit(menu) => {
+                if let Err(err) = menu.save_server_config() {
+                    self.set_error(err.to_string());
+                }
+            }
+            State::ServerDelete { .. } => {}
         }
 
         let mut commands = Vec::new();
@@ -526,6 +533,7 @@ impl MenuCreateInstance {
                         *progress_number += 1.0;
                     }
                     if *progress_number > 21.0 {
+                        *progress_number = 21.0;
                         err!("More than 20 indexes scraped: {progress_number}")
                     }
                 }

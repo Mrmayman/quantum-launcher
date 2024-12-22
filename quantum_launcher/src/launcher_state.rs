@@ -54,7 +54,10 @@ pub enum CreateInstanceMessage {
 
 #[derive(Debug, Clone)]
 pub enum EditInstanceMessage {
-    MenuOpen,
+    /// The `Option` represents the selected server, if any.
+    /// - If `None` then you are editing the client instance.
+    /// - If `Some` then you are editing the server instance.
+    MenuOpen(Option<String>),
     JavaOverride(String),
     MemoryChanged(f32),
     LoggingToggle(bool),
@@ -129,14 +132,17 @@ pub enum Message {
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
-    ServerManageOpen,
+    // The `Option` represents the selected server, if any.
+    ServerManageOpen(Option<String>),
     ServerManageSelectedServer(String),
     ServerCreateScreenOpen,
     ServerCreateVersionsLoaded(Result<Vec<ListEntry>, String>),
     ServerCreateNameInput(String),
     ServerCreateVersionSelected(ListEntry),
     ServerCreateStart,
-    ServerCreateEnd(Result<(), String>),
+    ServerCreateEnd(Result<String, String>),
+    ServerDeleteOpen(String),
+    ServerDeleteConfirm,
 }
 
 #[derive(Default)]
@@ -160,6 +166,31 @@ pub struct MenuEditInstance {
     pub config: InstanceConfigJson,
     pub slider_value: f32,
     pub slider_text: String,
+}
+
+pub struct MenuEditServer {
+    pub config: InstanceConfigJson,
+    pub slider_value: f32,
+    pub slider_text: String,
+    pub selected_server: String,
+}
+
+impl MenuEditServer {
+    pub fn save_server_config(&self) -> Result<(), JsonFileError> {
+        let mut config = self.config.clone();
+        if config.enable_logger.is_none() {
+            config.enable_logger = Some(true);
+        }
+        let launcher_dir = file_utils::get_launcher_dir()?;
+        let config_path = launcher_dir
+            .join("servers")
+            .join(&self.selected_server)
+            .join("config.json");
+
+        let config_json = serde_json::to_string(&config)?;
+        std::fs::write(&config_path, config_json).map_err(io_err!(config_path))?;
+        Ok(())
+    }
 }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -316,6 +347,8 @@ pub enum State {
     LauncherSettings,
     ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
+    ServerEdit(MenuEditServer),
+    ServerDelete { selected_server: String },
 }
 
 pub struct MenuServerManage {
@@ -457,8 +490,8 @@ impl Launcher {
         }
     }
 
-    pub fn edit_instance_wrapped(&mut self) {
-        match self.edit_instance(self.selected_instance.clone().unwrap()) {
+    pub fn edit_instance_wrapped(&mut self, selected_server: Option<String>) {
+        match self.edit_instance(self.selected_instance.clone(), selected_server) {
             Ok(()) => {}
             Err(err) => self.set_error(err.to_string()),
         }

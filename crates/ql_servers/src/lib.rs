@@ -4,7 +4,7 @@ use ql_core::{IoError, JsonDownloadError, RequestError};
 
 mod create;
 mod list_versions;
-pub use create::{create_server, create_server_wrapped, ServerCreateProgress};
+pub use create::{create_server, create_server_wrapped, delete_server, ServerCreateProgress};
 pub use list_versions::list_versions;
 
 pub enum ServerError {

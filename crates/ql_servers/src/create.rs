@@ -12,10 +12,11 @@ pub async fn create_server_wrapped(
     name: String,
     version: ListEntry,
     sender: Option<Sender<ServerCreateProgress>>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     create_server(&name, version, sender)
         .await
         .map_err(|n| n.to_string())
+        .map(|_| name)
 }
 
 pub enum ServerCreateProgress {
@@ -135,6 +136,16 @@ pub async fn create_server(
     tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)
         .await
         .map_err(io_err!(server_config_path))?;
+
+    Ok(())
+}
+
+pub fn delete_server(name: &str) -> Result<(), String> {
+    let launcher_dir = file_utils::get_launcher_dir().map_err(|n| n.to_string())?;
+    let server_dir = launcher_dir.join("servers").join(name);
+    std::fs::remove_dir_all(&server_dir)
+        .map_err(io_err!(server_dir))
+        .map_err(|n| n.to_string())?;
 
     Ok(())
 }

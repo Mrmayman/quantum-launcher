@@ -14,7 +14,7 @@ use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
     CreateInstanceMessage, GameProcess, Launcher, MenuCreateInstance, MenuEditInstance,
-    MenuEditMods, Message, SelectedState, State,
+    MenuEditMods, MenuEditServer, Message, SelectedState, State,
 };
 
 impl Launcher {
@@ -244,12 +244,20 @@ impl Launcher {
         }
     }
 
-    pub fn edit_instance(&mut self, selected_instance: String) -> Result<(), JsonFileError> {
+    pub fn edit_instance(
+        &mut self,
+        selected_instance: Option<String>,
+        selected_server: Option<String>,
+    ) -> Result<(), JsonFileError> {
         let launcher_dir = file_utils::get_launcher_dir()?;
-        let config_path = launcher_dir
-            .join("instances")
-            .join(selected_instance)
-            .join("config.json");
+        let config_path = if let Some(selected_server) = &selected_server {
+            launcher_dir.join("servers").join(selected_server)
+        } else {
+            launcher_dir
+                .join("instances")
+                .join(selected_instance.unwrap())
+        }
+        .join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -257,11 +265,20 @@ impl Launcher {
         let slider_value = f32::log2(config_json.ram_in_mb as f32);
         let memory_mb = config_json.ram_in_mb;
 
-        self.state = State::EditInstance(MenuEditInstance {
-            config: config_json,
-            slider_value,
-            slider_text: format_memory(memory_mb),
-        });
+        if let Some(selected_server) = selected_server {
+            self.state = State::ServerEdit(MenuEditServer {
+                config: config_json,
+                slider_value,
+                slider_text: format_memory(memory_mb),
+                selected_server,
+            });
+        } else {
+            self.state = State::EditInstance(MenuEditInstance {
+                config: config_json,
+                slider_value,
+                slider_text: format_memory(memory_mb),
+            });
+        }
         Ok(())
     }
 
@@ -384,19 +401,19 @@ pub fn open_file_explorer(path: &str) {
 
     #[cfg(target_os = "linux")]
     {
-        Command::new("xdg-open").arg(path).spawn().unwrap();
+        let _ = Command::new("xdg-open").arg(path).spawn().unwrap();
     }
 
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer").arg(path).spawn().unwrap();
+        let _ = Command::new("explorer").arg(path).spawn().unwrap();
     }
 
     #[cfg(target_os = "macos")]
     {
-        Command::new("open").arg(path).spawn().unwrap();
+        let _ = Command::new("open").arg(path).spawn().unwrap();
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    err!("Opening file explorer not supported on this platform.")
+    panic!("Opening file explorer not supported on this platform.")
 }
