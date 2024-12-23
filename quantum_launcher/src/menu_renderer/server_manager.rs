@@ -143,7 +143,7 @@ impl MenuServerCreate {
             } => {
                 widget::column!(
                     widget::text("Loading version list...").size(20),
-                    widget::progress_bar(0.0..=21.0, *progress_number),
+                    widget::progress_bar(0.0..=16.0, *progress_number),
                     widget::text(if *progress_number >= 1.0 {
                         format!("Downloading Omniarchive list {progress_number} / 15")
                     } else {
@@ -162,14 +162,14 @@ impl MenuServerCreate {
                     button_with_icon(icon_manager::back(), "Back")
                         .on_press(Message::ServerManageOpen(None)),
                     widget::text("Create new server").size(20),
-                    widget::text_input("Enter server name...", name)
-                        .on_input(Message::ServerCreateNameInput),
                     widget::combo_box(
                         versions,
-                        "Select version...",
+                        "Select a version...",
                         selected_version.as_ref(),
                         Message::ServerCreateVersionSelected
                     ),
+                    widget::text_input("Enter server name...", name)
+                        .on_input(Message::ServerCreateNameInput),
                     widget::button("Create Server").on_press_maybe(
                         (selected_version.is_some() && !name.is_empty())
                             .then(|| Message::ServerCreateStart)

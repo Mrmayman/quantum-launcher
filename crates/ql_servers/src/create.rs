@@ -109,6 +109,9 @@ pub async fn create_server(
 
     let launcher_dir = file_utils::get_launcher_dir()?;
     let server_dir = launcher_dir.join("servers").join(name);
+    if server_dir.exists() {
+        return Err(ServerError::ServerAlreadyExists);
+    }
     tokio::fs::create_dir_all(&server_dir)
         .await
         .map_err(io_err!(server_dir))?;

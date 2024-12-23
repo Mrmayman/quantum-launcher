@@ -127,6 +127,7 @@ impl Application for Launcher {
             }
             Message::DeleteInstance => self.delete_selected_instance(),
             Message::LaunchScreenOpen(message) => {
+                self.selected_server = None;
                 if let Some(message) = message {
                     self.go_to_launch_screen_with_message(message);
                 } else {
@@ -206,9 +207,9 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::LaunchEndedLog(result) => match result {
-                Ok(status) => {
+                Ok((status, name)) => {
                     info!("Game exited with status: {status}");
-                    self.set_game_crashed(status);
+                    self.set_game_crashed(status, &name);
                 }
                 Err(err) => self.set_error(err),
             },
@@ -632,16 +633,26 @@ impl Application for Launcher {
                 self.go_to_server_manage_menu()
             }
             Message::ServerCreateScreenOpen => {
-                let (sender, receiver) = std::sync::mpsc::channel();
-                self.state = State::ServerCreate(MenuServerCreate::Loading {
-                    progress_receiver: receiver,
-                    progress_number: 0.0,
-                });
+                if let Some(cache) = &self.server_version_list_cache {
+                    self.state = State::ServerCreate(MenuServerCreate::Loaded {
+                        name: String::new(),
+                        versions: iced::widget::combo_box::State::new(cache.clone()),
+                        selected_version: None,
+                        progress_receiver: None,
+                        progress_number: 0.0,
+                    });
+                } else {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+                    self.state = State::ServerCreate(MenuServerCreate::Loading {
+                        progress_receiver: receiver,
+                        progress_number: 0.0,
+                    });
 
-                return Command::perform(
-                    ql_servers::list_versions(Some(Arc::new(sender))),
-                    Message::ServerCreateVersionsLoaded,
-                );
+                    return Command::perform(
+                        ql_servers::list_versions(Some(Arc::new(sender))),
+                        Message::ServerCreateVersionsLoaded,
+                    );
+                }
             }
             Message::ServerCreateNameInput(new_name) => {
                 if let State::ServerCreate(MenuServerCreate::Loaded { name, .. }) = &mut self.state
@@ -686,6 +697,7 @@ impl Application for Launcher {
             },
             Message::ServerCreateVersionsLoaded(vec) => match vec {
                 Ok(vec) => {
+                    self.server_version_list_cache = Some(vec.clone());
                     self.state = State::ServerCreate(MenuServerCreate::Loaded {
                         versions: iced::widget::combo_box::State::new(vec),
                         selected_version: None,
@@ -742,7 +754,13 @@ impl Application for Launcher {
                         );
 
                         return Command::perform(
-                            ql_servers::read_logs_wrapped(stdout, stderr, child, sender),
+                            ql_servers::read_logs_wrapped(
+                                stdout,
+                                stderr,
+                                child,
+                                sender,
+                                selected_server.clone(),
+                            ),
                             Message::ServerManageEndedLog,
                         );
                     } else {
@@ -759,10 +777,12 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::ServerManageEndedLog(result) => match result {
-                Ok(status) => {
+                Ok((status, name)) => {
                     info!("Server exited with status: {status}");
                     // TODO: Implement server crash handling
-                    // self.set_game_crashed(status);
+                    if let Some(log) = self.server_logs.get_mut(&name) {
+                        log.has_crashed = !status.success();
+                    }
                 }
                 Err(err) => self.set_error(err),
             },
@@ -936,17 +956,14 @@ impl Launcher {
         ))
     }
 
-    fn set_game_crashed(&mut self, status: std::process::ExitStatus) {
+    fn set_game_crashed(&mut self, status: std::process::ExitStatus, name: &str) {
         if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
             let has_crashed = !status.success();
             if has_crashed {
                 *message =
                     format!("Game Crashed with code: {status}\nCheck Logs for more information");
             }
-            if let Some(log) = self
-                .client_logs
-                .get_mut(self.selected_instance.as_ref().unwrap())
-            {
+            if let Some(log) = self.client_logs.get_mut(name) {
                 log.has_crashed = has_crashed;
             }
         }

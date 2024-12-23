@@ -19,6 +19,7 @@ pub enum ServerError {
     Io(IoError),
     JavaInstall(JavaInstallError),
     NoServerDownload,
+    ServerAlreadyExists,
 }
 
 impl Display for ServerError {
@@ -39,6 +40,7 @@ impl Display for ServerError {
             ServerError::JavaInstall(err) => {
                 write!(f, "{err}")
             }
+            ServerError::ServerAlreadyExists => write!(f, "server already exists"),
         }
     }
 }

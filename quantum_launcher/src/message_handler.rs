@@ -127,7 +127,7 @@ impl Launcher {
     }
 
     pub fn go_to_create_screen(&mut self) -> Command<Message> {
-        if let Some(versions) = self.version_list_cache.clone() {
+        if let Some(versions) = self.client_version_list_cache.clone() {
             let combo_state = iced::widget::combo_box::State::new(versions.clone());
             self.state = State::Create(MenuCreateInstance::Loaded {
                 instance_name: String::new(),
@@ -157,7 +157,7 @@ impl Launcher {
     ) {
         match result {
             Ok(versions) => {
-                self.version_list_cache = Some(versions.clone());
+                self.client_version_list_cache = Some(versions.clone());
                 let combo_state = iced::widget::combo_box::State::new(versions.clone());
                 self.state = State::Create(MenuCreateInstance::Loaded {
                     instance_name: String::new(),

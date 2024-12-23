@@ -16,10 +16,12 @@ pub async fn read_logs_wrapped(
     stderr: ChildStderr,
     child: Arc<Mutex<Child>>,
     sender: Sender<String>,
-) -> Result<ExitStatus, String> {
+    name: String,
+) -> Result<(ExitStatus, String), String> {
     read_logs(stdout, stderr, child, sender)
         .await
         .map_err(|err| err.to_string())
+        .map(|n| (n, name))
 }
 
 async fn read_logs(
