@@ -8,17 +8,18 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        CreateInstanceMessage, EditInstanceMessage, GameProcess, InstallFabricMessage, InstanceLog,
-        Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditServer,
+        ClientProcess, CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage,
+        InstanceLog, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods,
         MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuInstallOptifine, MenuLaunch,
-        MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message,
-        ModListEntry, SelectedMod, SelectedState,
+        MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry, SelectedMod,
+        SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
 
 mod html;
 pub mod mods_store;
+pub mod server_manager;
 
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
@@ -35,7 +36,7 @@ impl MenuLaunch {
         &'element self,
         config: Option<&'element LauncherConfig>,
         instances: Option<&'element [String]>,
-        processes: &'element HashMap<String, GameProcess>,
+        processes: &'element HashMap<String, ClientProcess>,
         logs: &'element HashMap<String, InstanceLog>,
         selected_instance: Option<&'element String>,
     ) -> Element<'element> {
@@ -45,7 +46,7 @@ impl MenuLaunch {
         let left_elements =
             get_left_pane(config, pick_list, selected_instance, processes, footer_text);
 
-        let log = Self::get_log_pane(logs, selected_instance);
+        let log = Self::get_log_pane(logs, selected_instance, false);
 
         widget::row!(widget::scrollable(left_elements), log)
             .padding(10)
@@ -76,9 +77,10 @@ impl MenuLaunch {
     fn get_log_pane<'element>(
         logs: &HashMap<String, InstanceLog>,
         selected_instance: Option<&'element String>,
+        is_server: bool,
     ) -> widget::Column<'element, Message, LauncherTheme> {
         const LOG_VIEW_LIMIT: usize = 10000;
-        if let Some(Some(InstanceLog { log, has_crashed })) = selected_instance
+        if let Some(Some(InstanceLog { log, has_crashed, command })) = selected_instance
             .as_ref()
             .map(|selection| logs.get(*selection))
         {
@@ -93,9 +95,19 @@ impl MenuLaunch {
                 widget::button("Copy Log").on_press(Message::LaunchCopyLog),
                 if *has_crashed {
                     widget::column!(
-                        widget::text("The game has crashed!").size(14),
+                        widget::text(format!("The {} has crashed!", if is_server {"server"} else {"game"})).size(14),
                         widget::text("Go to Edit -> Enable Logging (disable it) then launch the game again.").size(12),
                         widget::text("Then copy the text in the second terminal window for crash information").size(12)
+                    )
+                } else {
+                    widget::column![]
+                },
+                if is_server {
+                    widget::column!(
+                        widget::text_input("Enter command...", command)
+                            .on_input(move |n| Message::ServerManageEditCommand(selected_instance.unwrap().clone(), n))
+                            .on_submit(Message::ServerManageSubmitCommand(selected_instance.unwrap().clone()))
+                            .width(200),
                     )
                 } else {
                     widget::column![]
@@ -104,10 +116,10 @@ impl MenuLaunch {
                     widget::text(slice)
                         .size(12)
                         .font(iced::Font::with_name("JetBrains Mono"))
-                )
+                ),
             )
         } else {
-            widget::column!("Select an instance to view its logs")
+            widget::column!(iced::widget::text(format!("Select {} to view its logs", if is_server {"a server"} else {"an instance"})))
         }
         .padding(10)
         .spacing(10)
@@ -118,7 +130,7 @@ fn get_left_pane<'a>(
     config: Option<&'a LauncherConfig>,
     pick_list: Element<'a>,
     selected_instance: Option<&'a String>,
-    processes: &'a HashMap<String, GameProcess>,
+    processes: &'a HashMap<String, ClientProcess>,
     footer_text: Element<'a>,
 ) -> Element<'a> {
     let username = &config.as_ref().unwrap().username;
@@ -167,7 +179,7 @@ fn get_left_pane<'a>(
 fn get_play_button<'a>(
     username: &'a str,
     selected_instance: Option<&'a String>,
-    processes: &'a HashMap<String, GameProcess>,
+    processes: &'a HashMap<String, ClientProcess>,
 ) -> widget::Column<'a, Message, LauncherTheme> {
     let play_button = button_with_icon(icon_manager::play(), "Play").width(98);
 
@@ -264,97 +276,12 @@ fn get_instances_section<'a>(
     .into()
 }
 
-impl MenuEditServer {
-    pub fn view(&self) -> Element {
-        // 2 ^ 8 = 256 MB
-        const MEM_256_MB_IN_TWOS_EXPONENT: f32 = 8.0;
-        // 2 ^ 13 = 8192 MB
-        const MEM_8192_MB_IN_TWOS_EXPONENT: f32 = 13.0;
-
-        widget::scrollable(
-            widget::column![
-                widget::button(widget::row![icon_manager::back(), "Back"]
-                    .spacing(10)
-                    .padding(5)
-                ).on_press(Message::ServerManageOpen(Some(self.selected_server.clone()))),
-                widget::text(format!("Editing {} server: {}", self.config.mod_type, self.selected_server)),
-                widget::container(
-                    widget::column![
-                        "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
-                        widget::text_input(
-                            "Enter Java override path...",
-                            self.config
-                                .java_override
-                                .as_deref()
-                                .unwrap_or_default()
-                        )
-                        .on_input(|t| Message::EditInstance(EditInstanceMessage::JavaOverride(t)))
-                    ]
-                    .padding(10)
-                    .spacing(10)
-                ),
-                widget::container(
-                    widget::column![
-                        "Allocated memory",
-                        widget::text("For normal Minecraft, allocate 2 - 3 GB").size(12),
-                        widget::text("For old versions, allocate 512 MB - 1 GB").size(12),
-                        widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB").size(12),
-                        widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, self.slider_value, |n| Message::EditInstance(EditInstanceMessage::MemoryChanged(n))).step(0.1),
-                        widget::text(&self.slider_text),
-                    ]
-                    .padding(10)
-                    .spacing(5),
-                ),
-                widget::container(
-                    widget::column![
-                        widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
-                            .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
-                        widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12)
-                    ]
-                    .padding(10)
-                    .spacing(10)
-                ),
-                widget::container(
-                    widget::column!(
-                        "Java arguments:",
-                        widget::column!(
-                            MenuEditInstance::get_java_args_list(
-                                self.config.java_args.as_ref(),
-                                |n| Message::EditInstance(EditInstanceMessage::JavaArgDelete(n)),
-                                |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftUp(n)),
-                                |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftDown(n)),
-                                &|n, i| Message::EditInstance(EditInstanceMessage::JavaArgEdit(n, i))
-                            ),
-                            button_with_icon(icon_manager::create(), "Add")
-                                .on_press(Message::EditInstance(EditInstanceMessage::JavaArgsAdd))
-                        )
-                    ).padding(10).spacing(10)
-                ),
-                widget::container(
-                    widget::column!(
-                        "Game arguments:",
-                        widget::column!(
-                            MenuEditInstance::get_java_args_list(
-                                self.config.game_args.as_ref(),
-                                |n| Message::EditInstance(EditInstanceMessage::GameArgDelete(n)),
-                                |n| Message::EditInstance(EditInstanceMessage::GameArgShiftUp(n)),
-                                |n| Message::EditInstance(EditInstanceMessage::GameArgShiftDown(n)),
-                                &|n, i| Message::EditInstance(EditInstanceMessage::GameArgEdit(n, i))
-                            ),
-                            button_with_icon(icon_manager::create(), "Add")
-                                .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
-                        )
-                    ).padding(10).spacing(10)
-                )
-            ]
-            .padding(10)
-            .spacing(20)
-        ).into()
-    }
-}
-
 impl MenuEditInstance {
-    pub fn view<'a>(&'a self, selected_instance: &'a str) -> Element<'a> {
+    pub fn view<'a>(
+        &'a self,
+        selected_instance: Option<&String>,
+        selected_server: Option<&String>,
+    ) -> Element<'a> {
         // 2 ^ 8 = 256 MB
         const MEM_256_MB_IN_TWOS_EXPONENT: f32 = 8.0;
         // 2 ^ 13 = 8192 MB
@@ -365,8 +292,16 @@ impl MenuEditInstance {
                 widget::button(widget::row![icon_manager::back(), "Back"]
                     .spacing(10)
                     .padding(5)
-                ).on_press(Message::LaunchScreenOpen(None)),
-                widget::text(format!("Editing {} instance: {}", self.config.mod_type, selected_instance)),
+                ).on_press(if let Some(selected_server) = selected_server {
+                    Message::ServerManageOpen(Some(selected_server.clone()))
+                } else {
+                    Message::LaunchScreenOpen(None)
+                }),
+                if let Some(selected_server) = &selected_server {
+                    widget::text(format!("Editing {} server: {}", self.config.mod_type, selected_server))
+                } else {
+                    widget::text(format!("Editing {} instance: {}", self.config.mod_type, selected_instance.as_ref().unwrap()))
+                },
                 widget::container(
                     widget::column![
                         "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
@@ -1054,146 +989,6 @@ impl MenuLauncherSettings {
             .padding(10)
             .spacing(10),
         )
-        .into()
-    }
-}
-
-impl MenuServerManage {
-    pub fn view(&self) -> Element {
-        widget::column!(
-            button_with_icon(icon_manager::back(), "Back")
-                .on_press(Message::LaunchScreenOpen(None)),
-            button_with_icon(icon_manager::create(), "New Server")
-                .on_press(Message::ServerCreateScreenOpen),
-            widget::container(
-                if !self.server_list.is_empty() {
-                    widget::column!(
-                        widget::text("Select Server"),
-                        widget::pick_list(
-                            self.server_list.as_slice(),
-                            self.selected_server.as_ref(),
-                            Message::ServerManageSelectedServer
-                        )
-                        .width(200),
-                        widget::column!(
-                            widget::row!(
-                                button_with_icon(icon_manager::play(), "Start").width(97),
-                                button_with_icon(icon_manager::settings(), "Edit")
-                                    .width(98)
-                                    .on_press_maybe((self.selected_server.is_some()).then_some(
-                                        Message::EditInstance(EditInstanceMessage::MenuOpen(
-                                            self.selected_server.clone()
-                                        ))
-                                    )),
-                            )
-                            .spacing(5),
-                            widget::row!(
-                                button_with_icon(icon_manager::folder(), "Files")
-                                    .width(97)
-                                    .on_press_maybe((self.selected_server.is_some()).then(|| {
-                                        let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                                        Message::CoreOpenDir(
-                                            launcher_dir
-                                                .join("servers")
-                                                .join(self.selected_server.as_ref().unwrap())
-                                                .to_str()
-                                                .unwrap()
-                                                .to_owned(),
-                                        )
-                                    })),
-                                button_with_icon(icon_manager::download(), "Mods").width(98),
-                            )
-                            .spacing(5),
-                            widget::row!(
-                                button_with_icon(icon_manager::delete(), "Delete")
-                                    .width(97)
-                                    .on_press_maybe((self.selected_server.is_some()).then(|| {
-                                        Message::ServerDeleteOpen(
-                                            self.selected_server.clone().unwrap(),
-                                        )
-                                    })),
-                                // button_with_icon(icon_manager::settings(), "Edit"),
-                            )
-                            .spacing(5)
-                        )
-                        .spacing(5)
-                    )
-                    .spacing(10)
-                } else {
-                    widget::column!(widget::text(
-                        "No servers found! Create a new server to get started"
-                    ))
-                }
-                .padding(10)
-            )
-        )
-        .padding(10)
-        .spacing(10)
-        .into()
-    }
-}
-
-impl MenuServerCreate {
-    pub fn view(&self) -> Element {
-        match self {
-            MenuServerCreate::Loading {
-                progress_number, ..
-            } => {
-                widget::column!(
-                    widget::text("Loading version list...").size(20),
-                    widget::progress_bar(0.0..=21.0, *progress_number),
-                    widget::text(if *progress_number >= 1.0 {
-                        format!("Downloading Omniarchive list {progress_number} / 15")
-                    } else {
-                        "Downloading official version list".to_owned()
-                    })
-                )
-            }
-            MenuServerCreate::Loaded {
-                name,
-                versions,
-                selected_version,
-                progress_receiver: None,
-                ..
-            } => {
-                widget::column!(
-                    button_with_icon(icon_manager::back(), "Back")
-                        .on_press(Message::ServerManageOpen(None)),
-                    widget::text("Create new server").size(20),
-                    widget::text_input("Enter server name...", name)
-                        .on_input(Message::ServerCreateNameInput),
-                    widget::combo_box(
-                        versions,
-                        "Select version...",
-                        selected_version.as_ref(),
-                        Message::ServerCreateVersionSelected
-                    ),
-                    widget::button("Create Server").on_press_maybe(
-                        (selected_version.is_some() && !name.is_empty())
-                            .then(|| Message::ServerCreateStart)
-                    ),
-                )
-            }
-            MenuServerCreate::Loaded {
-                progress_receiver: Some(_),
-                progress_number,
-                ..
-            } => {
-                widget::column!(
-                    widget::text("Creating Server...").size(20),
-                    widget::progress_bar(0.0..=3.0, *progress_number),
-                    if *progress_number < 1.0 {
-                        "Downloading manifest..."
-                    } else if *progress_number < 2.0 {
-                        "Downloading version JSON..."
-                    } else {
-                        "Downloading server JAR..."
-                    }
-                )
-            }
-        }
-        .padding(10)
-        .spacing(10)
         .into()
     }
 }

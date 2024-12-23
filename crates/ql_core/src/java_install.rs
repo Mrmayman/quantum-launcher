@@ -212,12 +212,13 @@ impl From<IoError> for JavaInstallError {
 
 impl Display for JavaInstallError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "could not install java: ")?;
         match self {
             JavaInstallError::JsonDownload(err) => write!(f, "{err}"),
             JavaInstallError::NoUrlForJavaFiles => write!(f, "could not find url to download java"),
             JavaInstallError::Request(err) => write!(f, "{err}"),
-            JavaInstallError::Serde(err) => write!(f, "{err}"),
-            JavaInstallError::Io(err) => write!(f, "{err}"),
+            JavaInstallError::Serde(err) => write!(f, "(json) {err}"),
+            JavaInstallError::Io(err) => write!(f, "(io) {err}"),
         }
     }
 }

@@ -48,7 +48,8 @@ use iced::{
 use launcher_state::{
     get_entries, Launcher, MenuEditMods, MenuInstallForge, MenuInstallOptifine, MenuLaunch,
     MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message,
-    OptifineInstallProgressData, SelectedMod, SelectedState, State, UpdateModsProgress,
+    OptifineInstallProgressData, SelectedMod, SelectedState, ServerProcess, State,
+    UpdateModsProgress,
 };
 
 use menu_renderer::{button_with_icon, menu_delete_instance_view};
@@ -64,6 +65,7 @@ use ql_mod_manager::{
     mod_manager::{ModIndex, ProjectInfo},
 };
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
+use tokio::io::AsyncWriteExt;
 
 mod config;
 mod icon_manager;
@@ -212,7 +214,7 @@ impl Application for Launcher {
             },
             Message::LaunchKill => {
                 if let Some(process) = self
-                    .processes
+                    .client_processes
                     .remove(self.selected_instance.as_ref().unwrap())
                 {
                     return Command::perform(
@@ -240,7 +242,10 @@ impl Application for Launcher {
                 }
             }
             Message::LaunchCopyLog => {
-                if let Some(log) = self.logs.get(self.selected_instance.as_ref().unwrap()) {
+                if let Some(log) = self
+                    .client_logs
+                    .get(self.selected_instance.as_ref().unwrap())
+                {
                     return iced::clipboard::write(log.log.clone());
                 }
             }
@@ -617,11 +622,15 @@ impl Application for Launcher {
                 }
             }
             Message::ServerManageSelectedServer(selected) => {
-                if let State::ServerManage(menu) = &mut self.state {
-                    menu.selected_server = Some(selected);
-                }
+                self.selected_server = Some(selected);
             }
-            Message::ServerManageOpen(selection) => self.go_to_server_manage_menu(selection),
+            Message::ServerManageOpen(selected) => {
+                self.selected_instance = None;
+                if let Some(selected) = selected {
+                    self.selected_server = Some(selected);
+                }
+                self.go_to_server_manage_menu()
+            }
             Message::ServerCreateScreenOpen => {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 self.state = State::ServerCreate(MenuServerCreate::Loading {
@@ -669,7 +678,10 @@ impl Application for Launcher {
                 }
             }
             Message::ServerCreateEnd(result) => match result {
-                Ok(name) => self.go_to_server_manage_menu(Some(name)),
+                Ok(name) => {
+                    self.selected_server = Some(name);
+                    self.go_to_server_manage_menu()
+                }
                 Err(err) => self.set_error(err),
             },
             Message::ServerCreateVersionsLoaded(vec) => match vec {
@@ -688,11 +700,108 @@ impl Application for Launcher {
                 self.state = State::ServerDelete { selected_server };
             }
             Message::ServerDeleteConfirm => {
-                if let State::ServerDelete { selected_server } = &self.state {
+                if let Some(selected_server) = &self.selected_server {
                     match ql_servers::delete_server(selected_server) {
-                        Ok(()) => self.go_to_server_manage_menu(None),
+                        Ok(()) => self.go_to_server_manage_menu(),
                         Err(err) => self.set_error(err),
                     }
+                }
+                self.selected_server = None;
+            }
+            Message::ServerManageStartServer(server) => {
+                self.server_logs.remove(&server);
+                let (sender, receiver) = std::sync::mpsc::channel();
+                if let State::ServerManage(menu) = &mut self.state {
+                    menu.java_install_recv = Some(receiver);
+                }
+
+                return Command::perform(
+                    ql_servers::run_wrapped(server, sender),
+                    Message::ServerManageStartServerFinish,
+                );
+            }
+            Message::ServerManageStartServerFinish(result) => match result {
+                Ok(child) => {
+                    let Some(selected_server) = &self.selected_server else {
+                        err!("Launched server but can't identify which one! This is a bug, please report it");
+                        return Command::none();
+                    };
+                    if let (Some(stdout), Some(stderr), Some(stdin)) = {
+                        let mut child = child.lock().unwrap();
+                        (child.stdout.take(), child.stderr.take(), child.stdin.take())
+                    } {
+                        let (sender, receiver) = std::sync::mpsc::channel();
+
+                        self.server_processes.insert(
+                            selected_server.clone(),
+                            ServerProcess {
+                                child: child.clone(),
+                                receiver: Some(receiver),
+                                stdin: Some(stdin),
+                            },
+                        );
+
+                        return Command::perform(
+                            ql_servers::read_logs_wrapped(stdout, stderr, child, sender),
+                            Message::ServerManageEndedLog,
+                        );
+                    } else {
+                        self.server_processes.insert(
+                            selected_server.clone(),
+                            ServerProcess {
+                                child: child.clone(),
+                                receiver: None,
+                                stdin: None,
+                            },
+                        );
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::ServerManageEndedLog(result) => match result {
+                Ok(status) => {
+                    info!("Server exited with status: {status}");
+                    // TODO: Implement server crash handling
+                    // self.set_game_crashed(status);
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::ServerManageKillServer(server) => {
+                if let Some(ServerProcess {
+                    stdin: Some(mut stdin),
+                    ..
+                }) = self.server_processes.remove(&server)
+                {
+                    let future = stdin.write_all("stop\n".as_bytes());
+                    tokio::runtime::Runtime::new()
+                        .unwrap()
+                        .block_on(future)
+                        .unwrap();
+                }
+            }
+            Message::ServerManageEditCommand(selected_server, command) => {
+                if let Some(log) = self.server_logs.get_mut(&selected_server) {
+                    log.command = command;
+                }
+            }
+            Message::ServerManageSubmitCommand(selected_server) => {
+                if let (
+                    Some(log),
+                    Some(ServerProcess {
+                        stdin: Some(stdin), ..
+                    }),
+                ) = (
+                    self.server_logs.get_mut(&selected_server),
+                    self.server_processes.get_mut(&selected_server),
+                ) {
+                    let var_name = &format!("{}\n", log.command);
+                    let future = stdin.write_all(var_name.as_bytes());
+                    log.command.clear();
+
+                    tokio::runtime::Runtime::new()
+                        .unwrap()
+                        .block_on(future)
+                        .unwrap();
                 }
             }
         }
@@ -711,11 +820,14 @@ impl Application for Launcher {
             State::Launch(menu) => menu.view(
                 self.config.as_ref(),
                 self.instances.as_deref(),
-                &self.processes,
-                &self.logs,
+                &self.client_processes,
+                &self.client_logs,
                 self.selected_instance.as_ref(),
             ),
-            State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::EditInstance(menu) => menu.view(
+                self.selected_instance.as_ref(),
+                self.selected_server.as_ref(),
+            ),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Create(menu) => menu.view(),
             State::DeleteInstance => {
@@ -745,9 +857,12 @@ impl Application for Launcher {
             .spacing(10)
             .into(),
             State::InstallOptifine(menu) => menu.view(),
-            State::ServerManage(menu) => menu.view(),
+            State::ServerManage(menu) => menu.view(
+                self.selected_server.as_ref(),
+                &self.server_logs,
+                &self.server_processes,
+            ),
             State::ServerCreate(menu) => menu.view(),
-            State::ServerEdit(menu) => menu.view(),
             State::ServerDelete { selected_server } => widget::column!(
                 widget::text(format!("Delete server: {selected_server}?")).size(20),
                 "You will lose ALL of your data!",
@@ -828,7 +943,10 @@ impl Launcher {
                 *message =
                     format!("Game Crashed with code: {status}\nCheck Logs for more information");
             }
-            if let Some(log) = self.logs.get_mut(self.selected_instance.as_ref().unwrap()) {
+            if let Some(log) = self
+                .client_logs
+                .get_mut(self.selected_instance.as_ref().unwrap())
+            {
                 log.has_crashed = has_crashed;
             }
         }
@@ -872,12 +990,12 @@ impl Launcher {
         }
     }
 
-    fn go_to_server_manage_menu(&mut self, selected_server: Option<String>) {
+    fn go_to_server_manage_menu(&mut self) {
         match get_entries("servers") {
             Ok(entries) => {
                 self.state = State::ServerManage(MenuServerManage {
                     server_list: entries,
-                    selected_server,
+                    java_install_recv: None,
                 });
             }
             Err(err) => self.set_error(err.to_string()),

@@ -15,7 +15,7 @@ use ql_servers::ServerCreateProgress;
 use crate::launcher_state::{
     get_entries, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric,
     MenuInstallForge, MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets,
-    MenuServerCreate, Message, ModListEntry, State,
+    MenuServerCreate, Message, ModListEntry, ServerProcess, State,
 };
 
 impl Launcher {
@@ -58,9 +58,12 @@ impl Launcher {
                 }
             }
             State::EditInstance(menu) => {
-                if let Err(err) =
+                let result = if let Some(server) = &self.selected_server {
+                    menu.save_server_config(server)
+                } else {
                     Launcher::save_config(self.selected_instance.as_ref().unwrap(), &menu.config)
-                {
+                };
+                if let Err(err) = result {
                     self.set_error(err.to_string());
                 }
             }
@@ -87,7 +90,11 @@ impl Launcher {
                 let finished_install = menu.tick();
                 if finished_install {
                     let message = "Installed Java".to_owned();
-                    self.state = State::Launch(MenuLaunch::with_message(message));
+                    if self.selected_server.is_some() {
+                        self.go_to_server_manage_menu();
+                    } else {
+                        self.state = State::Launch(MenuLaunch::with_message(message));
+                    }
                     if let Ok(list) = get_entries("instances") {
                         self.instances = Some(list);
                     } else {
@@ -197,7 +204,22 @@ impl Launcher {
                     }
                 }
             }
-            State::ServerManage(_) => {}
+            State::ServerManage(menu) => {
+                if menu
+                    .java_install_recv
+                    .as_ref()
+                    .and_then(|n| n.try_recv().ok())
+                    .is_some()
+                {
+                    self.state = State::InstallJava(MenuInstallJava {
+                        num: 0.0,
+                        recv: menu.java_install_recv.take().unwrap(),
+                        message: String::new(),
+                    })
+                }
+
+                self.tick_server_processes_and_logs();
+            }
             State::ServerCreate(menu) => match menu {
                 MenuServerCreate::Loading {
                     progress_receiver,
@@ -229,11 +251,6 @@ impl Launcher {
                     }
                 }
             },
-            State::ServerEdit(menu) => {
-                if let Err(err) = menu.save_server_config() {
-                    self.set_error(err.to_string());
-                }
-            }
             State::ServerDelete { .. } => {}
         }
 
@@ -261,22 +278,70 @@ impl Launcher {
 
     fn tick_processes_and_logs(&mut self) {
         let mut killed_processes = Vec::new();
-        for (name, process) in &self.processes {
+        for (name, process) in &self.client_processes {
             if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
                 // Game process has exited.
                 killed_processes.push(name.to_owned());
             } else {
-                Launcher::read_game_logs(&mut self.logs, process, name);
+                Launcher::read_game_logs(&mut self.client_logs, process, name);
             }
         }
         for name in killed_processes {
-            self.processes.remove(&name);
+            self.client_processes.remove(&name);
+        }
+    }
+
+    fn tick_server_processes_and_logs(&mut self) {
+        let mut killed_processes = Vec::new();
+        for (name, process) in &self.server_processes {
+            if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
+                // Game process has exited.
+                killed_processes.push(name.to_owned());
+            } else {
+                Self::tick_server_logs(process, name, &mut self.server_logs);
+            }
+        }
+        for name in killed_processes {
+            self.server_processes.remove(&name);
+        }
+    }
+
+    fn tick_server_logs(
+        process: &ServerProcess,
+        name: &String,
+        server_logs: &mut HashMap<String, InstanceLog>,
+    ) {
+        while let Some(message) = process.receiver.as_ref().and_then(|n| n.try_recv().ok()) {
+            if let Some(log) = server_logs.get_mut(name) {
+                if log.log.is_empty() {
+                    log.log.push_str(&format!(
+                        "Starting Minecraft Server ({})\nOS: {}\n\n",
+                        Self::get_current_date_formatted(),
+                        ql_instances::OS_NAME
+                    ));
+                }
+                log.log.push_str(&message);
+            } else {
+                server_logs.insert(
+                    name.to_owned(),
+                    InstanceLog {
+                        log: format!(
+                            "Starting Minecraft Server ({})\nOS: {}\n\n{}",
+                            Self::get_current_date_formatted(),
+                            ql_instances::OS_NAME,
+                            message
+                        ),
+                        has_crashed: false,
+                        command: String::new(),
+                    },
+                );
+            }
         }
     }
 
     fn read_game_logs(
         logs: &mut HashMap<String, InstanceLog>,
-        process: &crate::launcher_state::GameProcess,
+        process: &crate::launcher_state::ClientProcess,
         name: &String,
     ) {
         let Some(receiver) = process.receiver.as_ref() else {
@@ -309,6 +374,7 @@ impl Launcher {
                             message
                         ),
                         has_crashed: false,
+                        command: String::new(),
                     },
                 );
             } else if let Some(log) = logs.get_mut(name) {

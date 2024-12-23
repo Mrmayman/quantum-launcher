@@ -123,6 +123,11 @@ pub async fn create_server(
         .await
         .map_err(io_err!(version_json_path))?;
 
+    let eula_path = server_dir.join("eula.txt");
+    tokio::fs::write(&eula_path, "eula=true\n")
+        .await
+        .map_err(io_err!(eula_path))?;
+
     let server_config = InstanceConfigJson {
         mod_type: "Vanilla".to_owned(),
         java_override: None,

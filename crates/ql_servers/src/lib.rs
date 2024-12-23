@@ -1,11 +1,15 @@
 use std::fmt::Display;
 
-use ql_core::{IoError, JsonDownloadError, RequestError};
+use ql_core::{IoError, JavaInstallError, JsonDownloadError, RequestError};
 
 mod create;
 mod list_versions;
+mod read_log;
+mod run;
 pub use create::{create_server, create_server_wrapped, delete_server, ServerCreateProgress};
 pub use list_versions::list_versions;
+pub use read_log::read_logs_wrapped;
+pub use run::run_wrapped;
 
 pub enum ServerError {
     JsonDownload(JsonDownloadError),
@@ -13,6 +17,7 @@ pub enum ServerError {
     VersionNotFoundInManifest(String),
     SerdeJson(serde_json::Error),
     Io(IoError),
+    JavaInstall(JavaInstallError),
     NoServerDownload,
 }
 
@@ -31,6 +36,9 @@ impl Display for ServerError {
                 f,
                 "could not find server download field\n(details.json).downloads.server is null"
             ),
+            ServerError::JavaInstall(err) => {
+                write!(f, "{err}")
+            }
         }
     }
 }
@@ -56,5 +64,11 @@ impl From<serde_json::Error> for ServerError {
 impl From<IoError> for ServerError {
     fn from(e: IoError) -> Self {
         Self::Io(e)
+    }
+}
+
+impl From<JavaInstallError> for ServerError {
+    fn from(e: JavaInstallError) -> Self {
+        Self::JavaInstall(e)
     }
 }

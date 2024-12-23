@@ -13,8 +13,8 @@ use ql_instances::{GameLaunchResult, ListEntry};
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
-    CreateInstanceMessage, GameProcess, Launcher, MenuCreateInstance, MenuEditInstance,
-    MenuEditMods, MenuEditServer, Message, SelectedState, State,
+    ClientProcess, CreateInstanceMessage, Launcher, MenuCreateInstance, MenuEditInstance,
+    MenuEditMods, Message, SelectedState, State,
 };
 
 impl Launcher {
@@ -37,7 +37,7 @@ impl Launcher {
             let (asset_sender, asset_receiver) = std::sync::mpsc::channel();
             menu_launch.asset_recv = Some(asset_receiver);
 
-            if let Some(log) = self.logs.get_mut(&selected_instance) {
+            if let Some(log) = self.client_logs.get_mut(&selected_instance) {
                 log.log.clear();
             }
 
@@ -94,9 +94,9 @@ impl Launcher {
                 } {
                     let (sender, receiver) = std::sync::mpsc::channel();
 
-                    self.processes.insert(
+                    self.client_processes.insert(
                         selected_instance.clone(),
-                        GameProcess {
+                        ClientProcess {
                             child: child.clone(),
                             receiver: Some(receiver),
                         },
@@ -113,9 +113,9 @@ impl Launcher {
                         Message::LaunchEndedLog,
                     );
                 }
-                self.processes.insert(
+                self.client_processes.insert(
                     selected_instance.clone(),
-                    GameProcess {
+                    ClientProcess {
                         child: child.clone(),
                         receiver: None,
                     },
@@ -265,20 +265,11 @@ impl Launcher {
         let slider_value = f32::log2(config_json.ram_in_mb as f32);
         let memory_mb = config_json.ram_in_mb;
 
-        if let Some(selected_server) = selected_server {
-            self.state = State::ServerEdit(MenuEditServer {
-                config: config_json,
-                slider_value,
-                slider_text: format_memory(memory_mb),
-                selected_server,
-            });
-        } else {
-            self.state = State::EditInstance(MenuEditInstance {
-                config: config_json,
-                slider_value,
-                slider_text: format_memory(memory_mb),
-            });
-        }
+        self.state = State::EditInstance(MenuEditInstance {
+            config: config_json,
+            slider_value,
+            slider_text: format_memory(memory_mb),
+        });
         Ok(())
     }
 

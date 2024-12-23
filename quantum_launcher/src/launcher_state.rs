@@ -24,7 +24,7 @@ use ql_mod_manager::{
     mod_manager::{ApplyUpdateProgress, Loader, ModConfig, ModIndex, ProjectInfo, Search},
 };
 use ql_servers::ServerCreateProgress;
-use tokio::process::Child;
+use tokio::process::{Child, ChildStdin};
 
 use crate::{
     config::LauncherConfig,
@@ -135,6 +135,12 @@ pub enum Message {
     // The `Option` represents the selected server, if any.
     ServerManageOpen(Option<String>),
     ServerManageSelectedServer(String),
+    ServerManageStartServer(String),
+    ServerManageStartServerFinish(Result<Arc<Mutex<Child>>, String>),
+    ServerManageEndedLog(Result<ExitStatus, String>),
+    ServerManageKillServer(String),
+    ServerManageEditCommand(String, String),
+    ServerManageSubmitCommand(String),
     ServerCreateScreenOpen,
     ServerCreateVersionsLoaded(Result<Vec<ListEntry>, String>),
     ServerCreateNameInput(String),
@@ -168,15 +174,8 @@ pub struct MenuEditInstance {
     pub slider_text: String,
 }
 
-pub struct MenuEditServer {
-    pub config: InstanceConfigJson,
-    pub slider_value: f32,
-    pub slider_text: String,
-    pub selected_server: String,
-}
-
-impl MenuEditServer {
-    pub fn save_server_config(&self) -> Result<(), JsonFileError> {
+impl MenuEditInstance {
+    pub fn save_server_config(&self, selected_server: &str) -> Result<(), JsonFileError> {
         let mut config = self.config.clone();
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
@@ -184,7 +183,7 @@ impl MenuEditServer {
         let launcher_dir = file_utils::get_launcher_dir()?;
         let config_path = launcher_dir
             .join("servers")
-            .join(&self.selected_server)
+            .join(selected_server)
             .join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
@@ -347,13 +346,12 @@ pub enum State {
     LauncherSettings,
     ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
-    ServerEdit(MenuEditServer),
     ServerDelete { selected_server: String },
 }
 
 pub struct MenuServerManage {
     pub server_list: Vec<String>,
-    pub selected_server: Option<String>,
+    pub java_install_recv: Option<Receiver<JavaInstallProgress>>,
 }
 
 pub enum MenuServerCreate {
@@ -393,16 +391,20 @@ pub struct OptifineInstallProgressData {
 pub struct InstanceLog {
     pub log: String,
     pub has_crashed: bool,
+    pub command: String,
 }
 
 pub struct Launcher {
     pub state: State,
     pub selected_instance: Option<String>,
+    pub selected_server: Option<String>,
     pub version_list_cache: Option<Vec<ListEntry>>,
     pub instances: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
-    pub processes: HashMap<String, GameProcess>,
-    pub logs: HashMap<String, InstanceLog>,
+    pub client_processes: HashMap<String, ClientProcess>,
+    pub server_processes: HashMap<String, ServerProcess>,
+    pub client_logs: HashMap<String, InstanceLog>,
+    pub server_logs: HashMap<String, InstanceLog>,
     pub images: HashMap<String, Handle>,
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
@@ -410,9 +412,15 @@ pub struct Launcher {
     pub style: Arc<Mutex<LauncherStyle>>,
 }
 
-pub struct GameProcess {
+pub struct ClientProcess {
     pub child: Arc<Mutex<Child>>,
     pub receiver: Option<Receiver<LogLine>>,
+}
+
+pub struct ServerProcess {
+    pub child: Arc<Mutex<Child>>,
+    pub receiver: Option<Receiver<String>>,
+    pub stdin: Option<ChildStdin>,
 }
 
 impl Launcher {
@@ -429,9 +437,9 @@ impl Launcher {
             } else {
                 MenuLaunch::default()
             }),
-            processes: HashMap::new(),
+            client_processes: HashMap::new(),
             config,
-            logs: HashMap::new(),
+            client_logs: HashMap::new(),
             selected_instance: None,
             images: HashMap::new(),
             images_downloads_in_progress: HashSet::new(),
@@ -439,6 +447,9 @@ impl Launcher {
             theme,
             style: STYLE.clone(),
             version_list_cache: None,
+            selected_server: None,
+            server_processes: HashMap::new(),
+            server_logs: HashMap::new(),
         })
     }
 
@@ -456,8 +467,8 @@ impl Launcher {
             },
             instances: None,
             config,
-            processes: HashMap::new(),
-            logs: HashMap::new(),
+            client_processes: HashMap::new(),
+            client_logs: HashMap::new(),
             selected_instance: None,
             images: HashMap::new(),
             images_downloads_in_progress: HashSet::new(),
@@ -465,6 +476,9 @@ impl Launcher {
             theme,
             style: STYLE.clone(),
             version_list_cache: None,
+            selected_server: None,
+            server_processes: HashMap::new(),
+            server_logs: HashMap::new(),
         }
     }
 
