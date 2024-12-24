@@ -230,8 +230,8 @@ impl Launcher {
                             *progress_number += 1.0;
                         }
                         if *progress_number > 15.0 {
+                            err!("More than 15 indexes scraped: {progress_number}");
                             *progress_number = 15.0;
-                            err!("More than 15 indexes scraped: {progress_number}")
                         }
                     }
                 }
@@ -599,8 +599,8 @@ impl MenuCreateInstance {
                         *progress_number += 1.0;
                     }
                     if *progress_number > 21.0 {
+                        err!("More than 20 indexes scraped: {progress_number}");
                         *progress_number = 21.0;
-                        err!("More than 20 indexes scraped: {progress_number}")
                     }
                 }
             }

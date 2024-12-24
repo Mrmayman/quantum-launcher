@@ -263,6 +263,7 @@ impl GameLauncher {
             } else {
                 args.push("-Dhttp.proxyPort=11705".to_owned());
             }
+            args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
         }
 
         Ok(args)

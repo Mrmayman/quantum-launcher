@@ -12,3 +12,4 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "process"] }
 colored = "2"
+zip-extract = "0.1"

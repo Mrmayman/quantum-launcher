@@ -119,6 +119,7 @@ pub enum DownloadError {
     SerdeFieldNotFound(String),
     NativesExtractError(zip_extract::ZipExtractError),
     NativesOutsideDirRemove,
+    DownloadClassicZip,
 }
 
 impl From<serde_json::Error> for DownloadError {
@@ -156,18 +157,29 @@ impl From<JsonDownloadError> for DownloadError {
 
 impl Display for DownloadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "download error: ")?;
         match self {
-            DownloadError::Json(err) => write!(f, "download error: json error {err}"),
-            DownloadError::Request(err) => write!(f, "download error: {err}"),
-            DownloadError::Io(err) => write!(f, "download error: {err}"),
+            DownloadError::Json(err) => write!(f, "json error {err}"),
+            DownloadError::Request(err) => write!(f, "{err}"),
+            DownloadError::Io(err) => write!(f, "{err}"),
             DownloadError::InstanceAlreadyExists => {
-                write!(f, "download error: instance already exists")
+                write!(f, "instance already exists")
             }
-            DownloadError::SendProgress(err) => write!(f, "download error: send error: {err}"),
-            DownloadError::VersionNotFoundInManifest(err) => write!(f, "download error: version not found in manifest {err}"),
-            DownloadError::SerdeFieldNotFound(err) => write!(f, "download error: serde field not found \"{err}\""),
-            DownloadError::NativesExtractError(err) => write!(f, "download error: could not extract native libraries: {err}"),
-            DownloadError::NativesOutsideDirRemove => write!(f, "download error: tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"),
+            DownloadError::SendProgress(err) => write!(f, "send error: {err}"),
+            DownloadError::VersionNotFoundInManifest(err) => {
+                write!(f, "version not found in manifest {err}")
+            }
+            DownloadError::SerdeFieldNotFound(err) => write!(f, "serde field not found \"{err}\""),
+            DownloadError::NativesExtractError(err) => {
+                write!(f, "could not extract native libraries: {err}")
+            }
+            DownloadError::NativesOutsideDirRemove => write!(
+                f,
+                "tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"
+            ),
+            DownloadError::DownloadClassicZip => {
+                write!(f, "tried to download Minecraft classic server as a client!")
+            }
         }
     }
 }

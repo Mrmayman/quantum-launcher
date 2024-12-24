@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    fmt::Display,
     rc::Rc,
     sync::{mpsc::Sender, Arc},
 };
@@ -27,6 +28,23 @@ pub enum MinecraftVersionCategory {
     Infdev,
     Alpha,
     Beta,
+}
+
+impl Display for MinecraftVersionCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                MinecraftVersionCategory::PreClassic => "PreClassic",
+                MinecraftVersionCategory::Classic => "Classic",
+                MinecraftVersionCategory::Indev => "Indev",
+                MinecraftVersionCategory::Infdev => "Infdev",
+                MinecraftVersionCategory::Alpha => "Alpha",
+                MinecraftVersionCategory::Beta => "Beta",
+            }
+        )
+    }
 }
 
 impl MinecraftVersionCategory {

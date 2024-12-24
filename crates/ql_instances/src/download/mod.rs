@@ -10,7 +10,11 @@ use indicatif::ProgressBar;
 use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err, file_utils, info, io_err,
-    json::{instance_config::InstanceConfigJson, manifest::Manifest, version::VersionDetails},
+    json::{
+        instance_config::{InstanceConfigJson, OmniarchiveEntry},
+        manifest::Manifest,
+        version::VersionDetails,
+    },
     DownloadError, DownloadProgress, IoError, JsonDownloadError,
 };
 use reqwest::Client;
@@ -90,6 +94,9 @@ impl GameDownloader {
         let url = match &self.version {
             ListEntry::Normal(_) => &self.version_json.downloads.client.url,
             ListEntry::Omniarchive { url, .. } => url,
+            ListEntry::OmniarchiveClassicZipServer { .. } => {
+                return Err(DownloadError::DownloadClassicZip)
+            }
         };
         let jar_bytes =
             file_utils::download_file_to_bytes(&self.network_client, url, false).await?;
@@ -438,7 +445,10 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn create_config_json(&self) -> Result<(), DownloadError> {
+    pub async fn create_config_json(
+        &self,
+        omniarchive: Option<OmniarchiveEntry>,
+    ) -> Result<(), DownloadError> {
         let config_json = InstanceConfigJson {
             java_override: None,
             ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
@@ -446,6 +456,8 @@ impl GameDownloader {
             enable_logger: Some(true),
             java_args: None,
             game_args: None,
+            omniarchive,
+            is_classic_server: None,
         };
         let config_json = serde_json::to_string(&config_json)?;
 
@@ -481,6 +493,9 @@ impl GameDownloader {
                 MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618"),
             }
             .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
+            ListEntry::OmniarchiveClassicZipServer { .. } => {
+                return Err(DownloadError::DownloadClassicZip)
+            }
         };
 
         info!("Started downloading version details JSON.");

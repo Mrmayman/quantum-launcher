@@ -205,7 +205,7 @@ impl Display for UpdateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "update check error: ")?;
         match self {
-            UpdateError::Request(request_error) => write!(f, "request: {request_error}"),
+            UpdateError::Request(error) => write!(f, "{error}"),
             UpdateError::Serde(error) => write!(f, "json: {error}"),
             UpdateError::NoReleases => write!(f, "no releases found"),
             UpdateError::SemverError(error) => write!(f, "semver: {error}"),

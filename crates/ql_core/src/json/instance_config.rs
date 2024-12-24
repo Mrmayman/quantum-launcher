@@ -37,6 +37,15 @@ pub struct InstanceConfigJson {
     pub enable_logger: Option<bool>,
     pub java_args: Option<Vec<String>>,
     pub game_args: Option<Vec<String>>,
+    pub omniarchive: Option<OmniarchiveEntry>,
+    pub is_classic_server: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct OmniarchiveEntry {
+    pub name: String,
+    pub url: String,
+    pub category: String,
 }
 
 impl InstanceConfigJson {

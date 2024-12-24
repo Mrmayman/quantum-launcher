@@ -90,13 +90,13 @@ impl From<reqwest::Error> for RequestError {
 
 impl Display for RequestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "could not send request: ")?;
         match self {
-            RequestError::DownloadError { code, url } => write!(
-                f,
-                "could not send request: download error with code {code}, url {url}"
-            ),
+            RequestError::DownloadError { code, url } => {
+                write!(f, "download error with code {code}, url {url}")
+            }
             RequestError::ReqwestError(err) => {
-                write!(f, "could not send request: reqwest library error: {err}")
+                write!(f, "reqwest library error: {err}")
             }
         }
     }

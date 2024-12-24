@@ -1,6 +1,9 @@
 use std::sync::mpsc::Sender;
 
-use ql_core::{file_utils, info, io_err, DownloadError, DownloadProgress};
+use ql_core::{
+    file_utils, info, io_err, json::instance_config::OmniarchiveEntry, DownloadError,
+    DownloadProgress,
+};
 
 use crate::{download::GameDownloader, ListEntry, LAUNCHER_VERSION_NAME};
 
@@ -73,7 +76,24 @@ pub async fn create_instance(
 
     game_downloader.create_version_json().await?;
     game_downloader.create_profiles_json().await?;
-    game_downloader.create_config_json().await?;
+    game_downloader
+        .create_config_json(
+            if let ListEntry::Omniarchive {
+                category,
+                name,
+                url,
+            } = &version
+            {
+                Some(OmniarchiveEntry {
+                    name: name.clone(),
+                    url: url.clone(),
+                    category: category.to_string(),
+                })
+            } else {
+                None
+            },
+        )
+        .await?;
 
     let version_file_path = launcher_dir
         .join("instances")

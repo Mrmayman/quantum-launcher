@@ -733,7 +733,7 @@ impl Application for Launcher {
                 );
             }
             Message::ServerManageStartServerFinish(result) => match result {
-                Ok(child) => {
+                Ok((child, is_classic_server)) => {
                     let Some(selected_server) = &self.selected_server else {
                         err!("Launched server but can't identify which one! This is a bug, please report it");
                         return Command::none();
@@ -750,6 +750,7 @@ impl Application for Launcher {
                                 child: child.clone(),
                                 receiver: Some(receiver),
                                 stdin: Some(stdin),
+                                is_classic_server,
                             },
                         );
 
@@ -770,6 +771,7 @@ impl Application for Launcher {
                                 child: child.clone(),
                                 receiver: None,
                                 stdin: None,
+                                is_classic_server,
                             },
                         );
                     }
@@ -788,15 +790,23 @@ impl Application for Launcher {
             },
             Message::ServerManageKillServer(server) => {
                 if let Some(ServerProcess {
-                    stdin: Some(mut stdin),
+                    stdin: Some(stdin),
+                    is_classic_server,
+                    child,
                     ..
-                }) = self.server_processes.remove(&server)
+                }) = self.server_processes.get_mut(&server)
                 {
-                    let future = stdin.write_all("stop\n".as_bytes());
-                    tokio::runtime::Runtime::new()
-                        .unwrap()
-                        .block_on(future)
-                        .unwrap();
+                    if *is_classic_server {
+                        if let Err(err) = child.lock().unwrap().start_kill() {
+                            err!("Could not kill classic server: {err}")
+                        }
+                    } else {
+                        let future = stdin.write_all("stop\n".as_bytes());
+                        tokio::runtime::Runtime::new()
+                            .unwrap()
+                            .block_on(future)
+                            .unwrap();
+                    };
                 }
             }
             Message::ServerManageEditCommand(selected_server, command) => {

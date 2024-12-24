@@ -136,7 +136,7 @@ pub enum Message {
     ServerManageOpen(Option<String>),
     ServerManageSelectedServer(String),
     ServerManageStartServer(String),
-    ServerManageStartServerFinish(Result<Arc<Mutex<Child>>, String>),
+    ServerManageStartServerFinish(Result<(Arc<Mutex<Child>>, bool), String>),
     ServerManageEndedLog(Result<(ExitStatus, String), String>),
     ServerManageKillServer(String),
     ServerManageEditCommand(String, String),
@@ -422,6 +422,7 @@ pub struct ServerProcess {
     pub child: Arc<Mutex<Child>>,
     pub receiver: Option<Receiver<String>>,
     pub stdin: Option<ChildStdin>,
+    pub is_classic_server: bool,
 }
 
 impl Launcher {

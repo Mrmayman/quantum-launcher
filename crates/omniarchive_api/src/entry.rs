@@ -10,12 +10,18 @@ pub enum ListEntry {
         name: String,
         url: String,
     },
+    OmniarchiveClassicZipServer {
+        name: String,
+        url: String,
+    },
 }
 
 impl Display for ListEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ListEntry::Normal(name) | ListEntry::Omniarchive { name, .. } => write!(f, "{name}"),
+            ListEntry::Normal(name)
+            | ListEntry::Omniarchive { name, .. }
+            | ListEntry::OmniarchiveClassicZipServer { name, .. } => write!(f, "{name}"),
         }
     }
 }

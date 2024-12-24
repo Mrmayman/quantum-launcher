@@ -10,6 +10,7 @@ pub use create::{create_server, create_server_wrapped, delete_server, ServerCrea
 pub use list_versions::list_versions;
 pub use read_log::read_logs_wrapped;
 pub use run::run_wrapped;
+use zip_extract::ZipExtractError;
 
 pub enum ServerError {
     JsonDownload(JsonDownloadError),
@@ -20,6 +21,7 @@ pub enum ServerError {
     JavaInstall(JavaInstallError),
     NoServerDownload,
     ServerAlreadyExists,
+    ZipExtract(ZipExtractError),
 }
 
 impl Display for ServerError {
@@ -41,7 +43,14 @@ impl Display for ServerError {
                 write!(f, "{err}")
             }
             ServerError::ServerAlreadyExists => write!(f, "server already exists"),
+            ServerError::ZipExtract(err) => write!(f, "zip extract: {err}"),
         }
+    }
+}
+
+impl From<ZipExtractError> for ServerError {
+    fn from(e: ZipExtractError) -> Self {
+        Self::ZipExtract(e)
     }
 }
 

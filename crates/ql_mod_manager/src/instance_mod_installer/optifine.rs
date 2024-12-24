@@ -155,8 +155,9 @@ async fn create_hook_java_file(
     dot_minecraft_path: &Path,
     optifine_path: &Path,
 ) -> Result<(), OptifineError> {
-    let hook = include_str!("../../../../assets/Hook.java")
-        .replace("REPLACE_WITH_MC_PATH", dot_minecraft_path.to_str().unwrap());
+    let mc_path = dot_minecraft_path.to_str().unwrap().replace("\\", "\\\\");
+    let hook =
+        include_str!("../../../../assets/Hook.java").replace("REPLACE_WITH_MC_PATH", &mc_path);
     let hook_path = optifine_path.join("Hook.java");
     tokio::fs::write(&hook_path, hook)
         .await
