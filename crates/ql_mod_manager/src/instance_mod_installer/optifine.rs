@@ -106,7 +106,7 @@ pub async fn install_optifine(
     Ok(())
 }
 
-pub async fn uninstall_wrapped(instance_name: String) -> Result<Loader, String> {
+pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
         .map_err(|err| err.to_string())

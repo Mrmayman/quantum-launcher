@@ -37,6 +37,9 @@ impl Display for IoError {
 ///
 /// # Example
 /// ```no_run
+/// # use ql_core::io_err;
+/// use std::path::PathBuf;
+///
 /// let path = PathBuf::from("file.txt");
 /// let result = std::fs::read_to_string(&path).map_err(io_err!(path));
 /// ```

@@ -1,25 +1,24 @@
 use std::path::Path;
 
-use ql_core::{err, file_utils, IoError};
+use ql_core::{err, file_utils, InstanceSelection, IoError};
 
 use crate::mod_manager::ModIndex;
 
 use super::ModError;
 
-pub async fn toggle_mods_wrapped(id: Vec<String>, instance_name: String) -> Result<(), String> {
+pub async fn toggle_mods_wrapped(
+    id: Vec<String>,
+    instance_name: InstanceSelection,
+) -> Result<(), String> {
     toggle_mods(&id, &instance_name)
         .await
         .map_err(|err| err.to_string())
 }
 
-async fn toggle_mods(id: &[String], instance_name: &str) -> Result<(), ModError> {
+async fn toggle_mods(id: &[String], instance_name: &InstanceSelection) -> Result<(), ModError> {
     let mut index = ModIndex::get(instance_name)?;
 
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let mods_dir = launcher_dir
-        .join("instances")
-        .join(instance_name)
-        .join(".minecraft/mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
 
     for id in id {
         if let Some(info) = index.mods.get_mut(id) {

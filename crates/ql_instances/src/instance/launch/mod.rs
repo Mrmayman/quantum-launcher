@@ -278,7 +278,9 @@ impl GameLauncher {
         }
 
         let fabric_json = self.get_fabric_json()?;
-        java_arguments.extend(fabric_json.arguments.jvm.clone());
+        if let Some(jvm) = &fabric_json.arguments.jvm {
+            java_arguments.extend(jvm.clone());
+        }
 
         Ok(Some(fabric_json))
     }
@@ -549,17 +551,18 @@ impl GameLauncher {
 
     async fn get_java_command(&mut self) -> Result<Command, GameLaunchError> {
         if let Some(java_override) = &self.config_json.java_override {
-            Ok(Command::new(java_override))
-        } else {
-            let version = if let Some(version) = self.version_json.javaVersion.clone() {
-                version.into()
-            } else {
-                JavaVersion::Java8
-            };
-            Ok(Command::new(
-                get_java_binary(version, "java", self.java_install_progress_sender.take()).await?,
-            ))
+            if !java_override.is_empty() {
+                return Ok(Command::new(java_override));
+            }
         }
+        let version = if let Some(version) = self.version_json.javaVersion.clone() {
+            version.into()
+        } else {
+            JavaVersion::Java8
+        };
+        Ok(Command::new(
+            get_java_binary(version, "java", self.java_install_progress_sender.take()).await?,
+        ))
     }
 }
 

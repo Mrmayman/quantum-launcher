@@ -47,3 +47,29 @@ pub async fn do_jobs<ResultType>(
     }
     outputs
 }
+
+#[derive(Clone)]
+pub enum InstanceSelection {
+    Instance(String),
+    Server(String),
+}
+
+impl InstanceSelection {
+    pub fn new(name: &str, is_server: bool) -> Self {
+        if is_server {
+            Self::Server(name.to_owned())
+        } else {
+            Self::Instance(name.to_owned())
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            Self::Instance(name) | Self::Server(name) => name,
+        }
+    }
+
+    pub fn is_server(&self) -> bool {
+        matches!(self, Self::Server(_))
+    }
+}

@@ -27,10 +27,11 @@ pub async fn create_instance_wrapped(
     version: ListEntry,
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
-) -> Result<(), String> {
+) -> Result<String, String> {
     create_instance(&instance_name, version, progress_sender, download_assets)
         .await
         .map_err(|n| n.to_string())
+        .map(|()| instance_name)
 }
 
 /// Creates a Minecraft instance.

@@ -1,4 +1,5 @@
 use iced::Command;
+use ql_core::InstanceSelection;
 use ql_mod_manager::instance_mod_installer;
 
 use crate::{
@@ -54,21 +55,26 @@ impl Launcher {
                     let (sender, receiver) = std::sync::mpsc::channel();
                     *progress_receiver = Some(receiver);
 
-                    return Command::perform(
-                        instance_mod_installer::fabric::install_wrapped(
-                            fabric_version.clone().unwrap(),
-                            self.selected_instance.clone().unwrap(),
-                            Some(sender),
-                        ),
-                        |m| Message::InstallFabric(InstallFabricMessage::End(m)),
-                    );
+                    match self.selected_instance.as_ref().unwrap() {
+                        InstanceSelection::Instance(n) => {
+                            return Command::perform(
+                                instance_mod_installer::fabric::install_client_wrapped(
+                                    fabric_version.clone().unwrap(),
+                                    n.clone(),
+                                    Some(sender),
+                                ),
+                                |m| Message::InstallFabric(InstallFabricMessage::End(m)),
+                            );
+                        }
+                        InstanceSelection::Server(_) => todo!(),
+                    }
                 }
             }
             InstallFabricMessage::ScreenOpen => {
                 self.state = State::InstallFabric(MenuInstallFabric::Loading);
 
                 return Command::perform(
-                    instance_mod_installer::fabric::get_list_of_versions(
+                    instance_mod_installer::fabric::get_list_of_versions_wrapped(
                         self.selected_instance.clone().unwrap(),
                     ),
                     |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m)),
@@ -90,7 +96,10 @@ impl Launcher {
             CreateInstanceMessage::NameInput(name) => self.update_created_instance_name(name),
             CreateInstanceMessage::Start => return self.create_instance(),
             CreateInstanceMessage::End(result) => match result {
-                Ok(()) => self.go_to_launch_screen_with_message("Created Instance".to_owned()),
+                Ok(instance) => {
+                    self.selected_instance = Some(InstanceSelection::Instance(instance));
+                    self.go_to_launch_screen_with_message("Created Instance".to_owned())
+                }
                 Err(n) => self.state = State::Error { error: n },
             },
             CreateInstanceMessage::ChangeAssetToggle(t) => {
@@ -107,7 +116,7 @@ impl Launcher {
 
     pub fn update_edit_instance(&mut self, message: EditInstanceMessage) -> Command<Message> {
         match message {
-            EditInstanceMessage::MenuOpen(is_server) => self.edit_instance_wrapped(is_server),
+            EditInstanceMessage::MenuOpen => self.edit_instance_wrapped(),
             EditInstanceMessage::JavaOverride(n) => {
                 if let State::EditInstance(menu) = &mut self.state {
                     menu.config.java_override = Some(n);

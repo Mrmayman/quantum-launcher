@@ -57,7 +57,7 @@ use message_handler::open_file_explorer;
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    IoError,
+    InstanceSelection, IoError,
 };
 use ql_instances::{UpdateCheckInfo, LAUNCHER_VERSION_NAME};
 use ql_mod_manager::{
@@ -114,7 +114,7 @@ impl Application for Launcher {
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
             Message::LaunchInstanceSelected(selected_instance) => {
-                self.select_launch_instance(selected_instance);
+                self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
             Message::LaunchStart => return self.launch_game(),
@@ -126,8 +126,13 @@ impl Application for Launcher {
                 self.state = State::DeleteInstance;
             }
             Message::DeleteInstance => self.delete_selected_instance(),
-            Message::LaunchScreenOpen(message) => {
-                self.selected_server = None;
+            Message::LaunchScreenOpen {
+                message,
+                clear_selection,
+            } => {
+                if clear_selection {
+                    self.selected_instance = None;
+                }
                 if let Some(message) = message {
                     self.go_to_launch_screen_with_message(message);
                 } else {
@@ -147,30 +152,36 @@ impl Application for Launcher {
                 }
             }
             Message::CoreTick => return self.tick(),
-            Message::UninstallLoaderForgeStart => {
-                return Command::perform(
-                    instance_mod_installer::forge::uninstall_wrapped(
-                        self.selected_instance.clone().unwrap(),
-                    ),
-                    Message::UninstallLoaderEnd,
-                );
-            }
+            Message::UninstallLoaderForgeStart => match self.selected_instance.as_ref().unwrap() {
+                InstanceSelection::Instance(n) => {
+                    return Command::perform(
+                        instance_mod_installer::forge::uninstall_client_w(n.clone()),
+                        Message::UninstallLoaderEnd,
+                    )
+                }
+                InstanceSelection::Server(_) => todo!("Implement uninstall forge for server"),
+            },
             Message::UninstallLoaderOptiFineStart => {
                 return Command::perform(
-                    instance_mod_installer::optifine::uninstall_wrapped(
-                        self.selected_instance.clone().unwrap(),
+                    instance_mod_installer::optifine::uninstall_w(
+                        self.selected_instance
+                            .as_ref()
+                            .unwrap()
+                            .get_name()
+                            .to_owned(),
                     ),
                     Message::UninstallLoaderEnd,
                 );
             }
-            Message::UninstallLoaderFabricStart => {
-                return Command::perform(
-                    instance_mod_installer::fabric::uninstall_wrapped(
-                        self.selected_instance.clone().unwrap(),
-                    ),
-                    Message::UninstallLoaderEnd,
-                );
-            }
+            Message::UninstallLoaderFabricStart => match self.selected_instance.as_ref().unwrap() {
+                InstanceSelection::Instance(n) => {
+                    return Command::perform(
+                        instance_mod_installer::fabric::uninstall_client_w(n.clone()),
+                        Message::UninstallLoaderEnd,
+                    )
+                }
+                InstanceSelection::Server(_) => todo!("Implement uninstall fabric for server"),
+            },
             Message::UninstallLoaderEnd(result) => match result {
                 Ok(loader) => {
                     self.go_to_launch_screen_with_message(format!("Uninstalled {loader}"))
@@ -178,29 +189,7 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::InstallForgeStart => {
-                let (f_sender, f_receiver) = std::sync::mpsc::channel();
-                let (j_sender, j_receiver) = std::sync::mpsc::channel();
-
-                let command = Command::perform(
-                    instance_mod_installer::forge::install_wrapped(
-                        self.selected_instance.clone().unwrap(),
-                        Some(f_sender),
-                        Some(j_sender),
-                    ),
-                    Message::InstallForgeEnd,
-                );
-
-                self.state = State::InstallForge(MenuInstallForge {
-                    forge_progress_receiver: f_receiver,
-                    forge_progress_num: 0.0,
-                    java_progress_receiver: j_receiver,
-                    java_progress_num: 0.0,
-                    is_java_getting_installed: false,
-                    forge_message: "Installing Forge".to_owned(),
-                    java_message: None,
-                });
-
-                return command;
+                return self.install_forge();
             }
             Message::InstallForgeEnd(result) => match result {
                 Ok(()) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
@@ -216,7 +205,7 @@ impl Application for Launcher {
             Message::LaunchKill => {
                 if let Some(process) = self
                     .client_processes
-                    .remove(self.selected_instance.as_ref().unwrap())
+                    .remove(self.selected_instance.as_ref().unwrap().get_name())
                 {
                     return Command::perform(
                         {
@@ -245,7 +234,7 @@ impl Application for Launcher {
             Message::LaunchCopyLog => {
                 if let Some(log) = self
                     .client_logs
-                    .get(self.selected_instance.as_ref().unwrap())
+                    .get(self.selected_instance.as_ref().unwrap().get_name())
                 {
                     return iced::clipboard::write(log.log.clone());
                 }
@@ -416,11 +405,10 @@ impl Application for Launcher {
                         Message::ManageModsDeleteFinished,
                     );
 
-                    let mods_dir = file_utils::get_launcher_dir()
-                        .unwrap()
-                        .join("instances")
-                        .join(self.selected_instance.as_ref().unwrap())
-                        .join(".minecraft/mods");
+                    let mods_dir =
+                        file_utils::get_dot_minecraft_dir(self.selected_instance.as_ref().unwrap())
+                            .unwrap()
+                            .join("mods");
                     let file_paths = menu
                         .selected_mods
                         .iter()
@@ -572,8 +560,14 @@ impl Application for Launcher {
                     });
 
                     return Command::perform(
+                        // Note: OptiFine does not support servers
+                        // so it's safe to assume we've selected an instance.
                         ql_mod_manager::instance_mod_installer::optifine::install_optifine_wrapped(
-                            self.selected_instance.clone().unwrap(),
+                            self.selected_instance
+                                .as_ref()
+                                .unwrap()
+                                .get_name()
+                                .to_owned(),
                             path,
                             Some(p_sender),
                             Some(j_sender),
@@ -623,13 +617,10 @@ impl Application for Launcher {
                 }
             }
             Message::ServerManageSelectedServer(selected) => {
-                self.selected_server = Some(selected);
+                self.selected_instance = Some(InstanceSelection::Server(selected));
             }
             Message::ServerManageOpen(selected) => {
-                self.selected_instance = None;
-                if let Some(selected) = selected {
-                    self.selected_server = Some(selected);
-                }
+                self.selected_instance = selected.map(InstanceSelection::Server);
                 self.go_to_server_manage_menu()
             }
             Message::ServerCreateScreenOpen => {
@@ -690,7 +681,7 @@ impl Application for Launcher {
             }
             Message::ServerCreateEnd(result) => match result {
                 Ok(name) => {
-                    self.selected_server = Some(name);
+                    self.selected_instance = Some(InstanceSelection::Server(name));
                     self.go_to_server_manage_menu()
                 }
                 Err(err) => self.set_error(err),
@@ -712,13 +703,13 @@ impl Application for Launcher {
                 self.state = State::ServerDelete { selected_server };
             }
             Message::ServerDeleteConfirm => {
-                if let Some(selected_server) = &self.selected_server {
-                    match ql_servers::delete_server(selected_server) {
+                if let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance {
+                    match ql_servers::delete_server(&selected_server) {
                         Ok(()) => self.go_to_server_manage_menu(),
                         Err(err) => self.set_error(err),
                     }
                 }
-                self.selected_server = None;
+                self.selected_instance = None;
             }
             Message::ServerManageStartServer(server) => {
                 self.server_logs.remove(&server);
@@ -734,7 +725,8 @@ impl Application for Launcher {
             }
             Message::ServerManageStartServerFinish(result) => match result {
                 Ok((child, is_classic_server)) => {
-                    let Some(selected_server) = &self.selected_server else {
+                    let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance
+                    else {
                         err!("Launched server but can't identify which one! This is a bug, please report it");
                         return Command::none();
                     };
@@ -834,6 +826,11 @@ impl Application for Launcher {
                         .unwrap();
                 }
             }
+            Message::ServerEditModsOpen => match self.go_to_edit_mods_menu() {
+                Ok(n) => return n,
+                Err(err) => self.set_error(err.to_string()),
+            },
+            Message::ServerManageCopyLog => todo!(),
         }
         Command::none()
     }
@@ -854,10 +851,7 @@ impl Application for Launcher {
                 &self.client_logs,
                 self.selected_instance.as_ref(),
             ),
-            State::EditInstance(menu) => menu.view(
-                self.selected_instance.as_ref(),
-                self.selected_server.as_ref(),
-            ),
+            State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Create(menu) => menu.view(),
             State::DeleteInstance => {
@@ -866,7 +860,10 @@ impl Application for Launcher {
             State::Error { error } => widget::scrollable(
                 widget::column!(
                     widget::text(format!("Error: {error}")),
-                    widget::button("Back").on_press(Message::LaunchScreenOpen(None)),
+                    widget::button("Back").on_press(Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: true
+                    }),
                     widget::button("Copy Error").on_press(Message::CoreErrorCopy),
                 )
                 .padding(10)
@@ -888,7 +885,7 @@ impl Application for Launcher {
             .into(),
             State::InstallOptifine(menu) => menu.view(),
             State::ServerManage(menu) => menu.view(
-                self.selected_server.as_ref(),
+                self.selected_instance.as_ref(),
                 &self.server_logs,
                 &self.server_processes,
             ),
@@ -942,6 +939,7 @@ fn load_window_icon() -> Option<Command<Message>> {
 
 impl Launcher {
     fn mod_download(&mut self, index: usize) -> Option<Command<Message>> {
+        let selected_instance = self.selected_instance.clone()?;
         let State::ModsDownload(menu) = &mut self.state else {
             return None;
         };
@@ -953,14 +951,13 @@ impl Launcher {
             err!("Couldn't download mod: Not present in results");
             return None;
         };
-        let selected_instance = self.selected_instance.as_ref()?;
 
         menu.mods_download_in_progress
             .insert(hit.project_id.clone());
         Some(Command::perform(
             ql_mod_manager::mod_manager::download_mod_wrapped(
                 hit.project_id.clone(),
-                selected_instance.to_owned(),
+                selected_instance,
             ),
             Message::InstallModsDownloadComplete,
         ))
@@ -1027,6 +1024,34 @@ impl Launcher {
             }
             Err(err) => self.set_error(err.to_string()),
         }
+    }
+
+    fn install_forge(&mut self) -> Command<Message> {
+        let (f_sender, f_receiver) = std::sync::mpsc::channel();
+        let (j_sender, j_receiver) = std::sync::mpsc::channel();
+
+        let command = match self.selected_instance.as_ref().unwrap() {
+            InstanceSelection::Instance(n) => Command::perform(
+                instance_mod_installer::forge::install_wrapped(
+                    n.clone(),
+                    Some(f_sender),
+                    Some(j_sender),
+                ),
+                Message::InstallForgeEnd,
+            ),
+            InstanceSelection::Server(_) => todo!("Implement install forge for server"),
+        };
+
+        self.state = State::InstallForge(MenuInstallForge {
+            forge_progress_receiver: f_receiver,
+            forge_progress_num: 0.0,
+            java_progress_receiver: j_receiver,
+            java_progress_num: 0.0,
+            is_java_getting_installed: false,
+            forge_message: "Installing Forge".to_owned(),
+            java_message: None,
+        });
+        command
     }
 }
 

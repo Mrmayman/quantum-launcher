@@ -1,9 +1,7 @@
 use std::{fmt::Display, num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
-use ql_core::{IoError, JavaInstallError, JsonDownloadError, RequestError};
+use ql_core::{IoError, JavaInstallError, JsonDownloadError, JsonFileError, RequestError};
 use zip_extract::ZipExtractError;
-
-use crate::instance_mod_installer::ChangeConfigError;
 
 #[derive(Debug)]
 pub enum ForgeInstallError {
@@ -20,7 +18,6 @@ pub enum ForgeInstallError {
     Unpack200Error(String, String),
     FromUtf8Error(FromUtf8Error),
     LibraryParentError,
-    ChangeConfigError(ChangeConfigError),
     NoInstallJson,
     ZipExtract(ZipExtractError),
 }
@@ -60,15 +57,21 @@ impl Display for ForgeInstallError {
             ForgeInstallError::LibraryParentError => {
                 write!(f, "could not find parent directory of library")
             }
-            ForgeInstallError::ChangeConfigError(err) => {
-                write!(f, "(change config): {err}")
-            }
             ForgeInstallError::NoInstallJson => {
                 write!(f, "no install json found")
             }
             ForgeInstallError::ZipExtract(err) => {
                 write!(f, "(zip extract): {err}")
             }
+        }
+    }
+}
+
+impl From<JsonFileError> for ForgeInstallError {
+    fn from(value: JsonFileError) -> Self {
+        match value {
+            JsonFileError::Io(err) => Self::Io(err),
+            JsonFileError::SerdeError(err) => Self::Serde(err),
         }
     }
 }
@@ -106,12 +109,6 @@ impl From<JavaInstallError> for ForgeInstallError {
 impl From<FromUtf8Error> for ForgeInstallError {
     fn from(value: FromUtf8Error) -> Self {
         Self::FromUtf8Error(value)
-    }
-}
-
-impl From<ChangeConfigError> for ForgeInstallError {
-    fn from(value: ChangeConfigError) -> Self {
-        Self::ChangeConfigError(value)
     }
 }
 

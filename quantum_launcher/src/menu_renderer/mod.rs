@@ -1,7 +1,8 @@
+use core::panic;
 use std::{collections::HashMap, ops::RangeInclusive};
 
 use iced::widget;
-use ql_core::file_utils;
+use ql_core::{file_utils, InstanceSelection};
 use ql_instances::LAUNCHER_VERSION_NAME;
 
 use crate::{
@@ -38,8 +39,13 @@ impl MenuLaunch {
         instances: Option<&'element [String]>,
         processes: &'element HashMap<String, ClientProcess>,
         logs: &'element HashMap<String, InstanceLog>,
-        selected_instance: Option<&'element String>,
+        selected_instance: Option<&'element InstanceSelection>,
     ) -> Element<'element> {
+        let selected_instance = match selected_instance {
+            Some(InstanceSelection::Instance(n)) => Some(n),
+            Some(InstanceSelection::Server(_)) => panic!("selected server in main instances menu"),
+            None => None,
+        };
         let pick_list = get_instances_section(instances, selected_instance);
         let footer_text = self.get_footer_text();
 
@@ -92,7 +98,7 @@ impl MenuLaunch {
             };
             widget::column!(
                 "Having issues? Copy and send the game log for support",
-                widget::button("Copy Log").on_press(Message::LaunchCopyLog),
+                widget::button("Copy Log").on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
                 if *has_crashed {
                     widget::column!(
                         widget::text(format!("The {} has crashed!", if is_server {"server"} else {"game"})).size(14),
@@ -258,7 +264,7 @@ fn get_instances_section<'a>(
                 button_with_icon(icon_manager::settings(), "Edit")
                     .on_press_maybe(
                         (selected_instance.is_some())
-                            .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen(None)))
+                            .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen))
                     )
                     .width(97),
                 button_with_icon(icon_manager::download(), "Mods")
@@ -277,11 +283,7 @@ fn get_instances_section<'a>(
 }
 
 impl MenuEditInstance {
-    pub fn view<'a>(
-        &'a self,
-        selected_instance: Option<&String>,
-        selected_server: Option<&String>,
-    ) -> Element<'a> {
+    pub fn view<'a>(&'a self, selected_instance: &InstanceSelection) -> Element<'a> {
         // 2 ^ 8 = 256 MB
         const MEM_256_MB_IN_TWOS_EXPONENT: f32 = 8.0;
         // 2 ^ 13 = 8192 MB
@@ -292,16 +294,13 @@ impl MenuEditInstance {
                 widget::button(widget::row![icon_manager::back(), "Back"]
                     .spacing(10)
                     .padding(5)
-                ).on_press(if let Some(selected_server) = selected_server {
-                    Message::ServerManageOpen(Some(selected_server.clone()))
-                } else {
-                    Message::LaunchScreenOpen(None)
-                }),
-                if let Some(selected_server) = &selected_server {
-                    widget::text(format!("Editing {} server: {}", self.config.mod_type, selected_server))
-                } else {
-                    widget::text(format!("Editing {} instance: {}", self.config.mod_type, selected_instance.as_ref().unwrap()))
-                },
+                ).on_press(back_to_launch_screen(selected_instance)),
+                widget::text(
+                    match selected_instance {
+                        InstanceSelection::Instance(n) => format!("Editing {} instance: {n}", self.config.mod_type),
+                        InstanceSelection::Server(n) => format!("Editing {} server: {n}", self.config.mod_type),
+                    }
+                ),
                 widget::container(
                     widget::column![
                         "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
@@ -474,7 +473,7 @@ impl MenuInstallOptifine {
 }
 
 impl MenuEditMods {
-    pub fn view<'a>(&'a self, selected_instance: &'a str) -> Element<'a> {
+    pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
             return widget::column!(
                 widget::text("Updating mods").size(20),
@@ -517,7 +516,7 @@ impl MenuEditMods {
                         .spacing(10)
                         .padding(5)
                 )
-                .on_press(Message::LaunchScreenOpen(None)),
+                .on_press(back_to_launch_screen(selected_instance)),
                 mod_installer,
                 Self::open_mod_folder_button(selected_instance),
                 widget::container(mod_update_pane),
@@ -612,13 +611,10 @@ impl MenuEditMods {
         .spacing(5)
     }
 
-    fn open_mod_folder_button(selected_instance: &str) -> Element {
+    fn open_mod_folder_button(selected_instance: &InstanceSelection) -> Element {
         let path = {
-            if let Ok(launcher_dir) = file_utils::get_launcher_dir() {
-                let path = launcher_dir
-                    .join("instances")
-                    .join(selected_instance)
-                    .join(".minecraft/mods");
+            if let Ok(dot_minecraft_dir) = file_utils::get_dot_minecraft_dir(selected_instance) {
+                let path = dot_minecraft_dir.join("mods");
                 path.exists().then_some(path.to_str().unwrap().to_owned())
             } else {
                 None
@@ -759,7 +755,7 @@ impl MenuCreateInstance {
                             widget::row![icon_manager::back(), "Back"]
                                 .spacing(10)
                                 .padding(5)
-                        ).on_press_maybe((progress_receiver.is_none()).then_some(Message::LaunchScreenOpen(None))),
+                        ).on_press_maybe((progress_receiver.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
                             widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
                                 Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
                             }),
@@ -785,15 +781,18 @@ impl MenuCreateInstance {
     }
 }
 
-pub fn menu_delete_instance_view(selected_instance: &str) -> Element {
+pub fn menu_delete_instance_view(selected_instance: &InstanceSelection) -> Element {
     widget::column![
         widget::text(format!(
             "Are you SURE you want to DELETE the Instance: {}?",
-            &selected_instance
+            &selected_instance.get_name()
         )),
         "All your data, including worlds will be lost.",
         widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-        widget::button("No").on_press(Message::LaunchScreenOpen(None)),
+        widget::button("No").on_press(Message::LaunchScreenOpen {
+            message: None,
+            clear_selection: false
+        }),
     ]
     .padding(10)
     .spacing(10)
@@ -801,7 +800,7 @@ pub fn menu_delete_instance_view(selected_instance: &str) -> Element {
 }
 
 impl MenuInstallFabric {
-    pub fn view(&self, selected_instance: &str) -> Element {
+    pub fn view(&self, selected_instance: &InstanceSelection) -> Element {
         match self {
             MenuInstallFabric::Loading => {
                 widget::column![widget::text("Loading Fabric version list...").size(20)]
@@ -822,10 +821,10 @@ impl MenuInstallFabric {
                 } else {
                     widget::column![
                         button_with_icon(icon_manager::back(), "Back")
-                            .on_press(Message::LaunchScreenOpen(None)),
+                            .on_press(back_to_launch_screen(selected_instance)),
                         widget::text(format!(
                             "Select Fabric Version for instance {}",
-                            &selected_instance
+                            selected_instance.get_name()
                         )),
                         widget::pick_list(
                             fabric_versions.as_slice(),
@@ -843,7 +842,7 @@ impl MenuInstallFabric {
             MenuInstallFabric::Unsupported => {
                 widget::column!(
                     button_with_icon(icon_manager::back(), "Back")
-                        .on_press(Message::LaunchScreenOpen(None)),
+                        .on_press(back_to_launch_screen(selected_instance)),
                     "Fabric is unsupported for this Minecraft version."
                 )
             }
@@ -899,8 +898,12 @@ impl MenuLauncherUpdate {
                 widget::row!(
                     button_with_icon(icon_manager::download(), "Download")
                         .on_press(Message::UpdateDownloadStart),
-                    button_with_icon(icon_manager::back(), "Back")
-                        .on_press(Message::LaunchScreenOpen(None))
+                    button_with_icon(icon_manager::back(), "Back").on_press(
+                        Message::LaunchScreenOpen {
+                            message: None,
+                            clear_selection: false
+                        }
+                    )
                 )
                 .spacing(5),
             )
@@ -963,8 +966,12 @@ impl MenuLauncherSettings {
 
         widget::scrollable(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::LaunchScreenOpen(None)),
+                button_with_icon(icon_manager::back(), "Back").on_press(
+                    Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: false
+                    }
+                ),
                 config_view,
                 widget::container(
                     widget::column!(
@@ -990,5 +997,17 @@ impl MenuLauncherSettings {
             .spacing(10),
         )
         .into()
+    }
+}
+
+fn back_to_launch_screen(selected_instance: &InstanceSelection) -> Message {
+    match selected_instance {
+        InstanceSelection::Server(selected_server) => {
+            Message::ServerManageOpen(Some(selected_server.clone()))
+        }
+        InstanceSelection::Instance(_) => Message::LaunchScreenOpen {
+            message: None,
+            clear_selection: false,
+        },
     }
 }

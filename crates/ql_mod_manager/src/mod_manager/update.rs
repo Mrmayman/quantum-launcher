@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::info;
+use ql_core::{info, InstanceSelection};
 
 use crate::mod_manager::{
     download::{get_instance_and_mod_dir, get_loader_type, get_version_json, version_sort},
@@ -17,7 +17,7 @@ pub enum ApplyUpdateProgress {
 }
 
 pub async fn apply_updates_wrapped(
-    selected_instance: String,
+    selected_instance: InstanceSelection,
     updates: Vec<String>,
     progress: Option<Sender<ApplyUpdateProgress>>,
 ) -> Result<(), String> {
@@ -27,7 +27,7 @@ pub async fn apply_updates_wrapped(
 }
 
 async fn apply_updates(
-    selected_instance: String,
+    selected_instance: InstanceSelection,
     updates: Vec<String>,
     progress: Option<Sender<ApplyUpdateProgress>>,
 ) -> Result<(), ModError> {
@@ -53,7 +53,9 @@ async fn apply_updates(
     Ok(())
 }
 
-pub async fn check_for_updates(selected_instance: String) -> Option<Vec<(String, String)>> {
+pub async fn check_for_updates(
+    selected_instance: InstanceSelection,
+) -> Option<Vec<(String, String)>> {
     let index = ModIndex::get(&selected_instance).ok()?;
 
     let (instance_dir, _) = get_instance_and_mod_dir(&selected_instance).ok()?;

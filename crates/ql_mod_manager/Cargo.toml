@@ -22,6 +22,8 @@ async-recursion = "1"
 tokio = { version = "1", features = ["fs"] }
 chrono = "0.4"
 lazy_static = "1"
+regex = "1"
+zip = "2"
 
 [target.aarch64-unknown-linux-gnu.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

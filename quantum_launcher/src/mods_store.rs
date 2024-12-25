@@ -14,14 +14,9 @@ use crate::launcher_state::{Launcher, MenuModsDownload, Message, State};
 
 impl Launcher {
     pub fn open_mods_screen(&mut self) -> Result<Command<Message>, String> {
-        let launcher_dir = file_utils::get_launcher_dir().map_err(|err| err.to_string())?;
-
-        let selected_instance = self
-            .selected_instance
-            .as_ref()
-            .ok_or("No instance selected")?;
-
-        let instances_dir = launcher_dir.join("instances").join(selected_instance);
+        let selection = self.selected_instance.as_ref().unwrap();
+        let instances_dir =
+            file_utils::get_instance_dir(selection).map_err(|err| err.to_string())?;
 
         let config_path = instances_dir.join("config.json");
         let config = std::fs::read_to_string(&config_path)
@@ -37,7 +32,7 @@ impl Launcher {
         let version: VersionDetails =
             serde_json::from_str(&version).map_err(|err| err.to_string())?;
 
-        let mod_index = ModIndex::get(selected_instance).map_err(|n| n.to_string())?;
+        let mod_index = ModIndex::get(&selection).map_err(|n| n.to_string())?;
 
         let mut menu = MenuModsDownload {
             config,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::widget;
-use ql_core::file_utils;
+use ql_core::{file_utils, InstanceSelection};
 
 use crate::{
     icon_manager,
@@ -16,65 +16,78 @@ use super::{button_with_icon, Element};
 impl MenuServerManage {
     pub fn view<'a>(
         &'a self,
-        selected_server: Option<&'a String>,
+        selected_server: Option<&'a InstanceSelection>,
         logs: &'a HashMap<String, InstanceLog>,
         processes: &'a HashMap<String, ServerProcess>,
     ) -> Element<'a> {
+        let selected_server = match selected_server {
+            Some(InstanceSelection::Server(n)) => Some(n),
+            Some(InstanceSelection::Instance(_)) => panic!("selected instance in main server menu"),
+            None => None,
+        };
         let log_pane = MenuLaunch::get_log_pane(logs, selected_server, true);
 
         let button_play = Self::get_play_button(selected_server, processes);
         let button_files = Self::get_files_button(selected_server);
 
-        let server_ops = if !self.server_list.is_empty() {
-            widget::column!(
-                widget::text("Select Server"),
-                widget::pick_list(
-                    self.server_list.as_slice(),
-                    selected_server,
-                    Message::ServerManageSelectedServer
-                )
-                .width(200),
+        let server_ops =
+            if !self.server_list.is_empty() {
                 widget::column!(
-                    widget::row!(
-                        button_play,
-                        button_with_icon(icon_manager::settings(), "Edit")
-                            .width(98)
-                            .on_press_maybe(selected_server.map(|selected_server| {
-                                Message::EditInstance(EditInstanceMessage::MenuOpen(Some(
-                                    selected_server.clone(),
-                                )))
-                            })),
+                    widget::text("Select Server"),
+                    widget::pick_list(
+                        self.server_list.as_slice(),
+                        selected_server,
+                        Message::ServerManageSelectedServer
                     )
-                    .spacing(5),
-                    widget::row!(
-                        button_files,
-                        button_with_icon(icon_manager::download(), "Mods").width(98),
-                    )
-                    .spacing(5),
-                    widget::row!(
-                        button_with_icon(icon_manager::delete(), "Delete")
-                            .width(97)
-                            .on_press_maybe((selected_server.is_some()).then(|| {
-                                Message::ServerDeleteOpen(selected_server.unwrap().clone())
-                            })),
-                        // button_with_icon(icon_manager::settings(), "Edit"),
+                    .width(200),
+                    widget::column!(
+                        widget::row!(
+                            button_play,
+                            button_with_icon(icon_manager::settings(), "Edit")
+                                .width(98)
+                                .on_press_maybe(selected_server.map(|_| {
+                                    Message::EditInstance(EditInstanceMessage::MenuOpen)
+                                })),
+                        )
+                        .spacing(5),
+                        widget::row!(
+                            button_files,
+                            button_with_icon(icon_manager::download(), "Mods")
+                                .width(98)
+                                .on_press_maybe(
+                                    (selected_server.is_some())
+                                        .then(|| { Message::ServerEditModsOpen })
+                                ),
+                        )
+                        .spacing(5),
+                        widget::row!(
+                            button_with_icon(icon_manager::delete(), "Delete")
+                                .width(97)
+                                .on_press_maybe((selected_server.is_some()).then(|| {
+                                    Message::ServerDeleteOpen(selected_server.unwrap().clone())
+                                })),
+                            // button_with_icon(icon_manager::settings(), "Edit"),
+                        )
+                        .spacing(5)
                     )
                     .spacing(5)
                 )
-                .spacing(5)
-            )
-            .spacing(10)
-        } else {
-            widget::column!(widget::text(
-                "No servers found! Create a new server to get started"
-            ))
-        }
-        .padding(10);
+                .spacing(10)
+            } else {
+                widget::column!(widget::text(
+                    "No servers found! Create a new server to get started"
+                ))
+            }
+            .padding(10);
 
         widget::row!(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::LaunchScreenOpen(None)),
+                button_with_icon(icon_manager::back(), "Back").on_press(
+                    Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: true
+                    }
+                ),
                 button_with_icon(icon_manager::create(), "New Server")
                     .on_press(Message::ServerCreateScreenOpen),
                 widget::container(server_ops)

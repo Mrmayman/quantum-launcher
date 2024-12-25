@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 ql_core = { path = "../ql_core" }
+ql_mod_manager = { path = "../ql_mod_manager" }
 omniarchive_api = { path = "../omniarchive_api" }
 
 reqwest = "0.12"

@@ -1,5 +1,5 @@
 use crate::mod_manager::{ModError, ModIndex};
-use ql_core::{err, file_utils, info, pt, IoError};
+use ql_core::{err, file_utils, info, pt, InstanceSelection, IoError};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -7,7 +7,7 @@ use std::{
 
 pub async fn delete_mods_wrapped(
     ids: Vec<String>,
-    instance_name: String,
+    instance_name: InstanceSelection,
 ) -> Result<Vec<String>, String> {
     if ids.is_empty() {
         return Ok(ids);
@@ -19,15 +19,14 @@ pub async fn delete_mods_wrapped(
         .map(|()| ids)
 }
 
-pub async fn delete_mods(ids: &[String], instance_name: &str) -> Result<(), ModError> {
+pub async fn delete_mods(
+    ids: &[String],
+    instance_name: &InstanceSelection,
+) -> Result<(), ModError> {
     info!("Deleting mods:");
     let mut index = ModIndex::get(instance_name)?;
 
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let mods_dir = launcher_dir
-        .join("instances")
-        .join(instance_name)
-        .join(".minecraft/mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
 
     // let mut downloaded_mods = HashSet::new();
 

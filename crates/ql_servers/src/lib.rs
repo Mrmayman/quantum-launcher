@@ -4,6 +4,7 @@ use ql_core::{IoError, JavaInstallError, JsonDownloadError, RequestError};
 
 mod create;
 mod list_versions;
+mod loaders;
 mod read_log;
 mod run;
 pub use create::{create_server, create_server_wrapped, delete_server, ServerCreateProgress};

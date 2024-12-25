@@ -1,6 +1,6 @@
-use std::{fmt::Display, path::Path};
+use std::path::Path;
 
-use ql_core::{io_err, json::instance_config::InstanceConfigJson, IoError};
+use ql_core::{io_err, json::instance_config::InstanceConfigJson, JsonFileError};
 
 pub mod fabric;
 pub mod forge;
@@ -14,10 +14,7 @@ pub enum CoreMod {
     Optifine,
 }
 
-fn change_instance_type(
-    instance_dir: &Path,
-    instance_type: String,
-) -> Result<(), ChangeConfigError> {
+fn change_instance_type(instance_dir: &Path, instance_type: String) -> Result<(), JsonFileError> {
     let config_path = instance_dir.join("config.json");
     let config = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
     let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
@@ -27,31 +24,4 @@ fn change_instance_type(
     let config = serde_json::to_string(&config)?;
     std::fs::write(&config_path, config).map_err(io_err!(config_path))?;
     Ok(())
-}
-
-#[derive(Debug)]
-pub enum ChangeConfigError {
-    Serde(serde_json::Error),
-    Io(IoError),
-}
-
-impl Display for ChangeConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChangeConfigError::Serde(err) => write!(f, "{err}"),
-            ChangeConfigError::Io(err) => write!(f, "{err}"),
-        }
-    }
-}
-
-impl From<serde_json::Error> for ChangeConfigError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
-    }
-}
-
-impl From<IoError> for ChangeConfigError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
 }

@@ -9,7 +9,7 @@ use iced::{widget::image::Handle, Command};
 use ql_core::{
     err, file_utils, io_err,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, IoError, JavaInstallProgress, JsonFileError,
+    DownloadProgress, InstanceSelection, IoError, JavaInstallProgress, JsonFileError,
 };
 use ql_instances::{
     AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
@@ -48,16 +48,13 @@ pub enum CreateInstanceMessage {
     VersionSelected(ListEntry),
     NameInput(String),
     Start,
-    End(Result<(), String>),
+    End(Result<String, String>),
     ChangeAssetToggle(bool),
 }
 
 #[derive(Debug, Clone)]
 pub enum EditInstanceMessage {
-    /// The `Option` represents the selected server, if any.
-    /// - If `None` then you are editing the client instance.
-    /// - If `Some` then you are editing the server instance.
-    MenuOpen(Option<String>),
+    MenuOpen,
     JavaOverride(String),
     MemoryChanged(f32),
     LoggingToggle(bool),
@@ -82,7 +79,10 @@ pub enum Message {
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
     LaunchStart,
-    LaunchScreenOpen(Option<String>),
+    LaunchScreenOpen {
+        message: Option<String>,
+        clear_selection: bool,
+    },
     LaunchEnd(GameLaunchResult),
     LaunchKill,
     LaunchKillEnd(Result<(), String>),
@@ -140,6 +140,7 @@ pub enum Message {
     ServerManageEndedLog(Result<(ExitStatus, String), String>),
     ServerManageKillServer(String),
     ServerManageEditCommand(String, String),
+    ServerManageCopyLog,
     ServerManageSubmitCommand(String),
     ServerCreateScreenOpen,
     ServerCreateVersionsLoaded(Result<Vec<ListEntry>, String>),
@@ -149,6 +150,7 @@ pub enum Message {
     ServerCreateEnd(Result<String, String>),
     ServerDeleteOpen(String),
     ServerDeleteConfirm,
+    ServerEditModsOpen,
 }
 
 #[derive(Default)]
@@ -172,24 +174,6 @@ pub struct MenuEditInstance {
     pub config: InstanceConfigJson,
     pub slider_value: f32,
     pub slider_text: String,
-}
-
-impl MenuEditInstance {
-    pub fn save_server_config(&self, selected_server: &str) -> Result<(), JsonFileError> {
-        let mut config = self.config.clone();
-        if config.enable_logger.is_none() {
-            config.enable_logger = Some(true);
-        }
-        let launcher_dir = file_utils::get_launcher_dir()?;
-        let config_path = launcher_dir
-            .join("servers")
-            .join(selected_server)
-            .join("config.json");
-
-        let config_json = serde_json::to_string(&config)?;
-        std::fs::write(&config_path, config_json).map_err(io_err!(config_path))?;
-        Ok(())
-    }
 }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -224,7 +208,7 @@ pub struct MenuEditMods {
 impl MenuEditMods {
     pub fn update_locally_installed_mods(
         idx: &ModIndex,
-        selected_instance: String,
+        selected_instance: InstanceSelection,
     ) -> Command<Message> {
         let mut blacklist = Vec::new();
         for mod_info in idx.mods.values() {
@@ -396,8 +380,7 @@ pub struct InstanceLog {
 
 pub struct Launcher {
     pub state: State,
-    pub selected_instance: Option<String>,
-    pub selected_server: Option<String>,
+    pub selected_instance: Option<InstanceSelection>,
     pub client_version_list_cache: Option<Vec<ListEntry>>,
     pub server_version_list_cache: Option<Vec<ListEntry>>,
     pub instances: Option<Vec<String>>,
@@ -450,7 +433,6 @@ impl Launcher {
             style: STYLE.clone(),
             client_version_list_cache: None,
             server_version_list_cache: None,
-            selected_server: None,
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
         })
@@ -479,7 +461,6 @@ impl Launcher {
             theme,
             style: STYLE.clone(),
             client_version_list_cache: None,
-            selected_server: None,
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
             server_version_list_cache: None,
@@ -508,8 +489,9 @@ impl Launcher {
         }
     }
 
-    pub fn edit_instance_wrapped(&mut self, selected_server: Option<String>) {
-        match self.edit_instance(self.selected_instance.clone(), selected_server) {
+    pub fn edit_instance_wrapped(&mut self) {
+        let selected_instance = self.selected_instance.clone().unwrap();
+        match self.edit_instance(&selected_instance) {
             Ok(()) => {}
             Err(err) => self.set_error(err.to_string()),
         }

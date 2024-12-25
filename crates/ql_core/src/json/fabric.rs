@@ -12,7 +12,8 @@ pub struct FabricJSON {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Arguments {
-    pub jvm: Vec<String>,
+    pub jvm: Option<Vec<String>>,
+    pub game: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -32,6 +33,19 @@ impl Library {
             parts[1],
             parts[2],
             parts[0].replace(' ', "_")
+        )
+    }
+
+    pub fn get_url(&self) -> String {
+        let parts: Vec<&str> = self.name.split(':').collect();
+        format!(
+            "{}{}/{}/{}/{}-{}.jar",
+            self.url,
+            parts[0].replace('.', "/"),
+            parts[1],
+            parts[2],
+            parts[1],
+            parts[2],
         )
     }
 }

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use iced::Command;
-use ql_core::{err, info, JavaInstallProgress};
+use ql_core::{err, info, InstanceSelection, JavaInstallProgress};
 use ql_instances::{AssetRedownloadProgress, LogEvent, LogLine, ScrapeProgress, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{
@@ -58,12 +58,9 @@ impl Launcher {
                 }
             }
             State::EditInstance(menu) => {
-                let result = if let Some(server) = &self.selected_server {
-                    menu.save_server_config(server)
-                } else {
+                if let Err(err) =
                     Launcher::save_config(self.selected_instance.as_ref().unwrap(), &menu.config)
-                };
-                if let Err(err) = result {
+                {
                     self.set_error(err.to_string());
                 }
             }
@@ -77,10 +74,8 @@ impl Launcher {
                     menu.mod_update_progress = None;
                 }
 
-                return MenuEditMods::update_locally_installed_mods(
-                    &menu.mods,
-                    self.selected_instance.clone().unwrap(),
-                );
+                let instance_selection = self.selected_instance.clone().unwrap();
+                return MenuEditMods::update_locally_installed_mods(&menu.mods, instance_selection);
             }
             State::Error { .. } | State::DeleteInstance => {}
             State::InstallFabric(menu) => menu.tick(),
@@ -90,10 +85,11 @@ impl Launcher {
                 let finished_install = menu.tick();
                 if finished_install {
                     let message = "Installed Java".to_owned();
-                    if self.selected_server.is_some() {
-                        self.go_to_server_manage_menu();
-                    } else {
-                        self.state = State::Launch(MenuLaunch::with_message(message));
+                    match &self.selected_instance {
+                        Some(InstanceSelection::Instance(_)) | None => {
+                            self.state = State::Launch(MenuLaunch::with_message(message));
+                        }
+                        Some(InstanceSelection::Server(_)) => self.go_to_server_manage_menu(),
                     }
                     if let Ok(list) = get_entries("instances") {
                         self.instances = Some(list);

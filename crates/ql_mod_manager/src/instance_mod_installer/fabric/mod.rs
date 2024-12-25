@@ -1,20 +1,22 @@
-use std::{
-    fmt::Display,
-    path::PathBuf,
-    sync::mpsc::{SendError, Sender},
-};
+use std::sync::mpsc::Sender;
 
+use error::FabricInstallError;
 use ql_core::{
     file_utils, info, io_err,
     json::{fabric::FabricJSON, version::VersionDetails},
-    IoError, JsonFileError, RequestError,
+    InstanceSelection, JsonFileError, RequestError,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use version_compare::compare_versions;
 
 use crate::mod_manager::Loader;
 
-use super::{change_instance_type, ChangeConfigError};
+use super::change_instance_type;
+
+mod error;
+mod make_launch_jar;
+mod version_compare;
 
 const FABRIC_URL: &str = "https://meta.fabricmc.net";
 
@@ -22,45 +24,37 @@ async fn download_file_to_string(client: &Client, url: &str) -> Result<String, R
     file_utils::download_file_to_string(client, &format!("{FABRIC_URL}/{url}"), false).await
 }
 
-async fn get_version_json(instance_name: &str) -> Result<VersionDetails, JsonFileError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let instance_dir = launcher_dir.join("instances").join(instance_name);
-
-    let version_json_path = instance_dir.join("details.json");
+async fn get_version_json(
+    instance_name: &InstanceSelection,
+) -> Result<VersionDetails, JsonFileError> {
+    let version_json_path = file_utils::get_instance_dir(instance_name)?.join("details.json");
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
         .map_err(io_err!(version_json_path))?;
     Ok(serde_json::from_str(&version_json)?)
 }
 
-pub async fn get_list_of_versions(
-    instance_name: String,
+pub async fn get_list_of_versions_wrapped(
+    instance_name: InstanceSelection,
 ) -> Result<Vec<FabricVersionListItem>, String> {
+    get_list_of_versions(&instance_name)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+pub async fn get_list_of_versions(
+    instance_name: &InstanceSelection,
+) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
     let client = Client::new();
 
-    let version_json = get_version_json(&instance_name)
-        .await
-        .map_err(|err| err.to_string())?;
+    let version_json = get_version_json(&instance_name).await?;
 
     // The first one is the latest version.
     let version_list =
         download_file_to_string(&client, &format!("v2/versions/loader/{}", version_json.id))
-            .await
-            .map_err(|err| err.to_string())?;
+            .await?;
 
-    serde_json::from_str(&version_list).map_err(|err| err.to_string())
-}
-
-pub fn get_url(name: &str) -> String {
-    let parts: Vec<&str> = name.split(':').collect();
-    format!(
-        "{}/{}/{}/{}-{}.jar",
-        parts[0].replace('.', "/"),
-        parts[1],
-        parts[2],
-        parts[1],
-        parts[2],
-    )
+    Ok(serde_json::from_str(&version_list)?)
 }
 
 pub enum FabricInstallProgress {
@@ -71,6 +65,83 @@ pub enum FabricInstallProgress {
         message: String,
     },
     P3Done,
+}
+
+pub async fn install_server(
+    loader_version: &str,
+    server_name: &str,
+    progress: Option<Sender<FabricInstallProgress>>,
+) -> Result<(), FabricInstallError> {
+    if let Some(progress) = &progress {
+        progress.send(FabricInstallProgress::P1Start)?;
+    }
+
+    let server_dir = file_utils::get_launcher_dir()?
+        .join("servers")
+        .join(server_name);
+
+    let libraries_dir = server_dir.join("fabric_libraries");
+    tokio::fs::create_dir_all(&libraries_dir)
+        .await
+        .map_err(io_err!(libraries_dir))?;
+
+    let version_json_path = server_dir.join("details.json");
+    let version_json = tokio::fs::read_to_string(&version_json_path)
+        .await
+        .map_err(io_err!(version_json_path))?;
+    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+
+    let game_version = version_json.id;
+    let client = Client::new();
+
+    let json_url = format!("v2/versions/loader/{game_version}/{loader_version}/server/json");
+    let json = download_file_to_string(&client, &json_url).await?;
+
+    let json_path = server_dir.join("fabric.json");
+    tokio::fs::write(&json_path, &json)
+        .await
+        .map_err(io_err!(json_path))?;
+
+    let json: FabricJSON = serde_json::from_str(&json)?;
+
+    let number_of_libraries = json.libraries.len();
+    let mut library_files = Vec::new();
+    for (i, library) in json.libraries.iter().enumerate() {
+        send_progress(i, library, &progress, number_of_libraries)?;
+
+        let library_path = libraries_dir.join(library.get_path());
+        library_files.push(library_path.clone());
+        tokio::fs::create_dir_all(&library_path)
+            .await
+            .map_err(io_err!(library_path))?;
+
+        let url = library.get_url();
+        let file = file_utils::download_file_to_bytes(&client, &url, false).await?;
+        tokio::fs::write(&library_path, &file)
+            .await
+            .map_err(io_err!(library_path))?;
+    }
+
+    let shade_libraries = compare_versions(loader_version, "0.12.5").is_le();
+    let launch_jar = server_dir.join("fabric-server-launch.jar");
+
+    make_launch_jar::make_launch_jar(
+        &launch_jar,
+        &version_json.mainClass,
+        &library_files,
+        shade_libraries,
+    )
+    .await?;
+
+    change_instance_type(&server_dir, "Fabric".to_owned())?;
+
+    if let Some(progress) = &progress {
+        progress.send(FabricInstallProgress::P3Done)?;
+    }
+
+    info!("Finished installing fabric");
+
+    Ok(())
 }
 
 pub async fn install(
@@ -118,24 +189,10 @@ pub async fn install(
 
     let number_of_libraries = json.libraries.len();
     for (i, library) in json.libraries.iter().enumerate() {
-        let message = format!(
-            "Downloading fabric library ({} / {number_of_libraries}) {}",
-            i + 1,
-            library.name
-        );
-
-        info!("{message}");
-
-        if let Some(progress) = &progress {
-            progress.send(FabricInstallProgress::P2Library {
-                done: i + 1,
-                out_of: number_of_libraries,
-                message,
-            })?;
-        }
+        send_progress(i, library, &progress, number_of_libraries)?;
 
         let path = libraries_dir.join(library.get_path());
-        let url = format!("{}{}", library.url, get_url(&library.name));
+        let url = library.get_url();
 
         let bytes = file_utils::download_file_to_bytes(&client, &url, false).await?;
 
@@ -163,6 +220,27 @@ pub async fn install(
     info!("Finished installing fabric");
 
     Ok(())
+}
+
+fn send_progress(
+    i: usize,
+    library: &ql_core::json::fabric::Library,
+    progress: &Option<Sender<FabricInstallProgress>>,
+    number_of_libraries: usize,
+) -> Result<(), FabricInstallError> {
+    let message = format!(
+        "Downloading fabric library ({} / {number_of_libraries}) {}",
+        i + 1,
+        library.name
+    );
+    info!("{message}");
+    Ok(if let Some(progress) = progress {
+        progress.send(FabricInstallProgress::P2Library {
+            done: i + 1,
+            out_of: number_of_libraries,
+            message,
+        })?;
+    })
 }
 
 pub async fn uninstall(instance_name: &str) -> Result<(), FabricInstallError> {
@@ -204,14 +282,14 @@ pub async fn uninstall(instance_name: &str) -> Result<(), FabricInstallError> {
     Ok(())
 }
 
-pub async fn uninstall_wrapped(instance_name: String) -> Result<Loader, String> {
+pub async fn uninstall_client_w(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
         .map_err(|err| err.to_string())
         .map(|_| Loader::Fabric)
 }
 
-pub async fn install_wrapped(
+pub async fn install_client_wrapped(
     loader_version: String,
     instance_name: String,
     progress: Option<Sender<FabricInstallProgress>>,
@@ -233,69 +311,4 @@ pub struct FabricVersion {
     pub maven: String,
     pub version: String,
     pub stable: bool,
-}
-
-#[derive(Debug)]
-pub enum FabricInstallError {
-    Io(IoError),
-    Json(serde_json::Error),
-    RequestError(RequestError),
-    Send(SendError<FabricInstallProgress>),
-    ChangeConfigError(ChangeConfigError),
-    PathBufParentError(PathBuf),
-}
-
-impl From<IoError> for FabricInstallError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<serde_json::Error> for FabricInstallError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Json(value)
-    }
-}
-
-impl From<RequestError> for FabricInstallError {
-    fn from(value: RequestError) -> Self {
-        Self::RequestError(value)
-    }
-}
-
-impl From<SendError<FabricInstallProgress>> for FabricInstallError {
-    fn from(value: SendError<FabricInstallProgress>) -> Self {
-        Self::Send(value)
-    }
-}
-
-impl From<ChangeConfigError> for FabricInstallError {
-    fn from(value: ChangeConfigError) -> Self {
-        Self::ChangeConfigError(value)
-    }
-}
-
-impl Display for FabricInstallError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error installing fabric: ")?;
-        match self {
-            // Look, I'm not the best at programming.
-            FabricInstallError::Io(err) => write!(f, "(system io) {err}"),
-            FabricInstallError::Json(err) => {
-                write!(f, "(parsing json) {err}")
-            }
-            FabricInstallError::RequestError(err) => {
-                write!(f, "(downloading file) {err}")
-            }
-            FabricInstallError::Send(err) => {
-                write!(f, "(sending message) {err}")
-            }
-            FabricInstallError::ChangeConfigError(err) => {
-                write!(f, "could not change instance config: {err}")
-            }
-            FabricInstallError::PathBufParentError(path_buf) => {
-                write!(f, "could not get parent of pathbuf: {path_buf:?}")
-            }
-        }
-    }
 }

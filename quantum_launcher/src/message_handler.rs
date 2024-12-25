@@ -7,7 +7,7 @@ use chrono::Datelike;
 use iced::Command;
 use ql_core::{
     err, file_utils, io_err, json::instance_config::InstanceConfigJson, DownloadProgress,
-    JsonFileError,
+    InstanceSelection, JsonFileError,
 };
 use ql_instances::{GameLaunchResult, ListEntry};
 use ql_mod_manager::mod_manager::ModIndex;
@@ -18,17 +18,13 @@ use crate::launcher_state::{
 };
 
 impl Launcher {
-    pub fn select_launch_instance(&mut self, instance_name: String) {
-        self.selected_instance = Some(instance_name);
-    }
-
     pub fn set_username(&mut self, username: String) {
         self.config.as_mut().unwrap().username = username;
     }
 
     pub fn launch_game(&mut self) -> Command<Message> {
         if let State::Launch(ref mut menu_launch) = self.state {
-            let selected_instance = self.selected_instance.clone().unwrap();
+            let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
             let username = self.config.as_ref().unwrap().username.clone();
 
             let (sender, receiver) = std::sync::mpsc::channel();
@@ -37,7 +33,7 @@ impl Launcher {
             let (asset_sender, asset_receiver) = std::sync::mpsc::channel();
             menu_launch.asset_recv = Some(asset_receiver);
 
-            if let Some(log) = self.client_logs.get_mut(&selected_instance) {
+            if let Some(log) = self.client_logs.get_mut(selected_instance) {
                 log.log.clear();
             }
 
@@ -45,7 +41,7 @@ impl Launcher {
                 let launcher_dir = file_utils::get_launcher_dir().unwrap();
                 let config_path = launcher_dir
                     .join("instances")
-                    .join(&selected_instance)
+                    .join(selected_instance)
                     .join("config.json");
 
                 let config_json = std::fs::read_to_string(&config_path).unwrap();
@@ -54,7 +50,7 @@ impl Launcher {
 
             return Command::perform(
                 ql_instances::launch_wrapped(
-                    selected_instance,
+                    selected_instance.to_owned(),
                     username,
                     Some(sender),
                     instance_config.enable_logger.unwrap_or(true),
@@ -84,7 +80,9 @@ impl Launcher {
     pub fn finish_launching(&mut self, result: GameLaunchResult) -> Command<Message> {
         match result {
             GameLaunchResult::Ok(child) => {
-                let Some(selected_instance) = self.selected_instance.clone() else {
+                let Some(InstanceSelection::Instance(selected_instance)) =
+                    self.selected_instance.clone()
+                else {
                     err!("Game Launched, but unknown instance!\n          This is a bug, please report it if found.");
                     return Command::none();
                 };
@@ -220,11 +218,13 @@ impl Launcher {
 
     pub fn delete_selected_instance(&mut self) {
         if let State::DeleteInstance = &self.state {
-            match file_utils::get_launcher_dir() {
-                Ok(launcher_dir) => {
+            let selected_instance = self.selected_instance.as_ref().unwrap();
+            match (
+                file_utils::get_instance_dir(selected_instance),
+                file_utils::get_launcher_dir(),
+            ) {
+                (Ok(deleted_instance_dir), Ok(launcher_dir)) => {
                     let instances_dir = launcher_dir.join("instances");
-                    let deleted_instance_dir =
-                        instances_dir.join(self.selected_instance.as_ref().unwrap());
 
                     if !deleted_instance_dir.starts_with(&instances_dir) {
                         self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned());
@@ -236,28 +236,29 @@ impl Launcher {
                         return;
                     }
 
-                    self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
+                    match selected_instance {
+                        ql_core::InstanceSelection::Instance(_) => {
+                            self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
+                        }
+                        ql_core::InstanceSelection::Server(_) => {
+                            self.go_to_server_manage_menu();
+                            // TODO: have a Deleted Server message
+                        }
+                    }
                     self.selected_instance = None;
                 }
-                Err(err) => self.set_error(err.to_string()),
+                (Err(err), Ok(_)) | (Ok(_), Err(err)) | (Err(err), Err(_)) => {
+                    self.set_error(err.to_string())
+                }
             }
         }
     }
 
     pub fn edit_instance(
         &mut self,
-        selected_instance: Option<String>,
-        selected_server: Option<String>,
+        selected_instance: &InstanceSelection,
     ) -> Result<(), JsonFileError> {
-        let launcher_dir = file_utils::get_launcher_dir()?;
-        let config_path = if let Some(selected_server) = &selected_server {
-            launcher_dir.join("servers").join(selected_server)
-        } else {
-            launcher_dir
-                .join("instances")
-                .join(selected_instance.unwrap())
-        }
-        .join("config.json");
+        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -274,18 +275,14 @@ impl Launcher {
     }
 
     pub fn save_config(
-        instance_name: &str,
+        instance_name: &InstanceSelection,
         config: &InstanceConfigJson,
     ) -> Result<(), JsonFileError> {
         let mut config = config.clone();
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
         }
-        let launcher_dir = file_utils::get_launcher_dir()?;
-        let config_path = launcher_dir
-            .join("instances")
-            .join(instance_name)
-            .join("config.json");
+        let config_path = file_utils::get_instance_dir(instance_name)?.join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
         std::fs::write(&config_path, config_json).map_err(io_err!(config_path))?;
@@ -293,10 +290,8 @@ impl Launcher {
     }
 
     pub fn go_to_edit_mods_menu(&mut self) -> Result<Command<Message>, JsonFileError> {
-        let launcher_dir = file_utils::get_launcher_dir()?;
-        let selected_instance = self.selected_instance.clone().unwrap();
-        let instance_path = launcher_dir.join("instances").join(&selected_instance);
-        let config_path = instance_path.join("config.json");
+        let selected_instance = self.selected_instance.as_ref().unwrap();
+        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -304,12 +299,12 @@ impl Launcher {
         let is_vanilla = config_json.mod_type == "Vanilla";
 
         Ok(
-            match ModIndex::get(self.selected_instance.as_ref().unwrap())
-                .map_err(|err| err.to_string())
-            {
+            match ModIndex::get(selected_instance).map_err(|err| err.to_string()) {
                 Ok(idx) => {
-                    let locally_installed_mods =
-                        MenuEditMods::update_locally_installed_mods(&idx, selected_instance);
+                    let locally_installed_mods = MenuEditMods::update_locally_installed_mods(
+                        &idx,
+                        selected_instance.clone(),
+                    );
 
                     self.state = State::EditMods(MenuEditMods {
                         config: config_json,
@@ -327,7 +322,7 @@ impl Launcher {
                     } else {
                         Command::perform(
                             ql_mod_manager::mod_manager::check_for_updates(
-                                self.selected_instance.clone().unwrap(),
+                                selected_instance.clone(),
                             ),
                             Message::ManageModsUpdateCheckResult,
                         )
@@ -345,14 +340,13 @@ impl Launcher {
 }
 
 pub async fn get_locally_installed_mods(
-    selected_instance: String,
+    selected_instance: InstanceSelection,
     blacklist: Vec<String>,
 ) -> HashSet<String> {
-    let mods_dir_path = file_utils::get_launcher_dir()
+    let mods_dir_path = file_utils::get_dot_minecraft_dir(&selected_instance)
         .unwrap()
-        .join("instances")
-        .join(&selected_instance)
-        .join(".minecraft/mods");
+        .join("mods");
+
     if let Ok(mut dir) = tokio::fs::read_dir(&mods_dir_path).await {
         let mut set = HashSet::new();
         while let Ok(Some(entry)) = dir.next_entry().await {

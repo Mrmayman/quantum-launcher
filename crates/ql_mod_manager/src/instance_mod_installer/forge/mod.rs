@@ -25,7 +25,7 @@ use crate::instance_mod_installer::change_instance_type;
 mod error;
 mod uninstall;
 
-pub use uninstall::{uninstall, uninstall_wrapped};
+pub use uninstall::{uninstall, uninstall_client_w};
 
 struct ForgeInstaller {
     f_progress: Option<Sender<ForgeInstallProgress>>,

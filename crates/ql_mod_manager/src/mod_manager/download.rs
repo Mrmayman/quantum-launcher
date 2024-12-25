@@ -9,7 +9,7 @@ use chrono::DateTime;
 use ql_core::{
     err, file_utils, info, io_err,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    pt,
+    pt, InstanceSelection,
 };
 use reqwest::Client;
 
@@ -19,13 +19,19 @@ use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
 
 pub const SOURCE_ID_MODRINTH: &str = "modrinth";
 
-pub async fn download_mod_wrapped(id: String, instance_name: String) -> Result<String, String> {
+pub async fn download_mod_wrapped(
+    id: String,
+    instance_name: InstanceSelection,
+) -> Result<String, String> {
     download_mod(id, instance_name)
         .await
         .map_err(|err| err.to_string())
 }
 
-pub async fn download_mod(id: String, instance_name: String) -> Result<String, ModError> {
+pub async fn download_mod(
+    id: String,
+    instance_name: InstanceSelection,
+) -> Result<String, ModError> {
     // Download one mod at a time
     let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
         g
@@ -59,10 +65,10 @@ pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModError> 
     .map(str::to_owned))
 }
 
-pub fn get_instance_and_mod_dir(instance_name: &str) -> Result<(PathBuf, PathBuf), ModError> {
-    let instance_dir = file_utils::get_launcher_dir()?
-        .join("instances")
-        .join(instance_name);
+pub fn get_instance_and_mod_dir(
+    instance_name: &InstanceSelection,
+) -> Result<(PathBuf, PathBuf), ModError> {
+    let instance_dir = file_utils::get_instance_dir(instance_name)?;
     let mods_dir = instance_dir.join(".minecraft/mods");
     if !mods_dir.exists() {
         std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
@@ -96,7 +102,7 @@ struct ModDownloader {
 }
 
 impl ModDownloader {
-    fn new(instance_name: &str) -> Result<ModDownloader, ModError> {
+    fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
         let (instance_dir, mods_dir) = get_instance_and_mod_dir(instance_name)?;
         let version_json = get_version_json(&instance_dir)?;
         let index = ModIndex::get(instance_name)?;

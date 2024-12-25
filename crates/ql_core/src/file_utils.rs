@@ -5,7 +5,7 @@ use std::{
 
 use reqwest::Client;
 
-use crate::{error::IoError, io_err};
+use crate::{error::IoError, io_err, InstanceSelection};
 
 /// Returns the path to the QuantumLauncher root folder.
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
@@ -14,6 +14,24 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     std::fs::create_dir_all(&launcher_directory).map_err(io_err!(launcher_directory))?;
 
     Ok(launcher_directory)
+}
+
+pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = get_launcher_dir()?;
+    Ok(match selection {
+        InstanceSelection::Instance(name) => {
+            launcher_dir.join("instances").join(name).join(".minecraft")
+        }
+        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
+    })
+}
+
+pub fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = get_launcher_dir()?;
+    Ok(match selection {
+        InstanceSelection::Instance(name) => launcher_dir.join("instances").join(name),
+        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
+    })
 }
 
 /// Downloads a file from the given URL into a `String`.
