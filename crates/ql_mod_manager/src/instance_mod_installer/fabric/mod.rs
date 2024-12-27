@@ -34,7 +34,7 @@ async fn get_version_json(
     Ok(serde_json::from_str(&version_json)?)
 }
 
-pub async fn get_list_of_versions_wrapped(
+pub async fn get_list_of_versions_w(
     instance_name: InstanceSelection,
 ) -> Result<Vec<FabricVersionListItem>, String> {
     get_list_of_versions(&instance_name)
@@ -67,6 +67,16 @@ pub enum FabricInstallProgress {
     P3Done,
 }
 
+pub async fn install_server_w(
+    loader_version: String,
+    server_name: String,
+    progress: Option<Sender<FabricInstallProgress>>,
+) -> Result<(), String> {
+    install_server(&loader_version, &server_name, progress)
+        .await
+        .map_err(|err| err.to_string())
+}
+
 pub async fn install_server(
     loader_version: &str,
     server_name: &str,
@@ -80,7 +90,7 @@ pub async fn install_server(
         .join("servers")
         .join(server_name);
 
-    let libraries_dir = server_dir.join("fabric_libraries");
+    let libraries_dir = server_dir.join("libraries");
     tokio::fs::create_dir_all(&libraries_dir)
         .await
         .map_err(io_err!(libraries_dir))?;
@@ -110,10 +120,12 @@ pub async fn install_server(
         send_progress(i, library, &progress, number_of_libraries)?;
 
         let library_path = libraries_dir.join(library.get_path());
+
+        let library_parent_dir = library_path.parent().unwrap();
         library_files.push(library_path.clone());
-        tokio::fs::create_dir_all(&library_path)
+        tokio::fs::create_dir_all(&library_parent_dir)
             .await
-            .map_err(io_err!(library_path))?;
+            .map_err(io_err!(library_parent_dir))?;
 
         let url = library.get_url();
         let file = file_utils::download_file_to_bytes(&client, &url, false).await?;
@@ -125,9 +137,10 @@ pub async fn install_server(
     let shade_libraries = compare_versions(loader_version, "0.12.5").is_le();
     let launch_jar = server_dir.join("fabric-server-launch.jar");
 
+    info!("Making launch jar");
     make_launch_jar::make_launch_jar(
         &launch_jar,
-        &version_json.mainClass,
+        &json.mainClass,
         &library_files,
         shade_libraries,
     )
@@ -289,7 +302,18 @@ pub async fn uninstall_client_w(instance_name: String) -> Result<Loader, String>
         .map(|_| Loader::Fabric)
 }
 
-pub async fn install_client_wrapped(
+pub async fn install_w(
+    loader_version: String,
+    instance_name: InstanceSelection,
+    progress: Option<Sender<FabricInstallProgress>>,
+) -> Result<(), String> {
+    match instance_name {
+        InstanceSelection::Instance(n) => install_client_w(loader_version, n, progress).await,
+        InstanceSelection::Server(n) => install_server_w(loader_version, n, progress).await,
+    }
+}
+
+pub async fn install_client_w(
     loader_version: String,
     instance_name: String,
     progress: Option<Sender<FabricInstallProgress>>,

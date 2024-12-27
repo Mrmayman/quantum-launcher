@@ -132,8 +132,10 @@ pub enum Message {
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
-    // The `Option` represents the selected server, if any.
-    ServerManageOpen(Option<String>),
+    ServerManageOpen {
+        selected_server: Option<String>,
+        message: Option<String>,
+    },
     ServerManageSelectedServer(String),
     ServerManageStartServer(String),
     ServerManageStartServerFinish(Result<(Arc<Mutex<Child>>, bool), String>),
@@ -148,7 +150,7 @@ pub enum Message {
     ServerCreateVersionSelected(ListEntry),
     ServerCreateStart,
     ServerCreateEnd(Result<String, String>),
-    ServerDeleteOpen(String),
+    ServerDeleteOpen,
     ServerDeleteConfirm,
     ServerEditModsOpen,
 }
@@ -330,12 +332,13 @@ pub enum State {
     LauncherSettings,
     ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
-    ServerDelete { selected_server: String },
+    ServerDelete,
 }
 
 pub struct MenuServerManage {
     pub server_list: Vec<String>,
     pub java_install_recv: Option<Receiver<JavaInstallProgress>>,
+    pub message: Option<String>,
 }
 
 pub enum MenuServerCreate {
@@ -489,7 +492,7 @@ impl Launcher {
         }
     }
 
-    pub fn edit_instance_wrapped(&mut self) {
+    pub fn edit_instance_w(&mut self) {
         let selected_instance = self.selected_instance.clone().unwrap();
         match self.edit_instance(&selected_instance) {
             Ok(()) => {}

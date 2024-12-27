@@ -52,9 +52,9 @@ impl Search {
         // if query.client_side {
         //     filters.push(vec!["client_side:required".to_owned()]);
         // }
-        // if query.server_side {
-        //     filters.push(vec!["server_side:required".to_owned()]);
-        // }
+        if query.server_side {
+            filters.push(vec!["server_side:required".to_owned()]);
+        }
 
         filters.push(
             query
@@ -101,7 +101,7 @@ impl Search {
         Ok((json, instant))
     }
 
-    pub async fn search_wrapped(query: Query) -> Result<(Self, Instant), String> {
+    pub async fn search_w(query: Query) -> Result<(Self, Instant), String> {
         Self::search(query).await.map_err(|err| err.to_string())
     }
 
@@ -184,8 +184,7 @@ pub struct Query {
     pub name: String,
     pub versions: Vec<String>,
     pub loaders: Vec<Loader>,
-    // pub client_side: bool,
-    // pub server_side: bool,
+    pub server_side: bool,
     pub open_source: bool,
 }
 

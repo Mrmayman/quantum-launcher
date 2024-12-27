@@ -24,7 +24,7 @@ pub enum UpdateCheckInfo {
 /// that returns a `String` error instead of a `UpdateError`.
 ///
 /// Helpful for use with `iced::Command`.
-pub async fn check_for_launcher_updates_wrapped() -> Result<UpdateCheckInfo, String> {
+pub async fn check_for_launcher_updates_w() -> Result<UpdateCheckInfo, String> {
     check_for_launcher_updates()
         .await
         .map_err(|err| err.to_string())
@@ -111,7 +111,7 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
 /// A wrapper around [`install_launcher_update`] that returns a
 /// `String` error instead of a `UpdateError`.
 /// Helpful for use with `iced::Command`.
-pub async fn install_launcher_update_wrapped(
+pub async fn install_launcher_update_w(
     url: String,
     progress: Sender<UpdateProgress>,
 ) -> Result<(), String> {

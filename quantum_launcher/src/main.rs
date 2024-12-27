@@ -36,6 +36,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //!
 //! So it's a back-and-forth between `Message`s coming from interaction,
 //! and code to deal with the messages in `update()`.
+//!
+//! # What are `*_w()` functions?
+//! Functions ending in `_w` take in arguments as owned objects.
+//! For example, `String` instead of `&str` or `Vec<T>` instead
+//! of `&[T]`
+//!
+//! They also return errors as `String` instead of the actual error type.
+//!
+//! This is done to make use with `iced::Command` easier.
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -88,7 +97,7 @@ impl Application for Launcher {
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let load_icon_command = load_window_icon();
         let check_for_updates_command = Command::perform(
-            ql_instances::check_for_launcher_updates_wrapped(),
+            ql_instances::check_for_launcher_updates_w(),
             Message::UpdateCheckResult,
         );
 
@@ -270,7 +279,7 @@ impl Application for Launcher {
                     *progress_message = Some("Starting Update".to_owned());
 
                     return Command::perform(
-                        ql_instances::install_launcher_update_wrapped(url.clone(), sender),
+                        ql_instances::install_launcher_update_w(url.clone(), sender),
                         Message::UpdateDownloadEnd,
                     );
                 }
@@ -307,7 +316,10 @@ impl Application for Launcher {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.query = input;
 
-                    return menu.search_modrinth();
+                    return menu.search_modrinth(matches!(
+                        &self.selected_instance,
+                        Some(InstanceSelection::Server(_))
+                    ));
                 }
             }
             Message::InstallModsClick(i) => {
@@ -316,7 +328,7 @@ impl Application for Launcher {
                     if let Some(results) = &menu.results {
                         let hit = results.hits.get(i).unwrap();
                         if !menu.result_data.contains_key(&hit.project_id) {
-                            let task = ProjectInfo::download_wrapped(hit.project_id.clone());
+                            let task = ProjectInfo::download_w(hit.project_id.clone());
                             return Command::perform(task, Message::InstallModsLoadData);
                         }
                     }
@@ -398,7 +410,7 @@ impl Application for Launcher {
                         .collect();
 
                     let command = Command::perform(
-                        ql_mod_manager::mod_manager::delete_mods_wrapped(
+                        ql_mod_manager::mod_manager::delete_mods_w(
                             ids,
                             self.selected_instance.clone().unwrap(),
                         ),
@@ -513,7 +525,7 @@ impl Application for Launcher {
                         })
                         .collect();
                     return Command::perform(
-                        ql_mod_manager::mod_manager::toggle_mods_wrapped(
+                        ql_mod_manager::mod_manager::toggle_mods_w(
                             ids,
                             self.selected_instance.clone().unwrap(),
                         ),
@@ -562,7 +574,7 @@ impl Application for Launcher {
                     return Command::perform(
                         // Note: OptiFine does not support servers
                         // so it's safe to assume we've selected an instance.
-                        ql_mod_manager::instance_mod_installer::optifine::install_optifine_wrapped(
+                        ql_mod_manager::instance_mod_installer::optifine::install_optifine_w(
                             self.selected_instance
                                 .as_ref()
                                 .unwrap()
@@ -619,9 +631,12 @@ impl Application for Launcher {
             Message::ServerManageSelectedServer(selected) => {
                 self.selected_instance = Some(InstanceSelection::Server(selected));
             }
-            Message::ServerManageOpen(selected) => {
-                self.selected_instance = selected.map(InstanceSelection::Server);
-                self.go_to_server_manage_menu()
+            Message::ServerManageOpen {
+                selected_server,
+                message,
+            } => {
+                self.selected_instance = selected_server.map(InstanceSelection::Server);
+                self.go_to_server_manage_menu(message)
             }
             Message::ServerCreateScreenOpen => {
                 if let Some(cache) = &self.server_version_list_cache {
@@ -670,7 +685,7 @@ impl Application for Launcher {
                     let (sender, receiver) = std::sync::mpsc::channel();
                     *progress_receiver = Some(receiver);
                     return Command::perform(
-                        ql_servers::create_server_wrapped(
+                        ql_servers::create_server_w(
                             name.clone(),
                             selected_version.clone(),
                             Some(sender),
@@ -682,7 +697,7 @@ impl Application for Launcher {
             Message::ServerCreateEnd(result) => match result {
                 Ok(name) => {
                     self.selected_instance = Some(InstanceSelection::Server(name));
-                    self.go_to_server_manage_menu()
+                    self.go_to_server_manage_menu(Some("Created Server".to_owned()))
                 }
                 Err(err) => self.set_error(err),
             },
@@ -699,13 +714,13 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
-            Message::ServerDeleteOpen(selected_server) => {
-                self.state = State::ServerDelete { selected_server };
+            Message::ServerDeleteOpen => {
+                self.state = State::ServerDelete;
             }
             Message::ServerDeleteConfirm => {
                 if let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance {
                     match ql_servers::delete_server(&selected_server) {
-                        Ok(()) => self.go_to_server_manage_menu(),
+                        Ok(()) => self.go_to_server_manage_menu(Some("Deleted Server".to_owned())),
                         Err(err) => self.set_error(err),
                     }
                 }
@@ -719,7 +734,7 @@ impl Application for Launcher {
                 }
 
                 return Command::perform(
-                    ql_servers::run_wrapped(server, sender),
+                    ql_servers::run_w(server, sender),
                     Message::ServerManageStartServerFinish,
                 );
             }
@@ -747,7 +762,7 @@ impl Application for Launcher {
                         );
 
                         return Command::perform(
-                            ql_servers::read_logs_wrapped(
+                            ql_servers::read_logs_w(
                                 stdout,
                                 stderr,
                                 child,
@@ -890,17 +905,29 @@ impl Application for Launcher {
                 &self.server_processes,
             ),
             State::ServerCreate(menu) => menu.view(),
-            State::ServerDelete { selected_server } => widget::column!(
-                widget::text(format!("Delete server: {selected_server}?")).size(20),
-                "You will lose ALL of your data!",
-                button_with_icon(icon_manager::tick(), "Confirm")
-                    .on_press(Message::ServerDeleteConfirm),
-                button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::ServerManageOpen(Some(selected_server.clone()))),
-            )
-            .padding(10)
-            .spacing(10)
-            .into(),
+            State::ServerDelete => {
+                let selected_server = self
+                    .selected_instance
+                    .as_ref()
+                    .unwrap()
+                    .get_name()
+                    .to_owned();
+                widget::column!(
+                    widget::text(format!("Delete server: {selected_server}?")).size(20),
+                    "You will lose ALL of your data!",
+                    button_with_icon(icon_manager::tick(), "Confirm")
+                        .on_press(Message::ServerDeleteConfirm),
+                    button_with_icon(icon_manager::back(), "Back").on_press(
+                        Message::ServerManageOpen {
+                            selected_server: Some(selected_server),
+                            message: None
+                        }
+                    ),
+                )
+                .padding(10)
+                .spacing(10)
+                .into()
+            }
         }
     }
 
@@ -955,10 +982,7 @@ impl Launcher {
         menu.mods_download_in_progress
             .insert(hit.project_id.clone());
         Some(Command::perform(
-            ql_mod_manager::mod_manager::download_mod_wrapped(
-                hit.project_id.clone(),
-                selected_instance,
-            ),
+            ql_mod_manager::mod_manager::download_mod_w(hit.project_id.clone(), selected_instance),
             Message::InstallModsDownloadComplete,
         ))
     }
@@ -1002,7 +1026,7 @@ impl Launcher {
                 message: "Starting...".to_owned(),
             });
             Command::perform(
-                ql_mod_manager::mod_manager::apply_updates_wrapped(
+                ql_mod_manager::mod_manager::apply_updates_w(
                     self.selected_instance.clone().unwrap(),
                     updates,
                     Some(sender),
@@ -1014,12 +1038,13 @@ impl Launcher {
         }
     }
 
-    fn go_to_server_manage_menu(&mut self) {
+    fn go_to_server_manage_menu(&mut self, message: Option<String>) {
         match get_entries("servers") {
             Ok(entries) => {
                 self.state = State::ServerManage(MenuServerManage {
                     server_list: entries,
                     java_install_recv: None,
+                    message,
                 });
             }
             Err(err) => self.set_error(err.to_string()),
@@ -1032,11 +1057,7 @@ impl Launcher {
 
         let command = match self.selected_instance.as_ref().unwrap() {
             InstanceSelection::Instance(n) => Command::perform(
-                instance_mod_installer::forge::install_wrapped(
-                    n.clone(),
-                    Some(f_sender),
-                    Some(j_sender),
-                ),
+                instance_mod_installer::forge::install_w(n.clone(), Some(f_sender), Some(j_sender)),
                 Message::InstallForgeEnd,
             ),
             InstanceSelection::Server(_) => todo!("Implement install forge for server"),

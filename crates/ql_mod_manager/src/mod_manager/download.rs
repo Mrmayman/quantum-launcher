@@ -19,7 +19,7 @@ use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
 
 pub const SOURCE_ID_MODRINTH: &str = "modrinth";
 
-pub async fn download_mod_wrapped(
+pub async fn download_mod_w(
     id: String,
     instance_name: InstanceSelection,
 ) -> Result<String, String> {
@@ -68,8 +68,8 @@ pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModError> 
 pub fn get_instance_and_mod_dir(
     instance_name: &InstanceSelection,
 ) -> Result<(PathBuf, PathBuf), ModError> {
-    let instance_dir = file_utils::get_instance_dir(instance_name)?;
-    let mods_dir = instance_dir.join(".minecraft/mods");
+    let instance_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+    let mods_dir = instance_dir.join("mods");
     if !mods_dir.exists() {
         std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
     }

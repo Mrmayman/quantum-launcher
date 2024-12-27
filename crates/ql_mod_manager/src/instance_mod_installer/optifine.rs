@@ -21,7 +21,7 @@ const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 // javac -cp OptiFine_1.21.1_HD_U_J1.jar Hook.java -d .
 // java -cp OptiFine_1.21.1_HD_U_J1.jar:. Hook
 
-pub async fn install_optifine_wrapped(
+pub async fn install_optifine_w(
     instance_name: String,
     path_to_installer: PathBuf,
     progress_sender: Option<Sender<OptifineInstallProgress>>,

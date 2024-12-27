@@ -14,7 +14,17 @@ impl Launcher {
     pub fn update_install_fabric(&mut self, message: InstallFabricMessage) -> Command<Message> {
         match message {
             InstallFabricMessage::End(result) => match result {
-                Ok(()) => self.go_to_launch_screen_with_message("Installed Fabric".to_owned()),
+                Ok(()) => {
+                    let message = "Installed Fabric".to_owned();
+                    match self.selected_instance.as_ref().unwrap() {
+                        InstanceSelection::Instance(_) => {
+                            self.go_to_launch_screen_with_message(message)
+                        }
+                        InstanceSelection::Server(_) => {
+                            self.go_to_server_manage_menu(Some(message))
+                        }
+                    }
+                }
                 Err(err) => self.set_error(err),
             },
             InstallFabricMessage::VersionSelected(selection) => {
@@ -54,27 +64,23 @@ impl Launcher {
                 {
                     let (sender, receiver) = std::sync::mpsc::channel();
                     *progress_receiver = Some(receiver);
+                    let loader_version = fabric_version.clone().unwrap();
 
-                    match self.selected_instance.as_ref().unwrap() {
-                        InstanceSelection::Instance(n) => {
-                            return Command::perform(
-                                instance_mod_installer::fabric::install_client_wrapped(
-                                    fabric_version.clone().unwrap(),
-                                    n.clone(),
-                                    Some(sender),
-                                ),
-                                |m| Message::InstallFabric(InstallFabricMessage::End(m)),
-                            );
-                        }
-                        InstanceSelection::Server(_) => todo!(),
-                    }
+                    return Command::perform(
+                        instance_mod_installer::fabric::install_w(
+                            loader_version,
+                            self.selected_instance.clone().unwrap(),
+                            Some(sender),
+                        ),
+                        |m| Message::InstallFabric(InstallFabricMessage::End(m)),
+                    );
                 }
             }
             InstallFabricMessage::ScreenOpen => {
                 self.state = State::InstallFabric(MenuInstallFabric::Loading);
 
                 return Command::perform(
-                    instance_mod_installer::fabric::get_list_of_versions_wrapped(
+                    instance_mod_installer::fabric::get_list_of_versions_w(
                         self.selected_instance.clone().unwrap(),
                     ),
                     |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m)),
@@ -116,7 +122,7 @@ impl Launcher {
 
     pub fn update_edit_instance(&mut self, message: EditInstanceMessage) -> Command<Message> {
         match message {
-            EditInstanceMessage::MenuOpen => self.edit_instance_wrapped(),
+            EditInstanceMessage::MenuOpen => self.edit_instance_w(),
             EditInstanceMessage::JavaOverride(n) => {
                 if let State::EditInstance(menu) = &mut self.state {
                     menu.config.java_override = Some(n);

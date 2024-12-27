@@ -35,13 +35,6 @@ impl ModVersion {
         let file = serde_json::from_str(&file)?;
         Ok(file)
     }
-
-    pub async fn download_wrapped(project_id: String) -> Result<(Vec<Self>, String), String> {
-        Self::download(&project_id)
-            .await
-            .map_err(|err| err.to_string())
-            .map(|n| (n, project_id))
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

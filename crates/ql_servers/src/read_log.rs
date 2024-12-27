@@ -11,7 +11,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-pub async fn read_logs_wrapped(
+pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
     child: Arc<Mutex<Child>>,

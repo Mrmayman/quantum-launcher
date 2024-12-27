@@ -54,7 +54,7 @@ impl Launcher {
                 self.tick_processes_and_logs();
 
                 if let Some(config) = self.config.clone() {
-                    return Command::perform(config.save_wrapped(), Message::CoreTickConfigSaved);
+                    return Command::perform(config.save_w(), Message::CoreTickConfigSaved);
                 }
             }
             State::EditInstance(menu) => {
@@ -89,7 +89,9 @@ impl Launcher {
                         Some(InstanceSelection::Instance(_)) | None => {
                             self.state = State::Launch(MenuLaunch::with_message(message));
                         }
-                        Some(InstanceSelection::Server(_)) => self.go_to_server_manage_menu(),
+                        Some(InstanceSelection::Server(_)) => {
+                            self.go_to_server_manage_menu(Some(message))
+                        }
                     }
                     if let Ok(list) = get_entries("instances") {
                         self.instances = Some(list);
@@ -129,7 +131,7 @@ impl Launcher {
             }
             State::LauncherSettings => {
                 if let Some(config) = self.config.clone() {
-                    return Command::perform(config.save_wrapped(), Message::CoreTickConfigSaved);
+                    return Command::perform(config.save_w(), Message::CoreTickConfigSaved);
                 }
             }
             State::RedownloadAssets(menu) => {

@@ -40,7 +40,7 @@ impl LauncherConfig {
         Ok(())
     }
 
-    pub async fn save_wrapped(self) -> Result<(), String> {
+    pub async fn save_w(self) -> Result<(), String> {
         self.save().await.map_err(|err| err.to_string())
     }
 

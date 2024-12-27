@@ -16,7 +16,7 @@ pub enum ApplyUpdateProgress {
     P3Done,
 }
 
-pub async fn apply_updates_wrapped(
+pub async fn apply_updates_w(
     selected_instance: InstanceSelection,
     updates: Vec<String>,
     progress: Option<Sender<ApplyUpdateProgress>>,

@@ -49,7 +49,7 @@ impl Launcher {
             };
 
             return Command::perform(
-                ql_instances::launch_wrapped(
+                ql_instances::launch_w(
                     selected_instance.to_owned(),
                     username,
                     Some(sender),
@@ -101,13 +101,7 @@ impl Launcher {
                     );
 
                     return Command::perform(
-                        ql_instances::read_logs_wrapped(
-                            stdout,
-                            stderr,
-                            child,
-                            sender,
-                            selected_instance,
-                        ),
+                        ql_instances::read_logs_w(stdout, stderr, child, sender, selected_instance),
                         Message::LaunchEndedLog,
                     );
                 }
@@ -204,7 +198,7 @@ impl Launcher {
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
-                ql_instances::create_instance_wrapped(
+                ql_instances::create_instance_w(
                     instance_name.clone(),
                     selected_version.clone().unwrap(),
                     Some(sender),
@@ -236,15 +230,7 @@ impl Launcher {
                         return;
                     }
 
-                    match selected_instance {
-                        ql_core::InstanceSelection::Instance(_) => {
-                            self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
-                        }
-                        ql_core::InstanceSelection::Server(_) => {
-                            self.go_to_server_manage_menu();
-                            // TODO: have a Deleted Server message
-                        }
-                    }
+                    self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
                     self.selected_instance = None;
                 }
                 (Err(err), Ok(_)) | (Ok(_), Err(err)) | (Err(err), Err(_)) => {

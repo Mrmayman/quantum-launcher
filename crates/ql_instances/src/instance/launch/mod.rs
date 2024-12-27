@@ -41,7 +41,7 @@ pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 /// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
 /// sender to this function and polling the receiver frequently.
 /// If not needed, simply pass `None` to the function.
-pub async fn launch_wrapped(
+pub async fn launch_w(
     instance_name: String,
     username: String,
     java_install_progress_sender: Option<Sender<JavaInstallProgress>>,

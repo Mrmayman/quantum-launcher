@@ -4,13 +4,12 @@ use ql_core::{IoError, JavaInstallError, JsonDownloadError, RequestError};
 
 mod create;
 mod list_versions;
-mod loaders;
 mod read_log;
 mod run;
-pub use create::{create_server, create_server_wrapped, delete_server, ServerCreateProgress};
+pub use create::{create_server, create_server_w, delete_server, ServerCreateProgress};
 pub use list_versions::list_versions;
-pub use read_log::read_logs_wrapped;
-pub use run::run_wrapped;
+pub use read_log::read_logs_w;
+pub use run::run_w;
 use zip_extract::ZipExtractError;
 
 pub enum ServerError {

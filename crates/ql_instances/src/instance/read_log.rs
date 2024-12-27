@@ -15,7 +15,7 @@ use tokio::{
 
 use ql_core::{err, file_utils, io_err, json::version::VersionDetails, IoError};
 
-pub async fn read_logs_wrapped(
+pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
     child: Arc<Mutex<Child>>,

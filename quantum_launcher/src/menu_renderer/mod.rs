@@ -170,7 +170,10 @@ fn get_left_pane<'a>(
                         .padding(5)
                 )
                 .width(98)
-                .on_press(Message::ServerManageOpen(None))
+                .on_press(Message::ServerManageOpen {
+                    selected_server: None,
+                    message: None
+                })
             )
             .spacing(5)
         )
@@ -294,7 +297,7 @@ impl MenuEditInstance {
                 widget::button(widget::row![icon_manager::back(), "Back"]
                     .spacing(10)
                     .padding(5)
-                ).on_press(back_to_launch_screen(selected_instance)),
+                ).on_press(back_to_launch_screen(selected_instance, None)),
                 widget::text(
                     match selected_instance {
                         InstanceSelection::Instance(n) => format!("Editing {} instance: {n}", self.config.mod_type),
@@ -485,7 +488,7 @@ impl MenuEditMods {
             .into();
         }
 
-        let mod_installer = self.get_mod_installer_buttons();
+        let mod_installer = self.get_mod_installer_buttons(selected_instance);
 
         let mod_update_pane = if self.available_updates.is_empty() {
             widget::column!()
@@ -516,7 +519,7 @@ impl MenuEditMods {
                         .spacing(10)
                         .padding(5)
                 )
-                .on_press(back_to_launch_screen(selected_instance)),
+                .on_press(back_to_launch_screen(selected_instance, None)),
                 mod_installer,
                 Self::open_mod_folder_button(selected_instance),
                 widget::container(mod_update_pane),
@@ -533,18 +536,57 @@ impl MenuEditMods {
             .into()
     }
 
-    fn get_mod_installer_buttons(&self) -> widget::Column<'_, Message, LauncherTheme> {
-        let mod_installer = match self.config.mod_type.as_str() {
-            "Vanilla" => {
-                widget::column![
-                    widget::button("Install OptiFine").on_press(Message::InstallOptifineScreenOpen),
-                    widget::button("Install Fabric")
-                        .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen)),
-                    widget::button("Install Forge").on_press(Message::InstallForgeStart),
-                    widget::button("Install Quilt"),
-                    widget::button("Install NeoForge"),
-                ]
-            }
+    fn get_mod_installer_buttons(
+        &self,
+        selected_instance: &InstanceSelection,
+    ) -> widget::Column<'_, Message, LauncherTheme> {
+        match self.config.mod_type.as_str() {
+            "Vanilla" => match selected_instance {
+                InstanceSelection::Instance(_) => widget::column![
+                    "Install:",
+                    widget::row!(
+                        widget::button("Fabric")
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen))
+                            .width(97),
+                        widget::button("Quilt").width(98),
+                    )
+                    .spacing(5),
+                    widget::row!(
+                        widget::button("Forge")
+                            .on_press(Message::InstallForgeStart)
+                            .width(97),
+                        widget::button("NeoForge").width(98),
+                    )
+                    .spacing(5),
+                    widget::row!(widget::button("OptiFine")
+                        .on_press(Message::InstallOptifineScreenOpen)
+                        .width(97),)
+                    .spacing(5),
+                ],
+                InstanceSelection::Server(_) => widget::column!(
+                    "Install:",
+                    widget::row!(
+                        widget::button("Fabric")
+                            .width(97)
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen)),
+                        widget::button("Forge")
+                            .on_press(Message::InstallForgeStart)
+                            .width(98),
+                    )
+                    .spacing(5),
+                    widget::row!(
+                        widget::button("Quilt").width(97),
+                        widget::button("NeoForge").width(98)
+                    )
+                    .spacing(5),
+                    widget::row!(
+                        widget::button("Bukkit").width(97),
+                        widget::button("Spigot").width(98)
+                    )
+                    .spacing(5),
+                    widget::button("Paper").width(97),
+                ),
+            },
             "Forge" => {
                 widget::column!(
                     widget::button("Install OptiFine"),
@@ -577,8 +619,7 @@ impl MenuEditMods {
                 )))
             }
         }
-        .spacing(5);
-        mod_installer
+        .spacing(5)
     }
 
     fn get_uninstall_panel(
@@ -821,7 +862,7 @@ impl MenuInstallFabric {
                 } else {
                     widget::column![
                         button_with_icon(icon_manager::back(), "Back")
-                            .on_press(back_to_launch_screen(selected_instance)),
+                            .on_press(back_to_launch_screen(selected_instance, None)),
                         widget::text(format!(
                             "Select Fabric Version for instance {}",
                             selected_instance.get_name()
@@ -842,7 +883,7 @@ impl MenuInstallFabric {
             MenuInstallFabric::Unsupported => {
                 widget::column!(
                     button_with_icon(icon_manager::back(), "Back")
-                        .on_press(back_to_launch_screen(selected_instance)),
+                        .on_press(back_to_launch_screen(selected_instance, None)),
                     "Fabric is unsupported for this Minecraft version."
                 )
             }
@@ -1000,11 +1041,15 @@ impl MenuLauncherSettings {
     }
 }
 
-fn back_to_launch_screen(selected_instance: &InstanceSelection) -> Message {
+fn back_to_launch_screen(
+    selected_instance: &InstanceSelection,
+    message: Option<String>,
+) -> Message {
     match selected_instance {
-        InstanceSelection::Server(selected_server) => {
-            Message::ServerManageOpen(Some(selected_server.clone()))
-        }
+        InstanceSelection::Server(selected_server) => Message::ServerManageOpen {
+            selected_server: Some(selected_server.clone()),
+            message,
+        },
         InstanceSelection::Instance(_) => Message::LaunchScreenOpen {
             message: None,
             clear_selection: false,

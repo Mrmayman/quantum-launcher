@@ -7,6 +7,7 @@ use iced::Command;
 use ql_core::{
     file_utils, io_err,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    InstanceSelection,
 };
 use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
 
@@ -46,14 +47,17 @@ impl Launcher {
             mods_download_in_progress: HashSet::new(),
             mod_index,
         };
-        let command = menu.search_modrinth();
+        let command = menu.search_modrinth(matches!(
+            &self.selected_instance,
+            Some(InstanceSelection::Server(_))
+        ));
         self.state = State::ModsDownload(Box::new(menu));
         Ok(command)
     }
 }
 
 impl MenuModsDownload {
-    pub fn search_modrinth(&mut self) -> Command<Message> {
+    pub fn search_modrinth(&mut self, is_server: bool) -> Command<Message> {
         let Some(loaders) = (match self.config.mod_type.as_str() {
             "Forge" => Some(vec![Loader::Forge]),
             "Fabric" => Some(vec![Loader::Fabric]),
@@ -64,12 +68,11 @@ impl MenuModsDownload {
 
         self.is_loading_search = true;
         Command::perform(
-            Search::search_wrapped(Query {
+            Search::search_w(Query {
                 name: self.query.clone(),
                 versions: vec![self.json.id.clone()],
                 loaders,
-                // client_side: true,
-                // server_side: false,
+                server_side: is_server,
                 open_source: false, // TODO: Add Open Source filter
             }),
             Message::InstallModsSearchResult,

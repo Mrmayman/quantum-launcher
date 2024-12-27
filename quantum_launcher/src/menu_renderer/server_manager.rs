@@ -60,17 +60,19 @@ impl MenuServerManage {
                                 ),
                         )
                         .spacing(5),
-                        widget::row!(
-                            button_with_icon(icon_manager::delete(), "Delete")
-                                .width(97)
-                                .on_press_maybe((selected_server.is_some()).then(|| {
-                                    Message::ServerDeleteOpen(selected_server.unwrap().clone())
-                                })),
-                            // button_with_icon(icon_manager::settings(), "Edit"),
-                        )
+                        widget::row!(button_with_icon(icon_manager::delete(), "Delete")
+                            .width(97)
+                            .on_press_maybe(
+                                (selected_server.is_some()).then(|| { Message::ServerDeleteOpen })
+                            ),)
                         .spacing(5)
                     )
-                    .spacing(5)
+                    .spacing(5),
+                    if let Some(message) = &self.message {
+                        widget::column!(widget::container(widget::text(message)).padding(10))
+                    } else {
+                        widget::column!()
+                    }
                 )
                 .spacing(10)
             } else {
@@ -172,8 +174,12 @@ impl MenuServerCreate {
                 ..
             } => {
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back")
-                        .on_press(Message::ServerManageOpen(None)),
+                    button_with_icon(icon_manager::back(), "Back").on_press(
+                        Message::ServerManageOpen {
+                            selected_server: None,
+                            message: None
+                        }
+                    ),
                     widget::text("Create new server").size(20),
                     widget::combo_box(
                         versions,

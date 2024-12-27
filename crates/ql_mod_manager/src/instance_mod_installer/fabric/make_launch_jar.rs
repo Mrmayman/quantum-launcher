@@ -1,4 +1,4 @@
-use ql_core::io_err;
+use ql_core::{info, io_err};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
@@ -28,8 +28,7 @@ pub async fn make_launch_jar(
     let mut added_entries = HashSet::new();
 
     // Write the manifest file
-    let mut manifest_content =
-        format!("Manifest-Version: 1.0\nMain-Class: {MAIN_CLASS_MANIFEST}\n");
+    let mut manifest_content = ManifestBuilder::new();
 
     if !shade_libraries {
         let class_path = library_files
@@ -45,8 +44,10 @@ pub async fn make_launch_jar(
             })
             .collect::<Vec<_>>()
             .join(" ");
-        manifest_content.push_str(&format!("Class-Path: {}\n", class_path));
+        manifest_content.add_line(&format!("Class-Path: {class_path}"));
     }
+    manifest_content.add_line(&format!("Main-Class: {MAIN_CLASS_MANIFEST}"));
+    let manifest_content = manifest_content.build();
 
     zip_writer.start_file(MANIFEST_PATH, FileOptions::<()>::default())?;
     zip_writer
@@ -67,9 +68,12 @@ pub async fn make_launch_jar(
 
     // Shade libraries if required
     if shade_libraries {
+        info!("Shading libraries");
         let mut services = HashMap::<String, HashSet<String>>::new();
 
-        for library_path in library_files {
+        let library_files_len = library_files.len();
+        for (i, library_path) in library_files.iter().enumerate() {
+            info!("({i}/{library_files_len}) {library_path:?}");
             let library_file = File::open(library_path).map_err(io_err!(library_path))?;
             let mut jar_reader = zip::read::ZipArchive::new(BufReader::new(library_file))?;
 
@@ -135,4 +139,57 @@ fn parse_service_definition(
                 .insert(trimmed_line.to_string());
         }
     }
+}
+
+struct ManifestBuilder {
+    lines: Vec<String>,
+}
+
+impl ManifestBuilder {
+    fn new() -> Self {
+        Self {
+            lines: vec!["Manifest-Version: 1.0".to_owned()],
+        }
+    }
+
+    fn add_line(&mut self, line: &str) {
+        let split = split_string(line);
+        self.lines.extend(split);
+    }
+
+    fn build(self) -> String {
+        let mut lines = self.lines.join("\n");
+        lines.push('\n');
+        lines
+    }
+}
+
+fn split_string(s: &str) -> Vec<String> {
+    let mut result = Vec::new();
+
+    if s.len() <= 70 {
+        result.push(s.to_string());
+    } else {
+        // Take the first 70 characters
+        let first_part = s.chars().take(70).collect::<String>();
+        result.push(first_part);
+
+        // Get the remaining characters
+        let remaining = s.chars().skip(70).collect::<String>();
+
+        if remaining.len() <= 69 {
+            result.push(format!(" {}", remaining));
+        } else {
+            // Split the remaining string into chunks of 69 characters
+            result.extend(
+                remaining
+                    .chars()
+                    .collect::<Vec<_>>()
+                    .chunks(69)
+                    .map(|chunk| format!(" {}", chunk.iter().collect::<String>())),
+            );
+        }
+    }
+
+    result
 }

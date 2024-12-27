@@ -497,7 +497,7 @@ fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallErro
     Ok(minecraft_version)
 }
 
-pub async fn install_wrapped(
+pub async fn install_w(
     instance_name: String,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<JavaInstallProgress>>,

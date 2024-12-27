@@ -6,7 +6,7 @@ use crate::mod_manager::ModIndex;
 
 use super::ModError;
 
-pub async fn toggle_mods_wrapped(
+pub async fn toggle_mods_w(
     id: Vec<String>,
     instance_name: InstanceSelection,
 ) -> Result<(), String> {

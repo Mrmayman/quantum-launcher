@@ -22,7 +22,7 @@ use crate::{download::GameDownloader, ListEntry, LAUNCHER_VERSION_NAME};
 /// # Errors
 /// The errors have been converted to `String`. For the possible errors read the documentation
 /// of `ql_instances::create_instance`.
-pub async fn create_instance_wrapped(
+pub async fn create_instance_w(
     instance_name: String,
     version: ListEntry,
     progress_sender: Option<Sender<DownloadProgress>>,

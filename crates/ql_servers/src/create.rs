@@ -12,7 +12,7 @@ use ql_core::{
 
 use crate::ServerError;
 
-pub async fn create_server_wrapped(
+pub async fn create_server_w(
     name: String,
     version: ListEntry,
     sender: Option<Sender<ServerCreateProgress>>,
@@ -139,6 +139,11 @@ pub async fn create_server(
     tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)
         .await
         .map_err(io_err!(server_config_path))?;
+
+    let mods_dir = server_dir.join("mods");
+    tokio::fs::create_dir(&mods_dir)
+        .await
+        .map_err(io_err!(mods_dir))?;
 
     Ok(())
 }

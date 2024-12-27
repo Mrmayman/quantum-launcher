@@ -60,7 +60,7 @@ impl Display for FabricInstallError {
         write!(f, "error installing fabric: ")?;
         match self {
             // Look, I'm not the best at programming.
-            FabricInstallError::Io(err) => write!(f, "(system io) {err}"),
+            FabricInstallError::Io(err) => write!(f, "(io) {err}"),
             FabricInstallError::Json(err) => {
                 write!(f, "(parsing json) {err}")
             }
