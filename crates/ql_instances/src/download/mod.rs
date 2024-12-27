@@ -81,9 +81,9 @@ impl GameDownloader {
         Self {
             instance_dir,
             version_json,
+            version,
             network_client,
             sender,
-            version,
         }
     }
 
@@ -241,8 +241,7 @@ impl GameDownloader {
 
             let results = objects.iter().map(|(obj_id, object_data)| {
                 self.download_assets_legacy_fn(
-                    &legacy_path,
-                    obj_id,
+                    legacy_path.join(obj_id),
                     object_data,
                     &bar,
                     &progress,
@@ -325,15 +324,13 @@ impl GameDownloader {
 
     async fn download_assets_legacy_fn(
         &self,
-        legacy_path: &Path,
-        obj_id: &str,
+        file_path: PathBuf,
         object_data: &Value,
         bar: &ProgressBar,
         progress: &Mutex<usize>,
         objects_len: usize,
         sender: Option<&Sender<AssetRedownloadProgress>>,
     ) -> Result<(), DownloadError> {
-        let file_path = legacy_path.join(obj_id);
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent)
                 .await

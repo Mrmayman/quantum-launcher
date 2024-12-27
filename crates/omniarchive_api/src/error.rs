@@ -18,8 +18,8 @@ impl Display for WebScrapeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "web scrape error: ")?;
         match self {
-            WebScrapeError::RequestError(error) => write!(f, "{}", error),
-            WebScrapeError::ElementNotFound(name) => write!(f, "element not found: {}", name),
+            WebScrapeError::RequestError(err) => write!(f, "{err}"),
+            WebScrapeError::ElementNotFound(name) => write!(f, "element not found: {name}"),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::Path,
 };
 
 use ql_core::{file_utils, io_err, InstanceSelection};
@@ -38,7 +38,7 @@ impl ModIndex {
     pub fn get(selected_instance: &InstanceSelection) -> Result<Self, ModError> {
         let mods_dir = file_utils::get_dot_minecraft_dir(selected_instance)?.join("mods");
 
-        get(mods_dir, selected_instance)
+        get(&mods_dir, selected_instance)
     }
 
     pub fn save(&self) -> Result<(), ModError> {
@@ -68,9 +68,9 @@ impl ModIndex {
     }
 }
 
-fn get(mods_dir: PathBuf, instance_name: &InstanceSelection) -> Result<ModIndex, ModError> {
+fn get(mods_dir: &Path, instance_name: &InstanceSelection) -> Result<ModIndex, ModError> {
     if !mods_dir.exists() {
-        std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
+        std::fs::create_dir(mods_dir).map_err(io_err!(mods_dir))?;
     }
 
     let mod_index_path = mods_dir.join("index.json");

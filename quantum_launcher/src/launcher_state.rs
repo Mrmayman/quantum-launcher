@@ -71,10 +71,26 @@ pub enum EditInstanceMessage {
 }
 
 #[derive(Debug, Clone)]
+pub enum ManageModsMessage {
+    ScreenOpen,
+    ToggleCheckbox((String, String), bool),
+    ToggleCheckboxLocal(String, bool),
+    DeleteSelected,
+    DeleteFinished(Result<Vec<String>, String>),
+    LocalDeleteFinished(Result<(), String>),
+    LocalIndexLoaded(HashSet<String>),
+    ToggleSelected,
+    ToggleFinished(Result<(), String>),
+    UpdateMods,
+    UpdateModsFinished(Result<(), String>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
     InstallFabric(InstallFabricMessage),
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
+    ManageMods(ManageModsMessage),
     CoreOpenDir(String),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
@@ -88,17 +104,6 @@ pub enum Message {
     LaunchKillEnd(Result<(), String>),
     DeleteInstanceMenu,
     DeleteInstance,
-    ManageModsScreenOpen,
-    ManageModsToggleCheckbox((String, String), bool),
-    ManageModsToggleCheckboxLocal(String, bool),
-    ManageModsDeleteSelected,
-    ManageModsDeleteFinished(Result<Vec<String>, String>),
-    ManageModsLocalDeleteFinished(Result<(), String>),
-    ManageModsLocalIndexLoaded(HashSet<String>),
-    ManageModsToggleSelected,
-    ManageModsToggleFinished(Result<(), String>),
-    ManageModsUpdateMods,
-    ManageModsUpdateModsFinished(Result<(), String>),
     InstallForgeStart,
     InstallForgeEnd(Result<(), String>),
     UninstallLoaderFabricStart,
@@ -220,7 +225,7 @@ impl MenuEditMods {
         }
         Command::perform(
             get_locally_installed_mods(selected_instance, blacklist),
-            Message::ManageModsLocalIndexLoaded,
+            |n| Message::ManageMods(ManageModsMessage::LocalIndexLoaded(n)),
         )
     }
 }
@@ -470,8 +475,10 @@ impl Launcher {
         }
     }
 
-    pub fn set_error(&mut self, error: String) {
-        self.state = State::Error { error }
+    pub fn set_error<T: ToString>(&mut self, error: T) {
+        self.state = State::Error {
+            error: error.to_string(),
+        }
     }
 
     pub fn go_to_launch_screen(&mut self) {
@@ -496,7 +503,7 @@ impl Launcher {
         let selected_instance = self.selected_instance.clone().unwrap();
         match self.edit_instance(&selected_instance) {
             Ok(()) => {}
-            Err(err) => self.set_error(err.to_string()),
+            Err(err) => self.set_error(err),
         }
     }
 }

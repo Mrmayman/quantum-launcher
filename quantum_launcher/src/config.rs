@@ -7,7 +7,7 @@ pub struct LauncherConfig {
     pub username: String,
     pub theme: Option<String>,
     pub style: Option<String>,
-    /// Filler implementation, to not break older versions of the launcher.
+    /// DEPRECATED: Filler implementation, to not break older versions of the launcher.
     #[deprecated]
     pub java_installs: Vec<String>,
 }

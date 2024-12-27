@@ -17,6 +17,25 @@ pub enum JavaVersion {
     Java8,
 }
 
+impl JavaVersion {
+    pub fn get_amazon_corretto_aarch64_url(&self) -> &'static str {
+        match self {
+            JavaVersion::Java16
+            | JavaVersion::Java17Beta
+            | JavaVersion::Java17Gamma
+            | JavaVersion::Java17GammaSnapshot => {
+                "https://corretto.aws/downloads/latest/amazon-corretto-17-aarch64-linux-jdk.tar.gz"
+            }
+            JavaVersion::Java21 => {
+                "https://corretto.aws/downloads/latest/amazon-corretto-21-aarch64-linux-jdk.tar.gz"
+            }
+            JavaVersion::Java8 => {
+                "https://corretto.aws/downloads/latest/amazon-corretto-8-aarch64-linux-jdk.tar.gz"
+            }
+        }
+    }
+}
+
 impl Display for JavaVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -73,7 +92,8 @@ impl JavaListJson {
                 &self.linux
             } else {
                 // TODO Unsupported architecture handling.
-                // Some people might play this on powerpc/risc v?
+                // Some people might play this on
+                // aarch64, arm32, powerpc or risc v?
                 panic!("Java Install - Unsupported Architecture");
             }
         } else if cfg!(target_os = "macos") {
@@ -96,7 +116,7 @@ impl JavaListJson {
                 &self.windows_arm64
             } else {
                 // TODO Unsupported architecture handling.
-                // Some people might play this on powerpc/risc v?
+                // What if Windows supports some other architecture?
                 panic!("Java Install - Unsupported Architecture");
             }
         } else {

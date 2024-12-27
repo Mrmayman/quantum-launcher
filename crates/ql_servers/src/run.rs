@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{mpsc::Sender, Arc, Mutex},
 };
@@ -87,7 +87,7 @@ async fn run(
     Ok((child, is_classic_server))
 }
 
-async fn get_config_json(server_dir: &PathBuf) -> Result<InstanceConfigJson, ServerError> {
+async fn get_config_json(server_dir: &Path) -> Result<InstanceConfigJson, ServerError> {
     let config_json_path = server_dir.join("config.json");
     let config_json = tokio::fs::read_to_string(&config_json_path)
         .await
@@ -106,9 +106,8 @@ async fn get_java_path(
             let java_path = PathBuf::from(java_path);
             if java_path.exists() {
                 return Ok(java_path);
-            } else {
-                err!("Java override at {java_path:?} does not exist!")
             }
+            err!("Java override at {java_path:?} does not exist!");
         }
     };
     let path = get_java_binary(version, "java", Some(java_install_progress)).await?;

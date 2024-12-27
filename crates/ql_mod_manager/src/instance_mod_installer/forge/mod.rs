@@ -374,14 +374,14 @@ impl ForgeInstaller {
 
         let full_len = std::fs::metadata(&extracted_pack_path)
             .map_err(io_err!(extracted_pack_path))?
-            .len() as usize;
-        let crop_len = full_len - sig_len as usize - 8;
+            .len();
+        let crop_len = full_len - sig_len as u64 - 8;
 
         let extracted_pack =
             std::fs::File::open(&extracted_pack_path).map_err(io_err!(extracted_pack_path))?;
-        let mut pack_crop = Vec::with_capacity(crop_len);
+        let mut pack_crop = Vec::with_capacity(crop_len as usize);
         extracted_pack
-            .take(crop_len as u64)
+            .take(crop_len)
             .read_to_end(&mut pack_crop)
             .map_err(io_err!(extracted_pack_path))?;
 

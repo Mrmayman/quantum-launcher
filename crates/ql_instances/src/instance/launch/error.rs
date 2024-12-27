@@ -19,8 +19,8 @@ pub enum GameLaunchError {
     ForgeInstallUpgradeStripPrefixError,
 }
 
-const FORGE_UPGRADE_MESSAGE: &str = r#"outdated forge install. Please uninstall and reinstall.
-Select your instance, go to Mods -> Uninstall Forge, then Install Forge."#;
+const FORGE_UPGRADE_MESSAGE: &str = r"outdated forge install. Please uninstall and reinstall.
+Select your instance, go to Mods -> Uninstall Forge, then Install Forge.";
 
 impl Display for GameLaunchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

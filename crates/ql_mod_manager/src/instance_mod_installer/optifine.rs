@@ -110,7 +110,7 @@ pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
         .map_err(|err| err.to_string())
-        .map(|_| Loader::OptiFine)
+        .map(|()| Loader::OptiFine)
 }
 
 pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
@@ -155,7 +155,7 @@ async fn create_hook_java_file(
     dot_minecraft_path: &Path,
     optifine_path: &Path,
 ) -> Result<(), OptifineError> {
-    let mc_path = dot_minecraft_path.to_str().unwrap().replace("\\", "\\\\");
+    let mc_path = dot_minecraft_path.to_str().unwrap().replace('\\', "\\\\");
     let hook =
         include_str!("../../../../assets/Hook.java").replace("REPLACE_WITH_MC_PATH", &mc_path);
     let hook_path = optifine_path.join("Hook.java");

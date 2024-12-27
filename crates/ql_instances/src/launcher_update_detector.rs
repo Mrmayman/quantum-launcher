@@ -20,10 +20,9 @@ pub enum UpdateCheckInfo {
     NewVersion { url: String },
 }
 
-/// A wrapper around [`check_for_launcher_updates`]
-/// that returns a `String` error instead of a `UpdateError`.
+/// Read [`check_for_launcher_updates`] documentation for more info.
 ///
-/// Helpful for use with `iced::Command`.
+/// What are `_w` functions? See documentation in `quantum_launcher` crate.
 pub async fn check_for_launcher_updates_w() -> Result<UpdateCheckInfo, String> {
     check_for_launcher_updates()
         .await
@@ -108,9 +107,9 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
     }
 }
 
-/// A wrapper around [`install_launcher_update`] that returns a
-/// `String` error instead of a `UpdateError`.
-/// Helpful for use with `iced::Command`.
+/// Read [`install_launcher_update`] documentation for more info.
+///
+/// What are `_w` functions? See documentation in `quantum_launcher` crate.
 pub async fn install_launcher_update_w(
     url: String,
     progress: Sender<UpdateProgress>,

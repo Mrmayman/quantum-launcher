@@ -61,101 +61,93 @@ impl MenuModsDownload {
                 template_contents: _,
                 mathml_annotation_xml_integration_point: _,
             } => {
-                let name = name.local.to_string();
-                let attrs = attrs.borrow();
-                match name.as_str() {
-                    "html" | "body" | "p" | "center" | "i" | "kbd" | "b" => {
-                        let children = node.children.borrow();
-                        *element = widget::column(children.iter().map(|node| {
-                            let mut element = widget::column!().into();
-                            Self::traverse_node(node, &mut element, images_to_load, images, 0);
-                            element
-                        }))
-                        .into();
-                    }
-                    "h1" => {
-                        let children = node.children.borrow();
-                        *element = widget::column(children.iter().map(|node| {
-                            let mut element = widget::column!().into();
-                            Self::traverse_node(node, &mut element, images_to_load, images, 1);
-                            element
-                        }))
-                        .into();
-                    }
-                    "h2" => {
-                        let children = node.children.borrow();
-                        *element = widget::column(children.iter().map(|node| {
-                            let mut element = widget::column!().into();
-                            Self::traverse_node(node, &mut element, images_to_load, images, 2);
-                            element
-                        }))
-                        .into();
-                    }
-                    "h3" => {
-                        let children = node.children.borrow();
-                        *element = widget::column(children.iter().map(|node| {
-                            let mut element = widget::column!().into();
-                            Self::traverse_node(node, &mut element, images_to_load, images, 3);
-                            element
-                        }))
-                        .into();
-                    }
-                    "details" | "summary" => {
-                        let children = node.children.borrow();
-                        *element = widget::column(children.iter().map(|node| {
-                            let mut element = widget::column!().into();
-                            Self::traverse_node(node, &mut element, images_to_load, images, 1);
-                            element
-                        }))
-                        .into();
-                    }
-                    "a" => {
-                        if let Some(attr) = attrs
-                            .iter()
-                            .find(|attr| attr.name.local.to_string().as_str() == "href")
-                        {
-                            let url = attr.value.to_string();
-                            let children_nodes = node.children.borrow();
-
-                            let mut i = 0;
-                            let mut children = widget::column(children_nodes.iter().map(|node| {
-                                let mut element = widget::column!().into();
-                                i += 1;
-                                Self::traverse_node(node, &mut element, images_to_load, images, 3);
-                                element
-                            }));
-                            if children_nodes.is_empty() {
-                                children = widget::column!(widget::text(&url));
-                            }
-                            *element = widget::button(children)
-                                .on_press(Message::CoreOpenDir(url.clone()))
-                                .into();
-                        } else {
-                            *element = widget::text("[HTML error: malformed link]]").into();
-                        }
-                    }
-                    "head" | "br" => {}
-                    "img" => {
-                        if let Some(attr) = attrs
-                            .iter()
-                            .find(|attr| attr.name.local.to_string().as_str() == "src")
-                        {
-                            let url = attr.value.to_string();
-                            *element = if let Some(image) = images.get(&url) {
-                                widget::image(image.clone()).width(300).into()
-                            } else {
-                                let mut images_to_load = images_to_load.lock().unwrap();
-                                images_to_load.insert(url);
-                                widget::text("(Loading image...)").into()
-                            }
-                        } else {
-                            *element = widget::text("[HTML error: malformed image]]").into();
-                        }
-                    }
-                    _ => *element = widget::text(format!("[HTML todo: {name}]")).into(),
-                }
+                render_html(name, attrs, node, element, images_to_load, images);
             }
             _ => {}
         }
     }
+}
+
+fn render_html(
+    name: &html5ever::QualName,
+    attrs: &std::cell::RefCell<Vec<html5ever::Attribute>>,
+    node: &Node,
+    element: &mut Element,
+    images_to_load: &Mutex<HashSet<String>>,
+    images: &HashMap<String, Handle>,
+) {
+    let name = name.local.to_string();
+    let attrs = attrs.borrow();
+    match name.as_str() {
+        "html" | "body" | "p" | "center" | "i" | "kbd" | "b" => {
+            render_children(node, element, images_to_load, images, 0);
+        }
+        "h2" => {
+            render_children(node, element, images_to_load, images, 2);
+        }
+        "h3" => {
+            render_children(node, element, images_to_load, images, 3);
+        }
+        "details" | "summary" | "h1" => {
+            render_children(node, element, images_to_load, images, 1);
+        }
+        "a" => {
+            if let Some(attr) = attrs
+                .iter()
+                .find(|attr| attr.name.local.to_string().as_str() == "href")
+            {
+                let url = attr.value.to_string();
+                let children_nodes = node.children.borrow();
+
+                let mut children = widget::column(children_nodes.iter().map(|node| {
+                    let mut element = widget::column!().into();
+                    MenuModsDownload::traverse_node(node, &mut element, images_to_load, images, 3);
+                    element
+                }));
+                if children_nodes.is_empty() {
+                    children = widget::column!(widget::text(&url));
+                }
+                *element = widget::button(children)
+                    .on_press(Message::CoreOpenDir(url.clone()))
+                    .into();
+            } else {
+                *element = widget::text("[HTML error: malformed link]]").into();
+            }
+        }
+        "head" | "br" => {}
+        "img" => {
+            if let Some(attr) = attrs
+                .iter()
+                .find(|attr| attr.name.local.to_string().as_str() == "src")
+            {
+                let url = attr.value.to_string();
+                *element = if let Some(image) = images.get(&url) {
+                    widget::image(image.clone()).width(300).into()
+                } else {
+                    let mut images_to_load = images_to_load.lock().unwrap();
+                    images_to_load.insert(url);
+                    widget::text("(Loading image...)").into()
+                }
+            } else {
+                *element = widget::text("[HTML error: malformed image]]").into();
+            }
+        }
+        _ => *element = widget::text(format!("[HTML todo: {name}]")).into(),
+    }
+}
+
+fn render_children(
+    node: &Node,
+    element: &mut Element,
+    images_to_load: &Mutex<HashSet<String>>,
+    images: &HashMap<String, Handle>,
+    heading_weight: usize,
+) {
+    let children = node.children.borrow();
+    *element = widget::column(children.iter().map(|node| {
+        let mut element = widget::column!().into();
+        MenuModsDownload::traverse_node(node, &mut element, images_to_load, images, heading_weight);
+        element
+    }))
+    .into();
 }

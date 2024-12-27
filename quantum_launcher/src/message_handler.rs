@@ -161,7 +161,7 @@ impl Launcher {
                     combo_state: Box::new(combo_state),
                 });
             }
-            Err(n) => self.state = State::Error { error: n },
+            Err(n) => self.set_error(n),
         }
     }
 
@@ -226,16 +226,14 @@ impl Launcher {
                     }
 
                     if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
-                        self.set_error(err.to_string());
+                        self.set_error(err);
                         return;
                     }
 
                     self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
                     self.selected_instance = None;
                 }
-                (Err(err), Ok(_)) | (Ok(_), Err(err)) | (Err(err), Err(_)) => {
-                    self.set_error(err.to_string())
-                }
+                (Err(err), Ok(_) | Err(_)) | (Ok(_), Err(err)) => self.set_error(err.to_string()),
             }
         }
     }
@@ -284,44 +282,38 @@ impl Launcher {
 
         let is_vanilla = config_json.mod_type == "Vanilla";
 
-        Ok(
-            match ModIndex::get(selected_instance).map_err(|err| err.to_string()) {
-                Ok(idx) => {
-                    let locally_installed_mods = MenuEditMods::update_locally_installed_mods(
-                        &idx,
-                        selected_instance.clone(),
-                    );
+        match ModIndex::get(selected_instance).map_err(|err| err.to_string()) {
+            Ok(idx) => {
+                let locally_installed_mods =
+                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance.clone());
 
-                    self.state = State::EditMods(MenuEditMods {
-                        config: config_json,
-                        mods: idx,
-                        selected_mods: HashSet::new(),
-                        sorted_mods_list: Vec::new(),
-                        selected_state: SelectedState::None,
-                        available_updates: Vec::new(),
-                        mod_update_progress: None,
-                        locally_installed_mods: HashSet::new(),
-                    });
+                self.state = State::EditMods(MenuEditMods {
+                    config: config_json,
+                    mods: idx,
+                    selected_mods: HashSet::new(),
+                    sorted_mods_list: Vec::new(),
+                    selected_state: SelectedState::None,
+                    available_updates: Vec::new(),
+                    mod_update_progress: None,
+                    locally_installed_mods: HashSet::new(),
+                });
 
-                    let update_cmd = if is_vanilla {
-                        Command::none()
-                    } else {
-                        Command::perform(
-                            ql_mod_manager::mod_manager::check_for_updates(
-                                selected_instance.clone(),
-                            ),
-                            Message::ManageModsUpdateCheckResult,
-                        )
-                    };
-
-                    Command::batch(vec![locally_installed_mods, update_cmd])
-                }
-                Err(err) => {
-                    self.set_error(err);
+                let update_cmd = if is_vanilla {
                     Command::none()
-                }
-            },
-        )
+                } else {
+                    Command::perform(
+                        ql_mod_manager::mod_manager::check_for_updates(selected_instance.clone()),
+                        Message::ManageModsUpdateCheckResult,
+                    )
+                };
+
+                return Ok(Command::batch(vec![locally_installed_mods, update_cmd]));
+            }
+            Err(err) => {
+                self.set_error(err);
+            }
+        }
+        Ok(Command::none())
     }
 }
 
@@ -333,28 +325,27 @@ pub async fn get_locally_installed_mods(
         .unwrap()
         .join("mods");
 
-    if let Ok(mut dir) = tokio::fs::read_dir(&mods_dir_path).await {
-        let mut set = HashSet::new();
-        while let Ok(Some(entry)) = dir.next_entry().await {
-            let path = entry.path();
-            let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if blacklist.contains(&file_name.to_owned()) {
-                continue;
-            }
-            let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            if extension == "jar" {
-                set.insert(file_name.to_owned());
-            }
-        }
-        set
-    } else {
+    let Ok(mut dir) = tokio::fs::read_dir(&mods_dir_path).await else {
         err!("Error reading mods directory");
-        HashSet::new()
+        return HashSet::new();
+    };
+    let mut set = HashSet::new();
+    while let Ok(Some(entry)) = dir.next_entry().await {
+        let path = entry.path();
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if blacklist.contains(&file_name.to_owned()) {
+            continue;
+        }
+        let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if extension == "jar" {
+            set.insert(file_name.to_owned());
+        }
     }
+    set
 }
 
 pub fn format_memory(memory_bytes: usize) -> String {

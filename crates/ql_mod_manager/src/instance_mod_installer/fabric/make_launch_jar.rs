@@ -39,7 +39,7 @@ pub async fn make_launch_jar(
                     .unwrap_or_else(|| Path::new("."))
                     .join(n)
                     .to_string_lossy()
-                    .replace("\\", "/");
+                    .replace('\\', "/");
                 relative_path
             })
             .collect::<Vec<_>>()
@@ -56,7 +56,7 @@ pub async fn make_launch_jar(
     added_entries.insert(MANIFEST_PATH.to_string());
 
     // Write the fabric server launch properties
-    let launch_properties = format!("launch.mainClass={}\n", launch_main_class);
+    let launch_properties = format!("launch.mainClass={launch_main_class}\n");
     let launch_properties_path = "fabric-server-launch.properties";
     zip_writer.start_file(launch_properties_path, FileOptions::<()>::default())?;
     zip_writer
@@ -113,7 +113,7 @@ pub async fn make_launch_jar(
         for (service_name, definitions) in services {
             zip_writer.start_file(&service_name, FileOptions::<()>::default())?;
             for definition in &definitions {
-                writeln!(zip_writer, "{}", definition).map_err(|err| {
+                writeln!(zip_writer, "{definition}").map_err(|err| {
                     FabricInstallError::ZipEntryWriteError(err, service_name.clone())
                 })?;
             }
@@ -135,7 +135,7 @@ fn parse_service_definition(
         if !trimmed_line.is_empty() {
             services
                 .entry(name.to_string())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(trimmed_line.to_string());
         }
     }
@@ -178,7 +178,7 @@ fn split_string(s: &str) -> Vec<String> {
         let remaining = s.chars().skip(70).collect::<String>();
 
         if remaining.len() <= 69 {
-            result.push(format!(" {}", remaining));
+            result.push(format!(" {remaining}"));
         } else {
             // Split the remaining string into chunks of 69 characters
             result.extend(

@@ -1,3 +1,23 @@
+//! # Omniarchive API
+//! This crate provides an API to scrape the Omniarchive website for Minecraft versions.
+//!
+//! It supports both client and server versions of the following categories:
+//!
+//! - PreClassic
+//! - Classic
+//! - Indev
+//! - Infdev
+//! - Alpha
+//! - Beta
+//!
+//! ## Example
+//! ```no_run
+//! use omniarchive_api::{MinecraftVersionCategory};
+//!
+//! let list_of_version_urls =
+//!     MinecraftVersionCategory::Alpha.download_index(None, false).await.unwrap();
+//! ```
+
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -20,6 +40,7 @@ pub enum ScrapeProgress {
     Done,
 }
 
+/// Represents a category of Minecraft versions.
 #[derive(Clone, Debug)]
 pub enum MinecraftVersionCategory {
     PreClassic,
@@ -48,6 +69,7 @@ impl Display for MinecraftVersionCategory {
 }
 
 impl MinecraftVersionCategory {
+    /// Returns a list of all client versions.
     pub fn all_client() -> Vec<MinecraftVersionCategory> {
         vec![
             MinecraftVersionCategory::PreClassic,
@@ -59,6 +81,9 @@ impl MinecraftVersionCategory {
         ]
     }
 
+    /// Returns a list of all server versions.
+    ///
+    /// Note: PreClassic, Indev, and Infdev do not have server versions.
     pub fn all_server() -> Vec<MinecraftVersionCategory> {
         vec![
             MinecraftVersionCategory::Classic,
@@ -67,7 +92,12 @@ impl MinecraftVersionCategory {
         ]
     }
 
-    fn get_url(&self, server: bool) -> String {
+    /// Returns a URL to the `index.html` page of the category.
+    ///
+    /// # Arguments
+    /// - `server`: Whether to get the server download.
+    ///   `false` for client, `true` for server.
+    pub fn get_index_url(&self, server: bool) -> String {
         format!(
             "https://vault.omniarchive.uk/archive/java/{}-{}/index.html",
             if server { "server" } else { "client" },
@@ -82,12 +112,19 @@ impl MinecraftVersionCategory {
         )
     }
 
+    /// Scrapes the Omniarchive `index.html` page for
+    /// a list of version URLs.
+    ///
+    /// # Arguments
+    /// - `progress`: An optional progress sender.
+    /// - `download_server`: Whether to download server versions.
+    ///   `false` for client, `true` for server.
     pub async fn download_index(
         &self,
         progress: Option<Arc<Sender<ScrapeProgress>>>,
         download_server: bool,
     ) -> Result<Vec<String>, WebScrapeError> {
-        let url = self.get_url(download_server);
+        let url = self.get_index_url(download_server);
 
         let client = reqwest::Client::new();
 
@@ -187,7 +224,7 @@ async fn scrape_links(
                     if link != "https://vault.omniarchive.uk/archive/java/index.html" {
                         deeper_buffer.push(link);
                     }
-                } else if !link.ends_with(".exe") {
+                } else if !ends_with_extension(&link, ".exe") {
                     links.push(link);
                 }
             }
@@ -195,6 +232,12 @@ async fn scrape_links(
     }
 
     Ok(links)
+}
+
+fn ends_with_extension(link: &str, extension: &str) -> bool {
+    std::path::Path::new(link)
+        .extension()
+        .map_or(false, |ext| ext.eq_ignore_ascii_case(extension))
 }
 
 fn find_elem(dom: &Node, element_name: &str) -> Result<Rc<Node>, WebScrapeError> {

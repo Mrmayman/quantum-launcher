@@ -26,21 +26,12 @@ const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
-/// Wraps the [`launch`] function to give a `Result<Arc<Mutex<Child>>, String`
-/// instead of a `Result<Child, LauncherError>` to make it easier to
-/// use with the iced GUI toolkit.
+/// Wraps the [`launch`] function to give a `Arc<Mutex<Child>>`
+/// instead of a `Child`.
 ///
-/// Launches the specified instance with the specified username.
-/// Will error if instance isn't created.
+/// Read [`launch`] documentation for more info.
 ///
-/// This auto downloads the required version of Java
-/// if it's not already installed.
-///
-/// If you want, you can hook this up to a progress bar
-/// (since installing Java takes a while), by using a
-/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
-/// sender to this function and polling the receiver frequently.
-/// If not needed, simply pass `None` to the function.
+/// What are `_w` functions? See documentation in `quantum_launcher` crate.
 pub async fn launch_w(
     instance_name: String,
     username: String,

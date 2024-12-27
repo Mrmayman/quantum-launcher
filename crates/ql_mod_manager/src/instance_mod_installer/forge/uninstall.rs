@@ -18,5 +18,5 @@ pub async fn uninstall_client_w(instance: String) -> Result<Loader, String> {
     uninstall(&instance)
         .await
         .map_err(|err| err.to_string())
-        .map(|_| Loader::Forge)
+        .map(|()| Loader::Forge)
 }

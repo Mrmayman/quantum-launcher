@@ -1,9 +1,13 @@
 use std::{
     error::Error,
     fmt::Display,
+    io::Cursor,
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Mutex},
 };
+
+use flate2::read::GzDecoder;
+use tar::Archive;
 
 use crate::{
     do_jobs, err, file_utils, info, io_err,
@@ -25,18 +29,19 @@ pub enum JavaInstallProgress {
 }
 
 /// Returns a `PathBuf` pointing to a Java executable of your choice.
-/// You can select which Java version you want through the `version` argument.
-///
-/// The name argument can be made "java" for launching the game,
-/// unless you want something else like "javac" (the java compiler).
 ///
 /// This downloads and installs Java if not already installed,
 /// and if already installed, uses the existing installation.
 ///
-/// If you want, you can hook this up to a progress bar, by using a
-/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
-/// sender to this function and polling the receiver frequently.
-/// If not needed, simply pass `None` to the function.
+/// # Arguments
+/// - `version`: The version of Java you want to use ([`JavaVersion`]).
+/// - `name`: The name of the executable you want to use.
+///   For example, "java" for the Java runtime, or "javac" for the Java compiler.
+/// - `java_install_progress_sender`: An optional `Sender<JavaInstallProgress>`
+///   to send progress updates to. If not needed, simply pass `None` to the function.
+///   If you want, you can hook this up to a progress bar, by using a
+///   `std::sync::mpsc::channel::<JavaInstallMessage>()`,
+///   giving the sender to this function and polling the receiver frequently.
 pub async fn get_java_binary(
     version: JavaVersion,
     name: &str,
@@ -63,13 +68,121 @@ pub async fn get_java_binary(
     Ok(java_dir.canonicalize().map_err(io_err!(java_dir))?)
 }
 
+/// Extracts a `.tar.gz` file from a `&[u8]` buffer into the given directory.
+/// Does not create a top-level directory,
+/// extracting files directly into the target directory.
+///
+/// # Arguments
+/// - `data`: A reference to the `.tar.gz` file as a byte slice.
+/// - `output_dir`: Path to the directory where the contents will be extracted.
+///
+/// # Returns
+/// - `Result<()>` on success, or an error otherwise.
+pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> {
+    // Create a GzDecoder to handle the .gz decompression
+    let decoder = GzDecoder::new(Cursor::new(archive));
+
+    // Create a TAR archive to handle the .tar extraction
+    let mut tar = Archive::new(decoder);
+
+    // Get the first entry path to determine the top-level directory
+    let mut entries = tar.entries()?;
+    let top_level_dir = if let Some(entry) = entries.next() {
+        let entry = entry?;
+        let path = entry
+            .path()?
+            .components()
+            .next()
+            .map(|c| c.as_os_str().to_os_string());
+        path
+    } else {
+        None
+    };
+
+    // Rewind the archive to process all entries
+    let decoder = GzDecoder::new(Cursor::new(archive));
+    let mut tar = Archive::new(decoder);
+
+    // Extract files while flattening the top-level directory
+    for entry in tar.entries()? {
+        let mut entry = entry?;
+
+        // Get the path of the file in the archive
+        let entry_path = entry.path()?;
+
+        // Remove the top-level directory from the path
+        let new_path = match top_level_dir.as_ref() {
+            Some(top_level) if entry_path.starts_with(top_level) => entry_path
+                .strip_prefix(top_level)
+                .map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("Could not strip prefix {entry_path:?}, {top_level:?}"),
+                    )
+                })?
+                .to_path_buf(),
+            _ => entry_path.to_path_buf(),
+        };
+
+        // Resolve the full output path
+        let full_path = output_dir.join(new_path);
+
+        // Ensure parent directories exist
+        if let Some(parent) = full_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        // Unpack the file or directory
+        entry.unpack(full_path)?;
+    }
+
+    Ok(())
+}
+
 async fn install_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
 ) -> Result<(), JavaInstallError> {
-    if let Some(java_install_progress_sender) = &java_install_progress_sender {
-        if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P1Started) {
-            err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
+    send_progress(java_install_progress_sender, JavaInstallProgress::P1Started);
+
+    let client = reqwest::Client::new();
+    let install_dir = get_install_dir(version)?;
+
+    let lock_file = install_dir.join("install.lock");
+    std::fs::write(
+        &lock_file,
+        "If you see this, java hasn't finished installing.",
+    )
+    .map_err(io_err!(lock_file.clone()))?;
+
+    // Special case for linux aarch64
+    if cfg!(target_os = "linux") {
+        if cfg!(target_arch = "aarch64") {
+            let url = version.get_amazon_corretto_aarch64_url();
+            send_progress(
+                java_install_progress_sender,
+                JavaInstallProgress::P2 {
+                    done: 0,
+                    out_of: 2,
+                    name: "Getting tar.gz archive".to_owned(),
+                },
+            );
+            let file_bytes = file_utils::download_file_to_bytes(&client, url, false).await?;
+
+            send_progress(
+                java_install_progress_sender,
+                JavaInstallProgress::P2 {
+                    done: 1,
+                    out_of: 2,
+                    name: "Extracting tar.gz archive".to_owned(),
+                },
+            );
+            extract_tar_gz(&file_bytes, &install_dir).map_err(JavaInstallError::TarGzExtract)?;
+
+            std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
+            info!("Finished installing {}", version.to_string());
+            send_progress(java_install_progress_sender, JavaInstallProgress::P3Done);
+            return Ok(());
         }
     }
 
@@ -79,24 +192,8 @@ async fn install_java(
         .get_url(version)
         .ok_or(JavaInstallError::NoUrlForJavaFiles)?;
 
-    let client = reqwest::Client::new();
     let json = file_utils::download_file_to_string(&client, &java_files_url, false).await?;
     let json: JavaFilesJson = serde_json::from_str(&json)?;
-
-    let launcher_dir = file_utils::get_launcher_dir()?;
-
-    let java_installs_dir = launcher_dir.join("java_installs");
-    std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.clone()))?;
-
-    let install_dir = java_installs_dir.join(version.to_string());
-    std::fs::create_dir_all(&install_dir).map_err(io_err!(java_installs_dir.clone()))?;
-
-    let lock_file = install_dir.join("install.lock");
-    std::fs::write(
-        &lock_file,
-        "If you see this, java hasn't finished installing.",
-    )
-    .map_err(io_err!(lock_file.clone()))?;
 
     let num_files = json.files.len();
 
@@ -123,12 +220,28 @@ async fn install_java(
 
     info!("Finished installing {}", version.to_string());
 
+    send_progress(java_install_progress_sender, JavaInstallProgress::P3Done);
+    Ok(())
+}
+
+fn get_install_dir(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
+    let launcher_dir = file_utils::get_launcher_dir()?;
+    let java_installs_dir = launcher_dir.join("java_installs");
+    std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.clone()))?;
+    let install_dir = java_installs_dir.join(version.to_string());
+    std::fs::create_dir_all(&install_dir).map_err(io_err!(java_installs_dir.clone()))?;
+    Ok(install_dir)
+}
+
+fn send_progress(
+    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    progress: JavaInstallProgress,
+) {
     if let Some(java_install_progress_sender) = java_install_progress_sender {
-        if let Err(err) = java_install_progress_sender.send(JavaInstallProgress::P3Done) {
+        if let Err(err) = java_install_progress_sender.send(progress) {
             err!("Error sending java install progress: {err}\nThis should probably be safe to ignore");
         }
     }
-    Ok(())
 }
 
 async fn java_install_fn(
@@ -182,6 +295,7 @@ pub enum JavaInstallError {
     JsonDownload(JsonDownloadError),
     Request(RequestError),
     NoUrlForJavaFiles,
+    TarGzExtract(std::io::Error),
     Serde(serde_json::Error),
     Io(IoError),
 }
@@ -219,6 +333,7 @@ impl Display for JavaInstallError {
             JavaInstallError::Request(err) => write!(f, "{err}"),
             JavaInstallError::Serde(err) => write!(f, "(json) {err}"),
             JavaInstallError::Io(err) => write!(f, "(io) {err}"),
+            JavaInstallError::TarGzExtract(error) => write!(f, "could not extract tar.gz: {error}"),
         }
     }
 }

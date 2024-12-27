@@ -20,7 +20,7 @@ pub async fn create_server_w(
     create_server(&name, version, sender)
         .await
         .map_err(|n| n.to_string())
-        .map(|_| name)
+        .map(|()| name)
 }
 
 pub enum ServerCreateProgress {
@@ -59,13 +59,16 @@ pub async fn create_server(
 
     let (server_jar, version_json) = match &version {
         ListEntry::Normal(version) => {
-            download_from_mojang(&manifest, version, &sender, &client).await?
+            download_from_mojang(&manifest, version, sender.as_ref(), &client).await?
         }
         ListEntry::Omniarchive {
             category,
             name,
             url,
-        } => download_from_omniarchive(category, &manifest, name, &sender, &client, url).await?,
+        } => {
+            download_from_omniarchive(category, &manifest, name, sender.as_ref(), &client, url)
+                .await?
+        }
         ListEntry::OmniarchiveClassicZipServer { name, url } => {
             is_classic_server = true;
 
@@ -74,7 +77,7 @@ pub async fn create_server(
                     .send(ServerCreateProgress::P3DownloadingServerJar)
                     .unwrap();
             }
-            let archive = file_utils::download_file_to_bytes(&client, &url, true).await?;
+            let archive = file_utils::download_file_to_bytes(&client, url, true).await?;
             zip_extract::extract(std::io::Cursor::new(archive), &server_dir, true)?;
 
             let old_path = server_dir.join("minecraft-server.jar");
@@ -86,7 +89,7 @@ pub async fn create_server(
                 &MinecraftVersionCategory::Classic,
                 &manifest,
                 name,
-                &sender,
+                sender.as_ref(),
                 &client,
             )
             .await?;
@@ -151,10 +154,10 @@ pub async fn create_server(
 async fn download_from_omniarchive(
     category: &MinecraftVersionCategory,
     manifest: &Manifest,
-    name: &String,
-    sender: &Option<Sender<ServerCreateProgress>>,
+    name: &str,
+    sender: Option<&Sender<ServerCreateProgress>>,
     client: &reqwest::Client,
-    url: &String,
+    url: &str,
 ) -> Result<(Vec<u8>, VersionDetails), ServerError> {
     let version_json =
         download_omniarchive_version(category, manifest, name, sender, client).await?;
@@ -164,19 +167,19 @@ async fn download_from_omniarchive(
             .send(ServerCreateProgress::P3DownloadingServerJar)
             .unwrap();
     }
-    let server_jar = file_utils::download_file_to_bytes(client, &url, false).await?;
+    let server_jar = file_utils::download_file_to_bytes(client, url, false).await?;
     Ok((server_jar, version_json))
 }
 
 async fn download_from_mojang(
     manifest: &Manifest,
-    version: &String,
-    sender: &Option<Sender<ServerCreateProgress>>,
+    version: &str,
+    sender: Option<&Sender<ServerCreateProgress>>,
     client: &reqwest::Client,
 ) -> Result<(Vec<u8>, VersionDetails), ServerError> {
     let version = manifest
         .find_name(version)
-        .ok_or(ServerError::VersionNotFoundInManifest(version.clone()))?;
+        .ok_or(ServerError::VersionNotFoundInManifest(version.to_owned()))?;
     info!("Downloading version JSON");
     if let Some(sender) = sender {
         sender
@@ -202,7 +205,7 @@ async fn download_omniarchive_version(
     category: &MinecraftVersionCategory,
     manifest: &Manifest,
     name: &str,
-    sender: &Option<Sender<ServerCreateProgress>>,
+    sender: Option<&Sender<ServerCreateProgress>>,
     client: &reqwest::Client,
 ) -> Result<VersionDetails, ServerError> {
     let version = match category {

@@ -33,7 +33,7 @@ impl Launcher {
         let version: VersionDetails =
             serde_json::from_str(&version).map_err(|err| err.to_string())?;
 
-        let mod_index = ModIndex::get(&selection).map_err(|n| n.to_string())?;
+        let mod_index = ModIndex::get(selection).map_err(|n| n.to_string())?;
 
         let mut menu = MenuModsDownload {
             config,

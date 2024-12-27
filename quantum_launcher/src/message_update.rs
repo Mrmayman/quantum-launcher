@@ -1,11 +1,14 @@
+use std::path::PathBuf;
+
 use iced::Command;
-use ql_core::InstanceSelection;
+use ql_core::{file_utils, io_err, InstanceSelection};
 use ql_mod_manager::instance_mod_installer;
 
 use crate::{
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, Launcher,
-        MenuCreateInstance, MenuInstallFabric, Message, State,
+        ManageModsMessage, MenuCreateInstance, MenuInstallFabric, Message, SelectedMod,
+        SelectedState, State,
     },
     message_handler::format_memory,
 };
@@ -18,10 +21,10 @@ impl Launcher {
                     let message = "Installed Fabric".to_owned();
                     match self.selected_instance.as_ref().unwrap() {
                         InstanceSelection::Instance(_) => {
-                            self.go_to_launch_screen_with_message(message)
+                            self.go_to_launch_screen_with_message(message);
                         }
                         InstanceSelection::Server(_) => {
-                            self.go_to_server_manage_menu(Some(message))
+                            self.go_to_server_manage_menu(Some(message));
                         }
                     }
                 }
@@ -104,7 +107,7 @@ impl Launcher {
             CreateInstanceMessage::End(result) => match result {
                 Ok(instance) => {
                     self.selected_instance = Some(InstanceSelection::Instance(instance));
-                    self.go_to_launch_screen_with_message("Created Instance".to_owned())
+                    self.go_to_launch_screen_with_message("Created Instance".to_owned());
                 }
                 Err(n) => self.state = State::Error { error: n },
             },
@@ -141,99 +144,299 @@ impl Launcher {
                 }
             }
             EditInstanceMessage::JavaArgsAdd => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    menu.config
-                        .java_args
-                        .get_or_insert_with(Vec::new)
-                        .push(String::new());
-                }
+                self.e_java_arg_add();
             }
             EditInstanceMessage::JavaArgEdit(msg, idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = menu.config.java_args.as_mut() else {
-                    return Command::none();
-                };
-                add_to_arguments_list(msg, args, idx);
+                self.e_java_arg_edit(msg, idx);
             }
             EditInstanceMessage::JavaArgDelete(idx) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    if let Some(args) = &mut menu.config.java_args {
-                        args.remove(idx);
-                    }
-                }
+                self.e_java_arg_delete(idx);
             }
             EditInstanceMessage::GameArgsAdd => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    menu.config
-                        .game_args
-                        .get_or_insert_with(Vec::new)
-                        .push(String::new());
-                }
+                self.e_game_arg_add();
             }
             EditInstanceMessage::GameArgEdit(msg, idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = &mut menu.config.game_args else {
-                    return Command::none();
-                };
-                add_to_arguments_list(msg, args, idx);
+                self.e_game_arg_edit(msg, idx);
             }
             EditInstanceMessage::GameArgDelete(idx) => {
-                if let State::EditInstance(menu) = &mut self.state {
-                    if let Some(args) = &mut menu.config.game_args {
-                        args.remove(idx);
+                self.e_game_arg_delete(idx);
+            }
+            EditInstanceMessage::JavaArgShiftUp(idx) => {
+                self.e_java_arg_shift_up(idx);
+            }
+            EditInstanceMessage::JavaArgShiftDown(idx) => {
+                self.e_java_arg_shift_down(idx);
+            }
+            EditInstanceMessage::GameArgShiftUp(idx) => {
+                self.e_game_arg_shift_up(idx);
+            }
+            EditInstanceMessage::GameArgShiftDown(idx) => {
+                self.e_game_arg_shift_down(idx);
+            }
+        }
+        Command::none()
+    }
+
+    fn e_java_arg_add(&mut self) {
+        if let State::EditInstance(menu) = &mut self.state {
+            menu.config
+                .java_args
+                .get_or_insert_with(Vec::new)
+                .push(String::new());
+        }
+    }
+
+    fn e_java_arg_edit(&mut self, msg: String, idx: usize) {
+        let State::EditInstance(menu) = &mut self.state else {
+            return;
+        };
+        let Some(args) = menu.config.java_args.as_mut() else {
+            return;
+        };
+        add_to_arguments_list(msg, args, idx);
+    }
+
+    fn e_java_arg_delete(&mut self, idx: usize) {
+        if let State::EditInstance(menu) = &mut self.state {
+            if let Some(args) = &mut menu.config.java_args {
+                args.remove(idx);
+            }
+        }
+    }
+
+    fn e_game_arg_add(&mut self) {
+        if let State::EditInstance(menu) = &mut self.state {
+            menu.config
+                .game_args
+                .get_or_insert_with(Vec::new)
+                .push(String::new());
+        }
+    }
+
+    fn e_game_arg_edit(&mut self, msg: String, idx: usize) {
+        let State::EditInstance(menu) = &mut self.state else {
+            return;
+        };
+        let Some(args) = &mut menu.config.game_args else {
+            return;
+        };
+        add_to_arguments_list(msg, args, idx);
+    }
+
+    fn e_game_arg_delete(&mut self, idx: usize) {
+        if let State::EditInstance(menu) = &mut self.state {
+            if let Some(args) = &mut menu.config.game_args {
+                args.remove(idx);
+            }
+        }
+    }
+
+    fn e_java_arg_shift_up(&mut self, idx: usize) {
+        let State::EditInstance(menu) = &mut self.state else {
+            return;
+        };
+        let Some(args) = &mut menu.config.java_args else {
+            return;
+        };
+        if idx > 0 {
+            args.swap(idx, idx - 1);
+        }
+    }
+
+    fn e_java_arg_shift_down(&mut self, idx: usize) {
+        let State::EditInstance(menu) = &mut self.state else {
+            return;
+        };
+        let Some(args) = &mut menu.config.java_args else {
+            return;
+        };
+        if idx + 1 < args.len() {
+            args.swap(idx, idx + 1);
+        }
+    }
+
+    fn e_game_arg_shift_up(&mut self, idx: usize) {
+        let State::EditInstance(menu) = &mut self.state else {
+            return;
+        };
+        let Some(args) = &mut menu.config.game_args else {
+            return;
+        };
+        if idx > 0 {
+            args.swap(idx, idx - 1);
+        }
+    }
+
+    fn e_game_arg_shift_down(&mut self, idx: usize) {
+        let State::EditInstance(menu) = &mut self.state else {
+            return;
+        };
+        let Some(args) = &mut menu.config.game_args else {
+            return;
+        };
+        if idx + 1 < args.len() {
+            args.swap(idx, idx + 1);
+        }
+    }
+
+    pub fn update_manage_mods(&mut self, msg: ManageModsMessage) -> Command<Message> {
+        match msg {
+            ManageModsMessage::ScreenOpen => match self.go_to_edit_mods_menu() {
+                Ok(command) => return command,
+                Err(err) => self.set_error(err),
+            },
+            ManageModsMessage::ToggleCheckbox((name, id), enable) => {
+                if let State::EditMods(menu) = &mut self.state {
+                    if enable {
+                        menu.selected_mods
+                            .insert(SelectedMod::Downloaded { name, id });
+                        menu.selected_state = SelectedState::Some;
+                    } else {
+                        menu.selected_mods
+                            .remove(&SelectedMod::Downloaded { name, id });
+                        menu.selected_state = if menu.selected_mods.is_empty() {
+                            SelectedState::None
+                        } else {
+                            SelectedState::Some
+                        };
                     }
                 }
             }
-            EditInstanceMessage::JavaArgShiftUp(idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = &mut menu.config.java_args else {
-                    return Command::none();
-                };
-                if idx > 0 {
-                    args.swap(idx, idx - 1);
+            ManageModsMessage::ToggleCheckboxLocal(name, enable) => {
+                if let State::EditMods(menu) = &mut self.state {
+                    if enable {
+                        menu.selected_mods
+                            .insert(SelectedMod::Local { file_name: name });
+                        menu.selected_state = SelectedState::Some;
+                    } else {
+                        menu.selected_mods
+                            .remove(&SelectedMod::Local { file_name: name });
+                        menu.selected_state = if menu.selected_mods.is_empty() {
+                            SelectedState::None
+                        } else {
+                            SelectedState::Some
+                        };
+                    }
                 }
             }
-            EditInstanceMessage::JavaArgShiftDown(idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = &mut menu.config.java_args else {
-                    return Command::none();
-                };
-                if idx + 1 < args.len() {
-                    args.swap(idx, idx + 1);
+            ManageModsMessage::DeleteSelected => {
+                if let State::EditMods(menu) = &self.state {
+                    let command = Self::get_delete_mods_command(
+                        self.selected_instance.clone().unwrap(),
+                        menu,
+                    );
+                    let mods_dir =
+                        file_utils::get_dot_minecraft_dir(self.selected_instance.as_ref().unwrap())
+                            .unwrap()
+                            .join("mods");
+                    let file_paths = menu
+                        .selected_mods
+                        .iter()
+                        .filter_map(|s_mod| {
+                            if let SelectedMod::Local { file_name } = s_mod {
+                                Some(file_name.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .map(|n| mods_dir.join(n))
+                        .map(delete_file_wrapper)
+                        .map(|n| {
+                            Command::perform(n, |n| {
+                                Message::ManageMods(ManageModsMessage::LocalDeleteFinished(n))
+                            })
+                        });
+                    let delete_local_command = Command::batch(file_paths);
+
+                    return Command::batch(vec![command, delete_local_command]);
                 }
             }
-            EditInstanceMessage::GameArgShiftUp(idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = &mut menu.config.game_args else {
-                    return Command::none();
-                };
-                if idx > 0 {
-                    args.swap(idx, idx - 1);
+            ManageModsMessage::DeleteFinished(result) => match result {
+                Ok(_) => {
+                    self.update_mod_index();
+                }
+                Err(err) => self.set_error(err),
+            },
+            ManageModsMessage::LocalDeleteFinished(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
                 }
             }
-            EditInstanceMessage::GameArgShiftDown(idx) => {
-                let State::EditInstance(menu) = &mut self.state else {
-                    return Command::none();
-                };
-                let Some(args) = &mut menu.config.game_args else {
-                    return Command::none();
-                };
-                if idx + 1 < args.len() {
-                    args.swap(idx, idx + 1);
+            ManageModsMessage::LocalIndexLoaded(hash_set) => {
+                if let State::EditMods(menu) = &mut self.state {
+                    menu.locally_installed_mods = hash_set;
+                }
+            }
+            ManageModsMessage::ToggleSelected => {
+                if let State::EditMods(menu) = &self.state {
+                    let ids = menu
+                        .selected_mods
+                        .iter()
+                        .filter_map(|s_mod| {
+                            if let SelectedMod::Downloaded { id, .. } = s_mod {
+                                Some(id.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    return Command::perform(
+                        ql_mod_manager::mod_manager::toggle_mods_w(
+                            ids,
+                            self.selected_instance.clone().unwrap(),
+                        ),
+                        |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n)),
+                    );
+                }
+            }
+            ManageModsMessage::ToggleFinished(err) => {
+                if let Err(err) = err {
+                    self.set_error(err);
+                } else {
+                    self.update_mod_index();
+                }
+            }
+            ManageModsMessage::UpdateMods => return self.update_mods(),
+            ManageModsMessage::UpdateModsFinished(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    self.update_mod_index();
+                    if let State::EditMods(menu) = &mut self.state {
+                        menu.available_updates.clear();
+                    }
+                    return Command::perform(
+                        ql_mod_manager::mod_manager::check_for_updates(
+                            self.selected_instance.clone().unwrap(),
+                        ),
+                        Message::ManageModsUpdateCheckResult,
+                    );
                 }
             }
         }
         Command::none()
+    }
+
+    fn get_delete_mods_command(
+        selected_instance: InstanceSelection,
+        menu: &crate::launcher_state::MenuEditMods,
+    ) -> Command<Message> {
+        let ids = menu
+            .selected_mods
+            .iter()
+            .filter_map(|s_mod| {
+                if let SelectedMod::Downloaded { id, .. } = s_mod {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Command::perform(
+            ql_mod_manager::mod_manager::delete_mods_w(ids, selected_instance),
+            |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n)),
+        )
     }
 }
 
@@ -247,4 +450,14 @@ fn add_to_arguments_list(msg: String, args: &mut Vec<String>, mut idx: usize) {
     } else if let Some(arg) = args.get_mut(idx) {
         *arg = msg;
     }
+}
+
+async fn delete_file_wrapper(path: PathBuf) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    tokio::fs::remove_file(&path)
+        .await
+        .map_err(io_err!(path))
+        .map_err(|n| n.to_string())
 }

@@ -10,9 +10,9 @@ use crate::{
     icon_manager,
     launcher_state::{
         ClientProcess, CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage,
-        InstanceLog, Launcher, MenuCreateInstance, MenuEditInstance, MenuEditMods,
-        MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuInstallOptifine, MenuLaunch,
-        MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry, SelectedMod,
+        InstanceLog, Launcher, ManageModsMessage, MenuCreateInstance, MenuEditInstance,
+        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuInstallOptifine,
+        MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry, SelectedMod,
         SelectedState,
     },
     stylesheet::styles::LauncherTheme,
@@ -272,7 +272,8 @@ fn get_instances_section<'a>(
                     .width(97),
                 button_with_icon(icon_manager::download(), "Mods")
                     .on_press_maybe(
-                        (selected_instance.is_some()).then_some(Message::ManageModsScreenOpen)
+                        (selected_instance.is_some())
+                            .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen))
                     )
                     .width(98),
             ]
@@ -446,7 +447,7 @@ impl MenuInstallOptifine {
         } else {
             widget::column!(
                 button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::ManageModsScreenOpen),
+                    .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                 widget::container(
                     widget::column!(
                         widget::text("Install OptiFine").size(20),
@@ -505,7 +506,7 @@ impl MenuEditMods {
                 ))
                 .spacing(10),
                 button_with_icon(icon_manager::update(), "Update")
-                    .on_press(Message::ManageModsUpdateMods),
+                    .on_press(Message::ManageMods(ManageModsMessage::UpdateMods)),
             )
             .padding(10)
             .spacing(10)
@@ -675,9 +676,9 @@ impl MenuEditMods {
                 "Select some mods to perform actions on them",
                 widget::row!(
                     button_with_icon(icon_manager::delete(), "Delete")
-                        .on_press(Message::ManageModsDeleteSelected),
+                        .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
                     button_with_icon(icon_manager::toggle(), "Toggle On/Off")
-                        .on_press(Message::ManageModsToggleSelected),
+                        .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
                     button_with_icon(
                         icon_manager::tick(),
                         if matches!(self.selected_state, SelectedState::All) {
@@ -716,10 +717,10 @@ impl MenuEditMods {
                                     })
                                 )
                                 .on_toggle(move |t| {
-                                    Message::ManageModsToggleCheckbox(
+                                    Message::ManageMods(ManageModsMessage::ToggleCheckbox(
                                         (config.name.clone(), id.clone()),
                                         t,
-                                    )
+                                    ))
                                 }))
                             } else {
                                 widget::row!(widget::text(format!(
@@ -738,7 +739,10 @@ impl MenuEditMods {
                             })
                         )
                         .on_toggle(move |t| {
-                            Message::ManageModsToggleCheckboxLocal(file_name.clone(), t)
+                            Message::ManageMods(ManageModsMessage::ToggleCheckboxLocal(
+                                file_name.clone(),
+                                t,
+                            ))
                         }))
                         .into(),
                     })

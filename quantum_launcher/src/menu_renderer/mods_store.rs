@@ -10,7 +10,7 @@ use ql_mod_manager::mod_manager::Entry;
 
 use crate::{
     icon_manager,
-    launcher_state::{MenuModsDownload, Message},
+    launcher_state::{ManageModsMessage, MenuModsDownload, Message},
 };
 
 use super::{button_with_icon, Element};
@@ -41,7 +41,7 @@ impl MenuModsDownload {
                     .on_input(Message::InstallModsSearchInput),
                 if self.mods_download_in_progress.is_empty() {
                     widget::column!(button_with_icon(icon_manager::back(), "Back")
-                        .on_press(Message::ManageModsScreenOpen))
+                        .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)))
                 } else {
                     // Mods are being installed. Can't back out.
                     // Show list of mods being installed.

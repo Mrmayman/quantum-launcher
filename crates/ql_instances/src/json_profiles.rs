@@ -2,6 +2,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+/// Represents the `launcher_profiles.json` file.
+///
+/// It's not needed for the game to run, but some
+/// loader installers depend on it so it's included.
 #[derive(Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct ProfileJson {

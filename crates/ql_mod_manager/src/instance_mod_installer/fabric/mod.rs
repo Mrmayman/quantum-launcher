@@ -47,7 +47,7 @@ pub async fn get_list_of_versions(
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
     let client = Client::new();
 
-    let version_json = get_version_json(&instance_name).await?;
+    let version_json = get_version_json(instance_name).await?;
 
     // The first one is the latest version.
     let version_list =
@@ -117,7 +117,7 @@ pub async fn install_server(
     let number_of_libraries = json.libraries.len();
     let mut library_files = Vec::new();
     for (i, library) in json.libraries.iter().enumerate() {
-        send_progress(i, library, &progress, number_of_libraries)?;
+        send_progress(i, library, progress.as_ref(), number_of_libraries)?;
 
         let library_path = libraries_dir.join(library.get_path());
 
@@ -202,7 +202,7 @@ pub async fn install(
 
     let number_of_libraries = json.libraries.len();
     for (i, library) in json.libraries.iter().enumerate() {
-        send_progress(i, library, &progress, number_of_libraries)?;
+        send_progress(i, library, progress.as_ref(), number_of_libraries)?;
 
         let path = libraries_dir.join(library.get_path());
         let url = library.get_url();
@@ -238,7 +238,7 @@ pub async fn install(
 fn send_progress(
     i: usize,
     library: &ql_core::json::fabric::Library,
-    progress: &Option<Sender<FabricInstallProgress>>,
+    progress: Option<&Sender<FabricInstallProgress>>,
     number_of_libraries: usize,
 ) -> Result<(), FabricInstallError> {
     let message = format!(
@@ -247,13 +247,14 @@ fn send_progress(
         library.name
     );
     info!("{message}");
-    Ok(if let Some(progress) = progress {
+    if let Some(progress) = progress {
         progress.send(FabricInstallProgress::P2Library {
             done: i + 1,
             out_of: number_of_libraries,
             message,
         })?;
-    })
+    }
+    Ok(())
 }
 
 pub async fn uninstall(instance_name: &str) -> Result<(), FabricInstallError> {
@@ -299,7 +300,7 @@ pub async fn uninstall_client_w(instance_name: String) -> Result<Loader, String>
     uninstall(&instance_name)
         .await
         .map_err(|err| err.to_string())
-        .map(|_| Loader::Fabric)
+        .map(|()| Loader::Fabric)
 }
 
 pub async fn install_w(

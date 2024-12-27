@@ -15,6 +15,11 @@ use tokio::{
 
 use ql_core::{err, file_utils, io_err, json::version::VersionDetails, IoError};
 
+/// Reads logs from the given instance.
+///
+/// Read [`read_logs`] documentation for more info.
+///
+/// What are `_w` functions? See documentation in `quantum_launcher` crate.
 pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -28,6 +33,18 @@ pub async fn read_logs_w(
         .map(|n| (n, instance_name))
 }
 
+/// Reads log output from the given instance
+/// and sends it to the given sender.
+///
+/// This async function runs till the instance process exits,
+/// then it returns the exit status.
+///
+/// # Arguments
+/// - `stdout`: The stdout of the instance process.
+/// - `stderr`: The stderr of the instance process.
+/// - `child`: The instance process.
+/// - `sender`: The sender to send [`LogLine`]s to.
+/// - `instance_name`: The name of the instance.
 pub async fn read_logs(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -110,6 +127,15 @@ fn is_xml(instance_name: &str) -> Result<bool, ReadError> {
     Ok(json.logging.is_some())
 }
 
+/// Represents a line of log output.
+///
+/// # Variants
+/// - `Info(LogEvent)`: A log event. Contains advanced
+///   information about the log line like the timestamp,
+///   class name, level and thread.
+/// - `Message(String)`: A normal log message. Primarily
+///   used for non-XML logs (old Minecraft versions).
+/// - `Error(String)`: An error log message.
 pub enum LogLine {
     Info(LogEvent),
     Message(String),
@@ -166,22 +192,46 @@ impl From<serde_json::Error> for ReadError {
     }
 }
 
+/// Represents a log event.
+/// Contains advanced information about the log line
+/// like the timestamp, class name, level and thread.
+/// This is used for XML logs.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogEvent {
     #[serde(rename = "logger")]
     pub logger: String,
-
     #[serde(rename = "timestamp")]
     pub timestamp: String,
-
     #[serde(rename = "level")]
     pub level: String,
-
     #[serde(rename = "thread")]
     pub thread: String,
-
     #[serde(rename = "Message")]
     pub message: LogMessage,
+}
+
+impl LogEvent {
+    /// Returns the time of the log event, formatted as `HH:MM:SS`.
+    pub fn get_time(&self) -> Option<String> {
+        let time: i64 = self.timestamp.parse().ok()?;
+        let seconds = time / 1000;
+        let milliseconds = time % 1000;
+        let nanoseconds = milliseconds * 1_000_000;
+        let datetime = chrono::DateTime::from_timestamp(seconds, nanoseconds as u32)?;
+        let datetime = datetime.with_timezone(&chrono::Local);
+        Some(datetime.format("%H:%M:%S").to_string())
+    }
+}
+
+impl Display for LogEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let date = self.get_time().unwrap_or_else(|| self.timestamp.clone());
+        write!(
+            f,
+            "[{date}:{}.{}] [{}] {}\n",
+            self.thread, self.logger, self.level, self.message.content
+        )
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

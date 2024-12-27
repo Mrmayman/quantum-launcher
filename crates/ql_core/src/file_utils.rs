@@ -16,6 +16,7 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     Ok(launcher_directory)
 }
 
+/// Returns the path to `.minecraft` folder containing the game files.
 pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir()?;
     Ok(match selection {
@@ -26,6 +27,8 @@ pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, I
     })
 }
 
+/// Returns the path to the instance directory containing
+/// QuantumLauncher-specific files.
 pub fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir()?;
     Ok(match selection {
@@ -50,7 +53,7 @@ pub async fn download_file_to_string(
     if user_agent {
         get = get.header(
             "User-Agent",
-            "Mrmayman/quantumlauncher (quantumlauncher.github.io)",
+            "Mrmayman/quantumlauncher (mrmayman.github.io/quantumlauncher)",
         );
     }
     let response = get.send().await?;

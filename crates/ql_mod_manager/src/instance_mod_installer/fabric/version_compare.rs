@@ -14,8 +14,8 @@ pub fn compare_versions(version_a: &str, version_b: &str) -> Ordering {
     let matcher_a = matcher_a.unwrap();
     let matcher_b = matcher_b.unwrap();
 
-    let core_a = matcher_a.get(1).map(|m| m.as_str()).unwrap_or("");
-    let core_b = matcher_b.get(1).map(|m| m.as_str()).unwrap_or("");
+    let core_a = matcher_a.get(1).map_or("", |m| m.as_str());
+    let core_b = matcher_b.get(1).map_or("", |m| m.as_str());
     let cmp = compare_version_groups(core_a, core_b); // Compare version core
     if cmp != Ordering::Equal {
         return cmp;
@@ -33,8 +33,8 @@ pub fn compare_versions(version_a: &str, version_b: &str) -> Ordering {
     }
 
     if a_has_pre_release {
-        let pre_a = matcher_a.get(2).map(|m| m.as_str()).unwrap_or("");
-        let pre_b = matcher_b.get(2).map(|m| m.as_str()).unwrap_or("");
+        let pre_a = matcher_a.get(2).map_or("", |m| m.as_str());
+        let pre_b = matcher_b.get(2).map_or("", |m| m.as_str());
         let cmp = compare_version_groups(pre_a, pre_b); // Compare pre-release
         if cmp != Ordering::Equal {
             return cmp;

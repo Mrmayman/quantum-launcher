@@ -27,8 +27,8 @@ impl Display for ListError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "could not list versions: ")?;
         match self {
-            ListError::JsonDownloadError(error) => write!(f, "{}", error),
-            ListError::WebScrapeError(error) => write!(f, "{}", error),
+            ListError::JsonDownloadError(err) => write!(f, "{err}"),
+            ListError::WebScrapeError(err) => write!(f, "{err}"),
         }
     }
 }

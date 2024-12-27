@@ -31,7 +31,11 @@ impl MenuServerManage {
         let button_files = Self::get_files_button(selected_server);
 
         let server_ops =
-            if !self.server_list.is_empty() {
+            if self.server_list.is_empty() {
+                widget::column!(widget::text(
+                    "No servers found! Create a new server to get started"
+                ))
+            } else {
                 widget::column!(
                     widget::text("Select Server"),
                     widget::pick_list(
@@ -75,10 +79,6 @@ impl MenuServerManage {
                     }
                 )
                 .spacing(10)
-            } else {
-                widget::column!(widget::text(
-                    "No servers found! Create a new server to get started"
-                ))
             }
             .padding(10);
 
@@ -106,10 +106,7 @@ impl MenuServerManage {
         selected_server: Option<&'a String>,
         processes: &'a HashMap<String, ServerProcess>,
     ) -> Element<'a> {
-        if selected_server
-            .map(|n| processes.contains_key(n))
-            .unwrap_or(false)
-        {
+        if selected_server.is_some_and(|n| processes.contains_key(n)) {
             button_with_icon(icon_manager::play(), "Stop")
                 .width(97)
                 .on_press_maybe(

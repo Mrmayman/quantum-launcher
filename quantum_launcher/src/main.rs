@@ -46,7 +46,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //!
 //! This is done to make use with `iced::Command` easier.
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use colored::Colorize;
 use iced::{
@@ -55,9 +55,9 @@ use iced::{
     Application, Command, Settings,
 };
 use launcher_state::{
-    get_entries, Launcher, MenuEditMods, MenuInstallForge, MenuInstallOptifine, MenuLaunch,
-    MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message,
-    OptifineInstallProgressData, SelectedMod, SelectedState, ServerProcess, State,
+    get_entries, Launcher, ManageModsMessage, MenuEditMods, MenuInstallForge, MenuInstallOptifine,
+    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage,
+    Message, OptifineInstallProgressData, SelectedMod, SelectedState, ServerProcess, State,
     UpdateModsProgress,
 };
 
@@ -66,7 +66,7 @@ use message_handler::open_file_explorer;
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    InstanceSelection, IoError,
+    InstanceSelection,
 };
 use ql_instances::{UpdateCheckInfo, LAUNCHER_VERSION_NAME};
 use ql_mod_manager::{
@@ -122,6 +122,7 @@ impl Application for Launcher {
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
+            Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected(selected_instance) => {
                 self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
             }
@@ -149,10 +150,6 @@ impl Application for Launcher {
                 }
             }
             Message::EditInstance(message) => return self.update_edit_instance(message),
-            Message::ManageModsScreenOpen => match self.go_to_edit_mods_menu() {
-                Ok(command) => return command,
-                Err(err) => self.set_error(err.to_string()),
-            },
             Message::InstallFabric(message) => return self.update_install_fabric(message),
             Message::CoreOpenDir(dir) => open_file_explorer(&dir),
             Message::CoreErrorCopy => {
@@ -304,7 +301,7 @@ impl Application for Launcher {
                                 menu.latest_load = time;
                             }
                         }
-                        Err(err) => self.set_error(err.to_string()),
+                        Err(err) => self.set_error(err),
                     }
                 }
             }
@@ -361,100 +358,6 @@ impl Application for Launcher {
                     return value;
                 }
             }
-            Message::ManageModsToggleCheckboxLocal(name, enable) => {
-                if let State::EditMods(menu) = &mut self.state {
-                    if enable {
-                        menu.selected_mods
-                            .insert(SelectedMod::Local { file_name: name });
-                        menu.selected_state = SelectedState::Some;
-                    } else {
-                        menu.selected_mods
-                            .remove(&SelectedMod::Local { file_name: name });
-                        menu.selected_state = if menu.selected_mods.is_empty() {
-                            SelectedState::None
-                        } else {
-                            SelectedState::Some
-                        };
-                    }
-                }
-            }
-            Message::ManageModsToggleCheckbox((name, id), enable) => {
-                if let State::EditMods(menu) = &mut self.state {
-                    if enable {
-                        menu.selected_mods
-                            .insert(SelectedMod::Downloaded { name, id });
-                        menu.selected_state = SelectedState::Some;
-                    } else {
-                        menu.selected_mods
-                            .remove(&SelectedMod::Downloaded { name, id });
-                        menu.selected_state = if menu.selected_mods.is_empty() {
-                            SelectedState::None
-                        } else {
-                            SelectedState::Some
-                        };
-                    }
-                }
-            }
-            Message::ManageModsDeleteSelected => {
-                if let State::EditMods(menu) = &self.state {
-                    let ids = menu
-                        .selected_mods
-                        .iter()
-                        .filter_map(|s_mod| {
-                            if let SelectedMod::Downloaded { id, .. } = s_mod {
-                                Some(id.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    let command = Command::perform(
-                        ql_mod_manager::mod_manager::delete_mods_w(
-                            ids,
-                            self.selected_instance.clone().unwrap(),
-                        ),
-                        Message::ManageModsDeleteFinished,
-                    );
-
-                    let mods_dir =
-                        file_utils::get_dot_minecraft_dir(self.selected_instance.as_ref().unwrap())
-                            .unwrap()
-                            .join("mods");
-                    let file_paths = menu
-                        .selected_mods
-                        .iter()
-                        .filter_map(|s_mod| {
-                            if let SelectedMod::Local { file_name } = s_mod {
-                                Some(file_name.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .map(|n| mods_dir.join(n))
-                        .map(delete_file_wrapper)
-                        .map(|n| Command::perform(n, Message::ManageModsLocalDeleteFinished));
-                    let delete_local_command = Command::batch(file_paths);
-
-                    return Command::batch(vec![command, delete_local_command]);
-                }
-            }
-            Message::ManageModsLocalDeleteFinished(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                }
-            }
-            Message::ManageModsLocalIndexLoaded(hash_set) => {
-                if let State::EditMods(menu) = &mut self.state {
-                    menu.locally_installed_mods = hash_set;
-                }
-            }
-            Message::ManageModsDeleteFinished(result) => match result {
-                Ok(_) => {
-                    self.update_mod_index();
-                }
-                Err(err) => self.set_error(err),
-            },
             Message::LauncherSettingsThemePicked(theme) => {
                 info!("Setting theme {theme}");
                 if let Some(config) = self.config.as_mut() {
@@ -509,35 +412,6 @@ impl Application for Launcher {
                             menu.selected_state = SelectedState::All;
                         }
                     }
-                }
-            }
-            Message::ManageModsToggleSelected => {
-                if let State::EditMods(menu) = &self.state {
-                    let ids = menu
-                        .selected_mods
-                        .iter()
-                        .filter_map(|s_mod| {
-                            if let SelectedMod::Downloaded { id, .. } = s_mod {
-                                Some(id.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    return Command::perform(
-                        ql_mod_manager::mod_manager::toggle_mods_w(
-                            ids,
-                            self.selected_instance.clone().unwrap(),
-                        ),
-                        Message::ManageModsToggleFinished,
-                    );
-                }
-            }
-            Message::ManageModsToggleFinished(err) => {
-                if let Err(err) = err {
-                    self.set_error(err);
-                } else {
-                    self.update_mod_index();
                 }
             }
             Message::InstallOptifineScreenOpen => {
@@ -609,23 +483,6 @@ impl Application for Launcher {
                     if let Some((_, _, b)) = available_updates.get_mut(idx) {
                         *b = t;
                     }
-                }
-            }
-            Message::ManageModsUpdateMods => return self.update_mods(),
-            Message::ManageModsUpdateModsFinished(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    self.update_mod_index();
-                    if let State::EditMods(menu) = &mut self.state {
-                        menu.available_updates.clear();
-                    }
-                    return Command::perform(
-                        ql_mod_manager::mod_manager::check_for_updates(
-                            self.selected_instance.clone().unwrap(),
-                        ),
-                        Message::ManageModsUpdateCheckResult,
-                    );
                 }
             }
             Message::ServerManageSelectedServer(selected) => {
@@ -719,7 +576,7 @@ impl Application for Launcher {
             }
             Message::ServerDeleteConfirm => {
                 if let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance {
-                    match ql_servers::delete_server(&selected_server) {
+                    match ql_servers::delete_server(selected_server) {
                         Ok(()) => self.go_to_server_manage_menu(Some("Deleted Server".to_owned())),
                         Err(err) => self.set_error(err),
                     }
@@ -740,48 +597,7 @@ impl Application for Launcher {
             }
             Message::ServerManageStartServerFinish(result) => match result {
                 Ok((child, is_classic_server)) => {
-                    let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance
-                    else {
-                        err!("Launched server but can't identify which one! This is a bug, please report it");
-                        return Command::none();
-                    };
-                    if let (Some(stdout), Some(stderr), Some(stdin)) = {
-                        let mut child = child.lock().unwrap();
-                        (child.stdout.take(), child.stderr.take(), child.stdin.take())
-                    } {
-                        let (sender, receiver) = std::sync::mpsc::channel();
-
-                        self.server_processes.insert(
-                            selected_server.clone(),
-                            ServerProcess {
-                                child: child.clone(),
-                                receiver: Some(receiver),
-                                stdin: Some(stdin),
-                                is_classic_server,
-                            },
-                        );
-
-                        return Command::perform(
-                            ql_servers::read_logs_w(
-                                stdout,
-                                stderr,
-                                child,
-                                sender,
-                                selected_server.clone(),
-                            ),
-                            Message::ServerManageEndedLog,
-                        );
-                    } else {
-                        self.server_processes.insert(
-                            selected_server.clone(),
-                            ServerProcess {
-                                child: child.clone(),
-                                receiver: None,
-                                stdin: None,
-                                is_classic_server,
-                            },
-                        );
-                    }
+                    return self.add_server_to_processes(child, is_classic_server);
                 }
                 Err(err) => self.set_error(err),
             },
@@ -843,7 +659,7 @@ impl Application for Launcher {
             }
             Message::ServerEditModsOpen => match self.go_to_edit_mods_menu() {
                 Ok(n) => return n,
-                Err(err) => self.set_error(err.to_string()),
+                Err(err) => self.set_error(err),
             },
             Message::ServerManageCopyLog => todo!(),
         }
@@ -940,19 +756,6 @@ impl Application for Launcher {
     }
 }
 
-async fn delete_file_wrapper(path: PathBuf) -> Result<(), String> {
-    if !path.exists() {
-        return Ok(());
-    }
-    tokio::fs::remove_file(&path).await.map_err(|error| {
-        IoError::Io {
-            error,
-            path: path.to_owned(),
-        }
-        .to_string()
-    })
-}
-
 fn load_window_icon() -> Option<Command<Message>> {
     let icon = iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico));
     match icon {
@@ -1031,7 +834,7 @@ impl Launcher {
                     updates,
                     Some(sender),
                 ),
-                Message::ManageModsUpdateModsFinished,
+                |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n)),
             )
         } else {
             Command::none()
@@ -1047,7 +850,7 @@ impl Launcher {
                     message,
                 });
             }
-            Err(err) => self.set_error(err.to_string()),
+            Err(err) => self.set_error(err),
         }
     }
 
@@ -1073,6 +876,49 @@ impl Launcher {
             java_message: None,
         });
         command
+    }
+
+    fn add_server_to_processes(
+        &mut self,
+        child: Arc<std::sync::Mutex<tokio::process::Child>>,
+        is_classic_server: bool,
+    ) -> Command<Message> {
+        let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance else {
+            err!("Launched server but can't identify which one! This is a bug, please report it");
+            return Command::none();
+        };
+        if let (Some(stdout), Some(stderr), Some(stdin)) = {
+            let mut child = child.lock().unwrap();
+            (child.stdout.take(), child.stderr.take(), child.stdin.take())
+        } {
+            let (sender, receiver) = std::sync::mpsc::channel();
+
+            self.server_processes.insert(
+                selected_server.clone(),
+                ServerProcess {
+                    child: child.clone(),
+                    receiver: Some(receiver),
+                    stdin: Some(stdin),
+                    is_classic_server,
+                },
+            );
+
+            return Command::perform(
+                ql_servers::read_logs_w(stdout, stderr, child, sender, selected_server.clone()),
+                Message::ServerManageEndedLog,
+            );
+        }
+
+        self.server_processes.insert(
+            selected_server.clone(),
+            ServerProcess {
+                child: child.clone(),
+                receiver: None,
+                stdin: None,
+                is_classic_server,
+            },
+        );
+        Command::none()
     }
 }
 

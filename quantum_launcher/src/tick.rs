@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use iced::Command;
 use ql_core::{err, info, InstanceSelection, JavaInstallProgress};
-use ql_instances::{AssetRedownloadProgress, LogEvent, LogLine, ScrapeProgress, UpdateProgress};
+use ql_instances::{AssetRedownloadProgress, LogLine, ScrapeProgress, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{
         fabric::FabricInstallProgress, forge::ForgeInstallProgress,
@@ -61,7 +61,7 @@ impl Launcher {
                 if let Err(err) =
                     Launcher::save_config(self.selected_instance.as_ref().unwrap(), &menu.config)
                 {
-                    self.set_error(err.to_string());
+                    self.set_error(err);
                 }
             }
             State::Create(menu) => menu.tick(),
@@ -347,16 +347,7 @@ impl Launcher {
         };
         while let Ok(message) = receiver.try_recv() {
             let message = match message {
-                LogLine::Info(LogEvent {
-                    logger,
-                    timestamp,
-                    level,
-                    thread,
-                    message,
-                }) => {
-                    let date = get_date(&timestamp).unwrap_or(timestamp);
-                    format!("[{date}:{thread}.{logger}] [{level}] {}\n", message.content)
-                }
+                LogLine::Info(event) => event.to_string(),
                 LogLine::Error(error) => format!("! {error}"),
                 LogLine::Message(message) => message,
             };
@@ -489,16 +480,6 @@ impl MenuInstallFabric {
             }
         }
     }
-}
-
-fn get_date(timestamp: &str) -> Option<String> {
-    let time: i64 = timestamp.parse().ok()?;
-    let seconds = time / 1000;
-    let milliseconds = time % 1000;
-    let nanoseconds = milliseconds * 1_000_000;
-    let datetime = chrono::DateTime::from_timestamp(seconds, nanoseconds as u32)?;
-    let datetime = datetime.with_timezone(&chrono::Local);
-    Some(datetime.format("%H:%M:%S").to_string())
 }
 
 impl MenuInstallJava {
