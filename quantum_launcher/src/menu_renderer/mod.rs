@@ -598,7 +598,9 @@ impl MenuEditMods {
                         widget::button("Spigot").width(98)
                     )
                     .spacing(5),
-                    widget::button("Paper").width(97),
+                    widget::button("Paper")
+                        .width(97)
+                        .on_press(Message::InstallPaperStart),
                 ),
             },
             "Forge" => {
@@ -625,6 +627,11 @@ impl MenuEditMods {
                 &self.config.mod_type,
                 Message::UninstallLoaderFabricStart,
                 true,
+            ),
+            "Paper" => Self::get_uninstall_panel(
+                &self.config.mod_type,
+                Message::UninstallLoaderPaperStart,
+                false,
             ),
             _ => {
                 widget::column!(widget::text(format!(

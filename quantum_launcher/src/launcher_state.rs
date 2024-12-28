@@ -158,6 +158,9 @@ pub enum Message {
     ServerDeleteOpen,
     ServerDeleteConfirm,
     ServerEditModsOpen,
+    InstallPaperStart,
+    InstallPaperEnd(Result<(), String>),
+    UninstallLoaderPaperStart,
 }
 
 #[derive(Default)]
@@ -338,6 +341,7 @@ pub enum State {
     Create(MenuCreateInstance),
     Error { error: String },
     DeleteInstance,
+    InstallPaper,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
     InstallOptifine(MenuInstallOptifine),
@@ -426,12 +430,16 @@ pub struct ServerProcess {
     pub stdin: Option<ChildStdin>,
     pub is_classic_server: bool,
     pub name: String,
+    pub has_issued_stop_command: bool,
 }
 
 impl Drop for ServerProcess {
     fn drop(&mut self) {
-        info!("Force-Killing server {}\n       You should be a bit more careful before closing the launcher window", self.name);
-        self.child.lock().unwrap().start_kill().unwrap();
+        if !self.has_issued_stop_command {
+            info!("Force-Killing server {}\n       You should be a bit more careful before closing the launcher window", self.name);
+            let mut lock = self.child.lock().unwrap();
+            let _ = lock.start_kill();
+        }
     }
 }
 

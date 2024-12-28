@@ -36,6 +36,8 @@ async fn run(
         server_dir.join("fabric-server-launch.jar")
     } else if config_json.mod_type == "Forge" {
         find_forge_shim_file(&server_dir).ok_or(ServerError::NoForgeShimFound)?
+    } else if config_json.mod_type == "Paper" {
+        server_dir.join("paper_server.jar")
     } else {
         server_dir.join("server.jar")
     };

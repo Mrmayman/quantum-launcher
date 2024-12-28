@@ -643,9 +643,11 @@ impl Application for Launcher {
                     stdin: Some(stdin),
                     is_classic_server,
                     child,
+                    has_issued_stop_command,
                     ..
                 }) = self.server_processes.get_mut(&server)
                 {
+                    *has_issued_stop_command = true;
                     if *is_classic_server {
                         if let Err(err) = child.lock().unwrap().start_kill() {
                             err!("Could not kill classic server: {err}")
@@ -688,7 +690,44 @@ impl Application for Launcher {
                 Ok(n) => return n,
                 Err(err) => self.set_error(err),
             },
-            Message::ServerManageCopyLog => todo!(),
+            Message::ServerManageCopyLog => {
+                let name = self.selected_instance.as_ref().unwrap().get_name();
+                if let Some(logs) = self.server_logs.get(name) {
+                    return iced::clipboard::write(logs.log.clone());
+                }
+            }
+            Message::InstallPaperStart => {
+                self.state = State::InstallPaper;
+                return Command::perform(
+                    instance_mod_installer::paper::install_w(
+                        self.selected_instance
+                            .as_ref()
+                            .unwrap()
+                            .get_name()
+                            .to_owned(),
+                    ),
+                    Message::InstallPaperEnd,
+                );
+            }
+            Message::InstallPaperEnd(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    self.go_to_server_manage_menu(Some("Installed Paper".to_owned()));
+                }
+            }
+            Message::UninstallLoaderPaperStart => {
+                return Command::perform(
+                    instance_mod_installer::paper::uninstall_w(
+                        self.selected_instance
+                            .as_ref()
+                            .unwrap()
+                            .get_name()
+                            .to_owned(),
+                    ),
+                    Message::UninstallLoaderEnd,
+                )
+            }
         }
         Command::none()
     }
@@ -771,6 +810,10 @@ impl Application for Launcher {
                 .spacing(10)
                 .into()
             }
+            State::InstallPaper => widget::column!(widget::text("Installing Paper...").size(20))
+                .padding(10)
+                .spacing(10)
+                .into(),
         }
     }
 
@@ -929,6 +972,7 @@ impl Launcher {
                     stdin: Some(stdin),
                     is_classic_server,
                     name: selected_server.clone(),
+                    has_issued_stop_command: false,
                 },
             );
 
@@ -946,6 +990,7 @@ impl Launcher {
                 stdin: None,
                 is_classic_server,
                 name: "Unknown".to_owned(),
+                has_issued_stop_command: false,
             },
         );
         Command::none()

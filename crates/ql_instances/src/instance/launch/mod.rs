@@ -22,7 +22,7 @@ use tokio::process::{Child, Command};
 
 pub(super) mod error;
 
-const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
+pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
@@ -410,36 +410,11 @@ impl GameLauncher {
                     classpath_entries.insert(entry.to_owned());
                 }
             } else {
-                let forge_libs_dir = self.instance_dir.join("forge/libraries");
-                let forge_libs_dir = forge_libs_dir
-                    .to_str()
-                    .ok_or(GameLaunchError::PathBufToString(forge_libs_dir.clone()))?;
-
-                let mut temp_forge_classpath_entries = String::new();
-
-                for entry in forge_classpath
-                    .split(CLASSPATH_SEPARATOR)
-                    .filter(|n| n.split_whitespace().any(|n| !n.is_empty()))
-                {
-                    // /net/minecraftforge/forge/1.21.1-52.0.28/forge-1.21.1-52.0.28-universal.jar
-                    let entry = entry
-                        .strip_prefix(forge_libs_dir)
-                        .ok_or(GameLaunchError::ForgeInstallUpgradeStripPrefixError)?;
-
-                    // /.net.minecraftforge:forge
-                    let entry = transform_path(entry)
-                        .ok_or(GameLaunchError::ForgeInstallUpgradeTransformPathError)?;
-
-                    // net.minecraftforge:forge
-                    let entry = &entry[2..];
-
-                    classpath_entries.insert(entry.to_owned());
-                    temp_forge_classpath_entries.push_str(entry);
-                    temp_forge_classpath_entries.push('\n');
-                }
-
-                std::fs::write(&classpath_entries_path, temp_forge_classpath_entries)
-                    .map_err(io_err!(classpath_entries_path))?;
+                self.migrate_create_forge_clean_classpath(
+                    forge_classpath,
+                    &mut classpath_entries,
+                    classpath_entries_path,
+                )?;
             }
         }
 
@@ -502,6 +477,7 @@ impl GameLauncher {
         self.version_json
             .libraries
             .iter()
+            .filter(|n| GameDownloader::download_libraries_library_is_allowed(n))
             .filter_map(|n| match (&n.name, n.downloads.as_ref()) {
                 (Some(name), Some(LibraryDownloads::Normal { artifact, .. })) => {
                     Some((name, artifact))
@@ -530,6 +506,7 @@ impl GameLauncher {
             classpath_entries.insert(name);
         }
         let library_path = self.instance_dir.join("libraries").join(&artifact.path);
+
         if library_path.exists() {
             let Some(library_path) = library_path.to_str() else {
                 return Err(GameLaunchError::PathBufToString(library_path));
@@ -555,38 +532,6 @@ impl GameLauncher {
             get_java_binary(version, "java", self.java_install_progress_sender.take()).await?,
         ))
     }
-}
-
-/// Converts a path string into the desired format:
-/// "/net/minecraftforge/forge/1.21.1-52.0.28/forge-1.21.1-52.0.28-universal.jar"
-/// -> "net.minecraftforge:forge"
-fn transform_path(input: &str) -> Option<String> {
-    // Normalize the path separators for the current OS
-    let path = Path::new(input);
-    let components: Vec<&str> = path
-        .iter()
-        .map(|os_str| os_str.to_str().unwrap_or(""))
-        .collect();
-
-    if components.len() < 3 {
-        // Ensure we have enough parts to remove the last two
-        return None;
-    }
-
-    // Remove the last two parts
-    let meaningful_parts = &components[..components.len() - 2];
-
-    if meaningful_parts.is_empty() {
-        return None;
-    }
-
-    // Join the parts into the desired format
-    let mut result = meaningful_parts.join(".");
-    if let Some(last_dot) = result.rfind('.') {
-        result.replace_range(last_dot..=last_dot, ":");
-    }
-
-    Some(result)
 }
 
 fn remove_version_from_library(library: &str) -> Option<String> {

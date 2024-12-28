@@ -77,7 +77,6 @@ impl Launcher {
                 let instance_selection = self.selected_instance.clone().unwrap();
                 return MenuEditMods::update_locally_installed_mods(&menu.mods, instance_selection);
             }
-            State::Error { .. } | State::DeleteInstance => {}
             State::InstallFabric(menu) => menu.tick(),
             State::InstallForge(menu) => menu.tick(),
             State::UpdateFound(menu) => menu.tick(),
@@ -249,7 +248,10 @@ impl Launcher {
                     }
                 }
             },
-            State::ServerDelete { .. } => {}
+            State::Error { .. }
+            | State::DeleteInstance
+            | State::ServerDelete { .. }
+            | State::InstallPaper => {}
         }
 
         let mut commands = Vec::new();

@@ -233,11 +233,9 @@ impl GameDownloader {
             }
         }
 
-        if !allowed {
-            if let Some(LibraryDownloads::Native { classifiers }) = &library.downloads {
-                if classifiers.contains_key(&format!("natives-{OS_NAME}")) {
-                    allowed = true;
-                }
+        if let Some(LibraryDownloads::Native { classifiers }) = &library.downloads {
+            if classifiers.contains_key(&format!("natives-{OS_NAME}")) {
+                allowed = true;
             }
         }
 

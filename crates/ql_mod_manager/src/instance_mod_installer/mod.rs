@@ -5,6 +5,7 @@ use ql_core::{io_err, json::instance_config::InstanceConfigJson, JsonFileError};
 pub mod fabric;
 pub mod forge;
 pub mod optifine;
+pub mod paper;
 
 pub enum CoreMod {
     None,

@@ -7,7 +7,7 @@ use chrono::Datelike;
 use iced::Command;
 use ql_core::{
     err, file_utils, io_err, json::instance_config::InstanceConfigJson, DownloadProgress,
-    InstanceSelection, JsonFileError,
+    InstanceSelection, IntoIoError, JsonFileError,
 };
 use ql_instances::{GameLaunchResult, ListEntry};
 use ql_mod_manager::mod_manager::ModIndex;
@@ -244,7 +244,7 @@ impl Launcher {
     ) -> Result<(), JsonFileError> {
         let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
 
-        let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
+        let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         let slider_value = f32::log2(config_json.ram_in_mb as f32);

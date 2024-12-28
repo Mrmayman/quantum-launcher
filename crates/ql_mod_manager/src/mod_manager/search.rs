@@ -197,8 +197,9 @@ pub enum Loader {
     Modloader,
     Rift,
     Neoforge,
-    // Note: Modrinth doesn't support searching for OptiFine mods.
+    // Note: Modrinth doesn't support the below:
     OptiFine,
+    Paper,
 }
 
 impl Display for Loader {
@@ -215,6 +216,7 @@ impl Display for Loader {
                 Loader::Rift => "rift",
                 Loader::Neoforge => "neoforge",
                 Loader::OptiFine => "optifine",
+                Loader::Paper => "paper",
             }
         )
     }

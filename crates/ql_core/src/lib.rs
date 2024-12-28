@@ -17,7 +17,7 @@ pub mod json;
 pub mod print;
 mod progress;
 
-pub use error::{DownloadError, IoError, JsonDownloadError, JsonFileError};
+pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
 pub use file_utils::RequestError;
 use futures::StreamExt;
 pub use java_install::{get_java_binary, JavaInstallError, JavaInstallProgress};

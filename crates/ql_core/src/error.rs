@@ -53,6 +53,19 @@ macro_rules! io_err {
     };
 }
 
+pub trait IntoIoError<T> {
+    fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError>;
+}
+
+impl<T> IntoIoError<T> for std::io::Result<T> {
+    fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError> {
+        self.map_err(|err: std::io::Error| IoError::Io {
+            error: err,
+            path: (p.into()).to_owned(),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub enum JsonDownloadError {
     RequestError(RequestError),

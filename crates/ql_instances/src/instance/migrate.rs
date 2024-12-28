@@ -1,8 +1,13 @@
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
+
 use ql_core::{info, io_err, json::version::LibraryDownloads};
 
 use crate::{download::GameDownloader, LAUNCHER_VERSION};
 
-use super::launch::{error::GameLaunchError, GameLauncher};
+use super::launch::{error::GameLaunchError, GameLauncher, CLASSPATH_SEPARATOR};
 
 impl GameLauncher {
     pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {
@@ -59,4 +64,72 @@ impl GameLauncher {
 
         Ok(())
     }
+
+    pub fn migrate_create_forge_clean_classpath(
+        &self,
+        forge_classpath: String,
+        classpath_entries: &mut HashSet<String>,
+        classpath_entries_path: PathBuf,
+    ) -> Result<(), GameLaunchError> {
+        let forge_libs_dir = self.instance_dir.join("forge/libraries");
+        let forge_libs_dir = forge_libs_dir
+            .to_str()
+            .ok_or(GameLaunchError::PathBufToString(forge_libs_dir.clone()))?;
+        let mut temp_forge_classpath_entries = String::new();
+        for entry in forge_classpath
+            .split(CLASSPATH_SEPARATOR)
+            .filter(|n| n.split_whitespace().any(|n| !n.is_empty()))
+        {
+            // /net/minecraftforge/forge/1.21.1-52.0.28/forge-1.21.1-52.0.28-universal.jar
+            let entry = entry
+                .strip_prefix(forge_libs_dir)
+                .ok_or(GameLaunchError::ForgeInstallUpgradeStripPrefixError)?;
+
+            // /.net.minecraftforge:forge
+            let entry = transform_path(entry)
+                .ok_or(GameLaunchError::ForgeInstallUpgradeTransformPathError)?;
+
+            // net.minecraftforge:forge
+            let entry = &entry[2..];
+
+            classpath_entries.insert(entry.to_owned());
+            temp_forge_classpath_entries.push_str(entry);
+            temp_forge_classpath_entries.push('\n');
+        }
+        std::fs::write(&classpath_entries_path, temp_forge_classpath_entries)
+            .map_err(io_err!(classpath_entries_path))?;
+        Ok(())
+    }
+}
+
+/// Converts a path string into the desired format:
+/// "/net/minecraftforge/forge/1.21.1-52.0.28/forge-1.21.1-52.0.28-universal.jar"
+/// -> "net.minecraftforge:forge"
+fn transform_path(input: &str) -> Option<String> {
+    // Normalize the path separators for the current OS
+    let path = Path::new(input);
+    let components: Vec<&str> = path
+        .iter()
+        .map(|os_str| os_str.to_str().unwrap_or(""))
+        .collect();
+
+    if components.len() < 3 {
+        // Ensure we have enough parts to remove the last two
+        return None;
+    }
+
+    // Remove the last two parts
+    let meaningful_parts = &components[..components.len() - 2];
+
+    if meaningful_parts.is_empty() {
+        return None;
+    }
+
+    // Join the parts into the desired format
+    let mut result = meaningful_parts.join(".");
+    if let Some(last_dot) = result.rfind('.') {
+        result.replace_range(last_dot..=last_dot, ":");
+    }
+
+    Some(result)
 }
