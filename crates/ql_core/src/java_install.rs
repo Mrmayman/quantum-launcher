@@ -10,12 +10,12 @@ use flate2::read::GzDecoder;
 use tar::Archive;
 
 use crate::{
-    do_jobs, err, file_utils, info, io_err,
+    do_jobs, err, file_utils, info,
     json::{
         java_files::{JavaFile, JavaFilesJson},
         java_list::{JavaListJson, JavaVersion},
     },
-    IoError, JsonDownloadError, RequestError,
+    IntoIoError, IoError, JsonDownloadError, RequestError,
 };
 
 pub enum JavaInstallProgress {
@@ -65,7 +65,7 @@ pub async fn get_java_binary(
         format!("bin/{name}")
     });
 
-    Ok(java_dir.canonicalize().map_err(io_err!(java_dir))?)
+    Ok(java_dir.canonicalize().path(java_dir)?)
 }
 
 /// Extracts a `.tar.gz` file from a `&[u8]` buffer into the given directory.
@@ -153,7 +153,7 @@ async fn install_java(
         &lock_file,
         "If you see this, java hasn't finished installing.",
     )
-    .map_err(io_err!(lock_file.clone()))?;
+    .path(lock_file.clone())?;
 
     info!("Started installing {}", version.to_string());
 
@@ -165,7 +165,7 @@ async fn install_java(
         install_normal_java(version, client, java_install_progress_sender, install_dir).await?;
     }
 
-    std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
+    std::fs::remove_file(&lock_file).path(lock_file.clone())?;
 
     info!("Finished installing {}", version.to_string());
 
@@ -237,9 +237,9 @@ async fn install_aarch64_linux_java(
 fn get_install_dir(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     let java_installs_dir = launcher_dir.join("java_installs");
-    std::fs::create_dir_all(&java_installs_dir).map_err(io_err!(java_installs_dir.clone()))?;
+    std::fs::create_dir_all(&java_installs_dir).path(java_installs_dir.clone())?;
     let install_dir = java_installs_dir.join(version.to_string());
-    std::fs::create_dir_all(&install_dir).map_err(io_err!(java_installs_dir.clone()))?;
+    std::fs::create_dir_all(&install_dir).path(java_installs_dir.clone())?;
     Ok(install_dir)
 }
 
@@ -271,14 +271,14 @@ async fn java_install_fn(
         } => {
             let file_bytes =
                 file_utils::download_file_to_bytes(client, &downloads.raw.url, false).await?;
-            std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path.clone()))?;
+            std::fs::write(&file_path, &file_bytes).path(file_path.clone())?;
             if *executable {
                 #[cfg(target_family = "unix")]
                 file_utils::set_executable(&file_path)?;
             }
         }
         JavaFile::directory {} => {
-            std::fs::create_dir_all(&file_path).map_err(io_err!(file_path))?;
+            std::fs::create_dir_all(&file_path).path(file_path)?;
         }
         JavaFile::link { target } => {
             // TODO: Deal with java install symlink.

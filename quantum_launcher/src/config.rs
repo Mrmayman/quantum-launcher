@@ -1,4 +1,4 @@
-use ql_core::{err, file_utils, io_err, JsonFileError};
+use ql_core::{err, file_utils, IntoIoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -19,7 +19,7 @@ impl LauncherConfig {
             return LauncherConfig::create(&config_path);
         }
 
-        let config = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
+        let config = std::fs::read_to_string(&config_path).path(&config_path)?;
         let config = match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(err) => {
@@ -36,7 +36,7 @@ impl LauncherConfig {
 
         tokio::fs::write(&config_path, config.as_bytes())
             .await
-            .map_err(io_err!(config_path))?;
+            .path(config_path)?;
         Ok(())
     }
 
@@ -47,7 +47,7 @@ impl LauncherConfig {
     fn create(path: &Path) -> Result<Self, JsonFileError> {
         let config = LauncherConfig::default();
 
-        std::fs::write(path, serde_json::to_string(&config)?.as_bytes()).map_err(io_err!(path))?;
+        std::fs::write(path, serde_json::to_string(&config)?.as_bytes()).path(path)?;
 
         Ok(config)
     }

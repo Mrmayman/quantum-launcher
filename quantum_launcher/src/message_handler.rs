@@ -6,7 +6,7 @@ use std::{
 use chrono::Datelike;
 use iced::Command;
 use ql_core::{
-    err, file_utils, io_err, json::instance_config::InstanceConfigJson, DownloadProgress,
+    err, file_utils, json::instance_config::InstanceConfigJson, DownloadProgress,
     InstanceSelection, IntoIoError, JsonFileError,
 };
 use ql_instances::{GameLaunchResult, ListEntry};
@@ -269,7 +269,7 @@ impl Launcher {
         let config_path = file_utils::get_instance_dir(instance_name)?.join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
-        std::fs::write(&config_path, config_json).map_err(io_err!(config_path))?;
+        std::fs::write(&config_path, config_json).path(config_path)?;
         Ok(())
     }
 
@@ -277,7 +277,7 @@ impl Launcher {
         let selected_instance = self.selected_instance.as_ref().unwrap();
         let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
 
-        let config_json = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
+        let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         let is_vanilla = config_json.mod_type == "Vanilla";

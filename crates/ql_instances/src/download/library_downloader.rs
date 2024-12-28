@@ -5,11 +5,11 @@ use std::{
 };
 
 use ql_core::{
-    do_jobs, file_utils, info, io_err,
+    do_jobs, file_utils, info,
     json::version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
-    DownloadError, DownloadProgress, IoError,
+    DownloadError, DownloadProgress, IntoIoError, IoError,
 };
 use reqwest::Client;
 use zip_extract::ZipExtractError;
@@ -72,9 +72,9 @@ impl GameDownloader {
 
     fn prepare_library_directories(&self) -> Result<(), IoError> {
         let library_path = self.instance_dir.join("libraries");
-        std::fs::create_dir_all(&library_path).map_err(io_err!(library_path))?;
+        std::fs::create_dir_all(&library_path).path(&library_path)?;
         let natives_path = library_path.join("natives");
-        std::fs::create_dir_all(&natives_path).map_err(io_err!(natives_path))?;
+        std::fs::create_dir_all(&natives_path).path(natives_path)?;
         Ok(())
     }
 
@@ -158,11 +158,11 @@ impl GameDownloader {
             )
             .to_path_buf();
 
-        std::fs::create_dir_all(&lib_dir_path).map_err(io_err!(lib_dir_path))?;
+        std::fs::create_dir_all(&lib_dir_path).path(lib_dir_path)?;
         let library_downloaded =
             file_utils::download_file_to_bytes(&self.network_client, &artifact.url, false).await?;
 
-        std::fs::write(&lib_file_path, &library_downloaded).map_err(io_err!(lib_file_path))?;
+        std::fs::write(&lib_file_path, &library_downloaded).path(lib_file_path)?;
 
         Ok(library_downloaded)
     }
@@ -198,10 +198,9 @@ impl GameDownloader {
 
                 if exclusion_path.exists() {
                     if exclusion_path.is_dir() {
-                        std::fs::remove_dir_all(&exclusion_path)
-                            .map_err(io_err!(exclusion_path))?;
+                        std::fs::remove_dir_all(&exclusion_path).path(exclusion_path)?;
                     } else {
-                        std::fs::remove_file(&exclusion_path).map_err(io_err!(exclusion_path))?;
+                        std::fs::remove_file(&exclusion_path).path(exclusion_path)?;
                     }
                 }
             }

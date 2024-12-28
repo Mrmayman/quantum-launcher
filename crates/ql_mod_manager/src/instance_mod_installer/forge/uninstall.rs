@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use ql_core::{file_utils, io_err, InstanceSelection};
+use ql_core::{file_utils, InstanceSelection, IntoIoError};
 
 use crate::{instance_mod_installer::change_instance_type, mod_manager::Loader};
 
@@ -28,7 +28,7 @@ pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
     change_instance_type(&instance_dir, "Vanilla".to_owned()).await?;
 
     let forge_dir = instance_dir.join("forge");
-    std::fs::remove_dir_all(&forge_dir).map_err(io_err!(forge_dir))?;
+    std::fs::remove_dir_all(&forge_dir).path(forge_dir)?;
     Ok(())
 }
 
@@ -47,13 +47,13 @@ pub async fn uninstall_server(instance: &str) -> Result<(), ForgeInstallError> {
     if let Some(forge_shim_file) = find_forge_shim_file(&instance_dir) {
         tokio::fs::remove_file(&forge_shim_file)
             .await
-            .map_err(io_err!(forge_shim_file))?;
+            .path(forge_shim_file)?;
     }
 
     let libraries_dir = instance_dir.join("libraries");
     tokio::fs::remove_dir_all(&libraries_dir)
         .await
-        .map_err(io_err!(libraries_dir))?;
+        .path(libraries_dir)?;
 
     delete_file(&instance_dir.join("run.sh")).await?;
     delete_file(&instance_dir.join("run.bat")).await?;
@@ -67,7 +67,7 @@ async fn delete_file(run_sh_path: &Path) -> Result<(), ForgeInstallError> {
     if run_sh_path.exists() {
         tokio::fs::remove_file(&run_sh_path)
             .await
-            .map_err(io_err!(run_sh_path))?;
+            .path(run_sh_path)?;
     }
     Ok(())
 }

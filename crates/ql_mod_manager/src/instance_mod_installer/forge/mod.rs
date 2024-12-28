@@ -7,7 +7,7 @@ use std::{
 
 use error::{ForgeInstallError, Is404NotFound};
 use ql_core::{
-    err, file_utils, get_java_binary, info, io_err,
+    err, file_utils, get_java_binary, info,
     json::{
         forge::{
             JsonForgeDetails, JsonForgeDetailsLibrary, JsonForgeInstallProfile, JsonForgeVersions,
@@ -15,7 +15,7 @@ use ql_core::{
         java_list::JavaVersion,
         version::VersionDetails,
     },
-    pt, InstanceSelection, JavaInstallProgress,
+    pt, InstanceSelection, IntoIoError, JavaInstallProgress,
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -45,7 +45,7 @@ struct ForgeInstaller {
 impl ForgeInstaller {
     fn remove_lock(&self) -> Result<(), ForgeInstallError> {
         let lock_path = self.instance_dir.join("forge.lock");
-        std::fs::remove_file(&lock_path).map_err(io_err!(lock_path))?;
+        std::fs::remove_file(&lock_path).path(lock_path)?;
         Ok(())
     }
 
@@ -123,7 +123,7 @@ impl ForgeInstaller {
 
         let installer_name = format!("forge-{}-{file_type}.jar", self.short_version);
         let installer_path = self.forge_dir.join(&installer_name);
-        std::fs::write(&installer_path, &installer_file).map_err(io_err!(installer_path))?;
+        std::fs::write(&installer_path, &installer_file).path(&installer_path)?;
         Ok((installer_file, installer_name, installer_path))
     }
 
@@ -159,7 +159,7 @@ impl ForgeInstaller {
         j_progress: Option<Sender<JavaInstallProgress>>,
     ) -> Result<(PathBuf, String), ForgeInstallError> {
         let libraries_dir = self.forge_dir.join("libraries");
-        std::fs::create_dir_all(&libraries_dir).map_err(io_err!(libraries_dir))?;
+        std::fs::create_dir_all(&libraries_dir).path(&libraries_dir)?;
 
         let classpath = if self.major_version >= 14 {
             self.run_installer(j_progress, installer_name).await?;
@@ -196,17 +196,16 @@ impl ForgeInstaller {
         let java_source_file = include_str!("../../../../../assets/ClientInstaller.java")
             .replace("CLIENT", if self.is_server { "SERVER" } else { "CLIENT" });
         let source_path = self.forge_dir.join("ClientInstaller.java");
-        std::fs::write(&source_path, java_source_file).map_err(io_err!(source_path))?;
+        std::fs::write(&source_path, java_source_file).path(source_path)?;
 
         if !self.is_server {
             let launcher_profiles_json_path = self.forge_dir.join("launcher_profiles.json");
-            std::fs::write(&launcher_profiles_json_path, "{}")
-                .map_err(io_err!(launcher_profiles_json_path))?;
+            std::fs::write(&launcher_profiles_json_path, "{}").path(launcher_profiles_json_path)?;
             let launcher_profiles_json_microsoft_store_path = self
                 .forge_dir
                 .join("launcher_profiles_microsoft_store.json");
             std::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
-                .map_err(io_err!(launcher_profiles_json_microsoft_store_path))?;
+                .path(launcher_profiles_json_microsoft_store_path)?;
         }
 
         pt!("Compiling Installer");
@@ -215,7 +214,7 @@ impl ForgeInstaller {
             .args(["-cp", installer_name, "ClientInstaller.java", "-d", "."])
             .current_dir(&self.forge_dir)
             .output()
-            .map_err(io_err!(javac_path))?;
+            .path(javac_path)?;
         if !output.status.success() {
             return Err(ForgeInstallError::CompileError(
                 String::from_utf8(output.stdout)?,
@@ -234,7 +233,7 @@ impl ForgeInstaller {
             .current_dir(&self.forge_dir)
             .output()
             // .spawn()
-            .map_err(io_err!(java_path))?;
+            .path(java_path)?;
         if !output.status.success() {
             return Err(ForgeInstallError::InstallerError(
                 String::from_utf8(output.stdout)?,
@@ -248,16 +247,14 @@ impl ForgeInstaller {
         let temp_dir = Self::extract_zip_file(installer_file)?;
         let forge_json_path = temp_dir.path().join("version.json");
         if forge_json_path.exists() {
-            let forge_json =
-                std::fs::read_to_string(&forge_json_path).map_err(io_err!(forge_json_path))?;
+            let forge_json = std::fs::read_to_string(&forge_json_path).path(forge_json_path)?;
 
             let forge_json: JsonForgeDetails = serde_json::from_str(&forge_json)?;
             Ok(forge_json)
         } else {
             let forge_json_path = temp_dir.path().join("install_profile.json");
             if forge_json_path.exists() {
-                let forge_json =
-                    std::fs::read_to_string(&forge_json_path).map_err(io_err!(forge_json_path))?;
+                let forge_json = std::fs::read_to_string(&forge_json_path).path(forge_json_path)?;
 
                 let forge_json: JsonForgeInstallProfile = serde_json::from_str(&forge_json)?;
                 Ok(forge_json.versionInfo)
@@ -305,7 +302,7 @@ impl ForgeInstaller {
         };
 
         let lib_dir_path = libraries_dir.join(&path);
-        std::fs::create_dir_all(&lib_dir_path).map_err(io_err!(lib_dir_path))?;
+        std::fs::create_dir_all(&lib_dir_path).path(&lib_dir_path)?;
 
         let dest = lib_dir_path.join(&file);
         let dest_str = dest
@@ -328,7 +325,7 @@ impl ForgeInstaller {
         } else {
             match file_utils::download_file_to_bytes(&self.client, &url, false).await {
                 Ok(bytes) => {
-                    std::fs::write(&dest, bytes).map_err(io_err!(dest))?;
+                    std::fs::write(&dest, bytes).path(dest)?;
                 }
                 Err(err) => {
                     err!("Error downloading library: {err}\n        Trying pack.xz version");
@@ -379,40 +376,40 @@ impl ForgeInstaller {
         pt!("Reading signature");
         let extracted_pack_path = temp_extract_xz.path().join(format!("{dest_str}.pack"));
         let mut extracted_pack =
-            std::fs::File::open(&extracted_pack_path).map_err(io_err!(extracted_pack_path))?;
+            std::fs::File::open(&extracted_pack_path).path(&extracted_pack_path)?;
         extracted_pack
             .seek(std::io::SeekFrom::End(-8))
-            .map_err(io_err!(extracted_pack_path))?;
+            .path(&extracted_pack_path)?;
         let mut sig_len_bytes = [0u8; 4];
         extracted_pack
             .read_exact(&mut sig_len_bytes)
-            .map_err(io_err!(extracted_pack_path))?;
+            .path(&extracted_pack_path)?;
         let sig_len = u32::from_le_bytes(sig_len_bytes);
 
         let full_len = std::fs::metadata(&extracted_pack_path)
-            .map_err(io_err!(extracted_pack_path))?
+            .path(&extracted_pack_path)?
             .len();
         let crop_len = full_len - sig_len as u64 - 8;
 
         let extracted_pack =
-            std::fs::File::open(&extracted_pack_path).map_err(io_err!(extracted_pack_path))?;
+            std::fs::File::open(&extracted_pack_path).path(&extracted_pack_path)?;
         let mut pack_crop = Vec::with_capacity(crop_len as usize);
         extracted_pack
             .take(crop_len)
             .read_to_end(&mut pack_crop)
-            .map_err(io_err!(extracted_pack_path))?;
+            .path(extracted_pack_path)?;
 
         let cropped_pack_path = temp_extract_xz
             .path()
             .join(format!("{dest_str}.pack.crop",));
-        std::fs::write(&cropped_pack_path, &pack_crop).map_err(io_err!(cropped_pack_path))?;
+        std::fs::write(&cropped_pack_path, &pack_crop).path(cropped_pack_path)?;
 
         pt!("Unpacking extracted file");
         let unpack200_path = get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
         let output = Command::new(&unpack200_path)
             .args(&[format!("{dest_str}.pack.crop",), dest_str.to_owned()])
             .output()
-            .map_err(io_err!(unpack200_path))?;
+            .path(unpack200_path)?;
 
         if !output.status.success() {
             return Err(ForgeInstallError::Unpack200Error(
@@ -484,13 +481,13 @@ fn get_instance_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ForgeI
 
 fn get_forge_dir(instance_dir: &Path) -> Result<PathBuf, ForgeInstallError> {
     let forge_dir = instance_dir.join("forge");
-    std::fs::create_dir_all(&forge_dir).map_err(io_err!(forge_dir))?;
+    std::fs::create_dir_all(&forge_dir).path(&forge_dir)?;
     Ok(forge_dir)
 }
 
 fn create_mods_dir(instance_dir: &Path) -> Result<(), ForgeInstallError> {
     let mods_dir_path = instance_dir.join(".minecraft/mods");
-    std::fs::create_dir_all(&mods_dir_path).map_err(io_err!(mods_dir_path))?;
+    std::fs::create_dir_all(&mods_dir_path).path(mods_dir_path)?;
     Ok(())
 }
 
@@ -500,14 +497,13 @@ fn create_lock_file(instance_dir: &Path) -> Result<(), ForgeInstallError> {
         &lock_path,
         "If you see this, forge was not installed correctly.",
     )
-    .map_err(io_err!(lock_path))?;
+    .path(lock_path)?;
     Ok(())
 }
 
 fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallError> {
     let version_json_path = instance_dir.join("details.json");
-    let version_json =
-        std::fs::read_to_string(&version_json_path).map_err(io_err!(version_json_path))?;
+    let version_json = std::fs::read_to_string(&version_json_path).path(version_json_path)?;
     let version_json = serde_json::from_str::<VersionDetails>(&version_json)?;
     let minecraft_version = version_json.id;
     Ok(minecraft_version)
@@ -597,14 +593,13 @@ pub async fn install_client(
     }
 
     let classpath_path = installer.forge_dir.join("classpath.txt");
-    std::fs::write(&classpath_path, &classpath).map_err(io_err!(classpath_path))?;
+    std::fs::write(&classpath_path, &classpath).path(classpath_path)?;
 
     let clean_classpath_path = installer.forge_dir.join("clean_classpath.txt");
-    std::fs::write(&clean_classpath_path, &clean_classpath)
-        .map_err(io_err!(clean_classpath_path))?;
+    std::fs::write(&clean_classpath_path, &clean_classpath).path(clean_classpath_path)?;
 
     let json_path = installer.forge_dir.join("details.json");
-    std::fs::write(&json_path, serde_json::to_string(&forge_json)?).map_err(io_err!(json_path))?;
+    std::fs::write(&json_path, serde_json::to_string(&forge_json)?).path(json_path)?;
 
     change_instance_type(&installer.instance_dir, "Forge".to_owned()).await?;
 

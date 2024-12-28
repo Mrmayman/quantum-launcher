@@ -1,8 +1,8 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    file_utils, info, io_err, json::instance_config::OmniarchiveEntry, DownloadError,
-    DownloadProgress,
+    file_utils, info, json::instance_config::OmniarchiveEntry, DownloadError, DownloadProgress,
+    IntoIoError,
 };
 
 use crate::{download::GameDownloader, ListEntry, LAUNCHER_VERSION_NAME};
@@ -49,7 +49,7 @@ pub async fn create_instance(
     let launcher_dir = file_utils::get_launcher_dir()?;
 
     let assets_dir = launcher_dir.join("assets/null");
-    std::fs::create_dir_all(&assets_dir).map_err(io_err!(assets_dir))?;
+    std::fs::create_dir_all(&assets_dir).path(assets_dir)?;
 
     if let Some(ref sender) = progress_sender {
         sender.send(DownloadProgress::Started)?;
@@ -90,14 +90,13 @@ pub async fn create_instance(
         .join("instances")
         .join(instance_name)
         .join("launcher_version.txt");
-    std::fs::write(&version_file_path, LAUNCHER_VERSION_NAME)
-        .map_err(io_err!(version_file_path))?;
+    std::fs::write(&version_file_path, LAUNCHER_VERSION_NAME).path(version_file_path)?;
 
     let mods_dir = launcher_dir
         .join("instances")
         .join(instance_name)
         .join(".minecraft/mods");
-    std::fs::create_dir_all(&mods_dir).map_err(io_err!(mods_dir))?;
+    std::fs::create_dir_all(&mods_dir).path(mods_dir)?;
 
     info!("Finished creating instance: {instance_name}");
 

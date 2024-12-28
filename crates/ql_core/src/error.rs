@@ -32,27 +32,6 @@ impl Display for IoError {
     }
 }
 
-/// Simple tool to convert an `std::io::Error` into an [`IoError`],
-/// an error type that includes the path that caused the error.
-///
-/// # Example
-/// ```no_run
-/// # use ql_core::io_err;
-/// use std::path::PathBuf;
-///
-/// let path = PathBuf::from("file.txt");
-/// let result = std::fs::read_to_string(&path).map_err(io_err!(path));
-/// ```
-#[macro_export]
-macro_rules! io_err {
-    ($path:expr) => {
-        |err: std::io::Error| $crate::IoError::Io {
-            error: err,
-            path: $path.to_owned(),
-        }
-    };
-}
-
 pub trait IntoIoError<T> {
     fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError>;
 }

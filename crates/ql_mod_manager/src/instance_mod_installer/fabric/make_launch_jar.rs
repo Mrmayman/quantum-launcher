@@ -1,4 +1,4 @@
-use ql_core::{info, io_err};
+use ql_core::{info, IntoIoError};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
@@ -19,11 +19,11 @@ pub async fn make_launch_jar(
 ) -> Result<(), FabricInstallError> {
     // Delete the output file if it already exists
     if file.exists() {
-        tokio::fs::remove_file(file).await.map_err(io_err!(file))?;
+        tokio::fs::remove_file(file).await.path(file)?;
     }
 
     // Create a new ZIP file
-    let zip_file = File::create(file).map_err(io_err!(file))?;
+    let zip_file = File::create(file).path(file)?;
     let mut zip_writer = ZipWriter::new(BufWriter::new(zip_file));
     let mut added_entries = HashSet::new();
 
@@ -74,7 +74,7 @@ pub async fn make_launch_jar(
         let library_files_len = library_files.len();
         for (i, library_path) in library_files.iter().enumerate() {
             info!("({i}/{library_files_len}) {library_path:?}");
-            let library_file = File::open(library_path).map_err(io_err!(library_path))?;
+            let library_file = File::open(library_path).path(library_path)?;
             let mut jar_reader = zip::read::ZipArchive::new(BufReader::new(library_file))?;
 
             for i in 0..jar_reader.len() {

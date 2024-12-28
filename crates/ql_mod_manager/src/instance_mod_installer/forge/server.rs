@@ -1,4 +1,4 @@
-use ql_core::{io_err, InstanceSelection};
+use ql_core::{InstanceSelection, IntoIoError};
 
 use crate::instance_mod_installer::{change_instance_type, forge::ForgeInstaller};
 
@@ -32,15 +32,15 @@ pub async fn install_server(
 
     tokio::fs::remove_file(&installer_path)
         .await
-        .map_err(io_err!(installer_path))?;
+        .path(installer_path)?;
     let delete_path = installer.forge_dir.join("ClientInstaller.java");
     tokio::fs::remove_file(&delete_path)
         .await
-        .map_err(io_err!(delete_path))?;
+        .path(delete_path)?;
     let delete_path = installer.forge_dir.join("ClientInstaller.class");
     tokio::fs::remove_file(&delete_path)
         .await
-        .map_err(io_err!(delete_path))?;
+        .path(delete_path)?;
 
     change_instance_type(&installer.instance_dir, "Forge".to_owned()).await?;
     installer.remove_lock()?;

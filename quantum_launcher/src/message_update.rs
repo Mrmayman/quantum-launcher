@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use iced::Command;
-use ql_core::{file_utils, io_err, InstanceSelection};
+use ql_core::{file_utils, InstanceSelection, IntoIoError};
 use ql_mod_manager::instance_mod_installer;
 
 use crate::{
@@ -462,6 +462,6 @@ async fn delete_file_wrapper(path: PathBuf) -> Result<(), String> {
     }
     tokio::fs::remove_file(&path)
         .await
-        .map_err(io_err!(path))
+        .path(path)
         .map_err(|n| n.to_string())
 }

@@ -1,7 +1,7 @@
 use crate::download::GameDownloader;
 use error::GameLaunchError;
 use ql_core::{
-    file_utils, get_java_binary, info, io_err,
+    file_utils, get_java_binary, info,
     json::{
         fabric::FabricJSON,
         forge::JsonForgeDetails,
@@ -10,7 +10,7 @@ use ql_core::{
         optifine::JsonOptifine,
         version::{LibraryDownloadArtifact, LibraryDownloads, VersionDetails},
     },
-    IoError, JavaInstallProgress, JsonFileError,
+    IntoIoError, IoError, JavaInstallProgress, JsonFileError,
 };
 use std::{
     collections::HashSet,
@@ -78,7 +78,7 @@ impl GameLauncher {
         let instance_dir = get_instance_dir(&instance_name)?;
 
         let minecraft_dir = instance_dir.join(".minecraft");
-        std::fs::create_dir_all(&minecraft_dir).map_err(io_err!(minecraft_dir))?;
+        std::fs::create_dir_all(&minecraft_dir).path(&minecraft_dir)?;
 
         let config_json = get_config(&instance_dir)?;
 
@@ -161,14 +161,12 @@ impl GameLauncher {
 
             if old_assets_path_v2.exists() {
                 self.redownload_legacy_assets().await?;
-                std::fs::remove_dir_all(&old_assets_path_v2)
-                    .map_err(io_err!(old_assets_path_v2))?;
+                std::fs::remove_dir_all(&old_assets_path_v2).path(old_assets_path_v2)?;
             }
 
             if old_assets_path_v1.exists() {
                 self.redownload_legacy_assets().await?;
-                std::fs::remove_dir_all(&old_assets_path_v1)
-                    .map_err(io_err!(old_assets_path_v1))?;
+                std::fs::remove_dir_all(&old_assets_path_v1).path(old_assets_path_v1)?;
             }
 
             let assets_path_fixed = if assets_path.exists() {
@@ -188,8 +186,7 @@ impl GameLauncher {
             if old_assets_path_v2.exists() {
                 info!("Migrating old assets to new path...");
                 copy_dir_recursive(&old_assets_path_v2, &assets_path)?;
-                std::fs::remove_dir_all(&old_assets_path_v2)
-                    .map_err(io_err!(old_assets_path_v2))?;
+                std::fs::remove_dir_all(&old_assets_path_v2).path(old_assets_path_v2)?;
             }
 
             if old_assets_path_v1.exists() {
@@ -212,7 +209,7 @@ impl GameLauncher {
 
     fn create_mods_dir(&self) -> Result<(), IoError> {
         let mods_dir = self.minecraft_dir.join("mods");
-        std::fs::create_dir_all(&mods_dir).map_err(io_err!(mods_dir))?;
+        std::fs::create_dir_all(&mods_dir).path(mods_dir)?;
         Ok(())
     }
 
@@ -301,13 +298,13 @@ impl GameLauncher {
 
     fn get_fabric_json(&self) -> Result<FabricJSON, JsonFileError> {
         let json_path = self.instance_dir.join("fabric.json");
-        let fabric_json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
+        let fabric_json = std::fs::read_to_string(&json_path).path(json_path)?;
         Ok(serde_json::from_str(&fabric_json)?)
     }
 
     fn get_forge_json(&self) -> Result<JsonForgeDetails, JsonFileError> {
         let json_path = self.instance_dir.join("forge/details.json");
-        let json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
+        let json = std::fs::read_to_string(&json_path).path(json_path)?;
         Ok(serde_json::from_str(&json)?)
     }
 
@@ -399,8 +396,7 @@ impl GameLauncher {
 
         if forge_json.is_some() {
             let classpath_path = self.instance_dir.join("forge/classpath.txt");
-            let forge_classpath =
-                std::fs::read_to_string(&classpath_path).map_err(io_err!(classpath_path))?;
+            let forge_classpath = std::fs::read_to_string(&classpath_path).path(classpath_path)?;
 
             class_path.push_str(&forge_classpath);
 
@@ -627,8 +623,7 @@ pub async fn launch(
 
 fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {
     let config_file_path = instance_dir.join("config.json");
-    let config_json =
-        std::fs::read_to_string(&config_file_path).map_err(io_err!(config_file_path))?;
+    let config_json = std::fs::read_to_string(&config_file_path).path(config_file_path)?;
     Ok(serde_json::from_str(&config_json)?)
 }
 
@@ -636,8 +631,8 @@ fn find_jar_files(dir_path: &Path) -> Result<Vec<PathBuf>, IoError> {
     let mut jar_files = Vec::new();
 
     // Recursively traverse the directory
-    for entry in std::fs::read_dir(dir_path).map_err(io_err!(dir_path))? {
-        let entry = entry.map_err(io_err!(dir_path))?;
+    for entry in std::fs::read_dir(dir_path).path(dir_path)? {
+        let entry = entry.path(dir_path)?;
         let path = entry.path();
 
         if path.is_dir() {
@@ -677,7 +672,7 @@ pub enum AssetRedownloadProgress {
 fn migrate_to_new_assets_path(old_assets_path: &Path, assets_path: &Path) -> Result<(), IoError> {
     info!("Migrating old assets to new path...");
     copy_dir_recursive(old_assets_path, assets_path)?;
-    std::fs::remove_dir_all(old_assets_path).map_err(io_err!(old_assets_path))?;
+    std::fs::remove_dir_all(old_assets_path).path(old_assets_path)?;
     info!("Finished");
     Ok(())
 }
@@ -685,12 +680,12 @@ fn migrate_to_new_assets_path(old_assets_path: &Path, assets_path: &Path) -> Res
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     // Create the destination directory if it doesn't exist
     if !dst.exists() {
-        std::fs::create_dir_all(dst).map_err(io_err!(dst))?;
+        std::fs::create_dir_all(dst).path(dst)?;
     }
 
     // Iterate over the directory entries
-    for entry in std::fs::read_dir(src).map_err(io_err!(src))? {
-        let entry = entry.map_err(io_err!(src))?;
+    for entry in std::fs::read_dir(src).path(src)? {
+        let entry = entry.path(src)?;
         let path = entry.path();
         let dest_path = dst.join(entry.file_name());
 
@@ -699,7 +694,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
             copy_dir_recursive(&path, &dest_path)?;
         } else {
             // Copy the file to the destination directory
-            std::fs::copy(&path, &dest_path).map_err(io_err!(path))?;
+            std::fs::copy(&path, &dest_path).path(path)?;
         }
     }
 
@@ -712,10 +707,10 @@ fn get_instance_dir(instance_name: &str) -> Result<PathBuf, GameLaunchError> {
     }
 
     let launcher_dir = file_utils::get_launcher_dir()?;
-    std::fs::create_dir_all(&launcher_dir).map_err(io_err!(launcher_dir))?;
+    std::fs::create_dir_all(&launcher_dir).path(&launcher_dir)?;
 
     let instances_folder_dir = launcher_dir.join("instances");
-    std::fs::create_dir_all(&instances_folder_dir).map_err(io_err!(instances_folder_dir))?;
+    std::fs::create_dir_all(&instances_folder_dir).path(&instances_folder_dir)?;
 
     let instance_dir = instances_folder_dir.join(instance_name);
     if !instance_dir.exists() {
@@ -731,7 +726,7 @@ fn replace_var(string: &mut String, var: &str, value: &str) {
 fn read_version_json(instance_dir: &Path) -> Result<VersionDetails, JsonFileError> {
     let file_path = instance_dir.join("details.json");
 
-    let version_json: String = std::fs::read_to_string(&file_path).map_err(io_err!(file_path))?;
+    let version_json: String = std::fs::read_to_string(&file_path).path(file_path)?;
     let version_json = serde_json::from_str(&version_json)?;
     Ok(version_json)
 }

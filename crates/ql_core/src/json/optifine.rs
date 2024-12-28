@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{file_utils, io_err, IoError, JsonFileError};
+use crate::{file_utils, IntoIoError, IoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -37,14 +37,14 @@ impl JsonOptifine {
 
 fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoError> {
     // Read the directory entries
-    let entries = std::fs::read_dir(dir_path).map_err(io_err!(dir_path))?;
+    let entries = std::fs::read_dir(dir_path).path(dir_path)?;
 
     let mut json_content: Option<String> = None;
     let mut jar_path: Option<PathBuf> = None;
 
     // Iterate over the directory entries
     for entry in entries {
-        let entry = entry.map_err(io_err!(dir_path))?; // Handle possible errors
+        let entry = entry.path(dir_path)?; // Handle possible errors
         let path = entry.path();
 
         // Check if the entry is a file
@@ -54,7 +54,7 @@ fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoE
         if let Some(extension) = path.extension() {
             if extension == "json" {
                 // Read the contents of the JSON file
-                let contents = std::fs::read_to_string(&path).map_err(io_err!(path))?;
+                let contents = std::fs::read_to_string(&path).path(path)?;
                 json_content = Some(contents);
             } else if extension == "jar" {
                 // Record the path to the .jar file
@@ -97,7 +97,7 @@ fn find_subdirectory_with_name(
     keyword: &str,
 ) -> Result<Option<PathBuf>, IoError> {
     // Read the contents of the directory
-    let entries = std::fs::read_dir(parent_dir).map_err(io_err!(parent_dir))?;
+    let entries = std::fs::read_dir(parent_dir).path(parent_dir)?;
     for entry in entries.into_iter().filter_map(Result::ok) {
         let path = entry.path();
         // Check if the entry is a directory and contains the keyword

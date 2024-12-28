@@ -7,9 +7,9 @@ use std::{
 use async_recursion::async_recursion;
 use chrono::DateTime;
 use ql_core::{
-    err, file_utils, info, io_err,
+    err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    pt, InstanceSelection,
+    pt, InstanceSelection, IntoIoError,
 };
 use reqwest::Client;
 
@@ -71,7 +71,7 @@ pub fn get_instance_and_mod_dir(
     let instance_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
     let mods_dir = instance_dir.join("mods");
     if !mods_dir.exists() {
-        std::fs::create_dir(&mods_dir).map_err(io_err!(mods_dir))?;
+        std::fs::create_dir(&mods_dir).path(&mods_dir)?;
     }
     Ok((instance_dir, mods_dir))
 }
@@ -79,15 +79,14 @@ pub fn get_instance_and_mod_dir(
 pub fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModError> {
     let version_json_path = instance_dir.join("details.json");
     let version_json: String =
-        std::fs::read_to_string(&version_json_path).map_err(io_err!(version_json_path))?;
+        std::fs::read_to_string(&version_json_path).path(version_json_path)?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
     Ok(version_json)
 }
 
 fn get_config_json(instance_dir: &Path) -> Result<InstanceConfigJson, ModError> {
     let config_file_path = instance_dir.join("config.json");
-    let config_json =
-        std::fs::read_to_string(&config_file_path).map_err(io_err!(config_file_path))?;
+    let config_json = std::fs::read_to_string(&config_file_path).path(config_file_path)?;
     let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
     Ok(config_json)
 }
@@ -240,14 +239,14 @@ impl ModDownloader {
             let file_bytes =
                 file_utils::download_file_to_bytes(&self.client, &primary_file.url, true).await?;
             let file_path = self.mods_dir.join(&primary_file.filename);
-            std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
+            std::fs::write(&file_path, &file_bytes).path(file_path)?;
         } else {
             pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
                 let file_bytes =
                     file_utils::download_file_to_bytes(&self.client, &file.url, true).await?;
                 let file_path = self.mods_dir.join(&file.filename);
-                std::fs::write(&file_path, &file_bytes).map_err(io_err!(file_path))?;
+                std::fs::write(&file_path, &file_bytes).path(file_path)?;
             }
         }
         Ok(())

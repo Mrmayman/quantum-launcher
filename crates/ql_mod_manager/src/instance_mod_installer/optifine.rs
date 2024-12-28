@@ -6,12 +6,12 @@ use std::{
 };
 
 use ql_core::{
-    file_utils, get_java_binary, info, io_err,
+    file_utils, get_java_binary, info,
     json::{
         instance_config::InstanceConfigJson, java_list::JavaVersion, optifine::JsonOptifine,
         version::VersionDetails,
     },
-    IoError, JavaInstallError, JavaInstallProgress, JsonFileError, RequestError,
+    IntoIoError, IoError, JavaInstallError, JavaInstallProgress, JsonFileError, RequestError,
 };
 
 use crate::mod_manager::Loader;
@@ -71,14 +71,14 @@ pub async fn install_optifine(
     let optifine_path = instance_path.join("optifine");
     tokio::fs::create_dir_all(&optifine_path)
         .await
-        .map_err(io_err!(optifine_path))?;
+        .path(&optifine_path)?;
 
     create_hook_java_file(&dot_minecraft_path, &optifine_path).await?;
 
     let new_installer_path = optifine_path.join("OptiFine.jar");
     tokio::fs::copy(&path_to_installer, &new_installer_path)
         .await
-        .map_err(io_err!(path_to_installer))?;
+        .path(path_to_installer)?;
 
     info!("Compiling Hook.java");
     if let Some(progress) = &progress_sender {
@@ -122,17 +122,17 @@ pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
 
     tokio::fs::remove_dir_all(&optifine_path)
         .await
-        .map_err(io_err!(optifine_path))?;
+        .path(optifine_path)?;
     update_instance_config_json(&instance_path, "Vanilla".to_owned())?;
 
     let dot_minecraft_path = instance_path.join(".minecraft");
     let libraries_path = dot_minecraft_path.join("libraries");
     tokio::fs::remove_dir_all(&libraries_path)
         .await
-        .map_err(io_err!(libraries_path))?;
+        .path(libraries_path)?;
 
     let versions_path = dot_minecraft_path.join("versions");
-    let entries = std::fs::read_dir(&versions_path).map_err(io_err!(versions_path))?;
+    let entries = std::fs::read_dir(&versions_path).path(versions_path)?;
     for entry in entries.into_iter().filter_map(Result::ok) {
         let path = entry.path();
         // Check if the entry is a directory and contains the keyword
@@ -142,9 +142,7 @@ pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
 
         if let Some(Some(file_name)) = path.file_name().map(|n| n.to_str()) {
             if file_name.to_lowercase().contains("Opti") {
-                tokio::fs::remove_dir_all(&path)
-                    .await
-                    .map_err(io_err!(path))?;
+                tokio::fs::remove_dir_all(&path).await.path(path)?;
             }
         }
     }
@@ -159,9 +157,7 @@ async fn create_hook_java_file(
     let hook =
         include_str!("../../../../assets/Hook.java").replace("REPLACE_WITH_MC_PATH", &mc_path);
     let hook_path = optifine_path.join("Hook.java");
-    tokio::fs::write(&hook_path, hook)
-        .await
-        .map_err(io_err!(hook_path))?;
+    tokio::fs::write(&hook_path, hook).await.path(hook_path)?;
     Ok(())
 }
 
@@ -196,7 +192,7 @@ async fn download_libraries(
         let parent_path = libraries_path.join(&url_parent_path);
         tokio::fs::create_dir_all(&parent_path)
             .await
-            .map_err(io_err!(parent_path))?;
+            .path(parent_path)?;
 
         let url = format!("https://libraries.minecraft.net/{url_final_part}");
 
@@ -217,7 +213,7 @@ async fn download_libraries(
         let jar_bytes = file_utils::download_file_to_bytes(&client, &url, false).await?;
         tokio::fs::write(&jar_path, jar_bytes)
             .await
-            .map_err(io_err!(jar_path))?;
+            .path(jar_path)?;
     }
     Ok(())
 }
@@ -236,7 +232,7 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
         ])
         .current_dir(optifine_path)
         .output()
-        .map_err(io_err!(java_path))?;
+        .path(java_path)?;
     if !output.status.success() {
         return Err(OptifineError::JavaFail(
             String::from_utf8(output.stdout).unwrap(),
@@ -262,7 +258,7 @@ async fn compile_hook(
         ])
         .current_dir(optifine_path)
         .output()
-        .map_err(io_err!(javac_path))?;
+        .path(javac_path)?;
     if !output.status.success() {
         return Err(OptifineError::JavacFail(
             String::from_utf8(output.stdout).unwrap(),
@@ -277,18 +273,18 @@ fn update_instance_config_json(
     mod_type: String,
 ) -> Result<(), OptifineError> {
     let config_path = instance_path.join("config.json");
-    let config = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
+    let config = std::fs::read_to_string(&config_path).path(&config_path)?;
     let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
 
     config.mod_type = mod_type;
     let config = serde_json::to_string(&config)?;
-    std::fs::write(&config_path, config).map_err(io_err!(config_path))?;
+    std::fs::write(&config_path, config).path(config_path)?;
     Ok(())
 }
 
 fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> {
     let details_path = instance_path.join("details.json");
-    let details = std::fs::read_to_string(&details_path).map_err(io_err!(details_path))?;
+    let details = std::fs::read_to_string(&details_path).path(&details_path)?;
     let details: VersionDetails = serde_json::from_str(&details)?;
 
     let new_details_path = instance_path
@@ -296,7 +292,7 @@ fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> {
         .join(&details.id)
         .join(format!("{}.json", details.id));
 
-    std::fs::copy(&details_path, &new_details_path).map_err(io_err!(details_path))?;
+    std::fs::copy(&details_path, &new_details_path).path(details_path)?;
 
     Ok(())
 }

@@ -5,13 +5,13 @@ use std::{
 
 use reqwest::Client;
 
-use crate::{error::IoError, io_err, InstanceSelection};
+use crate::{error::IoError, InstanceSelection, IntoIoError};
 
 /// Returns the path to the QuantumLauncher root folder.
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
     let launcher_directory = config_directory.join("QuantumLauncher");
-    std::fs::create_dir_all(&launcher_directory).map_err(io_err!(launcher_directory))?;
+    std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
 
     Ok(launcher_directory)
 }
@@ -130,11 +130,9 @@ impl Display for RequestError {
 #[cfg(target_family = "unix")]
 pub fn set_executable(path: &Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;
-    let mut perms = std::fs::metadata(path)
-        .map_err(io_err!(path))?
-        .permissions();
+    let mut perms = std::fs::metadata(path).path(path)?.permissions();
     perms.set_mode(0o755); // rwxr-xr-x
-    std::fs::set_permissions(path, perms).map_err(io_err!(path))
+    std::fs::set_permissions(path, perms).path(path)
 }
 
 // #[cfg(unix)]
@@ -146,15 +144,15 @@ pub fn set_executable(path: &Path) -> Result<(), IoError> {
 // pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
 //     #[cfg(unix)]
 //     {
-//         symlink(src, dest).map_err(io_err!(src.clone()))
+//         symlink(src, dest).path(src.clone())
 //     }
 
 //     #[cfg(windows)]
 //     {
 //         if src.is_dir() {
-//             symlink_dir(src, dest).map_err(io_err!(src.clone()))
+//             symlink_dir(src, dest).path(src.clone())
 //         } else {
-//             symlink_file(src, dest).map_err(io_err!(src.clone()))
+//             symlink_file(src, dest).path(src.clone())
 //         }
 //     }
 // }

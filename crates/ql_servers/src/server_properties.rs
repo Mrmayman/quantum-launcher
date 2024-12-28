@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ql_core::{file_utils, io_err, IoError};
+use ql_core::{file_utils, IntoIoError, IoError};
 
 pub struct ServerProperties {
     pub entries: HashMap<String, String>,
@@ -36,7 +36,7 @@ impl ServerProperties {
         for (key, value) in &self.entries {
             properties_content.push_str(&format!("{}={}\n", key, value));
         }
-        std::fs::write(&properties_file, properties_content).map_err(io_err!(properties_file))?;
+        std::fs::write(&properties_file, properties_content).path(properties_file)?;
         Ok(())
     }
 }

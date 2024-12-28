@@ -9,13 +9,13 @@ use std::{
 use indicatif::ProgressBar;
 use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
-    do_jobs, err, file_utils, info, io_err,
+    do_jobs, err, file_utils, info,
     json::{
         instance_config::{InstanceConfigJson, OmniarchiveEntry},
         manifest::Manifest,
         version::VersionDetails,
     },
-    DownloadError, DownloadProgress, IoError, JsonDownloadError,
+    DownloadError, DownloadProgress, IntoIoError, IoError, JsonDownloadError,
 };
 use reqwest::Client;
 use serde_json::Value;
@@ -108,12 +108,12 @@ impl GameDownloader {
             .join(&self.version_json.id);
         tokio::fs::create_dir_all(&version_dir)
             .await
-            .map_err(io_err!(version_dir))?;
+            .path(&version_dir)?;
 
         let jar_path = version_dir.join(format!("{}.jar", self.version_json.id));
         tokio::fs::write(&jar_path, jar_bytes)
             .await
-            .map_err(io_err!(jar_path))?;
+            .path(jar_path)?;
 
         Ok(())
     }
@@ -135,7 +135,7 @@ impl GameDownloader {
             let config_path = self.instance_dir.join(log_config_name);
             tokio::fs::write(&config_path, log_config.as_bytes())
                 .await
-                .map_err(io_err!(config_path))?;
+                .path(config_path)?;
         }
         Ok(())
     }
@@ -159,7 +159,7 @@ impl GameDownloader {
         let obj_folder = assets_objects_path.join(obj_id);
         tokio::fs::create_dir_all(&obj_folder)
             .await
-            .map_err(io_err!(obj_folder))?;
+            .path(&obj_folder)?;
 
         let obj_file_path = obj_folder.join(obj_hash);
         if obj_file_path.exists() {
@@ -187,7 +187,7 @@ impl GameDownloader {
 
         tokio::fs::write(&obj_file_path, &obj_data)
             .await
-            .map_err(io_err!(obj_file_path))?;
+            .path(obj_file_path)?;
 
         {
             let mut progress = progress.lock().await;
@@ -220,13 +220,13 @@ impl GameDownloader {
         let assets_dir = launcher_dir.join("assets");
         tokio::fs::create_dir_all(&assets_dir)
             .await
-            .map_err(io_err!(assets_dir))?;
+            .path(&assets_dir)?;
 
         if self.version_json.assetIndex.id == "legacy" {
             let legacy_path = assets_dir.join("legacy_assets");
             tokio::fs::create_dir_all(&legacy_path)
                 .await
-                .map_err(io_err!(assets_dir))?;
+                .path(assets_dir)?;
 
             let objects =
                 asset_index["objects"]
@@ -259,16 +259,16 @@ impl GameDownloader {
             let current_assets_dir = assets_dir.join("dir");
             tokio::fs::create_dir_all(&current_assets_dir)
                 .await
-                .map_err(io_err!(current_assets_dir))?;
+                .path(&current_assets_dir)?;
 
             let assets_indexes_path = current_assets_dir.join("indexes");
             tokio::fs::create_dir_all(&assets_indexes_path)
                 .await
-                .map_err(io_err!(assets_indexes_path))?;
+                .path(&assets_indexes_path)?;
             let assets_objects_path = current_assets_dir.join("objects");
             tokio::fs::create_dir_all(&assets_objects_path)
                 .await
-                .map_err(io_err!(assets_objects_path))?;
+                .path(&assets_objects_path)?;
 
             let lock_path = current_assets_dir.join("download.lock");
 
@@ -279,7 +279,7 @@ impl GameDownloader {
             let lock_contents = "If you see this, the asset downloading hasn't finished. This will be deleted once finished.";
             tokio::fs::write(&lock_path, lock_contents)
                 .await
-                .map_err(io_err!(lock_path))?;
+                .path(&lock_path)?;
 
             self.save_asset_index_json(&assets_indexes_path, &asset_index)
                 .await?;
@@ -312,9 +312,7 @@ impl GameDownloader {
                 return Err(err);
             }
 
-            tokio::fs::remove_file(&lock_path)
-                .await
-                .map_err(io_err!(lock_path))?;
+            tokio::fs::remove_file(&lock_path).await.path(&lock_path)?;
         }
         if let Some(sender) = sender {
             sender.send(AssetRedownloadProgress::P3Done).unwrap();
@@ -332,9 +330,7 @@ impl GameDownloader {
         sender: Option<&Sender<AssetRedownloadProgress>>,
     ) -> Result<(), DownloadError> {
         if let Some(parent) = file_path.parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .map_err(io_err!(parent))?;
+            tokio::fs::create_dir_all(parent).await.path(parent)?;
         }
 
         if file_path.exists() {
@@ -358,7 +354,7 @@ impl GameDownloader {
         .await?;
         tokio::fs::write(&file_path, &obj_data)
             .await
-            .map_err(io_err!(file_path))?;
+            .path(file_path)?;
 
         self.send_asset_download_progress(progress, objects_len, sender, bar)
             .await?;
@@ -403,7 +399,7 @@ impl GameDownloader {
             asset_index.to_string().as_bytes(),
         )
         .await
-        .map_err(io_err!(assets_indexes_json_path))?;
+        .path(assets_indexes_json_path)?;
         Ok(())
     }
 
@@ -425,7 +421,7 @@ impl GameDownloader {
             .join("launcher_profiles.json");
         tokio::fs::write(&profile_json_path, profile_json)
             .await
-            .map_err(io_err!(profile_json_path))?;
+            .path(profile_json_path)?;
 
         Ok(())
     }
@@ -438,7 +434,7 @@ impl GameDownloader {
             serde_json::to_string(&self.version_json)?.as_bytes(),
         )
         .await
-        .map_err(io_err!(json_file_path))?;
+        .path(json_file_path)?;
         Ok(())
     }
 
@@ -461,7 +457,7 @@ impl GameDownloader {
         let config_json_path = self.instance_dir.join("config.json");
         tokio::fs::write(&config_json_path, config_json)
             .await
-            .map_err(io_err!(config_json_path))?;
+            .path(config_json_path)?;
 
         Ok(())
     }
@@ -511,7 +507,7 @@ impl GameDownloader {
         let instances_dir = launcher_dir.join("instances");
         tokio::fs::create_dir_all(&instances_dir)
             .await
-            .map_err(io_err!(instances_dir))?;
+            .path(&instances_dir)?;
 
         let current_instance_dir = instances_dir.join(instance_name);
         if current_instance_dir.exists() {
@@ -519,7 +515,7 @@ impl GameDownloader {
         }
         tokio::fs::create_dir_all(&current_instance_dir)
             .await
-            .map_err(io_err!(current_instance_dir))?;
+            .path(&current_instance_dir)?;
 
         Ok(Some(current_instance_dir))
     }

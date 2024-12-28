@@ -2,12 +2,13 @@ use std::sync::mpsc::Sender;
 
 use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
-    file_utils, info, io_err,
+    file_utils, info,
     json::{
         instance_config::{InstanceConfigJson, OmniarchiveEntry},
         manifest::Manifest,
         version::VersionDetails,
     },
+    IntoIoError,
 };
 
 use crate::ServerError;
@@ -51,7 +52,7 @@ pub async fn create_server(
 
     tokio::fs::create_dir_all(&server_dir)
         .await
-        .map_err(io_err!(server_dir))?;
+        .path(&server_dir)?;
 
     let server_jar_path = server_dir.join("server.jar");
 
@@ -83,7 +84,7 @@ pub async fn create_server(
             let old_path = server_dir.join("minecraft-server.jar");
             tokio::fs::rename(&old_path, &server_jar_path)
                 .await
-                .map_err(io_err!(old_path))?;
+                .path(old_path)?;
 
             let version_json = download_omniarchive_version(
                 &MinecraftVersionCategory::Classic,
@@ -101,18 +102,18 @@ pub async fn create_server(
     if !is_classic_server {
         tokio::fs::write(&server_jar_path, server_jar)
             .await
-            .map_err(io_err!(server_jar_path))?;
+            .path(server_jar_path)?;
     }
 
     let version_json_path = server_dir.join("details.json");
     tokio::fs::write(&version_json_path, serde_json::to_string(&version_json)?)
         .await
-        .map_err(io_err!(version_json_path))?;
+        .path(version_json_path)?;
 
     let eula_path = server_dir.join("eula.txt");
     tokio::fs::write(&eula_path, "eula=true\n")
         .await
-        .map_err(io_err!(eula_path))?;
+        .path(eula_path)?;
 
     let server_config = InstanceConfigJson {
         mod_type: "Vanilla".to_owned(),
@@ -141,12 +142,10 @@ pub async fn create_server(
     let server_config_path = server_dir.join("config.json");
     tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)
         .await
-        .map_err(io_err!(server_config_path))?;
+        .path(server_config_path)?;
 
     let mods_dir = server_dir.join("mods");
-    tokio::fs::create_dir(&mods_dir)
-        .await
-        .map_err(io_err!(mods_dir))?;
+    tokio::fs::create_dir(&mods_dir).await.path(mods_dir)?;
 
     Ok(())
 }
@@ -232,7 +231,7 @@ pub fn delete_server(name: &str) -> Result<(), String> {
     let launcher_dir = file_utils::get_launcher_dir().map_err(|n| n.to_string())?;
     let server_dir = launcher_dir.join("servers").join(name);
     std::fs::remove_dir_all(&server_dir)
-        .map_err(io_err!(server_dir))
+        .path(server_dir)
         .map_err(|n| n.to_string())?;
 
     Ok(())

@@ -7,9 +7,9 @@ use std::{
 
 use iced::{widget::image::Handle, Command};
 use ql_core::{
-    err, file_utils, info, io_err,
+    err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, InstanceSelection, IoError, JavaInstallProgress, JsonFileError,
+    DownloadProgress, InstanceSelection, IntoIoError, IoError, JavaInstallProgress, JsonFileError,
 };
 use ql_instances::{
     AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
@@ -561,12 +561,12 @@ fn load_config_and_theme(
 
 pub fn get_entries(path: &str) -> Result<Vec<String>, IoError> {
     let dir_path = file_utils::get_launcher_dir()?;
-    std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
+    std::fs::create_dir_all(&dir_path).path(&dir_path)?;
 
     let dir_path = dir_path.join(path);
-    std::fs::create_dir_all(&dir_path).map_err(io_err!(dir_path))?;
+    std::fs::create_dir_all(&dir_path).path(&dir_path)?;
 
-    let dir = std::fs::read_dir(&dir_path).map_err(io_err!(dir_path))?;
+    let dir = std::fs::read_dir(&dir_path).path(dir_path)?;
 
     let subdirectories: Vec<String> = dir
         .filter_map(|entry| {

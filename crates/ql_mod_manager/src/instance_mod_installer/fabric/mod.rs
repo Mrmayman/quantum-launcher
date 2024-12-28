@@ -2,9 +2,9 @@ use std::{path::Path, sync::mpsc::Sender};
 
 use error::FabricInstallError;
 use ql_core::{
-    file_utils, info, io_err,
+    file_utils, info,
     json::{fabric::FabricJSON, version::VersionDetails},
-    InstanceSelection, JsonFileError, RequestError,
+    InstanceSelection, IntoIoError, JsonFileError, RequestError,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ async fn get_version_json(
     let version_json_path = file_utils::get_instance_dir(instance_name)?.join("details.json");
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
-        .map_err(io_err!(version_json_path))?;
+        .path(version_json_path)?;
     Ok(serde_json::from_str(&version_json)?)
 }
 
@@ -114,12 +114,12 @@ pub async fn install_server(
     let libraries_dir = server_dir.join("libraries");
     tokio::fs::create_dir_all(&libraries_dir)
         .await
-        .map_err(io_err!(libraries_dir))?;
+        .path(&libraries_dir)?;
 
     let version_json_path = server_dir.join("details.json");
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
-        .map_err(io_err!(version_json_path))?;
+        .path(version_json_path)?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
 
     let game_version = version_json.id;
@@ -129,9 +129,7 @@ pub async fn install_server(
     let json = download_file_to_string(&client, &json_url, is_quilt).await?;
 
     let json_path = server_dir.join("fabric.json");
-    tokio::fs::write(&json_path, &json)
-        .await
-        .map_err(io_err!(json_path))?;
+    tokio::fs::write(&json_path, &json).await.path(json_path)?;
 
     let json: FabricJSON = serde_json::from_str(&json)?;
 
@@ -146,13 +144,13 @@ pub async fn install_server(
         library_files.push(library_path.clone());
         tokio::fs::create_dir_all(&library_parent_dir)
             .await
-            .map_err(io_err!(library_parent_dir))?;
+            .path(library_parent_dir)?;
 
         let url = library.get_url();
         let file = file_utils::download_file_to_bytes(&client, &url, false).await?;
         tokio::fs::write(&library_path, &file)
             .await
-            .map_err(io_err!(library_path))?;
+            .path(library_path)?;
     }
 
     let shade_libraries = compare_versions(loader_version, "0.12.5").is_le();
@@ -198,14 +196,14 @@ pub async fn install_client(
         "If you see this, fabric/quilt was not installed correctly.",
     )
     .await
-    .map_err(io_err!(lock_path))?;
+    .path(&lock_path)?;
 
     let libraries_dir = instance_dir.join("libraries");
 
     let version_json_path = instance_dir.join("details.json");
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
-        .map_err(io_err!(version_json_path))?;
+        .path(version_json_path)?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
 
     let game_version = version_json.id;
@@ -213,9 +211,7 @@ pub async fn install_client(
     let json_path = instance_dir.join("fabric.json");
     let json_url = format!("/versions/loader/{game_version}/{loader_version}/profile/json");
     let json = download_file_to_string(&client, &json_url, is_quilt).await?;
-    tokio::fs::write(&json_path, &json)
-        .await
-        .map_err(io_err!(json_path))?;
+    tokio::fs::write(&json_path, &json).await.path(json_path)?;
 
     let json: FabricJSON = serde_json::from_str(&json)?;
 
@@ -239,10 +235,8 @@ pub async fn install_client(
             .ok_or(FabricInstallError::PathBufParentError(path.clone()))?;
         tokio::fs::create_dir_all(parent_dir)
             .await
-            .map_err(io_err!(parent_dir))?;
-        tokio::fs::write(&path, &bytes)
-            .await
-            .map_err(io_err!(path))?;
+            .path(parent_dir)?;
+        tokio::fs::write(&path, &bytes).await.path(path)?;
     }
 
     change_instance_type(&instance_dir, loader_name.to_owned()).await?;
@@ -251,9 +245,7 @@ pub async fn install_client(
         progress.send(FabricInstallProgress::P3Done)?;
     }
 
-    tokio::fs::remove_file(&lock_path)
-        .await
-        .map_err(io_err!(lock_path))?;
+    tokio::fs::remove_file(&lock_path).await.path(lock_path)?;
 
     info!("Finished installing {loader_name}",);
 
@@ -264,10 +256,10 @@ fn migrate_index_file(instance_dir: &Path) -> Result<(), FabricInstallError> {
     let old_index_dir = instance_dir.join(".minecraft/mods/index.json");
     let new_index_dir = instance_dir.join(".minecraft/mod_index.json");
     if old_index_dir.exists() {
-        let index = std::fs::read_to_string(&old_index_dir).map_err(io_err!(old_index_dir))?;
+        let index = std::fs::read_to_string(&old_index_dir).path(&old_index_dir)?;
 
-        std::fs::remove_file(&old_index_dir).map_err(io_err!(old_index_dir))?;
-        std::fs::write(&new_index_dir, &index).map_err(io_err!(new_index_dir))?;
+        std::fs::remove_file(&old_index_dir).path(old_index_dir)?;
+        std::fs::write(&new_index_dir, &index).path(new_index_dir)?;
     }
     Ok(())
 }

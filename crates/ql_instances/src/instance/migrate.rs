@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ql_core::{info, io_err, json::version::LibraryDownloads};
+use ql_core::{info, json::version::LibraryDownloads, IntoIoError};
 
 use crate::{download::GameDownloader, LAUNCHER_VERSION};
 
@@ -13,11 +13,9 @@ impl GameLauncher {
     pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {
         let launcher_version_path = self.instance_dir.join("launcher_version.txt");
         let mut version = if launcher_version_path.exists() {
-            std::fs::read_to_string(&launcher_version_path)
-                .map_err(io_err!(launcher_version_path))?
+            std::fs::read_to_string(&launcher_version_path).path(launcher_version_path)?
         } else {
-            std::fs::write(&launcher_version_path, "0.1")
-                .map_err(io_err!(launcher_version_path))?;
+            std::fs::write(&launcher_version_path, "0.1").path(launcher_version_path)?;
             "0.1".to_owned()
         };
         if version.split('.').count() == 2 {
@@ -48,7 +46,7 @@ impl GameLauncher {
 
             if let Some(LibraryDownloads::Normal { artifact, .. }) = &library.downloads {
                 let library_path = self.instance_dir.join("libraries").join(&artifact.path);
-                let library_file = std::fs::read(&library_path).map_err(io_err!(library_path))?;
+                let library_file = std::fs::read(&library_path).path(library_path)?;
 
                 GameDownloader::extract_native_library(
                     &self.instance_dir,
@@ -97,7 +95,7 @@ impl GameLauncher {
             temp_forge_classpath_entries.push('\n');
         }
         std::fs::write(&classpath_entries_path, temp_forge_classpath_entries)
-            .map_err(io_err!(classpath_entries_path))?;
+            .path(classpath_entries_path)?;
         Ok(())
     }
 }

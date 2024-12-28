@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Display, path::Path};
 
 use async_recursion::async_recursion;
 use ql_core::{
-    file_utils, info, io_err, json::version::VersionDetails, pt, IoError, JsonFileError,
+    file_utils, info, json::version::VersionDetails, pt, IntoIoError, IoError, JsonFileError,
     RequestError,
 };
 use serde::{Deserialize, Serialize};
@@ -31,26 +31,22 @@ const PAPER_VERSIONS_URL: &str = "https://qing762.is-a.dev/api/papermc";
 async fn move_dir(old_path: &Path, new_path: &Path) -> Result<(), IoError> {
     // Check if the new_path exists, and remove it if it does
     if new_path.exists() {
-        tokio::fs::remove_dir_all(new_path)
-            .await
-            .map_err(io_err!(new_path))?;
+        tokio::fs::remove_dir_all(new_path).await.path(new_path)?;
     }
 
     copy_recursive(old_path, new_path).await?;
 
     // Remove the original directory
-    tokio::fs::remove_dir_all(old_path)
-        .await
-        .map_err(io_err!(old_path))?;
+    tokio::fs::remove_dir_all(old_path).await.path(old_path)?;
 
     Ok(())
 }
 
 #[async_recursion]
 async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
-    tokio::fs::create_dir_all(dst).await.map_err(io_err!(dst))?;
+    tokio::fs::create_dir_all(dst).await.path(dst)?;
 
-    let mut dir = tokio::fs::read_dir(src).await.map_err(io_err!(src))?;
+    let mut dir = tokio::fs::read_dir(src).await.path(src)?;
     while let Ok(Some(entry)) = dir.next_entry().await {
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
@@ -58,9 +54,7 @@ async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
         if src_path.is_dir() {
             copy_recursive(&src_path, &dst_path).await?;
         } else {
-            tokio::fs::copy(&src_path, &dst_path)
-                .await
-                .map_err(io_err!(src_path))?;
+            tokio::fs::copy(&src_path, &dst_path).await.path(src_path)?;
         }
     }
 
@@ -80,9 +74,7 @@ pub async fn uninstall(instance_name: &str) -> Result<(), PaperInstallerError> {
         .join(instance_name);
 
     let jar_path = server_dir.join("paper_server.jar");
-    tokio::fs::remove_file(&jar_path)
-        .await
-        .map_err(io_err!(jar_path))?;
+    tokio::fs::remove_file(&jar_path).await.path(jar_path)?;
 
     // Paper stores Nether and End dimension worlds
     // in a separate directory, so we migrate it back.
@@ -99,13 +91,9 @@ pub async fn uninstall(instance_name: &str) -> Result<(), PaperInstallerError> {
     .await?;
 
     let path = server_dir.join("world_nether");
-    tokio::fs::remove_dir_all(&path)
-        .await
-        .map_err(io_err!(path))?;
+    tokio::fs::remove_dir_all(&path).await.path(path)?;
     let path = server_dir.join("world_the_end");
-    tokio::fs::remove_dir_all(&path)
-        .await
-        .map_err(io_err!(path))?;
+    tokio::fs::remove_dir_all(&path).await.path(path)?;
 
     change_instance_type(&server_dir, "Vanilla".to_owned()).await?;
 
@@ -130,7 +118,7 @@ pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
     let json_path = server_dir.join("details.json");
     let json = tokio::fs::read_to_string(&json_path)
         .await
-        .map_err(io_err!(json_path))?;
+        .path(json_path)?;
     let json: VersionDetails = serde_json::from_str(&json)?;
 
     let url = paper_version
@@ -143,7 +131,7 @@ pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
     let jar_path = server_dir.join("paper_server.jar");
     tokio::fs::write(&jar_path, &jar_file)
         .await
-        .map_err(io_err!(jar_path))?;
+        .path(jar_path)?;
 
     change_instance_type(&server_dir, "Paper".to_owned()).await?;
 

@@ -13,7 +13,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use ql_core::{err, file_utils, io_err, json::version::VersionDetails, IoError};
+use ql_core::{err, file_utils, json::version::VersionDetails, IntoIoError, IoError};
 
 /// Reads logs from the given instance.
 ///
@@ -121,7 +121,7 @@ fn is_xml(instance_name: &str) -> Result<bool, ReadError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
     let json_path = instance_dir.join("details.json");
-    let json = std::fs::read_to_string(&json_path).map_err(io_err!(json_path))?;
+    let json = std::fs::read_to_string(&json_path).path(json_path)?;
     let json: VersionDetails = serde_json::from_str(&json)?;
 
     Ok(json.logging.is_some())

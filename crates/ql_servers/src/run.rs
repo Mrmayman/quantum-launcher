@@ -5,9 +5,9 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, get_java_binary, info, io_err,
+    err, file_utils, get_java_binary, info,
     json::{instance_config::InstanceConfigJson, java_list::JavaVersion, version::VersionDetails},
-    JavaInstallProgress,
+    IntoIoError, JavaInstallProgress,
 };
 use tokio::process::{Child, Command};
 
@@ -45,7 +45,7 @@ async fn run(
     let version_json_path = server_dir.join("details.json");
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
-        .map_err(io_err!(version_json_path))?;
+        .path(version_json_path)?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
 
     let version = if let Some(version) = version_json.javaVersion.clone() {
@@ -97,7 +97,7 @@ async fn run(
     }
     .current_dir(&server_dir);
 
-    let child = command.spawn().map_err(io_err!(server_jar_path))?;
+    let child = command.spawn().path(server_jar_path)?;
     info!("Started server");
     Ok((child, is_classic_server))
 }
@@ -106,7 +106,7 @@ async fn get_config_json(server_dir: &Path) -> Result<InstanceConfigJson, Server
     let config_json_path = server_dir.join("config.json");
     let config_json = tokio::fs::read_to_string(&config_json_path)
         .await
-        .map_err(io_err!(config_json_path))?;
+        .path(config_json_path)?;
     let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
     Ok(config_json)
 }

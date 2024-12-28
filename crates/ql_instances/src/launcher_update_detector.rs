@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use ql_core::{err, file_utils, info, io_err, IoError, RequestError};
+use ql_core::{err, file_utils, info, IntoIoError, IoError, RequestError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -160,7 +160,7 @@ pub async fn install_launcher_update(
     info!("Backing up existing launcher");
     progress.send(UpdateProgress::P2Backup)?;
     let backup_path = exe_location.join(format!("backup_{backup_idx}_{exe_name}"));
-    std::fs::rename(&exe_path, &backup_path).map_err(io_err!(backup_path))?;
+    std::fs::rename(&exe_path, &backup_path).path(backup_path)?;
 
     info!("Downloading new version of launcher");
     progress.send(UpdateProgress::P3Download)?;
@@ -177,7 +177,7 @@ pub async fn install_launcher_update(
     };
 
     let new_path = exe_location.join(extract_name);
-    let _ = Command::new(&new_path).spawn().map_err(io_err!(new_path))?;
+    let _ = Command::new(&new_path).spawn().path(new_path)?;
 
     std::process::exit(0);
 }
