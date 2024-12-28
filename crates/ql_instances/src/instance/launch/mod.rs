@@ -264,12 +264,12 @@ impl GameLauncher {
         &self,
         java_arguments: &mut Vec<String>,
     ) -> Result<Option<FabricJSON>, GameLaunchError> {
-        if self.config_json.mod_type != "Fabric" {
+        if !(self.config_json.mod_type == "Fabric" || self.config_json.mod_type == "Quilt") {
             return Ok(None);
         }
 
         let fabric_json = self.get_fabric_json()?;
-        if let Some(jvm) = &fabric_json.arguments.jvm {
+        if let Some(jvm) = fabric_json.arguments.as_ref().and_then(|n| n.jvm.as_ref()) {
             java_arguments.extend(jvm.clone());
         }
 

@@ -32,7 +32,7 @@ async fn run(
 
     let config_json = get_config_json(&server_dir).await?;
 
-    let server_jar_path = if config_json.mod_type == "Fabric" {
+    let server_jar_path = if config_json.mod_type == "Fabric" || config_json.mod_type == "Quilt" {
         server_dir.join("fabric-server-launch.jar")
     } else if config_json.mod_type == "Forge" {
         find_forge_shim_file(&server_dir).ok_or(ServerError::NoForgeShimFound)?

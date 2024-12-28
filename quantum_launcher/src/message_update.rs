@@ -41,9 +41,10 @@ impl Launcher {
                 Ok(list_of_versions) => {
                     if let State::InstallFabric(menu) = &mut self.state {
                         if list_of_versions.is_empty() {
-                            *menu = MenuInstallFabric::Unsupported;
+                            *menu = MenuInstallFabric::Unsupported(menu.is_quilt());
                         } else {
                             *menu = MenuInstallFabric::Loaded {
+                                is_quilt: menu.is_quilt(),
                                 fabric_version: None,
                                 fabric_versions: list_of_versions
                                     .iter()
@@ -62,6 +63,7 @@ impl Launcher {
                 if let State::InstallFabric(MenuInstallFabric::Loaded {
                     fabric_version,
                     progress_receiver,
+                    is_quilt,
                     ..
                 }) = &mut self.state
                 {
@@ -74,17 +76,19 @@ impl Launcher {
                             loader_version,
                             self.selected_instance.clone().unwrap(),
                             Some(sender),
+                            *is_quilt,
                         ),
                         |m| Message::InstallFabric(InstallFabricMessage::End(m)),
                     );
                 }
             }
-            InstallFabricMessage::ScreenOpen => {
-                self.state = State::InstallFabric(MenuInstallFabric::Loading);
+            InstallFabricMessage::ScreenOpen { is_quilt } => {
+                self.state = State::InstallFabric(MenuInstallFabric::Loading(is_quilt));
 
                 return Command::perform(
                     instance_mod_installer::fabric::get_list_of_versions_w(
                         self.selected_instance.clone().unwrap(),
+                        is_quilt,
                     ),
                     |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m)),
                 );

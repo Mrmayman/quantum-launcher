@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[allow(non_snake_case)]
 pub struct FabricJSON {
     pub mainClass: String,
-    pub arguments: Arguments,
+    pub arguments: Option<Arguments>,
     pub libraries: Vec<Library>,
 }
 

@@ -548,9 +548,15 @@ impl MenuEditMods {
                     "Install:",
                     widget::row!(
                         widget::button("Fabric")
-                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen))
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
+                                is_quilt: false
+                            }))
                             .width(97),
-                        widget::button("Quilt").width(98),
+                        widget::button("Quilt")
+                            .width(98)
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
+                                is_quilt: true
+                            })),
                     )
                     .spacing(5),
                     widget::row!(
@@ -570,14 +576,20 @@ impl MenuEditMods {
                     widget::row!(
                         widget::button("Fabric")
                             .width(97)
-                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen)),
-                        widget::button("Forge")
-                            .on_press(Message::InstallForgeStart)
-                            .width(98),
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
+                                is_quilt: false
+                            })),
+                        widget::button("Quilt")
+                            .width(98)
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
+                                is_quilt: true
+                            })),
                     )
                     .spacing(5),
                     widget::row!(
-                        widget::button("Quilt").width(97),
+                        widget::button("Forge")
+                            .on_press(Message::InstallForgeStart)
+                            .width(97),
                         widget::button("NeoForge").width(98)
                     )
                     .spacing(5),
@@ -609,7 +621,7 @@ impl MenuEditMods {
                     ),
                 )
             }
-            "Fabric" => Self::get_uninstall_panel(
+            "Fabric" | "Quilt" => Self::get_uninstall_panel(
                 &self.config.mod_type,
                 Message::UninstallLoaderFabricStart,
                 true,
@@ -848,10 +860,16 @@ pub fn menu_delete_instance_view(selected_instance: &InstanceSelection) -> Eleme
 impl MenuInstallFabric {
     pub fn view(&self, selected_instance: &InstanceSelection) -> Element {
         match self {
-            MenuInstallFabric::Loading => {
-                widget::column![widget::text("Loading Fabric version list...").size(20)]
+            MenuInstallFabric::Loading(is_quilt) => {
+                widget::column![widget::text(if *is_quilt {
+                    "Loading Quilt version list..."
+                } else {
+                    "Loading Fabric version list..."
+                })
+                .size(20)]
             }
             MenuInstallFabric::Loaded {
+                is_quilt,
                 fabric_version,
                 fabric_versions,
                 progress_receiver,
@@ -860,7 +878,12 @@ impl MenuInstallFabric {
             } => {
                 if progress_receiver.is_some() {
                     widget::column!(
-                        widget::text("Installing Fabric...").size(20),
+                        widget::text(if *is_quilt {
+                            "Installing Quilt..."
+                        } else {
+                            "Installing Fabric..."
+                        })
+                        .size(20),
                         widget::progress_bar(0.0..=1.0, *progress_num),
                         widget::text(progress_message),
                     )
@@ -869,7 +892,8 @@ impl MenuInstallFabric {
                         button_with_icon(icon_manager::back(), "Back")
                             .on_press(back_to_launch_screen(selected_instance, None)),
                         widget::text(format!(
-                            "Select Fabric Version for instance {}",
+                            "Select {} Version for instance {}",
+                            if *is_quilt { "Quilt" } else { "Fabric" },
                             selected_instance.get_name()
                         )),
                         widget::pick_list(
@@ -877,7 +901,12 @@ impl MenuInstallFabric {
                             fabric_version.as_ref(),
                             |n| Message::InstallFabric(InstallFabricMessage::VersionSelected(n))
                         ),
-                        widget::button("Install Fabric").on_press_maybe(
+                        widget::button(if *is_quilt {
+                            "Install Quilt"
+                        } else {
+                            "Install Fabric"
+                        })
+                        .on_press_maybe(
                             fabric_version.is_some().then(|| Message::InstallFabric(
                                 InstallFabricMessage::ButtonClicked
                             ))
@@ -885,11 +914,15 @@ impl MenuInstallFabric {
                     ]
                 }
             }
-            MenuInstallFabric::Unsupported => {
+            MenuInstallFabric::Unsupported(is_quilt) => {
                 widget::column!(
                     button_with_icon(icon_manager::back(), "Back")
                         .on_press(back_to_launch_screen(selected_instance, None)),
-                    "Fabric is unsupported for this Minecraft version."
+                    if *is_quilt {
+                        "Quilt is unsupported for this Minecraft version."
+                    } else {
+                        "Fabric is unsupported for this Minecraft version."
+                    }
                 )
             }
         }

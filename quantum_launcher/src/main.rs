@@ -71,7 +71,7 @@ use ql_core::{
 use ql_instances::{UpdateCheckInfo, LAUNCHER_VERSION_NAME};
 use ql_mod_manager::{
     instance_mod_installer,
-    mod_manager::{ModIndex, ProjectInfo},
+    mod_manager::{Loader, ModIndex, ProjectInfo},
 };
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
 use tokio::io::AsyncWriteExt;
@@ -188,7 +188,14 @@ impl Application for Launcher {
             }
             Message::UninstallLoaderEnd(result) => match result {
                 Ok(loader) => {
-                    let message = format!("Uninstalled {loader}");
+                    let message = format!(
+                        "Uninstalled {}",
+                        if let Loader::Fabric = loader {
+                            "Fabric/Quilt".to_owned()
+                        } else {
+                            loader.to_string()
+                        }
+                    );
                     match self.selected_instance.as_ref().unwrap() {
                         InstanceSelection::Instance(_) => {
                             self.go_to_launch_screen_with_message(message)
@@ -921,6 +928,7 @@ impl Launcher {
                     receiver: Some(receiver),
                     stdin: Some(stdin),
                     is_classic_server,
+                    name: selected_server.clone(),
                 },
             );
 
@@ -937,6 +945,7 @@ impl Launcher {
                 receiver: None,
                 stdin: None,
                 is_classic_server,
+                name: "Unknown".to_owned(),
             },
         );
         Command::none()

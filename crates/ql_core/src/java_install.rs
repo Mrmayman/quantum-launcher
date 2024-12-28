@@ -199,18 +199,18 @@ async fn install_normal_java(
         )
     });
     let outputs = do_jobs(results).await;
-    Ok(
-        if let Some(err) = outputs.into_iter().find_map(Result::err) {
-            return Err(err);
-        },
-    )
+
+    if let Some(err) = outputs.into_iter().find_map(Result::err) {
+        return Err(err);
+    }
+    Ok(())
 }
 
 async fn install_aarch64_linux_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
     client: &reqwest::Client,
-    install_dir: &PathBuf,
+    install_dir: &Path,
 ) -> Result<(), JavaInstallError> {
     let url = version.get_amazon_corretto_aarch64_url();
     send_progress(

@@ -7,7 +7,7 @@ use std::{
 
 use iced::{widget::image::Handle, Command};
 use ql_core::{
-    err, file_utils, io_err,
+    err, file_utils, info, io_err,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IoError, JavaInstallProgress, JsonFileError,
 };
@@ -38,7 +38,7 @@ pub enum InstallFabricMessage {
     VersionSelected(String),
     VersionsLoaded(Result<Vec<FabricVersionListItem>, String>),
     ButtonClicked,
-    ScreenOpen,
+    ScreenOpen { is_quilt: bool },
 }
 
 #[derive(Debug, Clone)]
@@ -247,15 +247,26 @@ pub enum MenuCreateInstance {
 }
 
 pub enum MenuInstallFabric {
-    Loading,
+    Loading(bool),
     Loaded {
+        is_quilt: bool,
         fabric_version: Option<String>,
         fabric_versions: Vec<String>,
         progress_receiver: Option<Receiver<FabricInstallProgress>>,
         progress_num: f32,
         progress_message: String,
     },
-    Unsupported,
+    Unsupported(bool),
+}
+
+impl MenuInstallFabric {
+    pub fn is_quilt(&self) -> bool {
+        match self {
+            MenuInstallFabric::Loading(is_quilt) => *is_quilt,
+            MenuInstallFabric::Loaded { is_quilt, .. } => *is_quilt,
+            MenuInstallFabric::Unsupported(is_quilt) => *is_quilt,
+        }
+    }
 }
 
 pub struct MenuInstallForge {
@@ -414,6 +425,14 @@ pub struct ServerProcess {
     pub receiver: Option<Receiver<String>>,
     pub stdin: Option<ChildStdin>,
     pub is_classic_server: bool,
+    pub name: String,
+}
+
+impl Drop for ServerProcess {
+    fn drop(&mut self) {
+        info!("Force-Killing server {}\n       You should be a bit more careful before closing the launcher window", self.name);
+        self.child.lock().unwrap().start_kill().unwrap();
+    }
 }
 
 impl Launcher {

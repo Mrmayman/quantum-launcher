@@ -1,4 +1,4 @@
-use std::sync::mpsc::Sender;
+use std::{path::Path, sync::mpsc::Sender};
 
 use error::FabricInstallError;
 use ql_core::{
@@ -20,10 +20,20 @@ pub use uninstall::{
 };
 mod version_compare;
 
-const FABRIC_URL: &str = "https://meta.fabricmc.net";
+const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
+const QUILT_URL: &str = "https://meta.quiltmc.org/v3";
 
-async fn download_file_to_string(client: &Client, url: &str) -> Result<String, RequestError> {
-    file_utils::download_file_to_string(client, &format!("{FABRIC_URL}/{url}"), false).await
+async fn download_file_to_string(
+    client: &Client,
+    url: &str,
+    is_quilt: bool,
+) -> Result<String, RequestError> {
+    file_utils::download_file_to_string(
+        client,
+        &format!("{}/{url}", if is_quilt { QUILT_URL } else { FABRIC_URL }),
+        false,
+    )
+    .await
 }
 
 async fn get_version_json(
@@ -38,23 +48,28 @@ async fn get_version_json(
 
 pub async fn get_list_of_versions_w(
     instance_name: InstanceSelection,
+    is_quilt: bool,
 ) -> Result<Vec<FabricVersionListItem>, String> {
-    get_list_of_versions(&instance_name)
+    get_list_of_versions(&instance_name, is_quilt)
         .await
         .map_err(|err| err.to_string())
 }
 
 pub async fn get_list_of_versions(
     instance_name: &InstanceSelection,
+    is_quilt: bool,
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
     let client = Client::new();
 
     let version_json = get_version_json(instance_name).await?;
 
     // The first one is the latest version.
-    let version_list =
-        download_file_to_string(&client, &format!("v2/versions/loader/{}", version_json.id))
-            .await?;
+    let version_list = download_file_to_string(
+        &client,
+        &format!("/versions/loader/{}", version_json.id),
+        is_quilt,
+    )
+    .await?;
 
     Ok(serde_json::from_str(&version_list)?)
 }
@@ -73,8 +88,9 @@ pub async fn install_server_w(
     loader_version: String,
     server_name: String,
     progress: Option<Sender<FabricInstallProgress>>,
+    is_quilt: bool,
 ) -> Result<(), String> {
-    install_server(&loader_version, &server_name, progress)
+    install_server(&loader_version, &server_name, progress, is_quilt)
         .await
         .map_err(|err| err.to_string())
 }
@@ -83,7 +99,10 @@ pub async fn install_server(
     loader_version: &str,
     server_name: &str,
     progress: Option<Sender<FabricInstallProgress>>,
+    is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
+    let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
+
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P1Start)?;
     }
@@ -106,8 +125,8 @@ pub async fn install_server(
     let game_version = version_json.id;
     let client = Client::new();
 
-    let json_url = format!("v2/versions/loader/{game_version}/{loader_version}/server/json");
-    let json = download_file_to_string(&client, &json_url).await?;
+    let json_url = format!("/versions/loader/{game_version}/{loader_version}/server/json");
+    let json = download_file_to_string(&client, &json_url, is_quilt).await?;
 
     let json_path = server_dir.join("fabric.json");
     tokio::fs::write(&json_path, &json)
@@ -148,31 +167,35 @@ pub async fn install_server(
     )
     .await?;
 
-    change_instance_type(&server_dir, "Fabric".to_owned()).await?;
+    change_instance_type(&server_dir, loader_name.to_owned()).await?;
 
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P3Done)?;
     }
 
-    info!("Finished installing fabric");
+    info!("Finished installing {loader_name}");
 
     Ok(())
 }
 
-pub async fn install(
+pub async fn install_client(
     loader_version: &str,
     instance_name: &str,
     progress: Option<Sender<FabricInstallProgress>>,
+    is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
+    let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
     let client = Client::new();
 
     let launcher_dir = file_utils::get_launcher_dir()?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
 
+    migrate_index_file(&instance_dir)?;
+
     let lock_path = instance_dir.join("fabric.lock");
     tokio::fs::write(
         &lock_path,
-        "If you see this, fabric was not installed correctly.",
+        "If you see this, fabric/quilt was not installed correctly.",
     )
     .await
     .map_err(io_err!(lock_path))?;
@@ -188,15 +211,15 @@ pub async fn install(
     let game_version = version_json.id;
 
     let json_path = instance_dir.join("fabric.json");
-    let json_url = format!("v2/versions/loader/{game_version}/{loader_version}/profile/json");
-    let json = download_file_to_string(&client, &json_url).await?;
+    let json_url = format!("/versions/loader/{game_version}/{loader_version}/profile/json");
+    let json = download_file_to_string(&client, &json_url, is_quilt).await?;
     tokio::fs::write(&json_path, &json)
         .await
         .map_err(io_err!(json_path))?;
 
     let json: FabricJSON = serde_json::from_str(&json)?;
 
-    info!("Started installing fabric: {game_version}, {loader_version}");
+    info!("Started installing {loader_name}: {game_version}, {loader_version}");
 
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P1Start)?;
@@ -222,7 +245,7 @@ pub async fn install(
             .map_err(io_err!(path))?;
     }
 
-    change_instance_type(&instance_dir, "Fabric".to_owned()).await?;
+    change_instance_type(&instance_dir, loader_name.to_owned()).await?;
 
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P3Done)?;
@@ -232,8 +255,20 @@ pub async fn install(
         .await
         .map_err(io_err!(lock_path))?;
 
-    info!("Finished installing fabric");
+    info!("Finished installing {loader_name}",);
 
+    Ok(())
+}
+
+fn migrate_index_file(instance_dir: &Path) -> Result<(), FabricInstallError> {
+    let old_index_dir = instance_dir.join(".minecraft/mods/index.json");
+    let new_index_dir = instance_dir.join(".minecraft/mod_index.json");
+    if old_index_dir.exists() {
+        let index = std::fs::read_to_string(&old_index_dir).map_err(io_err!(old_index_dir))?;
+
+        std::fs::remove_file(&old_index_dir).map_err(io_err!(old_index_dir))?;
+        std::fs::write(&new_index_dir, &index).map_err(io_err!(new_index_dir))?;
+    }
     Ok(())
 }
 
@@ -244,7 +279,7 @@ fn send_progress(
     number_of_libraries: usize,
 ) -> Result<(), FabricInstallError> {
     let message = format!(
-        "Downloading fabric library ({} / {number_of_libraries}) {}",
+        "Downloading library ({} / {number_of_libraries}) {}",
         i + 1,
         library.name
     );
@@ -259,14 +294,31 @@ fn send_progress(
     Ok(())
 }
 
+/// Installs Fabric or Quilt to the given instance.
+///
+/// # Arguments
+/// - `loader_version` - The version of the loader to install.
+/// - `instance_name` - The name of the instance to install to.
+///   `InstanceSelection::Instance(n)` for a client instance,
+///   `InstanceSelection::Server(n)` for a server instance.
+/// - `progress` - A channel to send progress updates to.
+/// - `is_quilt` - Whether to install Quilt instead of Fabric.
+///   As much as people want you to think, Quilt is almost
+///   identical to Fabric installer wise. So it's just a
+///   matter of changing the URL.
 pub async fn install_w(
     loader_version: String,
     instance_name: InstanceSelection,
     progress: Option<Sender<FabricInstallProgress>>,
+    is_quilt: bool,
 ) -> Result<(), String> {
     match instance_name {
-        InstanceSelection::Instance(n) => install_client_w(loader_version, n, progress).await,
-        InstanceSelection::Server(n) => install_server_w(loader_version, n, progress).await,
+        InstanceSelection::Instance(n) => {
+            install_client_w(loader_version, n, progress, is_quilt).await
+        }
+        InstanceSelection::Server(n) => {
+            install_server_w(loader_version, n, progress, is_quilt).await
+        }
     }
 }
 
@@ -274,8 +326,9 @@ pub async fn install_client_w(
     loader_version: String,
     instance_name: String,
     progress: Option<Sender<FabricInstallProgress>>,
+    is_quilt: bool,
 ) -> Result<(), String> {
-    install(&loader_version, &instance_name, progress)
+    install_client(&loader_version, &instance_name, progress, is_quilt)
         .await
         .map_err(|err| err.to_string())
 }
@@ -291,5 +344,5 @@ pub struct FabricVersion {
     pub build: usize,
     pub maven: String,
     pub version: String,
-    pub stable: bool,
+    pub stable: Option<bool>,
 }
