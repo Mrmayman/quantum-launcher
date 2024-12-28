@@ -34,6 +34,8 @@ async fn run(
 
     let server_jar_path = if config_json.mod_type == "Fabric" {
         server_dir.join("fabric-server-launch.jar")
+    } else if config_json.mod_type == "Forge" {
+        find_forge_shim_file(&server_dir).ok_or(ServerError::NoForgeShimFound)?
     } else {
         server_dir.join("server.jar")
     };
@@ -52,8 +54,19 @@ async fn run(
 
     let java_path = get_java_path(&config_json, version, java_install_progress).await?;
 
-    let mut java_args = config_json.java_args.clone().unwrap_or_default();
+    let mut java_args: Vec<String> = if let Some(java_args) = &config_json.java_args {
+        java_args
+            .iter()
+            .filter(|n| !n.is_empty())
+            .cloned()
+            .collect()
+    } else {
+        Vec::new()
+    };
     java_args.push(config_json.get_ram_argument());
+    if config_json.mod_type == "Forge" {
+        java_args.push("-Djava.net.preferIPv6Addresses=system".to_owned());
+    }
 
     let is_classic_server = config_json.is_classic_server.unwrap_or(false);
     java_args.push(if is_classic_server { "-cp" } else { "-jar" }.to_owned());
@@ -112,4 +125,24 @@ async fn get_java_path(
     };
     let path = get_java_binary(version, "java", Some(java_install_progress)).await?;
     Ok(path)
+}
+
+fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
+    if !dir.is_dir() {
+        return None; // Ensure the path is a directory
+    }
+
+    for entry in (std::fs::read_dir(dir).ok()?).flatten() {
+        let path = entry.path();
+
+        if path.is_file() {
+            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+                if file_name.starts_with("forge-") && file_name.ends_with("-shim.jar") {
+                    return Some(path);
+                }
+            }
+        }
+    }
+
+    None // Return None if no matching file is found
 }

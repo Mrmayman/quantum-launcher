@@ -46,7 +46,7 @@ impl MenuLaunch {
             Some(InstanceSelection::Server(_)) => panic!("selected server in main instances menu"),
             None => None,
         };
-        let pick_list = get_instances_section(instances, selected_instance);
+        let pick_list = get_instances_section(instances, selected_instance, processes);
         let footer_text = self.get_footer_text();
 
         let left_elements =
@@ -242,6 +242,7 @@ fn get_files_button(selected_instance: Option<&String>) -> widget::Button<Messag
 fn get_instances_section<'a>(
     instances: Option<&'a [String]>,
     selected_instance: Option<&'a String>,
+    processes: &'a HashMap<String, ClientProcess>,
 ) -> Element<'a> {
     if let Some(instances) = instances {
         widget::column![
@@ -265,10 +266,10 @@ fn get_instances_section<'a>(
             .spacing(5),
             widget::row![
                 button_with_icon(icon_manager::settings(), "Edit")
-                    .on_press_maybe(
-                        (selected_instance.is_some())
+                    .on_press_maybe(selected_instance.and_then(|n| {
+                        (!processes.contains_key(n))
                             .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen))
-                    )
+                    }))
                     .width(97),
                 button_with_icon(icon_manager::download(), "Mods")
                     .on_press_maybe(

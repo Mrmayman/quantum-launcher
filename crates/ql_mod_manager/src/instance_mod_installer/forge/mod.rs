@@ -15,7 +15,7 @@ use ql_core::{
         java_list::JavaVersion,
         version::VersionDetails,
     },
-    pt, JavaInstallProgress,
+    pt, InstanceSelection, JavaInstallProgress,
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -23,9 +23,13 @@ const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 use crate::instance_mod_installer::change_instance_type;
 
 mod error;
+mod server;
+pub use server::{install_server, install_server_w};
 mod uninstall;
 
-pub use uninstall::{uninstall, uninstall_client_w};
+pub use uninstall::{
+    uninstall_client, uninstall_client_w, uninstall_server, uninstall_server_w, uninstall_w,
+};
 
 struct ForgeInstaller {
     f_progress: Option<Sender<ForgeInstallProgress>>,
@@ -35,6 +39,7 @@ struct ForgeInstaller {
     instance_dir: PathBuf,
     forge_dir: PathBuf,
     client: reqwest::Client,
+    is_server: bool,
 }
 
 impl ForgeInstaller {
@@ -46,13 +51,16 @@ impl ForgeInstaller {
 
     async fn new(
         f_progress: Option<Sender<ForgeInstallProgress>>,
-        instance_name: String,
+        instance_name: InstanceSelection,
     ) -> Result<Self, ForgeInstallError> {
         let client = reqwest::Client::new();
 
         let instance_dir = get_instance_dir(&instance_name)?;
-
-        let forge_dir = get_forge_dir(&instance_dir)?;
+        let forge_dir = if instance_name.is_server() {
+            instance_dir.clone()
+        } else {
+            get_forge_dir(&instance_dir)?
+        };
 
         let minecraft_version = get_minecraft_version(&instance_dir)?;
 
@@ -90,6 +98,7 @@ impl ForgeInstaller {
             instance_dir,
             forge_dir,
             client,
+            is_server: instance_name.is_server(),
         })
     }
 
@@ -153,56 +162,7 @@ impl ForgeInstaller {
         std::fs::create_dir_all(&libraries_dir).map_err(io_err!(libraries_dir))?;
 
         let classpath = if self.major_version >= 14 {
-            let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
-            let java_source_file = include_str!("../../../../../assets/ClientInstaller.java");
-
-            let source_path = self.forge_dir.join("ClientInstaller.java");
-            std::fs::write(&source_path, java_source_file).map_err(io_err!(source_path))?;
-
-            let launcher_profiles_json_path = self.forge_dir.join("launcher_profiles.json");
-            std::fs::write(&launcher_profiles_json_path, "{}")
-                .map_err(io_err!(launcher_profiles_json_path))?;
-            let launcher_profiles_json_microsoft_store_path = self
-                .forge_dir
-                .join("launcher_profiles_microsoft_store.json");
-            std::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
-                .map_err(io_err!(launcher_profiles_json_microsoft_store_path))?;
-
-            pt!("Compiling Installer");
-            self.send_progress(ForgeInstallProgress::P4RunningInstaller);
-
-            let output = Command::new(&javac_path)
-                .args(["-cp", installer_name, "ClientInstaller.java", "-d", "."])
-                .current_dir(&self.forge_dir)
-                .output()
-                .map_err(io_err!(javac_path))?;
-
-            if !output.status.success() {
-                return Err(ForgeInstallError::CompileError(
-                    String::from_utf8(output.stdout)?,
-                    String::from_utf8(output.stderr)?,
-                ));
-            }
-            let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
-
-            pt!("Running Installer");
-            let output = Command::new(&java_path)
-                .args([
-                    "-cp",
-                    &format!("{installer_name}{CLASSPATH_SEPARATOR}."),
-                    "ClientInstaller",
-                ])
-                .current_dir(&self.forge_dir)
-                .output()
-                // .spawn()
-                .map_err(io_err!(java_path))?;
-
-            if !output.status.success() {
-                return Err(ForgeInstallError::InstallerError(
-                    String::from_utf8(output.stdout)?,
-                    String::from_utf8(output.stderr)?,
-                ));
-            }
+            self.run_installer(j_progress, installer_name).await?;
 
             if self.major_version < 39 {
                 format!(
@@ -225,6 +185,63 @@ impl ForgeInstaller {
             )
         };
         Ok((libraries_dir, classpath))
+    }
+
+    async fn run_installer(
+        &self,
+        j_progress: Option<Sender<JavaInstallProgress>>,
+        installer_name: &str,
+    ) -> Result<(), ForgeInstallError> {
+        let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
+        let java_source_file = include_str!("../../../../../assets/ClientInstaller.java")
+            .replace("CLIENT", if self.is_server { "SERVER" } else { "CLIENT" });
+        let source_path = self.forge_dir.join("ClientInstaller.java");
+        std::fs::write(&source_path, java_source_file).map_err(io_err!(source_path))?;
+
+        if !self.is_server {
+            let launcher_profiles_json_path = self.forge_dir.join("launcher_profiles.json");
+            std::fs::write(&launcher_profiles_json_path, "{}")
+                .map_err(io_err!(launcher_profiles_json_path))?;
+            let launcher_profiles_json_microsoft_store_path = self
+                .forge_dir
+                .join("launcher_profiles_microsoft_store.json");
+            std::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
+                .map_err(io_err!(launcher_profiles_json_microsoft_store_path))?;
+        }
+
+        pt!("Compiling Installer");
+        self.send_progress(ForgeInstallProgress::P4RunningInstaller);
+        let output = Command::new(&javac_path)
+            .args(["-cp", installer_name, "ClientInstaller.java", "-d", "."])
+            .current_dir(&self.forge_dir)
+            .output()
+            .map_err(io_err!(javac_path))?;
+        if !output.status.success() {
+            return Err(ForgeInstallError::CompileError(
+                String::from_utf8(output.stdout)?,
+                String::from_utf8(output.stderr)?,
+            ));
+        }
+
+        let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
+        pt!("Running Installer");
+        let output = Command::new(&java_path)
+            .args([
+                "-cp",
+                &format!("{installer_name}{CLASSPATH_SEPARATOR}."),
+                "ClientInstaller",
+            ])
+            .current_dir(&self.forge_dir)
+            .output()
+            // .spawn()
+            .map_err(io_err!(java_path))?;
+        if !output.status.success() {
+            return Err(ForgeInstallError::InstallerError(
+                String::from_utf8(output.stdout)?,
+                String::from_utf8(output.stderr)?,
+            ));
+        }
+        Ok(())
     }
 
     fn get_forge_json(installer_file: &[u8]) -> Result<JsonForgeDetails, ForgeInstallError> {
@@ -258,7 +275,7 @@ impl ForgeInstaller {
         libraries_dir: &Path,
         classpath: &mut String,
         clean_classpath: &mut String,
-    ) -> Result<bool, ForgeInstallError> {
+    ) -> Result<(), ForgeInstallError> {
         let parts: Vec<&str> = library.name.split(':').collect();
         let class = parts[0];
         let lib = parts[1];
@@ -273,7 +290,7 @@ impl ForgeInstaller {
                 Self::add_to_classpath(libraries_dir, classpath, &path, &file)?;
             }
             info!("Built in forge library, skipping...");
-            return Ok(false);
+            return Ok(());
         }
 
         let url = if let Some(downloads) = &library.downloads {
@@ -318,7 +335,7 @@ impl ForgeInstaller {
                     let result = self.unpack_augmented_library(dest_str, &url).await;
                     if result.is_not_found() {
                         err!("Error 404 not found. Skipping...");
-                        return Ok(true);
+                        return Ok(());
                     }
                     result?;
                 }
@@ -327,7 +344,7 @@ impl ForgeInstaller {
 
         Self::add_to_classpath(libraries_dir, classpath, &path, &file)?;
 
-        Ok(true)
+        Ok(())
     }
 
     fn add_to_classpath(
@@ -460,9 +477,8 @@ async fn get_forge_version(minecraft_version: &str) -> Result<String, ForgeInsta
     Ok(version)
 }
 
-fn get_instance_dir(instance_name: &str) -> Result<PathBuf, ForgeInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let instance_dir = launcher_dir.join("instances").join(instance_name);
+fn get_instance_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ForgeInstallError> {
+    let instance_dir = file_utils::get_instance_dir(instance_name)?;
     Ok(instance_dir)
 }
 
@@ -498,11 +514,23 @@ fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallErro
 }
 
 pub async fn install_w(
+    instance_name: InstanceSelection,
+    f_progress: Option<Sender<ForgeInstallProgress>>,
+    j_progress: Option<Sender<JavaInstallProgress>>,
+) -> Result<(), String> {
+    match instance_name {
+        InstanceSelection::Instance(name) => install_client(name, f_progress, j_progress).await,
+        InstanceSelection::Server(name) => install_server(name, j_progress, f_progress).await,
+    }
+    .map_err(|err| err.to_string())
+}
+
+pub async fn install_client_w(
     instance_name: String,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<JavaInstallProgress>>,
 ) -> Result<(), String> {
-    install(instance_name, f_progress, j_progress)
+    install_client(instance_name, f_progress, j_progress)
         .await
         .map_err(|err| err.to_string())
 }
@@ -516,7 +544,7 @@ pub enum ForgeInstallProgress {
     P6Done,
 }
 
-pub async fn install(
+pub async fn install_client(
     instance_name: String,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<JavaInstallProgress>>,
@@ -527,7 +555,11 @@ pub async fn install(
         let _ = progress.send(ForgeInstallProgress::P1Start);
     }
 
-    let installer = ForgeInstaller::new(f_progress, instance_name.clone()).await?;
+    let installer = ForgeInstaller::new(
+        f_progress,
+        InstanceSelection::Instance(instance_name.clone()),
+    )
+    .await?;
 
     let (installer_file, installer_name, installer_path) =
         installer.download_forge_installer().await?;
@@ -552,7 +584,7 @@ pub async fn install(
         .filter(|library| !matches!(library.clientreq, Some(false)))
         .enumerate()
     {
-        if !installer
+        installer
             .download_library(
                 library,
                 library_i,
@@ -561,10 +593,7 @@ pub async fn install(
                 &mut classpath,
                 &mut clean_classpath,
             )
-            .await?
-        {
-            continue;
-        }
+            .await?;
     }
 
     let classpath_path = installer.forge_dir.join("classpath.txt");
@@ -577,7 +606,7 @@ pub async fn install(
     let json_path = installer.forge_dir.join("details.json");
     std::fs::write(&json_path, serde_json::to_string(&forge_json)?).map_err(io_err!(json_path))?;
 
-    change_instance_type(&installer.instance_dir, "Forge".to_owned())?;
+    change_instance_type(&installer.instance_dir, "Forge".to_owned()).await?;
 
     installer.remove_lock()?;
     info!("Finished installing forge");

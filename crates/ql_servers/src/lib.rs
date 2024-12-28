@@ -6,10 +6,13 @@ mod create;
 mod list_versions;
 mod read_log;
 mod run;
+mod server_properties;
 pub use create::{create_server, create_server_w, delete_server, ServerCreateProgress};
 pub use list_versions::list_versions;
 pub use read_log::read_logs_w;
 pub use run::run_w;
+pub use server_properties::ServerProperties;
+
 use zip_extract::ZipExtractError;
 
 pub enum ServerError {
@@ -22,6 +25,7 @@ pub enum ServerError {
     NoServerDownload,
     ServerAlreadyExists,
     ZipExtract(ZipExtractError),
+    NoForgeShimFound,
 }
 
 impl Display for ServerError {
@@ -44,6 +48,7 @@ impl Display for ServerError {
             }
             ServerError::ServerAlreadyExists => write!(f, "server already exists"),
             ServerError::ZipExtract(err) => write!(f, "zip extract: {err}"),
+            ServerError::NoForgeShimFound => write!(f, "could not find forge shim file"),
         }
     }
 }

@@ -158,15 +158,14 @@ impl Application for Launcher {
                 }
             }
             Message::CoreTick => return self.tick(),
-            Message::UninstallLoaderForgeStart => match self.selected_instance.as_ref().unwrap() {
-                InstanceSelection::Instance(n) => {
-                    return Command::perform(
-                        instance_mod_installer::forge::uninstall_client_w(n.clone()),
-                        Message::UninstallLoaderEnd,
-                    )
-                }
-                InstanceSelection::Server(_) => todo!("Implement uninstall forge for server"),
-            },
+            Message::UninstallLoaderForgeStart => {
+                return Command::perform(
+                    instance_mod_installer::forge::uninstall_w(
+                        self.selected_instance.clone().unwrap(),
+                    ),
+                    Message::UninstallLoaderEnd,
+                )
+            }
             Message::UninstallLoaderOptiFineStart => {
                 return Command::perform(
                     instance_mod_installer::optifine::uninstall_w(
@@ -179,18 +178,25 @@ impl Application for Launcher {
                     Message::UninstallLoaderEnd,
                 );
             }
-            Message::UninstallLoaderFabricStart => match self.selected_instance.as_ref().unwrap() {
-                InstanceSelection::Instance(n) => {
-                    return Command::perform(
-                        instance_mod_installer::fabric::uninstall_client_w(n.clone()),
-                        Message::UninstallLoaderEnd,
-                    )
-                }
-                InstanceSelection::Server(_) => todo!("Implement uninstall fabric for server"),
-            },
+            Message::UninstallLoaderFabricStart => {
+                return Command::perform(
+                    instance_mod_installer::fabric::uninstall_w(
+                        self.selected_instance.clone().unwrap(),
+                    ),
+                    Message::UninstallLoaderEnd,
+                )
+            }
             Message::UninstallLoaderEnd(result) => match result {
                 Ok(loader) => {
-                    self.go_to_launch_screen_with_message(format!("Uninstalled {loader}"))
+                    let message = format!("Uninstalled {loader}");
+                    match self.selected_instance.as_ref().unwrap() {
+                        InstanceSelection::Instance(_) => {
+                            self.go_to_launch_screen_with_message(message)
+                        }
+                        InstanceSelection::Server(_) => {
+                            self.go_to_server_manage_menu(Some(message));
+                        }
+                    }
                 }
                 Err(err) => self.set_error(err),
             },
@@ -198,7 +204,17 @@ impl Application for Launcher {
                 return self.install_forge();
             }
             Message::InstallForgeEnd(result) => match result {
-                Ok(()) => self.go_to_launch_screen_with_message("Installed Forge".to_owned()),
+                Ok(()) => {
+                    let message = "Installed Forge".to_owned();
+                    match self.selected_instance.as_ref().unwrap() {
+                        InstanceSelection::Instance(_) => {
+                            self.go_to_launch_screen_with_message(message)
+                        }
+                        InstanceSelection::Server(_) => {
+                            self.go_to_server_manage_menu(Some(message))
+                        }
+                    }
+                }
                 Err(err) => self.set_error(err),
             },
             Message::LaunchEndedLog(result) => match result {
@@ -590,10 +606,14 @@ impl Application for Launcher {
                     menu.java_install_recv = Some(receiver);
                 }
 
-                return Command::perform(
-                    ql_servers::run_w(server, sender),
-                    Message::ServerManageStartServerFinish,
-                );
+                if self.server_processes.contains_key(&server) {
+                    err!("Server is already running")
+                } else {
+                    return Command::perform(
+                        ql_servers::run_w(server, sender),
+                        Message::ServerManageStartServerFinish,
+                    );
+                }
             }
             Message::ServerManageStartServerFinish(result) => match result {
                 Ok((child, is_classic_server)) => {
@@ -858,13 +878,14 @@ impl Launcher {
         let (f_sender, f_receiver) = std::sync::mpsc::channel();
         let (j_sender, j_receiver) = std::sync::mpsc::channel();
 
-        let command = match self.selected_instance.as_ref().unwrap() {
-            InstanceSelection::Instance(n) => Command::perform(
-                instance_mod_installer::forge::install_w(n.clone(), Some(f_sender), Some(j_sender)),
-                Message::InstallForgeEnd,
+        let command = Command::perform(
+            instance_mod_installer::forge::install_w(
+                self.selected_instance.clone().unwrap(),
+                Some(f_sender),
+                Some(j_sender),
             ),
-            InstanceSelection::Server(_) => todo!("Implement install forge for server"),
-        };
+            Message::InstallForgeEnd,
+        );
 
         self.state = State::InstallForge(MenuInstallForge {
             forge_progress_receiver: f_receiver,

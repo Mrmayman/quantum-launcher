@@ -30,57 +30,57 @@ impl MenuServerManage {
         let button_play = Self::get_play_button(selected_server, processes);
         let button_files = Self::get_files_button(selected_server);
 
-        let server_ops =
-            if self.server_list.is_empty() {
-                widget::column!(widget::text(
-                    "No servers found! Create a new server to get started"
-                ))
-            } else {
+        let server_ops = if self.server_list.is_empty() {
+            widget::column!(widget::text(
+                "No servers found! Create a new server to get started"
+            ))
+        } else {
+            widget::column!(
+                widget::text("Select Server"),
+                widget::pick_list(
+                    self.server_list.as_slice(),
+                    selected_server,
+                    Message::ServerManageSelectedServer
+                )
+                .width(200),
                 widget::column!(
-                    widget::text("Select Server"),
-                    widget::pick_list(
-                        self.server_list.as_slice(),
-                        selected_server,
-                        Message::ServerManageSelectedServer
-                    )
-                    .width(200),
-                    widget::column!(
-                        widget::row!(
-                            button_play,
-                            button_with_icon(icon_manager::settings(), "Edit")
-                                .width(98)
-                                .on_press_maybe(selected_server.map(|_| {
-                                    Message::EditInstance(EditInstanceMessage::MenuOpen)
-                                })),
-                        )
-                        .spacing(5),
-                        widget::row!(
-                            button_files,
-                            button_with_icon(icon_manager::download(), "Mods")
-                                .width(98)
-                                .on_press_maybe(
-                                    (selected_server.is_some())
-                                        .then(|| { Message::ServerEditModsOpen })
-                                ),
-                        )
-                        .spacing(5),
-                        widget::row!(button_with_icon(icon_manager::delete(), "Delete")
-                            .width(97)
+                    widget::row!(
+                        button_play,
+                        button_with_icon(icon_manager::settings(), "Edit")
+                            .width(98)
                             .on_press_maybe(
-                                (selected_server.is_some()).then(|| { Message::ServerDeleteOpen })
-                            ),)
-                        .spacing(5)
+                                selected_server.map(|_| {
+                                    Message::EditInstance(EditInstanceMessage::MenuOpen)
+                                })
+                            ),
                     )
                     .spacing(5),
-                    if let Some(message) = &self.message {
-                        widget::column!(widget::container(widget::text(message)).padding(10))
-                    } else {
-                        widget::column!()
-                    }
+                    widget::row!(
+                        button_files,
+                        button_with_icon(icon_manager::download(), "Mods")
+                            .width(98)
+                            .on_press_maybe(selected_server.and_then(|n| {
+                                (!processes.contains_key(n)).then_some(Message::ServerEditModsOpen)
+                            })),
+                    )
+                    .spacing(5),
+                    widget::row!(button_with_icon(icon_manager::delete(), "Delete")
+                        .width(97)
+                        .on_press_maybe(
+                            (selected_server.is_some()).then(|| { Message::ServerDeleteOpen })
+                        ),)
+                    .spacing(5)
                 )
-                .spacing(10)
-            }
-            .padding(10);
+                .spacing(5),
+                if let Some(message) = &self.message {
+                    widget::column!(widget::container(widget::text(message)).padding(10))
+                } else {
+                    widget::column!()
+                }
+            )
+            .spacing(10)
+        }
+        .padding(10);
 
         widget::row!(
             widget::column!(

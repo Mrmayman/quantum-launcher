@@ -226,9 +226,9 @@ impl LogEvent {
 impl Display for LogEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let date = self.get_time().unwrap_or_else(|| self.timestamp.clone());
-        write!(
+        writeln!(
             f,
-            "[{date}:{}.{}] [{}] {}\n",
+            "[{date}:{}.{}] [{}] {}",
             self.thread, self.logger, self.level, self.message.content
         )
     }

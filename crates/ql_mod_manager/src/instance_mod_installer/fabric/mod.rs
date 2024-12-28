@@ -10,12 +10,14 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use version_compare::compare_versions;
 
-use crate::mod_manager::Loader;
-
 use super::change_instance_type;
 
 mod error;
 mod make_launch_jar;
+mod uninstall;
+pub use uninstall::{
+    uninstall_client, uninstall_client_w, uninstall_server, uninstall_server_w, uninstall_w,
+};
 mod version_compare;
 
 const FABRIC_URL: &str = "https://meta.fabricmc.net";
@@ -146,7 +148,7 @@ pub async fn install_server(
     )
     .await?;
 
-    change_instance_type(&server_dir, "Fabric".to_owned())?;
+    change_instance_type(&server_dir, "Fabric".to_owned()).await?;
 
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P3Done)?;
@@ -220,7 +222,7 @@ pub async fn install(
             .map_err(io_err!(path))?;
     }
 
-    change_instance_type(&instance_dir, "Fabric".to_owned())?;
+    change_instance_type(&instance_dir, "Fabric".to_owned()).await?;
 
     if let Some(progress) = &progress {
         progress.send(FabricInstallProgress::P3Done)?;
@@ -255,52 +257,6 @@ fn send_progress(
         })?;
     }
     Ok(())
-}
-
-pub async fn uninstall(instance_name: &str) -> Result<(), FabricInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let instance_dir = launcher_dir.join("instances").join(instance_name);
-
-    let lock_path = instance_dir.join("fabric_uninstall.lock");
-    tokio::fs::write(
-        &lock_path,
-        "If you see this, fabric was not uninstalled correctly.",
-    )
-    .await
-    .map_err(io_err!(lock_path))?;
-
-    let fabric_json_path = instance_dir.join("fabric.json");
-    let fabric_json = tokio::fs::read_to_string(&fabric_json_path)
-        .await
-        .map_err(io_err!(fabric_json_path))?;
-    let fabric_json: FabricJSON = serde_json::from_str(&fabric_json)?;
-
-    tokio::fs::remove_file(&fabric_json_path)
-        .await
-        .map_err(io_err!(fabric_json_path))?;
-
-    let libraries_dir = instance_dir.join("libraries");
-
-    for library in &fabric_json.libraries {
-        let library_path = libraries_dir.join(library.get_path());
-        tokio::fs::remove_file(&library_path)
-            .await
-            .map_err(io_err!(library_path))?;
-    }
-
-    change_instance_type(&instance_dir, "Vanilla".to_owned())?;
-
-    tokio::fs::remove_file(&lock_path)
-        .await
-        .map_err(io_err!(lock_path))?;
-    Ok(())
-}
-
-pub async fn uninstall_client_w(instance_name: String) -> Result<Loader, String> {
-    uninstall(&instance_name)
-        .await
-        .map_err(|err| err.to_string())
-        .map(|()| Loader::Fabric)
 }
 
 pub async fn install_w(

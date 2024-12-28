@@ -155,50 +155,38 @@ async fn install_java(
     )
     .map_err(io_err!(lock_file.clone()))?;
 
+    info!("Started installing {}", version.to_string());
+
     // Special case for linux aarch64
-    if cfg!(target_os = "linux") {
-        if cfg!(target_arch = "aarch64") {
-            let url = version.get_amazon_corretto_aarch64_url();
-            send_progress(
-                java_install_progress_sender,
-                JavaInstallProgress::P2 {
-                    done: 0,
-                    out_of: 2,
-                    name: "Getting tar.gz archive".to_owned(),
-                },
-            );
-            let file_bytes = file_utils::download_file_to_bytes(&client, url, false).await?;
-
-            send_progress(
-                java_install_progress_sender,
-                JavaInstallProgress::P2 {
-                    done: 1,
-                    out_of: 2,
-                    name: "Extracting tar.gz archive".to_owned(),
-                },
-            );
-            extract_tar_gz(&file_bytes, &install_dir).map_err(JavaInstallError::TarGzExtract)?;
-
-            std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
-            info!("Finished installing {}", version.to_string());
-            send_progress(java_install_progress_sender, JavaInstallProgress::P3Done);
-            return Ok(());
-        }
+    if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+        install_aarch64_linux_java(version, java_install_progress_sender, &client, &install_dir)
+            .await?;
+    } else {
+        install_normal_java(version, client, java_install_progress_sender, install_dir).await?;
     }
 
-    info!("Started installing {}", version.to_string());
+    std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
+
+    info!("Finished installing {}", version.to_string());
+
+    send_progress(java_install_progress_sender, JavaInstallProgress::P3Done);
+    Ok(())
+}
+
+async fn install_normal_java(
+    version: JavaVersion,
+    client: reqwest::Client,
+    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    install_dir: PathBuf,
+) -> Result<(), JavaInstallError> {
     let java_list_json = JavaListJson::download().await?;
     let java_files_url = java_list_json
         .get_url(version)
         .ok_or(JavaInstallError::NoUrlForJavaFiles)?;
-
     let json = file_utils::download_file_to_string(&client, &java_files_url, false).await?;
     let json: JavaFilesJson = serde_json::from_str(&json)?;
-
     let num_files = json.files.len();
-
     let file_num = Mutex::new(0);
-
     let results = json.files.iter().map(|(file_name, file)| {
         java_install_fn(
             java_install_progress_sender,
@@ -210,17 +198,39 @@ async fn install_java(
             &client,
         )
     });
-
     let outputs = do_jobs(results).await;
-    if let Some(err) = outputs.into_iter().find_map(Result::err) {
-        return Err(err);
-    }
+    Ok(
+        if let Some(err) = outputs.into_iter().find_map(Result::err) {
+            return Err(err);
+        },
+    )
+}
 
-    std::fs::remove_file(&lock_file).map_err(io_err!(lock_file.clone()))?;
-
-    info!("Finished installing {}", version.to_string());
-
-    send_progress(java_install_progress_sender, JavaInstallProgress::P3Done);
+async fn install_aarch64_linux_java(
+    version: JavaVersion,
+    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    client: &reqwest::Client,
+    install_dir: &PathBuf,
+) -> Result<(), JavaInstallError> {
+    let url = version.get_amazon_corretto_aarch64_url();
+    send_progress(
+        java_install_progress_sender,
+        JavaInstallProgress::P2 {
+            done: 0,
+            out_of: 2,
+            name: "Getting tar.gz archive".to_owned(),
+        },
+    );
+    let file_bytes = file_utils::download_file_to_bytes(client, url, false).await?;
+    send_progress(
+        java_install_progress_sender,
+        JavaInstallProgress::P2 {
+            done: 1,
+            out_of: 2,
+            name: "Extracting tar.gz archive".to_owned(),
+        },
+    );
+    extract_tar_gz(&file_bytes, install_dir).map_err(JavaInstallError::TarGzExtract)?;
     Ok(())
 }
 

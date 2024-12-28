@@ -14,14 +14,21 @@ pub enum CoreMod {
     Optifine,
 }
 
-fn change_instance_type(instance_dir: &Path, instance_type: String) -> Result<(), JsonFileError> {
+async fn change_instance_type(
+    instance_dir: &Path,
+    instance_type: String,
+) -> Result<(), JsonFileError> {
     let config_path = instance_dir.join("config.json");
-    let config = std::fs::read_to_string(&config_path).map_err(io_err!(config_path))?;
+    let config = tokio::fs::read_to_string(&config_path)
+        .await
+        .map_err(io_err!(config_path))?;
     let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
 
     config.mod_type = instance_type;
 
     let config = serde_json::to_string(&config)?;
-    std::fs::write(&config_path, config).map_err(io_err!(config_path))?;
+    tokio::fs::write(&config_path, config)
+        .await
+        .map_err(io_err!(config_path))?;
     Ok(())
 }
