@@ -86,16 +86,11 @@ impl Launcher {
                     let message = "Installed Java".to_owned();
                     match &self.selected_instance {
                         Some(InstanceSelection::Instance(_)) | None => {
-                            self.state = State::Launch(MenuLaunch::with_message(message));
+                            return self.go_to_launch_screen(Some(message));
                         }
                         Some(InstanceSelection::Server(_)) => {
-                            self.go_to_server_manage_menu(Some(message))
+                            return self.go_to_server_manage_menu(Some(message));
                         }
-                    }
-                    if let Ok(list) = get_entries("instances") {
-                        self.instances = Some(list);
-                    } else {
-                        err!("Failed to reload instances list.");
                     }
                 }
             }
@@ -143,11 +138,10 @@ impl Launcher {
                         java_recv,
                         asset_recv: None,
                     });
-                    if let Ok(list) = get_entries("instances") {
-                        self.instances = Some(list);
-                    } else {
-                        err!("Failed to reload instances list.");
-                    }
+                    return Command::perform(
+                        get_entries("instances".to_owned(), false),
+                        Message::CoreListLoaded,
+                    );
                 }
             }
             State::InstallOptifine(menu) => {
@@ -212,7 +206,7 @@ impl Launcher {
                         num: 0.0,
                         recv: menu.java_install_recv.take().unwrap(),
                         message: String::new(),
-                    })
+                    });
                 }
 
                 self.tick_server_processes_and_logs();
@@ -580,7 +574,7 @@ impl MenuCreateInstance {
                         *progress_number += 1.0;
                     }
                     if *progress_number > 21.0 {
-                        err!("More than 20 indexes scraped: {progress_number}");
+                        err!("More than 20 indexes scraped: {}", *progress_number - 1.0);
                         *progress_number = 21.0;
                     }
                 }
@@ -600,7 +594,7 @@ impl MenuCreateInstance {
                     }
                 }
             }
-            _ => {}
+            MenuCreateInstance::Loaded { .. } => {}
         }
     }
 }

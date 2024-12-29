@@ -5,7 +5,7 @@ use std::{
 
 use iced::Command;
 use ql_core::{
-    file_utils,
+    err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     InstanceSelection, IntoIoError,
 };
@@ -61,7 +61,11 @@ impl MenuModsDownload {
         let Some(loaders) = (match self.config.mod_type.as_str() {
             "Forge" => Some(vec![Loader::Forge]),
             "Fabric" => Some(vec![Loader::Fabric]),
-            _ => None,
+            "Quilt" => Some(vec![Loader::Quilt]),
+            loader => {
+                err!("Unknown loader: {loader}");
+                None
+            }
         }) else {
             return Command::none();
         };

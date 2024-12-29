@@ -18,14 +18,18 @@ use super::{button_with_icon, Element};
 impl MenuModsDownload {
     /// Renders the main store page, with the search bar,
     /// back button and list of searched mods.
-    fn view_main(&self, icons: &HashMap<String, Handle>) -> Element {
+    fn view_main(
+        &self,
+        icons_bitmap: &HashMap<String, Handle>,
+        icons_svg: &HashMap<String, widget::svg::Handle>,
+    ) -> Element {
         let mods_list = match self.results.as_ref() {
             Some(results) => widget::column(
                 results
                     .hits
                     .iter()
                     .enumerate()
-                    .map(|(i, hit)| self.view_mod_entry(i, hit, icons)),
+                    .map(|(i, hit)| self.view_mod_entry(i, hit, icons_bitmap, icons_svg)),
             ),
             None => {
                 widget::column!(widget::text(if self.is_loading_search {
@@ -65,7 +69,13 @@ impl MenuModsDownload {
     }
 
     /// Renders a single mod entry (and button) in the search results.
-    fn view_mod_entry(&self, i: usize, hit: &Entry, icons: &HashMap<String, Handle>) -> Element {
+    fn view_mod_entry(
+        &self,
+        i: usize,
+        hit: &Entry,
+        icons_bitmap: &HashMap<String, Handle>,
+        icons_svg: &HashMap<String, widget::svg::Handle>,
+    ) -> Element {
         widget::row!(
             widget::button(
                 widget::row![icon_manager::download()]
@@ -80,8 +90,10 @@ impl MenuModsDownload {
             ),
             widget::button(
                 widget::row!(
-                    if let Some(icon) = icons.get(&hit.icon_url) {
+                    if let Some(icon) = icons_bitmap.get(&hit.icon_url) {
                         widget::column!(widget::image(icon.clone()))
+                    } else if let Some(icon) = icons_svg.get(&hit.icon_url) {
+                        widget::column!(widget::svg(icon.clone()).width(32))
                     } else {
                         widget::column!(widget::text(""))
                     },
@@ -112,19 +124,20 @@ impl MenuModsDownload {
 
     pub fn view<'a>(
         &'a self,
-        icons: &'a HashMap<String, Handle>,
+        icons_bitmap: &'a HashMap<String, Handle>,
+        icons_svg: &'a HashMap<String, widget::svg::Handle>,
         images_to_load: &'a Mutex<HashSet<String>>,
     ) -> Element<'a> {
         // If we opened a mod (`self.opened_mod`) then
         // render the mod description page.
         // else render the main store page.
         let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) else {
-            return self.view_main(icons);
+            return self.view_main(icons_bitmap, icons_svg);
         };
         let Some(hit) = results.hits.get(*selection) else {
-            return self.view_main(icons);
+            return self.view_main(icons_bitmap, icons_svg);
         };
-        self.view_project_description(hit, images_to_load, icons)
+        self.view_project_description(hit, images_to_load, icons_bitmap, icons_svg)
     }
 
     /// Renders the mod description page.
@@ -132,11 +145,17 @@ impl MenuModsDownload {
         &'a self,
         hit: &'a Entry,
         images_to_load: &'a Mutex<HashSet<String>>,
-        icons: &'a HashMap<String, Handle>,
+        icons_bitmap: &'a HashMap<String, Handle>,
+        icons_svg: &'a HashMap<String, widget::svg::Handle>,
     ) -> Element<'a> {
         // Parses the markdown description of the mod.
         let markdown_description = if let Some(info) = self.result_data.get(&hit.project_id) {
-            widget::column!(Self::parse_markdown(&info.body, images_to_load, icons))
+            widget::column!(Self::parse_markdown(
+                &info.body,
+                images_to_load,
+                icons_bitmap,
+                icons_svg
+            ))
         } else {
             widget::column!(widget::text("Loading..."))
         };
@@ -146,8 +165,10 @@ impl MenuModsDownload {
                 button_with_icon(icon_manager::back(), "Back")
                     .on_press(Message::InstallModsBackToMainScreen),
                 widget::row!(
-                    if let Some(icon) = icons.get(&hit.icon_url) {
+                    if let Some(icon) = icons_bitmap.get(&hit.icon_url) {
                         widget::column!(widget::image(icon.clone()))
+                    } else if let Some(icon) = icons_svg.get(&hit.icon_url) {
+                        widget::column!(widget::svg(icon.clone()))
                     } else {
                         widget::column!(widget::text(""))
                     },
@@ -166,14 +187,22 @@ impl MenuModsDownload {
     pub fn parse_markdown<'a>(
         markdown: &'a str,
         images_to_load: &'a Mutex<HashSet<String>>,
-        images: &'a HashMap<String, Handle>,
+        images_bitmap: &'a HashMap<String, Handle>,
+        images_svg: &'a HashMap<String, widget::svg::Handle>,
     ) -> Element<'a> {
         let arena = comrak::Arena::new();
         let root = comrak::parse_document(&arena, markdown, &comrak::Options::default());
 
         let mut element = widget::column!().into();
 
-        Self::render_element(root, 0, &mut element, images_to_load, images);
+        Self::render_element(
+            root,
+            0,
+            &mut element,
+            images_to_load,
+            images_bitmap,
+            images_svg,
+        );
         element
     }
 
@@ -181,11 +210,11 @@ impl MenuModsDownload {
         if downloads < 999 {
             downloads.to_string()
         } else if downloads < 10000 {
-            format!("{}K", (downloads as f32 / 100.0).floor() / 10.0)
+            format!("{:.1}K", downloads as f32 / 1000.0)
         } else if downloads < 1_000_000 {
-            format!("{}K", (downloads as f32 / 1000.0).floor())
+            format!("{}K", downloads / 1000)
         } else if downloads < 10_000_000 {
-            format!("{}M", (downloads as f32 / 100_000.0).floor() / 10.0)
+            format!("{:.1}M", downloads as f32 / 1_000_000.0)
         } else {
             format!("{}M", downloads / 1_000_000)
         }
@@ -194,31 +223,22 @@ impl MenuModsDownload {
     fn render_element<'arena, 'element: 'arena>(
         md: &'element comrak::arena_tree::Node<'arena, RefCell<comrak::nodes::Ast>>,
         heading_size: usize,
-        element: &mut Element,
+        element: &mut Element<'static>,
         images_to_load: &Mutex<HashSet<String>>,
-        images: &HashMap<String, Handle>,
+        images_bitmap: &HashMap<String, Handle>,
+        images_svg: &HashMap<String, widget::svg::Handle>,
     ) {
         let data = md.data.borrow();
         *element = match &data.value {
-            NodeValue::Document => widget::column(md.children().map(|n| {
-                let mut element = widget::column!().into();
-                Self::render_element(n, 0, &mut element, images_to_load, images);
-                element
-            }))
-            .spacing(10)
-            .into(),
-            NodeValue::Heading(node_heading) => widget::column(md.children().map(|n| {
-                let mut element = widget::column!().into();
-                Self::render_element(
-                    n,
-                    node_heading.level as usize,
-                    &mut element,
-                    images_to_load,
-                    images,
-                );
-                element
-            }))
-            .into(),
+            NodeValue::Document => {
+                render_children(md, 0, images_to_load, images_bitmap, images_svg)
+                    .spacing(10)
+                    .into()
+            }
+            NodeValue::Heading(node_heading) => {
+                let heading_size = node_heading.level as usize;
+                render_children(md, heading_size, images_to_load, images_bitmap, images_svg).into()
+            }
             NodeValue::Text(text) => widget::text(text)
                 .size(if heading_size > 0 {
                     36 - (heading_size * 4)
@@ -226,59 +246,24 @@ impl MenuModsDownload {
                     16
                 } as u16)
                 .into(),
-            NodeValue::Paragraph => widget::column(md.children().map(|n| {
-                let mut element = widget::column!().into();
-                Self::render_element(n, 0, &mut element, images_to_load, images);
-                element
-            }))
-            .into(),
+            NodeValue::Paragraph => {
+                render_children(md, 0, images_to_load, images_bitmap, images_svg).into()
+            }
             NodeValue::Link(node_link) => {
-                let mut i = 0;
-                let mut children = widget::column(md.children().map(|n| {
-                    i += 1;
-                    let mut element = widget::column!().into();
-                    Self::render_element(n, 0, &mut element, images_to_load, images);
-                    element
-                }));
-                if i == 0 {
-                    children = widget::column!(widget::text(if node_link.title.is_empty() {
-                        node_link.url.clone()
-                    } else {
-                        node_link.title.clone()
-                    }));
-                }
-                widget::button(children)
-                    .on_press(Message::CoreOpenDir(node_link.url.clone()))
-                    .into()
+                render_link(md, images_to_load, images_bitmap, images_svg, node_link)
             }
             NodeValue::FrontMatter(_) => {
                 widget::column!(widget::text("[todo: front matter]")).into()
             }
             NodeValue::BlockQuote => widget::column!(widget::text("[todo: block quote]")).into(),
             NodeValue::List(_list) => {
-                // match list.list_type {
-                //     comrak::nodes::ListType::Bullet => {}
-                //     comrak::nodes::ListType::Ordered => {}
-                // }
-                widget::column(md.children().map(|n| {
-                    let mut element = widget::column!().into();
-                    Self::render_element(n, 0, &mut element, images_to_load, images);
-                    element
-                }))
-                .spacing(10)
-                .into()
+                render_children(md, 0, images_to_load, images_bitmap, images_svg)
+                    .spacing(10)
+                    .into()
             }
-            NodeValue::Item(item) => widget::column(md.children().map(|n| {
-                let starting = match item.list_type {
-                    comrak::nodes::ListType::Bullet => widget::text(char::from(item.bullet_char)),
-                    comrak::nodes::ListType::Ordered => widget::text(format!("{}.", item.start)),
-                };
-                let mut element = widget::column!().into();
-                Self::render_element(n, 0, &mut element, images_to_load, images);
-                widget::row!(starting, element).spacing(10).into()
-            }))
-            .spacing(10)
-            .into(),
+            NodeValue::Item(item) => {
+                render_list_item(md, item, images_to_load, images_bitmap, images_svg)
+            }
             NodeValue::DescriptionList => {
                 widget::column!(widget::text("[todo: description list]")).into()
             }
@@ -295,16 +280,15 @@ impl MenuModsDownload {
                 widget::text(&block.literal).font(iced::Font::with_name("JetBrains Mono")),
             )
             .into(),
-            NodeValue::HtmlBlock(node_html_block) => {
-                Self::render_html(&node_html_block.literal, images_to_load, images)
-            }
-            NodeValue::ThematicBreak => widget::row!(
-                widget::horizontal_space(),
-                widget::text("_____"),
-                widget::horizontal_space()
-            )
-            .align_items(iced::Alignment::Center)
-            .into(),
+            NodeValue::HtmlBlock(node_html_block) => Self::render_html(
+                &node_html_block.literal,
+                images_to_load,
+                images_bitmap,
+                images_svg,
+            ),
+            NodeValue::ThematicBreak => widget::row!(widget::text("_____").size(20))
+                .align_items(iced::Alignment::Center)
+                .into(),
             NodeValue::FootnoteDefinition(_) => {
                 widget::column!(widget::text("[todo: footnote definition]")).into()
             }
@@ -316,10 +300,19 @@ impl MenuModsDownload {
             NodeValue::Code(code) => widget::text(&code.literal)
                 .font(iced::Font::with_name("JetBrains Mono"))
                 .into(),
-            NodeValue::HtmlInline(html) => Self::render_html(html, images_to_load, images),
+            NodeValue::HtmlInline(html) => {
+                Self::render_html(html, images_to_load, images_bitmap, images_svg)
+            }
             NodeValue::Strong | NodeValue::Emph => widget::column(md.children().map(|n| {
                 let mut element = widget::column!().into();
-                Self::render_element(n, 4, &mut element, images_to_load, images);
+                Self::render_element(
+                    n,
+                    4,
+                    &mut element,
+                    images_to_load,
+                    images_bitmap,
+                    images_svg,
+                );
                 element
             }))
             .into(),
@@ -328,8 +321,10 @@ impl MenuModsDownload {
             }
             NodeValue::Superscript => widget::column!(widget::text("[todo: superscript]")).into(),
             NodeValue::Image(link) => {
-                if let Some(image) = images.get(&link.url) {
+                if let Some(image) = images_bitmap.get(&link.url) {
                     widget::image(image.clone()).width(300).into()
+                } else if let Some(image) = images_svg.get(&link.url) {
+                    widget::svg(image.clone()).width(300).into()
                 } else {
                     let mut images_to_load = images_to_load.lock().unwrap();
                     images_to_load.insert(link.url.clone());
@@ -352,6 +347,87 @@ impl MenuModsDownload {
             NodeValue::EscapedTag(_) => widget::column!(widget::text("[todo: escaped tag]")).into(),
         }
     }
+}
+
+fn render_list_item<'a>(
+    md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
+    item: &comrak::nodes::NodeList,
+    images_to_load: &Mutex<HashSet<String>>,
+    images_bitmap: &HashMap<String, Handle>,
+    images_svg: &HashMap<String, widget::svg::Handle>,
+) -> Element<'static> {
+    widget::column(md.children().map(|n| {
+        let starting = match item.list_type {
+            comrak::nodes::ListType::Bullet => widget::text(char::from(item.bullet_char)),
+            comrak::nodes::ListType::Ordered => widget::text(format!("{}.", item.start)),
+        };
+        let mut element = widget::column!().into();
+        MenuModsDownload::render_element(
+            n,
+            0,
+            &mut element,
+            images_to_load,
+            images_bitmap,
+            images_svg,
+        );
+        widget::row!(starting, element).spacing(10).into()
+    }))
+    .spacing(10)
+    .into()
+}
+
+fn render_link<'a>(
+    md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
+    images_to_load: &Mutex<HashSet<String>>,
+    images_bitmap: &HashMap<String, Handle>,
+    images_svg: &HashMap<String, widget::svg::Handle>,
+    node_link: &comrak::nodes::NodeLink,
+) -> Element<'static> {
+    let mut i = 0;
+    let mut children = widget::column(md.children().map(|n| {
+        i += 1;
+        let mut element = widget::column!().into();
+        MenuModsDownload::render_element(
+            n,
+            0,
+            &mut element,
+            images_to_load,
+            images_bitmap,
+            images_svg,
+        );
+        element
+    }));
+    if i == 0 {
+        children = widget::column!(widget::text(if node_link.title.is_empty() {
+            node_link.url.clone()
+        } else {
+            node_link.title.clone()
+        }));
+    }
+    widget::button(children)
+        .on_press(Message::CoreOpenDir(node_link.url.clone()))
+        .into()
+}
+
+fn render_children<'a>(
+    md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
+    heading_size: usize,
+    images_to_load: &Mutex<HashSet<String>>,
+    images_bitmap: &HashMap<String, Handle>,
+    images_svg: &HashMap<String, widget::svg::Handle>,
+) -> widget::Column<'static, Message, crate::stylesheet::styles::LauncherTheme> {
+    widget::column(md.children().map(|n| {
+        let mut element = widget::column!().into();
+        MenuModsDownload::render_element(
+            n,
+            heading_size,
+            &mut element,
+            images_to_load,
+            images_bitmap,
+            images_svg,
+        );
+        element
+    }))
 }
 
 fn safe_slice(s: &str, max_len: usize) -> &str {

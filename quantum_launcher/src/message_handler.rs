@@ -210,7 +210,7 @@ impl Launcher {
         Command::none()
     }
 
-    pub fn delete_selected_instance(&mut self) {
+    pub fn delete_selected_instance(&mut self) -> Command<Message> {
         if let State::DeleteInstance = &self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap();
             match (
@@ -222,20 +222,21 @@ impl Launcher {
 
                     if !deleted_instance_dir.starts_with(&instances_dir) {
                         self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned());
-                        return;
+                        return Command::none();
                     }
 
                     if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
                         self.set_error(err);
-                        return;
+                        return Command::none();
                     }
 
-                    self.go_to_launch_screen_with_message("Deleted Instance".to_owned());
                     self.selected_instance = None;
+                    return self.go_to_launch_screen(Some("Deleted Instance".to_owned()));
                 }
                 (Err(err), Ok(_) | Err(_)) | (Ok(_), Err(err)) => self.set_error(err.to_string()),
             }
         }
+        Command::none()
     }
 
     pub fn edit_instance(
@@ -358,6 +359,7 @@ pub fn format_memory(memory_bytes: usize) -> String {
     }
 }
 
+#[allow(clippy::zombie_processes)]
 pub fn open_file_explorer(path: &str) {
     use std::process::Command;
 

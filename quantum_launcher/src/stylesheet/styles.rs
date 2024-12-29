@@ -472,3 +472,11 @@ impl iced::widget::text_editor::StyleSheet for LauncherTheme {
         }
     }
 }
+
+impl iced::widget::svg::StyleSheet for LauncherTheme {
+    type Style = LauncherStyle;
+
+    fn appearance(&self, _: &Self::Style) -> widget::svg::Appearance {
+        widget::svg::Appearance { color: None }
+    }
+}

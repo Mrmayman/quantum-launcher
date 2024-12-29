@@ -15,7 +15,8 @@ impl MenuModsDownload {
     pub fn render_html<'a>(
         input: &str,
         images_to_load: &Mutex<HashSet<String>>,
-        images: &HashMap<String, Handle>,
+        images_bitmap: &HashMap<String, Handle>,
+        images_svg: &HashMap<String, widget::svg::Handle>,
     ) -> Element<'a> {
         let dom = parse_document(RcDom::default(), ParseOpts::default())
             .from_utf8()
@@ -25,7 +26,14 @@ impl MenuModsDownload {
         // println!("{:#?}", dom.document);
 
         let mut element = widget::column!().into();
-        Self::traverse_node(&dom.document, &mut element, images_to_load, images, 0);
+        Self::traverse_node(
+            &dom.document,
+            &mut element,
+            images_to_load,
+            images_bitmap,
+            images_svg,
+            0,
+        );
         element
     }
 
@@ -33,7 +41,8 @@ impl MenuModsDownload {
         node: &Node,
         element: &mut Element,
         images_to_load: &Mutex<HashSet<String>>,
-        images: &HashMap<String, Handle>,
+        images_bitmap: &HashMap<String, Handle>,
+        images_svg: &HashMap<String, widget::svg::Handle>,
         heading_size: usize,
     ) {
         match &node.data {
@@ -41,7 +50,14 @@ impl MenuModsDownload {
                 let children = node.children.borrow();
                 *element = widget::column(children.iter().map(|node| {
                     let mut element = widget::column!().into();
-                    Self::traverse_node(node, &mut element, images_to_load, images, 0);
+                    Self::traverse_node(
+                        node,
+                        &mut element,
+                        images_to_load,
+                        images_bitmap,
+                        images_svg,
+                        0,
+                    );
                     element
                 }))
                 .into();
@@ -61,7 +77,15 @@ impl MenuModsDownload {
                 template_contents: _,
                 mathml_annotation_xml_integration_point: _,
             } => {
-                render_html(name, attrs, node, element, images_to_load, images);
+                render_html(
+                    name,
+                    attrs,
+                    node,
+                    element,
+                    images_to_load,
+                    images_bitmap,
+                    images_svg,
+                );
             }
             _ => {}
         }
@@ -74,22 +98,23 @@ fn render_html(
     node: &Node,
     element: &mut Element,
     images_to_load: &Mutex<HashSet<String>>,
-    images: &HashMap<String, Handle>,
+    images_bitmap: &HashMap<String, Handle>,
+    images_svg: &HashMap<String, widget::svg::Handle>,
 ) {
     let name = name.local.to_string();
     let attrs = attrs.borrow();
     match name.as_str() {
         "html" | "body" | "p" | "center" | "i" | "kbd" | "b" => {
-            render_children(node, element, images_to_load, images, 0);
+            render_children(node, element, images_to_load, images_bitmap, images_svg, 0);
         }
         "h2" => {
-            render_children(node, element, images_to_load, images, 2);
+            render_children(node, element, images_to_load, images_bitmap, images_svg, 2);
         }
         "h3" => {
-            render_children(node, element, images_to_load, images, 3);
+            render_children(node, element, images_to_load, images_bitmap, images_svg, 3);
         }
         "details" | "summary" | "h1" => {
-            render_children(node, element, images_to_load, images, 1);
+            render_children(node, element, images_to_load, images_bitmap, images_svg, 1);
         }
         "a" => {
             if let Some(attr) = attrs
@@ -101,7 +126,14 @@ fn render_html(
 
                 let mut children = widget::column(children_nodes.iter().map(|node| {
                     let mut element = widget::column!().into();
-                    MenuModsDownload::traverse_node(node, &mut element, images_to_load, images, 3);
+                    MenuModsDownload::traverse_node(
+                        node,
+                        &mut element,
+                        images_to_load,
+                        images_bitmap,
+                        images_svg,
+                        3,
+                    );
                     element
                 }));
                 if children_nodes.is_empty() {
@@ -121,8 +153,10 @@ fn render_html(
                 .find(|attr| attr.name.local.to_string().as_str() == "src")
             {
                 let url = attr.value.to_string();
-                *element = if let Some(image) = images.get(&url) {
+                *element = if let Some(image) = images_bitmap.get(&url) {
                     widget::image(image.clone()).width(300).into()
+                } else if let Some(image) = images_svg.get(&url) {
+                    widget::svg(image.clone()).width(300).into()
                 } else {
                     let mut images_to_load = images_to_load.lock().unwrap();
                     images_to_load.insert(url);
@@ -140,13 +174,21 @@ fn render_children(
     node: &Node,
     element: &mut Element,
     images_to_load: &Mutex<HashSet<String>>,
-    images: &HashMap<String, Handle>,
+    images_bitmap: &HashMap<String, Handle>,
+    images_svg: &HashMap<String, widget::svg::Handle>,
     heading_weight: usize,
 ) {
     let children = node.children.borrow();
     *element = widget::column(children.iter().map(|node| {
         let mut element = widget::column!().into();
-        MenuModsDownload::traverse_node(node, &mut element, images_to_load, images, heading_weight);
+        MenuModsDownload::traverse_node(
+            node,
+            &mut element,
+            images_to_load,
+            images_bitmap,
+            images_svg,
+            heading_weight,
+        );
         element
     }))
     .into();

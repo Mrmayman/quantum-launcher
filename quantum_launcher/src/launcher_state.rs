@@ -9,7 +9,7 @@ use iced::{widget::image::Handle, Command};
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, InstanceSelection, IntoIoError, IoError, JavaInstallProgress, JsonFileError,
+    DownloadProgress, InstanceSelection, IntoIoError, JavaInstallProgress, JsonFileError,
 };
 use ql_instances::{
     AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
@@ -21,7 +21,9 @@ use ql_mod_manager::{
         forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ApplyUpdateProgress, Loader, ModConfig, ModIndex, ProjectInfo, Search},
+    mod_manager::{
+        ApplyUpdateProgress, ImageResult, Loader, ModConfig, ModIndex, ProjectInfo, Search,
+    },
 };
 use ql_servers::ServerCreateProgress;
 use tokio::process::{Child, ChildStdin};
@@ -113,6 +115,7 @@ pub enum Message {
     CoreErrorCopy,
     CoreTick,
     CoreTickConfigSaved(Result<(), String>),
+    CoreListLoaded(Result<(Vec<String>, bool), String>),
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
@@ -121,7 +124,7 @@ pub enum Message {
     InstallModsSearchResult(Result<(Search, Instant), String>),
     InstallModsOpen,
     InstallModsSearchInput(String),
-    InstallModsImageDownloaded(Result<(String, Vec<u8>), String>),
+    InstallModsImageDownloaded(Result<ImageResult, String>),
     InstallModsClick(usize),
     InstallModsBackToMainScreen,
     InstallModsLoadData(Result<Box<ProjectInfo>, String>),
@@ -356,7 +359,6 @@ pub enum State {
 }
 
 pub struct MenuServerManage {
-    pub server_list: Vec<String>,
     pub java_install_recv: Option<Receiver<JavaInstallProgress>>,
     pub message: Option<String>,
 }
@@ -406,13 +408,15 @@ pub struct Launcher {
     pub selected_instance: Option<InstanceSelection>,
     pub client_version_list_cache: Option<Vec<ListEntry>>,
     pub server_version_list_cache: Option<Vec<ListEntry>>,
-    pub instances: Option<Vec<String>>,
+    pub client_list: Option<Vec<String>>,
+    pub server_list: Option<Vec<String>>,
     pub config: Option<LauncherConfig>,
     pub client_processes: HashMap<String, ClientProcess>,
     pub server_processes: HashMap<String, ServerProcess>,
     pub client_logs: HashMap<String, InstanceLog>,
     pub server_logs: HashMap<String, InstanceLog>,
-    pub images: HashMap<String, Handle>,
+    pub images_bitmap: HashMap<String, Handle>,
+    pub images_svg: HashMap<String, iced::widget::svg::Handle>,
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
     pub theme: LauncherTheme,
@@ -444,33 +448,41 @@ impl Drop for ServerProcess {
 }
 
 impl Launcher {
-    pub fn new(message: Option<String>) -> Result<Self, JsonFileError> {
-        let subdirectories = get_entries("instances")?;
+    pub fn load_new(message: Option<String>) -> Result<(Self, Command<Message>), JsonFileError> {
+        let command = Command::perform(
+            get_entries("instances".to_owned(), false),
+            Message::CoreListLoaded,
+        );
 
         let (config, theme, style) = load_config_and_theme()?;
         *STYLE.lock().unwrap() = style;
 
-        Ok(Self {
-            instances: Some(subdirectories),
-            state: State::Launch(if let Some(message) = message {
-                MenuLaunch::with_message(message)
-            } else {
-                MenuLaunch::default()
-            }),
-            client_processes: HashMap::new(),
-            config,
-            client_logs: HashMap::new(),
-            selected_instance: None,
-            images: HashMap::new(),
-            images_downloads_in_progress: HashSet::new(),
-            images_to_load: Mutex::new(HashSet::new()),
-            theme,
-            style: STYLE.clone(),
-            client_version_list_cache: None,
-            server_version_list_cache: None,
-            server_processes: HashMap::new(),
-            server_logs: HashMap::new(),
-        })
+        Ok((
+            Self {
+                client_list: None,
+                server_list: None,
+                state: State::Launch(if let Some(message) = message {
+                    MenuLaunch::with_message(message)
+                } else {
+                    MenuLaunch::default()
+                }),
+                client_processes: HashMap::new(),
+                config,
+                client_logs: HashMap::new(),
+                selected_instance: None,
+                images_bitmap: HashMap::new(),
+                images_svg: HashMap::new(),
+                images_downloads_in_progress: HashSet::new(),
+                images_to_load: Mutex::new(HashSet::new()),
+                theme,
+                style: STYLE.clone(),
+                client_version_list_cache: None,
+                server_version_list_cache: None,
+                server_processes: HashMap::new(),
+                server_logs: HashMap::new(),
+            },
+            command,
+        ))
     }
 
     pub fn with_error(error: &str) -> Self {
@@ -485,12 +497,14 @@ impl Launcher {
             state: State::Error {
                 error: format!("Error: {error}"),
             },
-            instances: None,
+            client_list: None,
+            server_list: None,
             config,
             client_processes: HashMap::new(),
             client_logs: HashMap::new(),
             selected_instance: None,
-            images: HashMap::new(),
+            images_bitmap: HashMap::new(),
+            images_svg: HashMap::new(),
             images_downloads_in_progress: HashSet::new(),
             images_to_load: Mutex::new(HashSet::new()),
             theme,
@@ -508,22 +522,15 @@ impl Launcher {
         }
     }
 
-    pub fn go_to_launch_screen(&mut self) {
-        self.state = State::Launch(MenuLaunch::default());
-        if let Ok(list) = get_entries("instances") {
-            self.instances = Some(list);
-        } else {
-            err!("Failed to reload instances list.");
-        }
-    }
-
-    pub fn go_to_launch_screen_with_message(&mut self, message: String) {
-        self.state = State::Launch(MenuLaunch::with_message(message));
-        if let Ok(list) = get_entries("instances") {
-            self.instances = Some(list);
-        } else {
-            err!("Failed to reload instances list.");
-        }
+    pub fn go_to_launch_screen(&mut self, message: Option<String>) -> Command<Message> {
+        self.state = State::Launch(match message {
+            Some(message) => MenuLaunch::with_message(message),
+            None => MenuLaunch::default(),
+        });
+        Command::perform(
+            get_entries("instances".to_owned(), false),
+            Message::CoreListLoaded,
+        )
     }
 
     pub fn edit_instance_w(&mut self) {
@@ -559,26 +566,37 @@ fn load_config_and_theme(
     Ok((Some(config), theme, style))
 }
 
-pub fn get_entries(path: &str) -> Result<Vec<String>, IoError> {
-    let dir_path = file_utils::get_launcher_dir()?;
-    std::fs::create_dir_all(&dir_path).path(&dir_path)?;
+pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {
+    let dir_path = file_utils::get_launcher_dir().map_err(|n| n.to_string())?;
+    if !dir_path.exists() {
+        tokio::fs::create_dir_all(&dir_path)
+            .await
+            .path(&dir_path)
+            .map_err(|n| n.to_string())?;
+    }
 
     let dir_path = dir_path.join(path);
-    std::fs::create_dir_all(&dir_path).path(&dir_path)?;
+    if !dir_path.exists() {
+        tokio::fs::create_dir_all(&dir_path)
+            .await
+            .path(&dir_path)
+            .map_err(|n| n.to_string())?;
+    }
 
-    let dir = std::fs::read_dir(&dir_path).path(dir_path)?;
+    let mut dir = tokio::fs::read_dir(&dir_path)
+        .await
+        .path(dir_path)
+        .map_err(|n| n.to_string())?;
 
-    let subdirectories: Vec<String> = dir
-        .filter_map(|entry| {
-            if let Ok(entry) = entry {
-                if entry.path().is_dir() {
-                    if let Some(file_name) = entry.file_name().to_str() {
-                        return Some(file_name.to_owned());
-                    }
-                }
+    let mut subdirectories = Vec::new();
+
+    while let Ok(Some(entry)) = dir.next_entry().await {
+        if entry.path().is_dir() {
+            if let Some(file_name) = entry.file_name().to_str() {
+                subdirectories.push(file_name.to_owned());
             }
-            None
-        })
-        .collect();
-    Ok(subdirectories)
+        }
+    }
+
+    Ok((subdirectories, is_server))
 }

@@ -19,14 +19,7 @@ impl Launcher {
             InstallFabricMessage::End(result) => match result {
                 Ok(()) => {
                     let message = "Installed Fabric".to_owned();
-                    match self.selected_instance.as_ref().unwrap() {
-                        InstanceSelection::Instance(_) => {
-                            self.go_to_launch_screen_with_message(message);
-                        }
-                        InstanceSelection::Server(_) => {
-                            self.go_to_server_manage_menu(Some(message));
-                        }
-                    }
+                    return self.go_to_main_menu(Some(message));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -111,7 +104,7 @@ impl Launcher {
             CreateInstanceMessage::End(result) => match result {
                 Ok(instance) => {
                     self.selected_instance = Some(InstanceSelection::Instance(instance));
-                    self.go_to_launch_screen_with_message("Created Instance".to_owned());
+                    return self.go_to_launch_screen(Some("Created Instance".to_owned()));
                 }
                 Err(n) => self.state = State::Error { error: n },
             },

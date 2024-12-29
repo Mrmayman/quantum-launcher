@@ -101,19 +101,16 @@ impl Application for Launcher {
             Message::UpdateCheckResult,
         );
 
-        let command = if let Some(command) = load_icon_command {
-            Command::batch(vec![command, check_for_updates_command])
-        } else {
-            check_for_updates_command
-        };
+        let mut command = Command::batch(vec![load_icon_command, check_for_updates_command]);
 
-        (
-            match Launcher::new(None) {
-                Ok(launcher) => launcher,
-                Err(error) => Launcher::with_error(&error.to_string()),
-            },
-            command,
-        )
+        let launcher = match Launcher::load_new(None) {
+            Ok((launcher, new_command)) => {
+                command = Command::batch(vec![command, new_command]);
+                launcher
+            }
+            Err(error) => Launcher::with_error(&error.to_string()),
+        };
+        (launcher, command)
     }
 
     fn title(&self) -> String {
@@ -135,7 +132,7 @@ impl Application for Launcher {
             Message::DeleteInstanceMenu => {
                 self.state = State::DeleteInstance;
             }
-            Message::DeleteInstance => self.delete_selected_instance(),
+            Message::DeleteInstance => return self.delete_selected_instance(),
             Message::LaunchScreenOpen {
                 message,
                 clear_selection,
@@ -143,11 +140,7 @@ impl Application for Launcher {
                 if clear_selection {
                     self.selected_instance = None;
                 }
-                if let Some(message) = message {
-                    self.go_to_launch_screen_with_message(message);
-                } else {
-                    self.go_to_launch_screen();
-                }
+                return self.go_to_launch_screen(message);
             }
             Message::EditInstance(message) => return self.update_edit_instance(message),
             Message::InstallFabric(message) => return self.update_install_fabric(message),
@@ -196,14 +189,7 @@ impl Application for Launcher {
                             loader.to_string()
                         }
                     );
-                    match self.selected_instance.as_ref().unwrap() {
-                        InstanceSelection::Instance(_) => {
-                            self.go_to_launch_screen_with_message(message)
-                        }
-                        InstanceSelection::Server(_) => {
-                            self.go_to_server_manage_menu(Some(message));
-                        }
-                    }
+                    return self.go_to_main_menu(Some(message));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -213,14 +199,7 @@ impl Application for Launcher {
             Message::InstallForgeEnd(result) => match result {
                 Ok(()) => {
                     let message = "Installed Forge".to_owned();
-                    match self.selected_instance.as_ref().unwrap() {
-                        InstanceSelection::Instance(_) => {
-                            self.go_to_launch_screen_with_message(message)
-                        }
-                        InstanceSelection::Server(_) => {
-                            self.go_to_server_manage_menu(Some(message))
-                        }
-                    }
+                    return self.go_to_main_menu(Some(message));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -308,10 +287,10 @@ impl Application for Launcher {
                 if let Err(err) = err {
                     self.set_error(err);
                 } else {
-                    self.go_to_launch_screen_with_message(
+                    return self.go_to_launch_screen(Some(
                         "Updated launcher! Close and reopen the launcher to see the new update"
                             .to_owned(),
-                    );
+                    ));
                 }
             }
             Message::InstallModsSearchResult(search) => {
@@ -369,8 +348,14 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::InstallModsImageDownloaded(image) => match image {
-                Ok((name, path)) => {
-                    self.images.insert(name, Handle::from_memory(path));
+                Ok(image) => {
+                    if image.is_svg {
+                        let handle = iced::widget::svg::Handle::from_memory(image.image);
+                        self.images_svg.insert(image.url, handle);
+                    } else {
+                        self.images_bitmap
+                            .insert(image.url, Handle::from_memory(image.image));
+                    }
                 }
                 Err(err) => {
                     err!("Could not download image: {err}");
@@ -489,7 +474,7 @@ impl Application for Launcher {
                 if let Err(err) = result {
                     self.set_error(err);
                 } else {
-                    self.go_to_launch_screen_with_message("Installed OptiFine".to_owned());
+                    return self.go_to_launch_screen(Some("Installed OptiFine".to_owned()));
                 }
             }
             Message::ManageModsUpdateCheckResult(updates) => {
@@ -516,7 +501,7 @@ impl Application for Launcher {
                 message,
             } => {
                 self.selected_instance = selected_server.map(InstanceSelection::Server);
-                self.go_to_server_manage_menu(message)
+                return self.go_to_server_manage_menu(message);
             }
             Message::ServerCreateScreenOpen => {
                 if let Some(cache) = &self.server_version_list_cache {
@@ -577,7 +562,7 @@ impl Application for Launcher {
             Message::ServerCreateEnd(result) => match result {
                 Ok(name) => {
                     self.selected_instance = Some(InstanceSelection::Server(name));
-                    self.go_to_server_manage_menu(Some("Created Server".to_owned()))
+                    return self.go_to_server_manage_menu(Some("Created Server".to_owned()));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -600,11 +585,14 @@ impl Application for Launcher {
             Message::ServerDeleteConfirm => {
                 if let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance {
                     match ql_servers::delete_server(selected_server) {
-                        Ok(()) => self.go_to_server_manage_menu(Some("Deleted Server".to_owned())),
+                        Ok(()) => {
+                            self.selected_instance = None;
+                            return self
+                                .go_to_server_manage_menu(Some("Deleted Server".to_owned()));
+                        }
                         Err(err) => self.set_error(err),
                     }
                 }
-                self.selected_instance = None;
             }
             Message::ServerManageStartServer(server) => {
                 self.server_logs.remove(&server);
@@ -614,7 +602,7 @@ impl Application for Launcher {
                 }
 
                 if self.server_processes.contains_key(&server) {
-                    err!("Server is already running")
+                    err!("Server is already running");
                 } else {
                     return Command::perform(
                         ql_servers::run_w(server, sender),
@@ -650,7 +638,7 @@ impl Application for Launcher {
                     *has_issued_stop_command = true;
                     if *is_classic_server {
                         if let Err(err) = child.lock().unwrap().start_kill() {
-                            err!("Could not kill classic server: {err}")
+                            err!("Could not kill classic server: {err}");
                         }
                     } else {
                         let future = stdin.write_all("stop\n".as_bytes());
@@ -713,7 +701,7 @@ impl Application for Launcher {
                 if let Err(err) = result {
                     self.set_error(err);
                 } else {
-                    self.go_to_server_manage_menu(Some("Installed Paper".to_owned()));
+                    return self.go_to_server_manage_menu(Some("Installed Paper".to_owned()));
                 }
             }
             Message::UninstallLoaderPaperStart => {
@@ -728,6 +716,16 @@ impl Application for Launcher {
                     Message::UninstallLoaderEnd,
                 )
             }
+            Message::CoreListLoaded(result) => match result {
+                Ok((list, is_server)) => {
+                    if is_server {
+                        self.server_list = Some(list);
+                    } else {
+                        self.client_list = Some(list);
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
         }
         Command::none()
     }
@@ -743,7 +741,7 @@ impl Application for Launcher {
         match &self.state {
             State::Launch(menu) => menu.view(
                 self.config.as_ref(),
-                self.instances.as_deref(),
+                self.client_list.as_deref(),
                 &self.client_processes,
                 &self.client_logs,
                 self.selected_instance.as_ref(),
@@ -771,7 +769,9 @@ impl Application for Launcher {
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava(menu) => menu.view(),
-            State::ModsDownload(menu) => menu.view(&self.images, &self.images_to_load),
+            State::ModsDownload(menu) => {
+                menu.view(&self.images_bitmap, &self.images_svg, &self.images_to_load)
+            }
             State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
             State::RedownloadAssets(menu) => widget::column!(
                 widget::text("Redownloading Assets").size(20),
@@ -782,6 +782,7 @@ impl Application for Launcher {
             .into(),
             State::InstallOptifine(menu) => menu.view(),
             State::ServerManage(menu) => menu.view(
+                self.server_list.as_ref(),
                 self.selected_instance.as_ref(),
                 &self.server_logs,
                 &self.server_processes,
@@ -826,13 +827,13 @@ impl Application for Launcher {
     }
 }
 
-fn load_window_icon() -> Option<Command<Message>> {
+fn load_window_icon() -> Command<Message> {
     let icon = iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico));
     match icon {
-        Ok(icon) => Some(iced::window::change_icon(iced::window::Id::MAIN, icon)),
+        Ok(icon) => iced::window::change_icon(iced::window::Id::MAIN, icon),
         Err(err) => {
             err!("Could not load icon: {err}");
-            None
+            Command::none()
         }
     }
 }
@@ -911,17 +912,15 @@ impl Launcher {
         }
     }
 
-    fn go_to_server_manage_menu(&mut self, message: Option<String>) {
-        match get_entries("servers") {
-            Ok(entries) => {
-                self.state = State::ServerManage(MenuServerManage {
-                    server_list: entries,
-                    java_install_recv: None,
-                    message,
-                });
-            }
-            Err(err) => self.set_error(err),
-        }
+    fn go_to_server_manage_menu(&mut self, message: Option<String>) -> Command<Message> {
+        self.state = State::ServerManage(MenuServerManage {
+            java_install_recv: None,
+            message,
+        });
+        Command::perform(
+            get_entries("servers".to_owned(), true),
+            Message::CoreListLoaded,
+        )
     }
 
     fn install_forge(&mut self) -> Command<Message> {
@@ -995,6 +994,13 @@ impl Launcher {
         );
         Command::none()
     }
+
+    fn go_to_main_menu(&mut self, message: Option<String>) -> Command<Message> {
+        match self.selected_instance.as_ref().unwrap() {
+            InstanceSelection::Instance(_) => self.go_to_launch_screen(message),
+            InstanceSelection::Server(_) => self.go_to_server_manage_menu(message),
+        }
+    }
 }
 
 // async fn pick_file() -> Option<PathBuf> {
@@ -1030,8 +1036,12 @@ fn main() {
     if let Some(op) = info.operation {
         match op {
             ArgumentOperation::ListInstances => {
-                match get_entries("instances").map_err(|err| err.to_string()) {
-                    Ok(instances) => {
+                match tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(get_entries("instances".to_owned(), false))
+                    .map_err(|err| err.to_string())
+                {
+                    Ok((instances, _)) => {
                         for instance in instances {
                             let launcher_dir = file_utils::get_launcher_dir().unwrap();
                             let instance_dir = launcher_dir.join("instances").join(&instance);
