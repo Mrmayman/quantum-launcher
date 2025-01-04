@@ -5,34 +5,53 @@ use std::{
 };
 
 use ql_core::{
-    do_jobs, file_utils, info,
+    do_jobs, err, file_utils, info,
     json::version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
-    DownloadError, DownloadProgress, IntoIoError, IoError,
+    pt, DownloadError, DownloadProgress, IntoIoError, IoError,
 };
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use zip_extract::ZipExtractError;
 
-use super::{constants::OS_NAME, GameDownloader};
+use crate::json_natives::{JsonNatives, NativesEntry};
+
+use super::{constants::*, GameDownloader};
+
+#[derive(Serialize, Deserialize)]
+struct LwjglLibrary {
+    libraries: Vec<Library>,
+}
 
 impl GameDownloader {
-    pub async fn download_libraries(&self) -> Result<(), DownloadError> {
+    pub async fn download_libraries(&mut self) -> Result<(), DownloadError> {
         info!("Starting download of libraries.");
 
         self.prepare_library_directories()?;
 
         let total_libraries = self.version_json.libraries.len();
 
-        let bar = indicatif::ProgressBar::new(total_libraries as u64);
-
         let num_library = Mutex::new(0);
 
-        let results = self
-            .version_json
-            .libraries
-            .iter()
-            .map(|lib| self.download_library_fn(&bar, lib, &num_library, total_libraries));
+        #[allow(unused_mut)]
+        let mut replaced_names = Vec::new();
+
+        #[cfg(target_arch = "aarch64")]
+        self.aarch64_patch_libs(&mut replaced_names)?;
+
+        let results = self.version_json.libraries.iter().map(|lib| {
+            self.download_library_fn(lib, &num_library, total_libraries, &replaced_names)
+        });
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            // We don't want any x64 libraries on ARM, do we?
+            let dir = self.instance_dir.join("libraries/natives/linux/x64");
+            if dir.exists() {
+                std::fs::remove_dir_all(&dir).path(dir)?;
+            }
+        }
 
         let outputs = do_jobs(results).await;
 
@@ -42,19 +61,48 @@ impl GameDownloader {
         Ok(())
     }
 
+    #[cfg(target_arch = "aarch64")]
+    fn aarch64_patch_libs(
+        &mut self,
+        replaced_names: &mut Vec<String>,
+    ) -> Result<(), DownloadError> {
+        Ok(
+            for lwjgl in [
+                LWJGL_294, LWJGL_312, LWJGL_316, LWJGL_321, LWJGL_322, LWJGL_331, LWJGL_332,
+                LWJGL_333,
+            ] {
+                let lib: LwjglLibrary = serde_json::from_str(lwjgl)?;
+                for lib in lib.libraries {
+                    if let Some(library) = self
+                        .version_json
+                        .libraries
+                        .iter_mut()
+                        .find(|n| n.name == lib.name)
+                    {
+                        if let Some(name) = lib.name.clone() {
+                            info!("Patching {name}");
+                            replaced_names.push(name);
+                        }
+                        *library = lib;
+                    }
+                }
+            },
+        )
+    }
+
     async fn download_library_fn(
         &self,
-        bar: &indicatif::ProgressBar,
         library: &Library,
         library_i: &Mutex<usize>,
         library_len: usize,
+        replaced_libs: &[String],
     ) -> Result<(), DownloadError> {
         if !GameDownloader::download_libraries_library_is_allowed(library) {
-            bar.println(format!("Skipping library:\n{library:#?}\n",));
+            // info!("Skipping library:\n{library:#?}\n",);
             return Ok(());
         }
 
-        self.download_library(library, bar).await?;
+        self.download_library(library, replaced_libs).await?;
 
         {
             let mut library_i = library_i.lock().unwrap();
@@ -64,8 +112,6 @@ impl GameDownloader {
             })?;
             *library_i += 1;
         }
-
-        bar.inc(1);
 
         Ok(())
     }
@@ -81,64 +127,107 @@ impl GameDownloader {
     async fn download_library(
         &self,
         library: &Library,
-        bar: &indicatif::ProgressBar,
+        replaced_libs: &[String],
     ) -> Result<(), DownloadError> {
         let libraries_dir = self.instance_dir.join("libraries");
 
-        if let Some(downloads) = library.downloads.as_ref() {
-            match downloads {
-                LibraryDownloads::Normal { artifact, .. } => {
-                    let jar_file = self
-                        .download_library_normal(artifact, &libraries_dir)
-                        .await?;
+        if let Some(LibraryDownloads {
+            artifact,
+            classifiers,
+            ..
+        }) = library.downloads.as_ref()
+        {
+            if let Some(artifact) = artifact {
+                let jar_file = self
+                    .download_library_normal(artifact, &libraries_dir)
+                    .await?;
+                info!("Downloading {}", artifact.url);
 
-                    GameDownloader::extract_native_library(
-                        &self.instance_dir,
-                        &self.network_client,
-                        library,
-                        &jar_file,
-                        artifact,
-                        bar,
-                    )
+                GameDownloader::extract_native_library(
+                    &self.instance_dir,
+                    &self.network_client,
+                    library,
+                    &jar_file,
+                    artifact,
+                    replaced_libs,
+                )
+                .await?;
+            }
+            if let Some(classifiers) = classifiers {
+                self.download_library_native(classifiers, &libraries_dir, library.extract.as_ref())
                     .await?;
-                }
-                LibraryDownloads::Native { classifiers } => {
-                    self.download_library_native(
-                        classifiers,
-                        &libraries_dir,
-                        library.extract.as_ref(),
-                    )
-                    .await?;
-                }
             }
         }
         Ok(())
     }
 
+    /// Function to extract native libraries for Minecraft 1.16+
+    /// (which uses a different format).
     pub async fn extract_native_library(
         instance_dir: &Path,
         client: &Client,
         library: &Library,
         jar_file: &[u8],
         artifact: &LibraryDownloadArtifact,
-        bar: &indicatif::ProgressBar,
+        replaced_libs: &[String],
     ) -> Result<(), DownloadError> {
+        let natives_path = instance_dir.join("libraries/natives");
+
         if let Some(natives) = &library.natives {
-            if let Some(natives_name) = natives.get(OS_NAME) {
-                bar.println("- Extracting natives: Extracting main jar");
-                let natives_path = instance_dir.join("libraries/natives");
+            let is_valid = if cfg!(target_arch = "aarch64") {
+                if let Some(name) = &library.name {
+                    if replaced_libs.contains(name) {
+                        true
+                    } else {
+                        pt!("Didn't replace {name}");
+                        false
+                    }
+                } else {
+                    pt!("Library doesn't have a name!");
+                    false
+                }
+            } else {
+                true
+            };
 
-                extract_zip_file(jar_file, &natives_path)
-                    .map_err(DownloadError::NativesExtractError)?;
+            if is_valid {
+                if let Some(natives_name) = natives.get(OS_NAME) {
+                    info!("Extracting natives (1) {:?}", library.name);
+                    pt!("Extracting main jar");
 
-                let url = &artifact.url[..artifact.url.len() - 4];
-                let url = format!("{url}-{natives_name}.jar");
-                bar.println("- Extracting natives: Downloading native jar");
-                let native_jar = file_utils::download_file_to_bytes(client, &url, false).await?;
+                    extract_zip_file(jar_file, &natives_path)
+                        .map_err(DownloadError::NativesExtractError)?;
 
-                bar.println("- Extracting natives: Extracting native jar");
-                extract_zip_file(&native_jar, &natives_path)
-                    .map_err(DownloadError::NativesExtractError)?;
+                    let url = &artifact.url[..artifact.url.len() - 4];
+                    let url = format!("{url}-{natives_name}.jar");
+                    pt!("Downloading native jar");
+                    let native_jar =
+                        file_utils::download_file_to_bytes(client, &url, false).await?;
+
+                    pt!("Extracting native jar");
+                    extract_zip_file(&native_jar, &natives_path)
+                        .map_err(DownloadError::NativesExtractError)?;
+                }
+            }
+        }
+
+        if let Some(name) = &library.name {
+            if name.contains("native") {
+                let is_arm = cfg!(target_arch = "aarch64");
+                let is_arm_native = name.contains("arm") || name.contains("aarch");
+
+                let is_compatible = is_arm == is_arm_native;
+
+                if is_compatible {
+                    info!("Downloading native (2) {name}");
+                    let jar_file =
+                        file_utils::download_file_to_bytes(client, &artifact.url, false).await?;
+                    pt!("Extracting native");
+                    extract_zip_file(&jar_file, &natives_path)
+                        .map_err(DownloadError::NativesExtractError)?;
+                } else {
+                    download_other_platform_natives(name, client, natives_path).await?;
+                }
             }
         }
         Ok(())
@@ -176,7 +265,10 @@ impl GameDownloader {
         let natives_dir = libraries_dir.join("natives");
 
         for (os, download) in classifiers {
-            if *os != format!("natives-{OS_NAME}") {
+            if !OS_NAMES
+                .iter()
+                .any(|os_name| os.starts_with(&format!("natives-{os_name}")))
+            {
                 continue;
             }
 
@@ -232,14 +324,73 @@ impl GameDownloader {
             }
         }
 
-        if let Some(LibraryDownloads::Native { classifiers }) = &library.downloads {
-            if classifiers.contains_key(&format!("natives-{OS_NAME}")) {
+        if let Some(classifiers) = library
+            .downloads
+            .as_ref()
+            .and_then(|n| n.classifiers.as_ref())
+        {
+            if supports_os(classifiers) {
                 allowed = true;
             }
         }
 
         allowed
     }
+}
+
+async fn download_other_platform_natives(
+    name: &String,
+    client: &Client,
+    natives_path: PathBuf,
+) -> Result<(), DownloadError> {
+    let Some(entry) = NativesEntry::get(name) else {
+        err!("Native library not recognised: {name}");
+        return Ok(());
+    };
+
+    let json = JsonNatives::download(entry).await?;
+    for library in json
+        .libraries
+        .iter()
+        .filter(|n| custom_natives_is_allowed(n))
+    {
+        let jar_file =
+            file_utils::download_file_to_bytes(client, &library.downloads.artifact.url, false)
+                .await?;
+
+        extract_zip_file(&jar_file, &natives_path).map_err(DownloadError::NativesExtractError)?;
+    }
+    Ok(())
+}
+
+fn custom_natives_is_allowed(library: &crate::json_natives::NativeLibrary) -> bool {
+    let Some(rules) = &library.rules else {
+        return true;
+    };
+    let mut allowed = !rules.iter().any(|n| n.action == "allow");
+    for (os, action) in rules
+        .iter()
+        .filter_map(|n| n.os.as_ref().map(|m| (m, &n.action)))
+    {
+        for os_name in OS_NAMES.iter().filter_map(|n| os.name.strip_prefix(n)) {
+            if os_name.is_empty()
+                || ((cfg!(target_arch = "x86_64") && os_name.contains("x86_64"))
+                    || (cfg!(target_arch = "aarch64") && os_name.contains("arm64")))
+            {
+                allowed = action == "allow";
+                break;
+            }
+        }
+    }
+    allowed
+}
+
+fn supports_os(classifiers: &std::collections::BTreeMap<String, LibraryClassifier>) -> bool {
+    classifiers.iter().any(|(k, _)| {
+        OS_NAMES
+            .iter()
+            .any(|n| k.starts_with(&format!("natives-{n}")))
+    })
 }
 
 pub fn extract_zip_file(archive: &[u8], target_dir: &Path) -> Result<(), ZipExtractError> {

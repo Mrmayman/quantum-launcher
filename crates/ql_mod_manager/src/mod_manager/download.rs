@@ -195,8 +195,8 @@ impl ModDownloader {
             if project_info.loaders.contains(loader) {
                 true
             } else {
-                println!(
-                    "- Skipping mod {}: No compatible loader found",
+                pt!(
+                    "Skipping mod {}: No compatible loader found",
                     project_info.title
                 );
                 false

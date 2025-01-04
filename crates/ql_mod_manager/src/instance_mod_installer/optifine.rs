@@ -80,7 +80,7 @@ pub async fn install_optifine(
         .await
         .path(path_to_installer)?;
 
-    info!("Compiling Hook.java");
+    info!("Compiling OptifineInstaller.java");
     if let Some(progress) = &progress_sender {
         progress
             .send(OptifineInstallProgress::P2CompilingHook)
@@ -88,7 +88,7 @@ pub async fn install_optifine(
     }
     compile_hook(&new_installer_path, &optifine_path, java_progress_sender).await?;
 
-    info!("Running Hook.java");
+    info!("Running OptifineInstaller.java");
     if let Some(progress) = &progress_sender {
         progress
             .send(OptifineInstallProgress::P3RunningHook)
@@ -154,8 +154,8 @@ async fn create_hook_java_file(
     optifine_path: &Path,
 ) -> Result<(), OptifineError> {
     let mc_path = dot_minecraft_path.to_str().unwrap().replace('\\', "\\\\");
-    let hook =
-        include_str!("../../../../assets/Hook.java").replace("REPLACE_WITH_MC_PATH", &mc_path);
+    let hook = include_str!("../../../../assets/installers/OptifineInstaller.java")
+        .replace("REPLACE_WITH_MC_PATH", &mc_path);
     let hook_path = optifine_path.join("Hook.java");
     tokio::fs::write(&hook_path, hook).await.path(hook_path)?;
     Ok(())

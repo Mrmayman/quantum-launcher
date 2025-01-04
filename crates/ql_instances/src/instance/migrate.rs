@@ -5,7 +5,7 @@ use std::{
 
 use ql_core::{info, json::version::LibraryDownloads, IntoIoError};
 
-use crate::{download::GameDownloader, LAUNCHER_VERSION};
+use crate::download::GameDownloader;
 
 use super::launch::{error::GameLaunchError, GameLauncher, CLASSPATH_SEPARATOR};
 
@@ -25,7 +25,16 @@ impl GameLauncher {
         let version = semver::Version::parse(&version)?;
 
         let client = reqwest::Client::new();
-        if version < LAUNCHER_VERSION {
+
+        let allowed_version = semver::Version {
+            major: 0,
+            minor: 3,
+            patch: 0,
+            pre: semver::Prerelease::EMPTY,
+            build: semver::BuildMetadata::EMPTY,
+        };
+
+        if version < allowed_version {
             self.migrate_download_missing_native_libs(&client).await?;
         }
 
@@ -37,14 +46,17 @@ impl GameLauncher {
         client: &reqwest::Client,
     ) -> Result<(), GameLaunchError> {
         info!("Downloading missing native libraries");
-        let bar = indicatif::ProgressBar::new(self.version_json.libraries.len() as u64);
 
         for library in &self.version_json.libraries {
             if !GameDownloader::download_libraries_library_is_allowed(library) {
                 continue;
             }
 
-            if let Some(LibraryDownloads::Normal { artifact, .. }) = &library.downloads {
+            if let Some(LibraryDownloads {
+                artifact: Some(artifact),
+                ..
+            }) = &library.downloads
+            {
                 let library_path = self.instance_dir.join("libraries").join(&artifact.path);
                 let library_file = std::fs::read(&library_path).path(library_path)?;
 
@@ -54,7 +66,7 @@ impl GameLauncher {
                     library,
                     &library_file,
                     artifact,
-                    &bar,
+                    &Vec::new(),
                 )
                 .await?;
             }

@@ -193,7 +193,7 @@ impl ForgeInstaller {
         installer_name: &str,
     ) -> Result<(), ForgeInstallError> {
         let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
-        let java_source_file = include_str!("../../../../../assets/ClientInstaller.java")
+        let java_source_file = include_str!("../../../../../assets/installers/ForgeInstaller.java")
             .replace("CLIENT", if self.is_server { "SERVER" } else { "CLIENT" });
         let source_path = self.forge_dir.join("ClientInstaller.java");
         std::fs::write(&source_path, java_source_file).path(source_path)?;

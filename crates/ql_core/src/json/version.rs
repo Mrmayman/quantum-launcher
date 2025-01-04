@@ -143,41 +143,16 @@ pub struct LibraryExtract {
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum LibraryDownloads {
-    Normal {
-        artifact: LibraryDownloadArtifact,
-        name: Option<String>,
-    },
-    Native {
-        classifiers: BTreeMap<String, LibraryClassifier>,
-    },
-}
-
-impl Debug for LibraryDownloads {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LibraryDownloads::Normal {
-                artifact,
-                name: None,
-            } => {
-                write!(f, "Normal: {artifact:#?}")
-            }
-            LibraryDownloads::Normal {
-                artifact,
-                name: Some(name),
-            } => write!(f, "Normal ({name}): {artifact:?}"),
-            LibraryDownloads::Native { classifiers } => {
-                write!(f, "Native: {classifiers:?}")
-            }
-        }
-    }
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LibraryDownloads {
+    pub artifact: Option<LibraryDownloadArtifact>,
+    pub name: Option<String>,
+    pub classifiers: Option<BTreeMap<String, LibraryClassifier>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryClassifier {
-    pub path: String,
+    pub path: Option<String>,
     pub sha1: String,
     pub size: usize,
     pub url: String,

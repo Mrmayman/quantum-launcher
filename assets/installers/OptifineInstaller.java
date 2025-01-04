@@ -16,12 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-import optifine.Installer;
 import java.io.File;
+import optifine.Installer;
 
 // For hooking with the OptiFine installer.
 
-public class Hook {
+public class OptifineInstaller {
+
     public static void main(String[] args) {
         String directoryPath = "REPLACE_WITH_MC_PATH";
         File dirMc = new File(directoryPath);

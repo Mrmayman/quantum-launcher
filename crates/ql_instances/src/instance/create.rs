@@ -55,7 +55,7 @@ pub async fn create_instance(
         sender.send(DownloadProgress::Started)?;
     }
 
-    let game_downloader = GameDownloader::new(instance_name, &version, progress_sender).await?;
+    let mut game_downloader = GameDownloader::new(instance_name, &version, progress_sender).await?;
 
     game_downloader.download_logging_config().await?;
     game_downloader.download_jar().await?;

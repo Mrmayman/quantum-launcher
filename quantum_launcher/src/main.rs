@@ -1079,13 +1079,13 @@ fn main() {
             ..Default::default()
         },
         fonts: vec![
-            include_bytes!("../../assets/Inter-Regular.ttf")
+            include_bytes!("../../assets/fonts/Inter-Regular.ttf")
                 .as_slice()
                 .into(),
-            include_bytes!("../../assets/launcher-icons.ttf")
+            include_bytes!("../../assets/fonts/launcher-icons.ttf")
                 .as_slice()
                 .into(),
-            include_bytes!("../../assets/JetBrainsMono-Regular.ttf")
+            include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
                 .as_slice()
                 .into(),
         ],

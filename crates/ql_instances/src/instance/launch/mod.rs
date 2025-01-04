@@ -475,9 +475,13 @@ impl GameLauncher {
             .iter()
             .filter(|n| GameDownloader::download_libraries_library_is_allowed(n))
             .filter_map(|n| match (&n.name, n.downloads.as_ref()) {
-                (Some(name), Some(LibraryDownloads::Normal { artifact, .. })) => {
-                    Some((name, artifact))
-                }
+                (
+                    Some(name),
+                    Some(LibraryDownloads {
+                        artifact: Some(artifact),
+                        ..
+                    }),
+                ) => Some((name, artifact)),
                 _ => None,
             })
             .map(|(name, artifact)| {

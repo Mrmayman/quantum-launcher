@@ -1,5 +1,53 @@
+//! # A module for creating, managing and running Minecraft
+//! client instances
+//!
+//! This module contains functions to:
+//! - Create and delete an instance
+//! - Launch the instance
+//! - Update the launcher
+//! - List versions available for download
+//!
+//! # A rant about natives
+//! ## What are natives?
+//! Natives are libraries that are platform-specific.
+//! They are used by Minecraft to interface with the operating system.
+//!
+//! ## Types of natives
+//! - `natives: *` - These are part of the main library
+//!   but have a separate jar file included that is extracted to
+//!   the `natives` folder.
+//! - `name: *-natives-*` - They are a separate library
+//!   whose jar file is extracted to the `natives` folder.
+//! - `classifiers: *` - Once again, part of main library
+//!   but have separate jar files for each OS. Just formatted
+//!   differently in the json.
+//!
+//! These 3 separate types of natives make it a headache to
+//! deal with all three correctly, WHILE JUGGLING ALONG
+//! THIRD PARTY ARM64 SOURCES FOR LIBRARIES!!!
+//!
+//! ## The problem
+//! Mojang has a habit of not including ARM64 natives in their
+//! libraries (well they do sometimes but not always).
+//!
+//! This is a problem for ARM64 users as they can't
+//! run the game without the natives.
+//!
+//! ## The solution
+//! We download the ARM64 natives from two different sources:
+//! - `https://github.com/Kichura/Minecraft_ARM` - Providing
+//!   natives for LWJGL, Log4J, Oshi, JavaObjCBridge, and Slf4J.
+//! - `./assets/lwjgl_arm64/*` - Providing natives for different
+//!   LWJGL versions.
+//!
+//! Both of these complement each other and provide a complete
+//! set of natives for ARM64 users.
+//!
+//! It's still a bit of a hack but it works.
+
 mod download;
 mod instance;
+mod json_natives;
 pub mod json_profiles;
 mod launcher_update_detector;
 
