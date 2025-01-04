@@ -1,11 +1,8 @@
 use std::sync::mpsc::Sender;
 
-use ql_core::{
-    file_utils, info, json::instance_config::OmniarchiveEntry, DownloadError, DownloadProgress,
-    IntoIoError,
-};
+use ql_core::{file_utils, info, DownloadError, DownloadProgress, IntoIoError, ListEntry};
 
-use crate::{download::GameDownloader, ListEntry, LAUNCHER_VERSION_NAME};
+use crate::{download::GameDownloader, LAUNCHER_VERSION_NAME};
 
 /// Creates a Minecraft instance.
 ///
@@ -67,24 +64,7 @@ pub async fn create_instance(
 
     game_downloader.create_version_json().await?;
     game_downloader.create_profiles_json().await?;
-    game_downloader
-        .create_config_json(
-            if let ListEntry::Omniarchive {
-                category,
-                name,
-                url,
-            } = &version
-            {
-                Some(OmniarchiveEntry {
-                    name: name.clone(),
-                    url: url.clone(),
-                    category: category.to_string(),
-                })
-            } else {
-                None
-            },
-        )
-        .await?;
+    game_downloader.create_config_json().await?;
 
     let version_file_path = launcher_dir
         .join("instances")

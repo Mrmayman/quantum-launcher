@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use iced::Command;
 use ql_core::{err, info, InstanceSelection, JavaInstallProgress};
-use ql_instances::{AssetRedownloadProgress, LogLine, ScrapeProgress, UpdateProgress};
+use ql_instances::{AssetRedownloadProgress, LogLine, UpdateProgress};
 use ql_mod_manager::{
     instance_mod_installer::{
         fabric::FabricInstallProgress, forge::ForgeInstallProgress,
@@ -211,26 +211,13 @@ impl Launcher {
 
                 self.tick_server_processes_and_logs();
             }
-            State::ServerCreate(menu) => match menu {
-                MenuServerCreate::Loading {
-                    progress_receiver,
-                    progress_number,
-                } => {
-                    while let Ok(progress) = progress_receiver.try_recv() {
-                        if let ScrapeProgress::ScrapedFile = progress {
-                            *progress_number += 1.0;
-                        }
-                        if *progress_number > 15.0 {
-                            err!("More than 15 indexes scraped: {progress_number}");
-                            *progress_number = 15.0;
-                        }
-                    }
-                }
-                MenuServerCreate::Loaded {
+            State::ServerCreate(menu) => {
+                if let MenuServerCreate::Loaded {
                     progress_receiver,
                     progress_number,
                     ..
-                } => {
+                } = menu
+                {
                     while let Some(progress) =
                         progress_receiver.as_ref().and_then(|n| n.try_recv().ok())
                     {
@@ -241,7 +228,7 @@ impl Launcher {
                         };
                     }
                 }
-            },
+            }
             State::Error { .. }
             | State::DeleteInstance
             | State::ServerDelete { .. }
@@ -564,37 +551,21 @@ impl MenuEditMods {
 
 impl MenuCreateInstance {
     pub fn tick(&mut self) {
-        match self {
-            MenuCreateInstance::Loading {
-                progress_receiver,
-                progress_number,
-            } => {
-                while let Ok(progress) = progress_receiver.try_recv() {
-                    if let ScrapeProgress::ScrapedFile = progress {
-                        *progress_number += 1.0;
-                    }
-                    if *progress_number > 21.0 {
-                        err!("More than 20 indexes scraped: {}", *progress_number - 1.0);
-                        *progress_number = 21.0;
-                    }
+        if let MenuCreateInstance::Loaded {
+            progress_receiver: Some(receiver),
+            progress_number,
+            progress_text,
+            ..
+        } = self
+        {
+            while let Ok(progress) = receiver.try_recv() {
+                if let Some(progress_text) = progress_text {
+                    *progress_text = progress.to_string();
+                }
+                if let Some(progress_num) = progress_number {
+                    *progress_num = progress.into();
                 }
             }
-            MenuCreateInstance::Loaded {
-                progress_receiver: Some(receiver),
-                progress_number,
-                progress_text,
-                ..
-            } => {
-                while let Ok(progress) = receiver.try_recv() {
-                    if let Some(progress_text) = progress_text {
-                        *progress_text = progress.to_string();
-                    }
-                    if let Some(progress_num) = progress_number {
-                        *progress_num = progress.into();
-                    }
-                }
-            }
-            MenuCreateInstance::Loaded { .. } => {}
         }
     }
 }

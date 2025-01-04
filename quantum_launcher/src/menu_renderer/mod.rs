@@ -777,20 +777,11 @@ impl MenuEditMods {
 impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
-            MenuCreateInstance::Loading {
-                progress_number, ..
-            } => widget::column![
-                widget::text("Loading version list...").size(20),
-                widget::progress_bar(0.0..=21.0, *progress_number),
-                widget::text(if *progress_number >= 1.0 {
-                    format!("Downloading Omniarchive list {progress_number} / 20")
-                } else {
-                    "Downloading official version list".to_owned()
-                })
-            ]
-            .padding(10)
-            .spacing(10)
-            .into(),
+            MenuCreateInstance::Loading => {
+                widget::column![widget::text("Loading version list...").size(20)]
+                    .padding(10)
+                    .into()
+            }
             MenuCreateInstance::Loaded {
                 instance_name,
                 selected_version,

@@ -26,19 +26,21 @@ pub struct VersionDetails {
     /// Details regarding console logging with log4j.
     pub logging: Option<Logging>,
     /// Which is the main class in the jar that has the main function.
-    pub mainClass: String,
+    pub mainClass: Option<String>,
     /// The list of command line arguments.
     ///
     /// Used in old Minecraft versions, compared to arguments used in new versions.
     pub minecraftArguments: Option<String>,
     /// Minimum version of the official launcher that is supported. Not applicable here.
-    pub minimumLauncherVersion: usize,
+    pub minimumLauncherVersion: Option<usize>,
     /// When was this version released. Idk the difference between time and releaseTime.
     pub releaseTime: String,
     /// When was this version released. Idk the difference between time and releaseTime.
     pub time: String,
-    /// Type of version, such as alpha, beta or release.
+    /// Type of version (1)
     pub r#type: String,
+    /// Type of version (2) used by omniarchive
+    pub phase: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

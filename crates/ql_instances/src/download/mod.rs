@@ -1,27 +1,26 @@
 pub mod constants;
 mod library_downloader;
 
+// TODO: Implement BetaCraft wrapper
+// https://codex-ipsa.dejvoss.cz/MCL-Data/launcher/libraries/betacraft-wrapper-20230129.jar
+
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::mpsc::{SendError, Sender},
 };
 
 use indicatif::ProgressBar;
-use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err, file_utils, info,
-    json::{
-        instance_config::{InstanceConfigJson, OmniarchiveEntry},
-        manifest::Manifest,
-        version::VersionDetails,
-    },
-    DownloadError, DownloadProgress, IntoIoError, IoError, JsonDownloadError,
+    json::{instance_config::InstanceConfigJson, manifest::Manifest, version::VersionDetails},
+    DownloadError, DownloadProgress, IntoIoError, IoError, JsonDownloadError, ListEntry,
 };
 use reqwest::Client;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-use crate::{instance::launch::AssetRedownloadProgress, json_profiles::ProfileJson, ListEntry};
+use crate::{instance::launch::AssetRedownloadProgress, json_profiles::ProfileJson};
 
 use self::constants::DEFAULT_RAM_MB_FOR_INSTANCE;
 
@@ -34,7 +33,6 @@ const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
-    pub version: ListEntry,
     network_client: Client,
     sender: Option<Sender<DownloadProgress>>,
 }
@@ -66,7 +64,6 @@ impl GameDownloader {
             instance_dir,
             version_json,
             network_client,
-            version: version.clone(),
             sender,
         })
     }
@@ -77,11 +74,9 @@ impl GameDownloader {
         sender: Option<Sender<DownloadProgress>>,
     ) -> Self {
         let network_client = Client::new();
-        let version = ListEntry::Normal(version_json.id.clone());
         Self {
             instance_dir,
             version_json,
-            version,
             network_client,
             sender,
         }
@@ -91,13 +86,7 @@ impl GameDownloader {
         info!("Downloading game jar file.");
         self.send_progress(DownloadProgress::DownloadingJar)?;
 
-        let url = match &self.version {
-            ListEntry::Normal(_) => &self.version_json.downloads.client.url,
-            ListEntry::Omniarchive { url, .. } => url,
-            ListEntry::OmniarchiveClassicZipServer { .. } => {
-                return Err(DownloadError::DownloadClassicZip)
-            }
-        };
+        let url = &self.version_json.downloads.client.url;
         let jar_bytes =
             file_utils::download_file_to_bytes(&self.network_client, url, false).await?;
 
@@ -142,26 +131,20 @@ impl GameDownloader {
 
     async fn download_assets_fn(
         &self,
-        object_data: &serde_json::Value,
+        object_data: &AssetIndexObject,
         objects_len: usize,
         assets_objects_path: &Path,
         bar: &ProgressBar,
         progress: &Mutex<usize>,
     ) -> Result<(), DownloadError> {
-        let obj_hash = object_data["hash"]
-            .as_str()
-            .ok_or(DownloadError::SerdeFieldNotFound(
-                "asset_index.objects[].hash".to_owned(),
-            ))?;
-
-        let obj_id = &obj_hash[0..2];
+        let obj_id = &object_data.hash[0..2];
 
         let obj_folder = assets_objects_path.join(obj_id);
         tokio::fs::create_dir_all(&obj_folder)
             .await
             .path(&obj_folder)?;
 
-        let obj_file_path = obj_folder.join(obj_hash);
+        let obj_file_path = obj_folder.join(&object_data.hash);
         if obj_file_path.exists() {
             // Asset has already been downloaded. Skip.
             {
@@ -178,12 +161,12 @@ impl GameDownloader {
             return Ok(());
         }
 
-        let obj_data = file_utils::download_file_to_bytes(
-            &self.network_client,
-            &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
-            false,
-        )
-        .await?;
+        let url = object_data
+            .url
+            .clone()
+            .unwrap_or(format!("{OBJECTS_URL}/{obj_id}/{}", object_data.hash));
+        let obj_data =
+            file_utils::download_file_to_bytes(&self.network_client, &url, false).await?;
 
         tokio::fs::write(&obj_file_path, &obj_data)
             .await
@@ -211,9 +194,11 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(AssetRedownloadProgress::P1Start).unwrap();
         }
-        let asset_index =
-            GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
-                .await?;
+        let asset_index = GameDownloader::download_asset_index(
+            &self.network_client,
+            &self.version_json.assetIndex.url,
+        )
+        .await?;
 
         let launcher_dir = file_utils::get_launcher_dir()?;
 
@@ -228,24 +213,18 @@ impl GameDownloader {
                 .await
                 .path(assets_dir)?;
 
-            let objects =
-                asset_index["objects"]
-                    .as_object()
-                    .ok_or(DownloadError::SerdeFieldNotFound(
-                        "asset_index.objects".to_owned(),
-                    ))?;
-
-            let bar = indicatif::ProgressBar::new(objects.len() as u64);
+            let bar = indicatif::ProgressBar::new(asset_index.objects.len() as u64);
 
             let progress = Mutex::new(0);
 
-            let results = objects.iter().map(|(obj_id, object_data)| {
+            let objects_len = asset_index.objects.len();
+            let results = asset_index.objects.iter().map(|(obj_id, object_data)| {
                 self.download_assets_legacy_fn(
                     legacy_path.join(obj_id),
                     object_data,
                     &bar,
                     &progress,
-                    objects.len(),
+                    objects_len,
                     sender,
                 )
             });
@@ -284,19 +263,13 @@ impl GameDownloader {
             self.save_asset_index_json(&assets_indexes_path, &asset_index)
                 .await?;
 
-            let objects =
-                asset_index["objects"]
-                    .as_object()
-                    .ok_or(DownloadError::SerdeFieldNotFound(
-                        "asset_index.objects".to_owned(),
-                    ))?;
-            let objects_len = objects.len();
+            let objects_len = asset_index.objects.len();
 
             let bar = indicatif::ProgressBar::new(objects_len as u64);
 
             let progress_num = Mutex::new(0);
 
-            let results = objects.iter().map(|(_, object_data)| {
+            let results = asset_index.objects.iter().map(|(_, object_data)| {
                 self.download_assets_fn(
                     object_data,
                     objects_len,
@@ -323,7 +296,7 @@ impl GameDownloader {
     async fn download_assets_legacy_fn(
         &self,
         file_path: PathBuf,
-        object_data: &Value,
+        object_data: &AssetIndexObject,
         bar: &ProgressBar,
         progress: &Mutex<usize>,
         objects_len: usize,
@@ -340,18 +313,13 @@ impl GameDownloader {
             return Ok(());
         }
 
-        let obj_hash = object_data["hash"]
-            .as_str()
-            .ok_or(DownloadError::SerdeFieldNotFound(
-                "asset_index.objects[].hash".to_owned(),
-            ))?;
-        let obj_hash_sliced = &obj_hash[0..2];
-        let obj_data = file_utils::download_file_to_bytes(
-            &self.network_client,
-            &format!("{OBJECTS_URL}/{obj_hash_sliced}/{obj_hash}"),
-            false,
-        )
-        .await?;
+        let obj_hash_sliced = &object_data.hash[0..2];
+        let url = object_data.url.clone().unwrap_or(format!(
+            "{OBJECTS_URL}/{obj_hash_sliced}/{}",
+            object_data.hash
+        ));
+        let obj_data =
+            file_utils::download_file_to_bytes(&self.network_client, &url, false).await?;
         tokio::fs::write(&file_path, &obj_data)
             .await
             .path(file_path)?;
@@ -390,25 +358,25 @@ impl GameDownloader {
     async fn save_asset_index_json(
         &self,
         assets_indexes_path: &Path,
-        asset_index: &Value,
+        asset_index: &AssetIndex,
     ) -> Result<(), DownloadError> {
         let assets_indexes_json_path =
             assets_indexes_path.join(format!("{}.json", self.version_json.assetIndex.id));
         tokio::fs::write(
             &assets_indexes_json_path,
-            asset_index.to_string().as_bytes(),
+            serde_json::to_string(asset_index)?.as_bytes(),
         )
         .await
         .path(assets_indexes_json_path)?;
         Ok(())
     }
 
-    pub async fn download_json(
+    pub async fn download_asset_index(
         network_client: &Client,
         url: &str,
-    ) -> Result<Value, JsonDownloadError> {
+    ) -> Result<AssetIndex, JsonDownloadError> {
         let json = file_utils::download_file_to_string(network_client, url, false).await?;
-        Ok(serde_json::from_str::<serde_json::Value>(&json)?)
+        Ok(serde_json::from_str(&json)?)
     }
 
     pub async fn create_profiles_json(&self) -> Result<(), DownloadError> {
@@ -438,10 +406,7 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn create_config_json(
-        &self,
-        omniarchive: Option<OmniarchiveEntry>,
-    ) -> Result<(), DownloadError> {
+    pub async fn create_config_json(&self) -> Result<(), DownloadError> {
         let config_json = InstanceConfigJson {
             java_override: None,
             ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
@@ -449,7 +414,6 @@ impl GameDownloader {
             enable_logger: Some(true),
             java_args: None,
             game_args: None,
-            omniarchive,
             is_classic_server: None,
         };
         let config_json = serde_json::to_string(&config_json)?;
@@ -473,23 +437,12 @@ impl GameDownloader {
         }
         let manifest = Manifest::download().await?;
 
-        let version = match version {
-            ListEntry::Normal(name) => manifest
-                .find_name(name)
-                .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
-            ListEntry::Omniarchive { category, name, .. } => match category {
-                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-"),
-                MinecraftVersionCategory::Classic => manifest.find_fuzzy(name, "c0."),
-                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(name, "a1."),
-                MinecraftVersionCategory::Beta => manifest.find_fuzzy(name, "b1."),
-                MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c"),
-                MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618"),
-            }
-            .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
-            ListEntry::OmniarchiveClassicZipServer { .. } => {
-                return Err(DownloadError::DownloadClassicZip)
-            }
-        };
+        let version =
+            manifest
+                .find_name(&version.0)
+                .ok_or(DownloadError::VersionNotFoundInManifest(
+                    version.0.to_owned(),
+                ))?;
 
         info!("Started downloading version details JSON.");
         if let Some(sender) = sender {
@@ -526,4 +479,16 @@ impl GameDownloader {
         }
         Ok(())
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AssetIndex {
+    objects: HashMap<String, AssetIndexObject>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AssetIndexObject {
+    hash: String,
+    size: usize,
+    url: Option<String>,
 }

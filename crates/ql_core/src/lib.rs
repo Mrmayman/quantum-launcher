@@ -17,6 +17,8 @@ pub mod json;
 pub mod print;
 mod progress;
 
+use std::fmt::Display;
+
 pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
 pub use file_utils::RequestError;
 use futures::StreamExt;
@@ -71,5 +73,14 @@ impl InstanceSelection {
 
     pub fn is_server(&self) -> bool {
         matches!(self, Self::Server(_))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ListEntry(pub String);
+
+impl Display for ListEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

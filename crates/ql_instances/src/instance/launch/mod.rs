@@ -380,7 +380,10 @@ impl GameLauncher {
         } else if let Some((optifine_json, _)) = &optifine_json {
             optifine_json.mainClass.clone()
         } else {
-            self.version_json.mainClass.clone()
+            self.version_json
+                .mainClass
+                .clone()
+                .unwrap_or_else(|| "net.minecraft.client.Minecraft".to_owned())
         });
         Ok(())
     }

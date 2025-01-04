@@ -60,7 +60,6 @@ pub use launcher_update_detector::{
     check_for_launcher_updates, check_for_launcher_updates_w, install_launcher_update,
     install_launcher_update_w, UpdateCheckInfo, UpdateError, UpdateProgress,
 };
-pub use omniarchive_api::{ListEntry, ScrapeProgress};
 
 use semver::{BuildMetadata, Prerelease};
 

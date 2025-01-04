@@ -10,10 +10,10 @@ use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, JavaInstallProgress, JsonFileError,
+    ListEntry,
 };
 use ql_instances::{
-    AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
-    UpdateProgress,
+    AssetRedownloadProgress, GameLaunchResult, LogLine, UpdateCheckInfo, UpdateProgress,
 };
 use ql_mod_manager::{
     instance_mod_installer::{
@@ -237,10 +237,7 @@ impl MenuEditMods {
 }
 
 pub enum MenuCreateInstance {
-    Loading {
-        progress_receiver: Receiver<ScrapeProgress>,
-        progress_number: f32,
-    },
+    Loading,
     Loaded {
         instance_name: String,
         selected_version: Option<ListEntry>,
@@ -364,10 +361,7 @@ pub struct MenuServerManage {
 }
 
 pub enum MenuServerCreate {
-    Loading {
-        progress_receiver: Receiver<ScrapeProgress>,
-        progress_number: f32,
-    },
+    Loading,
     Loaded {
         name: String,
         versions: iced::widget::combo_box::State<ListEntry>,

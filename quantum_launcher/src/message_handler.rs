@@ -1,15 +1,12 @@
-use std::{
-    collections::HashSet,
-    sync::{mpsc, Arc},
-};
+use std::{collections::HashSet, sync::mpsc};
 
 use chrono::Datelike;
 use iced::Command;
 use ql_core::{
     err, file_utils, json::instance_config::InstanceConfigJson, DownloadProgress,
-    InstanceSelection, IntoIoError, JsonFileError,
+    InstanceSelection, IntoIoError, JsonFileError, ListEntry,
 };
-use ql_instances::{GameLaunchResult, ListEntry};
+use ql_instances::GameLaunchResult;
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
@@ -132,12 +129,8 @@ impl Launcher {
             });
             Command::none()
         } else {
-            let (sender, receiver) = mpsc::channel();
-            self.state = State::Create(MenuCreateInstance::Loading {
-                progress_receiver: receiver,
-                progress_number: 0.0,
-            });
-            Command::perform(ql_instances::list_versions(Some(Arc::new(sender))), |n| {
+            self.state = State::Create(MenuCreateInstance::Loading);
+            Command::perform(ql_instances::list_versions(), |n| {
                 Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n))
             })
         }

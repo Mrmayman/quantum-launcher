@@ -14,10 +14,6 @@ serde = "1"
 serde_json = "1"
 zip-extract = "0.1"
 
-# For finding the closest official version to
-# an Omniarchive version.
-strsim = "0.11"
-
 # For extracting aarch64 java.
 flate2 = "1"
 tar = "0.4"

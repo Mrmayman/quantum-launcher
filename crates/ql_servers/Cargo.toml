@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 ql_core = { path = "../ql_core" }
-omniarchive_api = { path = "../omniarchive_api" }
 
 reqwest = "0.12"
 serde = { version = "1", features = ["derive"] }

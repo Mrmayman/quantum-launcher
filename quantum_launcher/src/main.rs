@@ -513,14 +513,10 @@ impl Application for Launcher {
                         progress_number: 0.0,
                     });
                 } else {
-                    let (sender, receiver) = std::sync::mpsc::channel();
-                    self.state = State::ServerCreate(MenuServerCreate::Loading {
-                        progress_receiver: receiver,
-                        progress_number: 0.0,
-                    });
+                    self.state = State::ServerCreate(MenuServerCreate::Loading);
 
                     return Command::perform(
-                        ql_servers::list_versions(Some(Arc::new(sender))),
+                        ql_servers::list_versions(),
                         Message::ServerCreateVersionsLoaded,
                     );
                 }
