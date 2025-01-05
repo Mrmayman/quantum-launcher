@@ -69,6 +69,31 @@
     {
       "downloads": {
         "artifact": {
+          "path": "org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209.jar",
+          "sha1": "b04f3ee8f5e43fa3b162981b50bb72fe1acabb33",
+          "size": 22,
+          "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209.jar"
+        },
+        "classifiers": {
+          "natives-linux": {
+            "path": "org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-linux.jar",
+            "sha1": "63ac7da0f4a4785c7eadc0f8edc1e9dcc4dd08cb",
+            "size": 579979,
+            "url": "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-2.9.4/lwjgl-platform-2.9.4-nightly-20150209-natives-linux.jar"
+          }
+        }
+      },
+      "extract": {
+        "exclude": ["META-INF/"]
+      },
+      "name": "org.lwjgl.lwjgl:lwjgl-platform:2.9.0",
+      "natives": {
+        "linux": "natives-linux"
+      }
+    },
+    {
+      "downloads": {
+        "artifact": {
           "path": "org/lwjgl/lwjgl/lwjgl/2.9.4-nightly-20150209/lwjgl-2.9.4-nightly-20150209.jar",
           "sha1": "697517568c68e78ae0b4544145af031c81082dfe",
           "size": 1047168,

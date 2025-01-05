@@ -834,7 +834,7 @@ impl MenuCreateInstance {
                                 .spacing(10)
                                 .padding(5)
                         ).on_press_maybe((selected_version.is_some() && !instance_name.is_empty() && progress_receiver.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
-                        widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Manage Mods after installing the instance").size(12),
+                        widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Mods after installing the instance").size(12),
                         progress_bar,
                     ]
                     .spacing(10)

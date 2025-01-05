@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "libraries": [
+    {
+     "downloads": {
+          "artifact": {
+              "sha1": "b02c125db8b6d295adf72ae6e71af5d83bce2370",
+              "size": 348513,
+              "url": "https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-api/2.24.3/log4j-api-2.24.3.jar"
+          }
+      },
+      "name": "org.apache.logging.log4j:log4j-api:2.24.3"
+    },
+    {
+      "downloads": {
+          "artifact": {
+              "sha1": "7f6a261243ca767c7f38fd4b542bcde626c8894e",
+              "size": 1914666,
+              "url": "https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.24.3/log4j-core-2.24.3.jar"
+          }
+      },
+      "name": "org.apache.logging.log4j:log4j-core:2.24.3"
+    },
+    {
+      "downloads": {
+          "artifact": {
+              "sha1": "c3bda2dc612bfc780ad06c5acf5e0ffd55b770e5",
+              "size": 30133,
+              "url": "https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-slf4j2-impl/2.24.3/log4j-slf4j2-impl-2.24.3.jar"
+          }
+      },
+      "name": "org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3"
+      }
+    ],
+    "name": "Apache Log4J",
+    "order": 4,
+    "releaseTime": "2024-12-10",
+    "type": "release",
+    "uid": "org.apache.logging.log4j",
+    "version": "2.24.3",
+    "volatile": true
+}

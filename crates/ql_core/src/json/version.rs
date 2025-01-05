@@ -137,25 +137,67 @@ impl Debug for Library {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LibraryExtract {
     pub exclude: Vec<String>,
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+impl Debug for LibraryExtract {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(name) = &self.name {
+            write!(f, "({name}), exclude: {:?}", self.exclude)
+        } else {
+            write!(f, "exclude: {:?}", self.exclude)
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LibraryDownloads {
     pub artifact: Option<LibraryDownloadArtifact>,
     pub name: Option<String>,
     pub classifiers: Option<BTreeMap<String, LibraryClassifier>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl Debug for LibraryDownloads {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("LibraryDownloads");
+        let mut s_ref = &mut s;
+        if let Some(artifact) = &self.artifact {
+            s_ref = s_ref.field("artifact", &artifact);
+        }
+        if let Some(name) = &self.name {
+            s_ref = s_ref.field("name", &name);
+        }
+        if let Some(classifiers) = &self.classifiers {
+            s_ref = s_ref.field("classifiers", &classifiers);
+        }
+        s_ref.finish()
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LibraryClassifier {
     pub path: Option<String>,
     pub sha1: String,
     pub size: usize,
     pub url: String,
+}
+
+impl Debug for LibraryClassifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("LibraryClassifier");
+        let mut s_ref = &mut s;
+        if let Some(path) = &self.path {
+            s_ref = s_ref.field("path", &path);
+        }
+        s_ref
+            .field("sha1", &self.sha1)
+            .field("size", &self.size)
+            .field("url", &self.url)
+            .finish()
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]

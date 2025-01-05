@@ -5,7 +5,8 @@ members = [
     "crates/ql_instances",
     "crates/ql_mod_manager",
     "crates/ql_core",
-    "crates/omniarchive_api", "crates/ql_servers",
+    "crates/omniarchive_api",
+    "crates/ql_servers",
 ]
 
 # [profile.dev]

@@ -467,7 +467,7 @@ impl GameDownloader {
         version: &ListEntry,
         sender: Option<&Sender<DownloadProgress>>,
     ) -> Result<VersionDetails, DownloadError> {
-        info!("Started downloading version manifest JSON.");
+        info!("Downloading version manifest JSON.");
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingJsonManifest)?;
         }
@@ -491,7 +491,7 @@ impl GameDownloader {
             }
         };
 
-        info!("Started downloading version details JSON.");
+        info!("Downloading version details JSON.");
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingVersionJson)?;
         }

@@ -24,20 +24,18 @@ pub const OS_NAMES: &[&str] = &["macos", "osx"];
 #[cfg(target_os = "freebsd")]
 pub const OS_NAMES: &[&str] = &["freebsd"];
 
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_294: &str =
-    include_str!("../../../../assets/lwjgl_arm64/2.9.4-nightly-20150209.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_312: &str = include_str!("../../../../assets/lwjgl_arm64/3.1.2.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_316: &str = include_str!("../../../../assets/lwjgl_arm64/3.1.6.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_321: &str = include_str!("../../../../assets/lwjgl_arm64/3.2.1.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_322: &str = include_str!("../../../../assets/lwjgl_arm64/3.2.2.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_331: &str = include_str!("../../../../assets/lwjgl_arm64/3.3.1.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_332: &str = include_str!("../../../../assets/lwjgl_arm64/3.3.2.json");
-#[cfg(target_arch = "aarch64")]
-pub const LWJGL_333: &str = include_str!("../../../../assets/lwjgl_arm64/3.3.3.json");
+#[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+mod lwjgl {
+    pub const LWJGL_294: &str =
+        include_str!("../../../../assets/lwjgl_arm64/2.9.4-nightly-20150209.json");
+    pub const LWJGL_312: &str = include_str!("../../../../assets/lwjgl_arm64/3.1.2.json");
+    pub const LWJGL_316: &str = include_str!("../../../../assets/lwjgl_arm64/3.1.6.json");
+    pub const LWJGL_321: &str = include_str!("../../../../assets/lwjgl_arm64/3.2.1.json");
+    pub const LWJGL_322: &str = include_str!("../../../../assets/lwjgl_arm64/3.2.2.json");
+    pub const LWJGL_331: &str = include_str!("../../../../assets/lwjgl_arm64/3.3.1.json");
+    pub const LWJGL_332: &str = include_str!("../../../../assets/lwjgl_arm64/3.3.2.json");
+    pub const LWJGL_333: &str = include_str!("../../../../assets/lwjgl_arm64/3.3.3.json");
+}
+
+#[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+pub use lwjgl::*;

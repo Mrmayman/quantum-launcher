@@ -1,8 +1,4 @@
-use ql_core::{
-    file_utils,
-    json::version::{LibraryDownloadArtifact, LibraryRule},
-    JsonDownloadError,
-};
+use ql_core::json::version::{LibraryDownloadArtifact, LibraryRule};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -22,13 +18,19 @@ pub enum NativesEntry {
 }
 
 impl NativesEntry {
-    pub fn get_url(&self) -> &'static str {
+    pub fn get_file(&self) -> &'static str {
         match self {
-            NativesEntry::Lwjgl => "https://raw.githubusercontent.com/Kichura/Minecraft_ARM/refs/heads/Canary/patches/org.lwjgl3.json",
-            NativesEntry::Log4J => "https://raw.githubusercontent.com/Kichura/Minecraft_ARM/refs/heads/Canary/patches/org.apache.logging.log4j.json",
-            NativesEntry::Oshi => "https://raw.githubusercontent.com/Kichura/Minecraft_ARM/refs/heads/Canary/patches/com.github.oshi.json",
-            NativesEntry::JavaObjCBridge => "https://raw.githubusercontent.com/Kichura/Minecraft_ARM/refs/heads/Canary/patches/ca.weblite.json",
-            NativesEntry::Slf4J => "https://raw.githubusercontent.com/Kichura/Minecraft_ARM/refs/heads/Canary/patches/org.slf4j.json",
+            NativesEntry::Lwjgl => include_str!("../../../assets/minecraft_arm/org.lwjgl3.json"),
+            NativesEntry::Log4J => {
+                include_str!("../../../assets/minecraft_arm/org.apache.logging.log4j.json")
+            }
+            NativesEntry::Oshi => {
+                include_str!("../../../assets/minecraft_arm/com.github.oshi.json")
+            }
+            NativesEntry::JavaObjCBridge => {
+                include_str!("../../../assets/minecraft_arm/ca.weblite.json")
+            }
+            NativesEntry::Slf4J => include_str!("../../../assets/minecraft_arm/org.slf4j.json"),
         }
     }
 
@@ -50,11 +52,9 @@ impl NativesEntry {
 }
 
 impl JsonNatives {
-    pub async fn download(entry: NativesEntry) -> Result<Self, JsonDownloadError> {
-        let url = entry.get_url();
-        let client = reqwest::Client::new();
-        let json = file_utils::download_file_to_string(&client, url, false).await?;
-        let json: Self = serde_json::from_str(&json)?;
+    pub async fn download(entry: NativesEntry) -> Result<Self, serde_json::Error> {
+        let json = entry.get_file();
+        let json: Self = serde_json::from_str(json)?;
         Ok(json)
     }
 }
