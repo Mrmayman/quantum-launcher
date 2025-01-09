@@ -259,7 +259,7 @@
           "path": "org/lwjgl/lwjgl-tinyfd/3.3.3/lwjgl-tinyfd-3.3.3-natives-linux.jar",
           "sha1": "d8d58daa0c3e5fd906fee96f5fddbcbc07cc308b",
           "size": 44192,
-          "url": "https://raw.githubusercontent.com/theofficialgman/lwjgl3-binaries-arm64/refs/heads/lwjgl-3.2.2/lwjgl-tinyfd-natives-linux-arm64.jar"
+          "url": "https://repo1.maven.org/maven2/org/lwjgl/lwjgl-tinyfd/3.3.3/lwjgl-tinyfd-3.3.3-natives-linux-arm64.jar"
         }
       },
       "name": "org.lwjgl:lwjgl-tinyfd:3.3.3:natives-linux",

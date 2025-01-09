@@ -15,7 +15,7 @@ use crate::{
         java_files::{JavaFile, JavaFilesJson},
         java_list::{JavaListJson, JavaVersion},
     },
-    IntoIoError, IoError, JsonDownloadError, RequestError,
+    IntoIoError, IoError, JsonDownloadError, RequestError, IS_ARM_LINUX,
 };
 
 pub enum JavaInstallProgress {
@@ -158,7 +158,7 @@ async fn install_java(
     info!("Started installing {}", version.to_string());
 
     // Special case for linux aarch64
-    if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+    if IS_ARM_LINUX {
         install_aarch64_linux_java(version, java_install_progress_sender, &client, &install_dir)
             .await?;
     } else {

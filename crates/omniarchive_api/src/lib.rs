@@ -235,9 +235,7 @@ async fn scrape_links(
 }
 
 fn ends_with_extension(link: &str, extension: &str) -> bool {
-    std::path::Path::new(link)
-        .extension()
-        .map_or(false, |ext| ext.eq_ignore_ascii_case(extension))
+    link.to_lowercase().ends_with(&extension.to_lowercase())
 }
 
 fn find_elem(dom: &Node, element_name: &str) -> Result<Rc<Node>, WebScrapeError> {

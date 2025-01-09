@@ -116,6 +116,7 @@ pub enum Message {
     CoreTick,
     CoreTickConfigSaved(Result<(), String>),
     CoreListLoaded(Result<(Vec<String>, bool), String>),
+    CoreCopyText(String),
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
     UpdateCheckResult(Result<UpdateCheckInfo, String>),

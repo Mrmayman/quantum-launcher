@@ -162,8 +162,16 @@ impl MenuModsDownload {
 
         widget::scrollable(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::InstallModsBackToMainScreen),
+                widget::row!(
+                    button_with_icon(icon_manager::back(), "Back")
+                        .on_press(Message::InstallModsBackToMainScreen),
+                    button_with_icon(icon_manager::page(), "Open Mod Page").on_press(
+                        Message::CoreOpenDir(format!("https://modrinth.com/mod/{}", hit.slug))
+                    ),
+                    button_with_icon(icon_manager::save(), "Copy ID")
+                        .on_press(Message::CoreCopyText(hit.project_id.clone())),
+                )
+                .spacing(10),
                 widget::row!(
                     if let Some(icon) = icons_bitmap.get(&hit.icon_url) {
                         widget::column!(widget::image(icon.clone()))

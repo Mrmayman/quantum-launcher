@@ -726,6 +726,9 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
+            Message::CoreCopyText(txt) => {
+                return iced::clipboard::write(txt);
+            }
         }
         Command::none()
     }

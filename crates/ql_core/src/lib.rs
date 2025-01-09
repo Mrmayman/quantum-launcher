@@ -73,3 +73,6 @@ impl InstanceSelection {
         matches!(self, Self::Server(_))
     }
 }
+
+pub const IS_ARM_LINUX: bool = cfg!(target_arch = "aarch64") && cfg!(target_os = "linux");
+// pub const IS_ARM_LINUX: bool = true;

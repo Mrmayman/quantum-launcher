@@ -40,7 +40,7 @@ impl<T> IntoIoError<T> for std::io::Result<T> {
     fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError> {
         self.map_err(|err: std::io::Error| IoError::Io {
             error: err,
-            path: (p.into()).to_owned(),
+            path: (p.into()).clone(),
         })
     }
 }

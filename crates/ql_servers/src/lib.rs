@@ -7,11 +7,13 @@ mod list_versions;
 mod read_log;
 mod run;
 mod server_properties;
+// mod ssh;
 pub use create::{create_server, create_server_w, delete_server, ServerCreateProgress};
 pub use list_versions::list_versions;
 pub use read_log::read_logs_w;
 pub use run::run_w;
 pub use server_properties::ServerProperties;
+// pub use ssh::run_tunnel;
 
 use zip_extract::ZipExtractError;
 
@@ -26,6 +28,7 @@ pub enum ServerError {
     ServerAlreadyExists,
     ZipExtract(ZipExtractError),
     NoForgeShimFound,
+    UnsupportedSSHArchitecture,
 }
 
 impl Display for ServerError {
@@ -49,6 +52,9 @@ impl Display for ServerError {
             ServerError::ServerAlreadyExists => write!(f, "server already exists"),
             ServerError::ZipExtract(err) => write!(f, "zip extract: {err}"),
             ServerError::NoForgeShimFound => write!(f, "could not find forge shim file"),
+            ServerError::UnsupportedSSHArchitecture => {
+                write!(f, "unsupported CPU architecture (ssh)")
+            }
         }
     }
 }
