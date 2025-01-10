@@ -13,6 +13,7 @@ use tokio::process::{Child, Command};
 
 use crate::ServerError;
 
+/// [`run`] `_w` function
 pub async fn run_w(
     name: String,
     java_install_progress: Sender<JavaInstallProgress>,
@@ -23,7 +24,17 @@ pub async fn run_w(
         .map_err(|n| n.to_string())
 }
 
-async fn run(
+/// Runs a server.
+///
+/// # Arguments
+/// - `name` - The name of the server to run.
+/// - `java_install_progress` - The channel to send progress updates to
+///   if Java needs to be installed.
+///
+/// # Returns
+/// - `Ok((Child, bool))` - The child process and whether the server is a classic server.
+/// - `Err(ServerError)` - The error that occurred.
+pub async fn run(
     name: &str,
     java_install_progress: Sender<JavaInstallProgress>,
 ) -> Result<(Child, bool), ServerError> {

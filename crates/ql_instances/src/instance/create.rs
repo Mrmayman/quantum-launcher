@@ -7,11 +7,7 @@ use ql_core::{
 
 use crate::{download::GameDownloader, ListEntry, LAUNCHER_VERSION_NAME};
 
-/// Creates a Minecraft instance.
-///
-/// Read [`create_instance`] documentation for more info.
-///
-/// What are `_w` functions? See documentation in `quantum_launcher` crate.
+/// [`create_instance`] `_w` function
 pub async fn create_instance_w(
     instance_name: String,
     version: ListEntry,

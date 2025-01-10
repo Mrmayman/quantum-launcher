@@ -26,12 +26,7 @@ pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 
-/// Wraps the [`launch`] function to give a `Arc<Mutex<Child>>`
-/// instead of a `Child`.
-///
-/// Read [`launch`] documentation for more info.
-///
-/// What are `_w` functions? See documentation in `quantum_launcher` crate.
+/// [`launch`] `_w` function
 pub async fn launch_w(
     instance_name: String,
     username: String,

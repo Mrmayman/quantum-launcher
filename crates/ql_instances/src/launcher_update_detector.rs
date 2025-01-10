@@ -20,9 +20,7 @@ pub enum UpdateCheckInfo {
     NewVersion { url: String },
 }
 
-/// Read [`check_for_launcher_updates`] documentation for more info.
-///
-/// What are `_w` functions? See documentation in `quantum_launcher` crate.
+/// [`check_for_launcher_updates`] `_w` function
 pub async fn check_for_launcher_updates_w() -> Result<UpdateCheckInfo, String> {
     check_for_launcher_updates()
         .await
@@ -99,7 +97,7 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
             let matching_release = latest
                 .assets
                 .iter()
-                .find(|asset| asset.name.starts_with(&name))
+                .find(|asset| asset.name.replace('-', "_").starts_with(&name))
                 .ok_or(UpdateError::NoMatchingDownloadFound)?;
 
             Ok(UpdateCheckInfo::NewVersion {
@@ -109,9 +107,7 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
     }
 }
 
-/// Read [`install_launcher_update`] documentation for more info.
-///
-/// What are `_w` functions? See documentation in `quantum_launcher` crate.
+/// [`install_launcher_update`] `_w` function
 pub async fn install_launcher_update_w(
     url: String,
     progress: Sender<UpdateProgress>,

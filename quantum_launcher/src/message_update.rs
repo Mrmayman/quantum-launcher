@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
-use iced::Command;
-use ql_core::{file_utils, InstanceSelection, IntoIoError};
-use ql_mod_manager::instance_mod_installer;
+use iced::{widget::image::Handle, Command};
+use ql_core::{err, file_utils, InstanceSelection, IntoIoError};
+use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
 
 use crate::{
     launcher_state::{
-        CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, Launcher,
-        ManageModsMessage, MenuCreateInstance, MenuInstallFabric, Message, SelectedMod,
+        CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallModsMessage,
+        InstallOptifineMessage, Launcher, ManageModsMessage, MenuCreateInstance, MenuEditMods,
+        MenuInstallFabric, MenuInstallOptifine, Message, OptifineInstallProgressData, SelectedMod,
         SelectedState, State,
     },
     message_handler::format_memory,
@@ -65,7 +66,7 @@ impl Launcher {
                     let loader_version = fabric_version.clone().unwrap();
 
                     return Command::perform(
-                        instance_mod_installer::fabric::install_w(
+                        loaders::fabric::install_w(
                             loader_version,
                             self.selected_instance.clone().unwrap(),
                             Some(sender),
@@ -79,7 +80,7 @@ impl Launcher {
                 self.state = State::InstallFabric(MenuInstallFabric::Loading(is_quilt));
 
                 return Command::perform(
-                    instance_mod_installer::fabric::get_list_of_versions_w(
+                    loaders::fabric::get_list_of_versions_w(
                         self.selected_instance.clone().unwrap(),
                         is_quilt,
                     ),
@@ -406,8 +407,24 @@ impl Launcher {
                         ql_mod_manager::mod_manager::check_for_updates(
                             self.selected_instance.clone().unwrap(),
                         ),
-                        Message::ManageModsUpdateCheckResult,
+                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n)),
                     );
+                }
+            }
+            ManageModsMessage::UpdateCheckResult(updates) => {
+                if let (Some(updates), State::EditMods(menu)) = (updates, &mut self.state) {
+                    menu.available_updates =
+                        updates.into_iter().map(|(a, b)| (a, b, true)).collect();
+                }
+            }
+            ManageModsMessage::UpdateCheckToggle(idx, t) => {
+                if let State::EditMods(MenuEditMods {
+                    available_updates, ..
+                }) = &mut self.state
+                {
+                    if let Some((_, _, b)) = available_updates.get_mut(idx) {
+                        *b = t;
+                    }
                 }
             }
         }
@@ -434,6 +451,156 @@ impl Launcher {
             ql_mod_manager::mod_manager::delete_mods_w(ids, selected_instance),
             |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n)),
         )
+    }
+
+    pub fn update_install_mods(&mut self, message: InstallModsMessage) -> Command<Message> {
+        match message {
+            InstallModsMessage::SearchResult(search) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.is_loading_search = false;
+                    match search {
+                        Ok((search, time)) => {
+                            if time > menu.latest_load {
+                                menu.results = Some(search);
+                                menu.latest_load = time;
+                            }
+                        }
+                        Err(err) => self.set_error(err),
+                    }
+                }
+            }
+            InstallModsMessage::Open => match self.open_mods_screen() {
+                Ok(command) => return command,
+                Err(err) => self.set_error(err),
+            },
+            InstallModsMessage::SearchInput(input) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.query = input;
+
+                    return menu.search_modrinth(matches!(
+                        &self.selected_instance,
+                        Some(InstanceSelection::Server(_))
+                    ));
+                }
+            }
+            InstallModsMessage::ImageDownloaded(image) => match image {
+                Ok(image) => {
+                    if image.is_svg {
+                        let handle = iced::widget::svg::Handle::from_memory(image.image);
+                        self.images_svg.insert(image.url, handle);
+                    } else {
+                        self.images_bitmap
+                            .insert(image.url, Handle::from_memory(image.image));
+                    }
+                }
+                Err(err) => {
+                    err!("Could not download image: {err}");
+                }
+            },
+            InstallModsMessage::Click(i) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.opened_mod = Some(i);
+                    if let Some(results) = &menu.results {
+                        let hit = results.hits.get(i).unwrap();
+                        if !menu.result_data.contains_key(&hit.project_id) {
+                            let task = ProjectInfo::download_w(hit.project_id.clone());
+                            return Command::perform(task, |n| {
+                                Message::InstallMods(InstallModsMessage::LoadData(n))
+                            });
+                        }
+                    }
+                }
+            }
+            InstallModsMessage::BackToMainScreen => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.opened_mod = None;
+                }
+            }
+            InstallModsMessage::LoadData(project_info) => match project_info {
+                Ok(info) => {
+                    if let State::ModsDownload(menu) = &mut self.state {
+                        let id = info.id.clone();
+                        menu.result_data.insert(id, *info);
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
+            InstallModsMessage::Download(index) => {
+                if let Some(value) = self.mod_download(index) {
+                    return value;
+                }
+            }
+            InstallModsMessage::DownloadComplete(result) => match result {
+                Ok(id) => {
+                    if let State::ModsDownload(menu) = &mut self.state {
+                        menu.mods_download_in_progress.remove(&id);
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
+        }
+        Command::none()
+    }
+
+    pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Command<Message> {
+        match message {
+            InstallOptifineMessage::ScreenOpen => {
+                self.state = State::InstallOptifine(MenuInstallOptifine { progress: None });
+            }
+            InstallOptifineMessage::SelectInstallerStart => {
+                return Command::perform(
+                    rfd::AsyncFileDialog::new()
+                        .add_filter("jar", &["jar"])
+                        .set_title("Select OptiFine Installer")
+                        .pick_file(),
+                    |n| Message::InstallOptifine(InstallOptifineMessage::SelectInstallerEnd(n)),
+                )
+            }
+            InstallOptifineMessage::SelectInstallerEnd(handle) => {
+                if let Some(handle) = handle {
+                    let path = handle.path().to_owned();
+
+                    let (p_sender, p_recv) = std::sync::mpsc::channel();
+                    let (j_sender, j_recv) = std::sync::mpsc::channel();
+
+                    self.state = State::InstallOptifine(MenuInstallOptifine {
+                        progress: Some(OptifineInstallProgressData {
+                            optifine_install_progress: p_recv,
+                            optifine_install_num: 0.0,
+                            java_install_progress: j_recv,
+                            java_install_num: 0.0,
+                            is_java_being_installed: false,
+                            optifine_install_message: String::new(),
+                            java_install_message: String::new(),
+                        }),
+                    });
+
+                    return Command::perform(
+                        // Note: OptiFine does not support servers
+                        // so it's safe to assume we've selected an instance.
+                        ql_mod_manager::loaders::optifine::install_optifine_w(
+                            self.selected_instance
+                                .as_ref()
+                                .unwrap()
+                                .get_name()
+                                .to_owned(),
+                            path,
+                            Some(p_sender),
+                            Some(j_sender),
+                        ),
+                        |n| Message::InstallOptifine(InstallOptifineMessage::End(n)),
+                    );
+                }
+            }
+            InstallOptifineMessage::End(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    return self.go_to_launch_screen(Some("Installed OptiFine".to_owned()));
+                }
+            }
+        }
+        Command::none()
     }
 }
 

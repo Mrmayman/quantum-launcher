@@ -10,7 +10,7 @@ use ql_mod_manager::mod_manager::Entry;
 
 use crate::{
     icon_manager,
-    launcher_state::{ManageModsMessage, MenuModsDownload, Message},
+    launcher_state::{InstallModsMessage, ManageModsMessage, MenuModsDownload, Message},
 };
 
 use super::{button_with_icon, Element};
@@ -42,7 +42,7 @@ impl MenuModsDownload {
         widget::row!(
             widget::column!(
                 widget::text_input("Search...", &self.query)
-                    .on_input(Message::InstallModsSearchInput),
+                    .on_input(|n| Message::InstallMods(InstallModsMessage::SearchInput(n))),
                 if self.mods_download_in_progress.is_empty() {
                     widget::column!(button_with_icon(icon_manager::back(), "Back")
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)))
@@ -86,7 +86,7 @@ impl MenuModsDownload {
             .on_press_maybe(
                 (!self.mods_download_in_progress.contains(&hit.project_id)
                     && !self.mod_index.mods.contains_key(&hit.project_id))
-                .then_some(Message::InstallModsDownload(i))
+                .then_some(Message::InstallMods(InstallModsMessage::Download(i)))
             ),
             widget::button(
                 widget::row!(
@@ -116,7 +116,7 @@ impl MenuModsDownload {
                 .spacing(10),
             )
             .height(70)
-            .on_press(Message::InstallModsClick(i))
+            .on_press(Message::InstallMods(InstallModsMessage::Click(i)))
         )
         .spacing(5)
         .into()
@@ -164,7 +164,7 @@ impl MenuModsDownload {
             widget::column!(
                 widget::row!(
                     button_with_icon(icon_manager::back(), "Back")
-                        .on_press(Message::InstallModsBackToMainScreen),
+                        .on_press(Message::InstallMods(InstallModsMessage::BackToMainScreen)),
                     button_with_icon(icon_manager::page(), "Open Mod Page").on_press(
                         Message::CoreOpenDir(format!("https://modrinth.com/mod/{}", hit.slug))
                     ),

@@ -10,8 +10,8 @@ mod server_properties;
 // mod ssh;
 pub use create::{create_server, create_server_w, delete_server, ServerCreateProgress};
 pub use list_versions::list_versions;
-pub use read_log::read_logs_w;
-pub use run::run_w;
+pub use read_log::{read_logs, read_logs_w};
+pub use run::{run, run_w};
 pub use server_properties::ServerProperties;
 // pub use ssh::run_tunnel;
 

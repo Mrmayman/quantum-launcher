@@ -13,8 +13,8 @@ use ql_instances::{GameLaunchResult, ListEntry};
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
-    ClientProcess, CreateInstanceMessage, Launcher, MenuCreateInstance, MenuEditInstance,
-    MenuEditMods, Message, SelectedState, State,
+    ClientProcess, CreateInstanceMessage, Launcher, ManageModsMessage, MenuCreateInstance,
+    MenuEditInstance, MenuEditMods, Message, SelectedState, State,
 };
 
 impl Launcher {
@@ -304,7 +304,7 @@ impl Launcher {
                 } else {
                     Command::perform(
                         ql_mod_manager::mod_manager::check_for_updates(selected_instance.clone()),
-                        Message::ManageModsUpdateCheckResult,
+                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n)),
                     )
                 };
 

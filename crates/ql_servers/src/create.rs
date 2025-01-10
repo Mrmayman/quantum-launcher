@@ -13,6 +13,7 @@ use ql_core::{
 
 use crate::ServerError;
 
+/// [`create_server_w`] `_w` function
 pub async fn create_server_w(
     name: String,
     version: ListEntry,
@@ -30,6 +31,13 @@ pub enum ServerCreateProgress {
     P3DownloadingServerJar,
 }
 
+/// Creates a minecraft server with the given name and version.
+///
+/// # Arguments
+/// - `name` - The name of the server.
+/// - `version` - The version of the server.
+/// - `sender` - A sender to send progress updates to
+///   (optional).
 pub async fn create_server(
     name: &str,
     version: ListEntry,
@@ -227,6 +235,12 @@ async fn download_omniarchive_version(
     Ok(version_json)
 }
 
+/// Deletes a server with the given name.
+///
+/// # Errors
+/// - If the server does not exist.
+/// - If the server directory could not be deleted.
+/// - If the launcher directory could not be found or created.
 pub fn delete_server(name: &str) -> Result<(), String> {
     let launcher_dir = file_utils::get_launcher_dir().map_err(|n| n.to_string())?;
     let server_dir = launcher_dir.join("servers").join(name);

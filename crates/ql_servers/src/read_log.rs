@@ -11,6 +11,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
+/// [`read_logs`] `_w` function
 pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -24,7 +25,11 @@ pub async fn read_logs_w(
         .map(|n| (n, name))
 }
 
-async fn read_logs(
+/// Reads logs from a child process (server) and sends them to a sender.
+///
+/// Unlike the `read_logs` function in `ql_instances`
+/// this one does not deal with XML parsing.
+pub async fn read_logs(
     stdout: ChildStdout,
     stderr: ChildStderr,
     child: Arc<Mutex<Child>>,

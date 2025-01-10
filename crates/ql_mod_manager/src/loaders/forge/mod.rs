@@ -20,7 +20,7 @@ use ql_core::{
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
-use crate::instance_mod_installer::change_instance_type;
+use crate::loaders::change_instance_type;
 
 mod error;
 mod server;

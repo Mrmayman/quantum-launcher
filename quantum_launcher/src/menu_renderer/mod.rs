@@ -10,10 +10,10 @@ use crate::{
     icon_manager,
     launcher_state::{
         ClientProcess, CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage,
-        InstanceLog, Launcher, ManageModsMessage, MenuCreateInstance, MenuEditInstance,
-        MenuEditMods, MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuInstallOptifine,
-        MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry, SelectedMod,
-        SelectedState,
+        InstallModsMessage, InstallOptifineMessage, InstanceLog, Launcher, ManageModsMessage,
+        MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric, MenuInstallForge,
+        MenuInstallJava, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate,
+        Message, ModListEntry, SelectedMod, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -463,8 +463,9 @@ impl MenuInstallOptifine {
                 widget::container(
                     widget::column!(
                         "Step 2: Select the installer file",
-                        widget::button("Select File")
-                            .on_press(Message::InstallOptifineSelectInstallerStart)
+                        widget::button("Select File").on_press(Message::InstallOptifine(
+                            InstallOptifineMessage::SelectInstallerStart
+                        ))
                     )
                     .padding(10)
                     .spacing(10)
@@ -500,7 +501,9 @@ impl MenuEditMods {
                 widget::column(self.available_updates.iter().enumerate().map(
                     |(i, (_, name, is_enabled))| {
                         widget::checkbox(name, *is_enabled)
-                            .on_toggle(move |b| Message::ManageModsUpdateCheckToggle(i, b))
+                            .on_toggle(move |b| {
+                                Message::ManageMods(ManageModsMessage::UpdateCheckToggle(i, b))
+                            })
                             .text_size(12)
                             .into()
                     }
@@ -567,7 +570,7 @@ impl MenuEditMods {
                     )
                     .spacing(5),
                     widget::row!(widget::button("OptiFine")
-                        .on_press(Message::InstallOptifineScreenOpen)
+                        .on_press(Message::InstallOptifine(InstallOptifineMessage::ScreenOpen))
                         .width(97),)
                     .spacing(5),
                 ],
@@ -661,7 +664,7 @@ impl MenuEditMods {
             if download_mods {
                 widget::column!(
                     button_with_icon(icon_manager::download(), "Download Mods")
-                        .on_press(Message::InstallModsOpen),
+                        .on_press(Message::InstallMods(InstallModsMessage::Open)),
                     widget::text("Warning: the mod store is\nexperimental and may have bugs")
                         .size(12)
                 )

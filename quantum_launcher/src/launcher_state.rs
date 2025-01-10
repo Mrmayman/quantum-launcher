@@ -16,7 +16,7 @@ use ql_instances::{
     UpdateProgress,
 };
 use ql_mod_manager::{
-    instance_mod_installer::{
+    loaders::{
         fabric::{FabricInstallProgress, FabricVersionListItem},
         forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
@@ -85,14 +85,39 @@ pub enum ManageModsMessage {
     ToggleFinished(Result<(), String>),
     UpdateMods,
     UpdateModsFinished(Result<(), String>),
+    UpdateCheckResult(Option<Vec<(String, String)>>),
+    UpdateCheckToggle(usize, bool),
+}
+
+#[derive(Debug, Clone)]
+pub enum InstallModsMessage {
+    SearchResult(Result<(Search, Instant), String>),
+    Open,
+    SearchInput(String),
+    ImageDownloaded(Result<ImageResult, String>),
+    Click(usize),
+    BackToMainScreen,
+    LoadData(Result<Box<ProjectInfo>, String>),
+    Download(usize),
+    DownloadComplete(Result<String, String>),
+}
+
+#[derive(Debug, Clone)]
+pub enum InstallOptifineMessage {
+    ScreenOpen,
+    SelectInstallerStart,
+    SelectInstallerEnd(Option<rfd::FileHandle>),
+    End(Result<(), String>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    InstallFabric(InstallFabricMessage),
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
     ManageMods(ManageModsMessage),
+    InstallMods(InstallModsMessage),
+    InstallOptifine(InstallOptifineMessage),
+    InstallFabric(InstallFabricMessage),
     CoreOpenDir(String),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
@@ -122,22 +147,7 @@ pub enum Message {
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
-    InstallModsSearchResult(Result<(Search, Instant), String>),
-    InstallModsOpen,
-    InstallModsSearchInput(String),
-    InstallModsImageDownloaded(Result<ImageResult, String>),
-    InstallModsClick(usize),
-    InstallModsBackToMainScreen,
-    InstallModsLoadData(Result<Box<ProjectInfo>, String>),
-    InstallModsDownload(usize),
-    InstallModsDownloadComplete(Result<String, String>),
-    ManageModsUpdateCheckResult(Option<Vec<(String, String)>>),
-    ManageModsUpdateCheckToggle(usize, bool),
     ManageModsSelectAll,
-    InstallOptifineScreenOpen,
-    InstallOptifineSelectInstallerStart,
-    InstallOptifineSelectInstallerEnd(Option<rfd::FileHandle>),
-    InstallOptifineEnd(Result<(), String>),
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,

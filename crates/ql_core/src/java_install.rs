@@ -42,6 +42,10 @@ pub enum JavaInstallProgress {
 ///   If you want, you can hook this up to a progress bar, by using a
 ///   `std::sync::mpsc::channel::<JavaInstallMessage>()`,
 ///   giving the sender to this function and polling the receiver frequently.
+///
+/// # Side notes
+/// - On aarch64 linux, this function installs Amazon Corretto Java.
+/// - On all other platforms, this function installs Java from Mojang.
 pub async fn get_java_binary(
     version: JavaVersion,
     name: &str,

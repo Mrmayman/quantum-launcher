@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use ql_core::{file_utils, InstanceSelection, IntoIoError};
 
-use crate::{instance_mod_installer::change_instance_type, mod_manager::Loader};
+use crate::{loaders::change_instance_type, mod_manager::Loader};
 
 use super::error::ForgeInstallError;
 

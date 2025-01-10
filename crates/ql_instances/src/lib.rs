@@ -1,10 +1,10 @@
-//! # A module for creating, managing and running Minecraft
-//! client instances
+//! # A module for creating, managing and running Minecraft client instances
 //!
 //! This module contains functions to:
 //! - Create and delete an instance
 //! - Launch the instance
 //! - Update the launcher
+//! - Read logs
 //! - List versions available for download
 //!
 //! # A rant about natives
@@ -35,20 +35,21 @@
 //!
 //! ## The solution
 //! We download the ARM64 natives from two different sources:
-//! - `https://github.com/Kichura/Minecraft_ARM` - Providing
-//!   natives for LWJGL, Log4J, Oshi, JavaObjCBridge, and Slf4J.
-//! - `./assets/lwjgl_arm64/*` - Providing natives for different
-//!   LWJGL versions.
+//! - `./assets/lwjgl_arm64/*` - Providing natives for different LWJGL
+//!   versions. Sourced from <https://github.com/theofficialgman/piston-meta-arm64>
+//! - `./assets/minecraft_arm` - Providing natives for LWJGL,
+//!   Log4J, Oshi, JavaObjCBridge, and Slf4J. Used less often.
+//!   Sourced from <https://github.com/Kichura/Minecraft_ARM>
 //!
 //! Both of these complement each other and provide a complete
 //! set of natives for ARM64 users.
 //!
-//! It's still a bit of a hack but it works.
+//! It's still a bit of a hack and it sometimes breaks but it works.
 
 mod download;
 mod instance;
 mod json_natives;
-pub mod json_profiles;
+mod json_profiles;
 mod launcher_update_detector;
 
 pub use download::constants::OS_NAME;

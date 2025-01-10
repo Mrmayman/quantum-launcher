@@ -15,11 +15,7 @@ use tokio::{
 
 use ql_core::{err, file_utils, json::version::VersionDetails, IntoIoError, IoError};
 
-/// Reads logs from the given instance.
-///
-/// Read [`read_logs`] documentation for more info.
-///
-/// What are `_w` functions? See documentation in `quantum_launcher` crate.
+/// [`read_logs`] `_w` function
 pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -38,6 +34,8 @@ pub async fn read_logs_w(
 ///
 /// This async function runs till the instance process exits,
 /// then it returns the exit status.
+///
+/// This automatically deals with XML logs.
 ///
 /// # Arguments
 /// - `stdout`: The stdout of the instance process.

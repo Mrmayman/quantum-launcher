@@ -1,6 +1,6 @@
 use ql_core::{InstanceSelection, IntoIoError};
 
-use crate::instance_mod_installer::{change_instance_type, forge::ForgeInstaller};
+use crate::loaders::{change_instance_type, forge::ForgeInstaller};
 
 use super::{error::ForgeInstallError, ForgeInstallProgress};
 

@@ -4,7 +4,7 @@ use iced::Command;
 use ql_core::{err, info, InstanceSelection, JavaInstallProgress};
 use ql_instances::{AssetRedownloadProgress, LogLine, ScrapeProgress, UpdateProgress};
 use ql_mod_manager::{
-    instance_mod_installer::{
+    loaders::{
         fabric::FabricInstallProgress, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
@@ -13,9 +13,9 @@ use ql_mod_manager::{
 use ql_servers::ServerCreateProgress;
 
 use crate::launcher_state::{
-    get_entries, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric,
-    MenuInstallForge, MenuInstallJava, MenuLaunch, MenuLauncherUpdate, MenuRedownloadAssets,
-    MenuServerCreate, Message, ModListEntry, ServerProcess, State,
+    get_entries, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods,
+    MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch, MenuLauncherUpdate,
+    MenuRedownloadAssets, MenuServerCreate, Message, ModListEntry, ServerProcess, State,
 };
 
 impl Launcher {
@@ -66,16 +66,9 @@ impl Launcher {
             }
             State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
-                menu.sorted_mods_list =
-                    sort_dependencies(&menu.mods.mods, &menu.locally_installed_mods);
-
-                let has_finished = menu.tick_mod_update_progress();
-                if has_finished {
-                    menu.mod_update_progress = None;
-                }
-
                 let instance_selection = self.selected_instance.clone().unwrap();
-                return MenuEditMods::update_locally_installed_mods(&menu.mods, instance_selection);
+                let update_locally_installed_mods = menu.tick(instance_selection);
+                return update_locally_installed_mods;
             }
             State::InstallFabric(menu) => menu.tick(),
             State::InstallForge(menu) => menu.tick(),
@@ -113,7 +106,7 @@ impl Launcher {
                                 .insert(result.title.clone());
                             commands.push(Command::perform(
                                 Search::download_image(result.icon_url.clone(), true),
-                                Message::InstallModsImageDownloaded,
+                                |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                             ));
                         }
                     }
@@ -256,7 +249,7 @@ impl Launcher {
                     self.images_downloads_in_progress.insert(url.to_owned());
                     commands.push(Command::perform(
                         Search::download_image(url.to_owned(), false),
-                        Message::InstallModsImageDownloaded,
+                        |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                     ));
                 }
             }
@@ -542,7 +535,18 @@ pub fn sort_dependencies(
 }
 
 impl MenuEditMods {
-    pub fn tick_mod_update_progress(&mut self) -> bool {
+    fn tick(&mut self, instance_selection: InstanceSelection) -> Command<Message> {
+        self.sorted_mods_list = sort_dependencies(&self.mods.mods, &self.locally_installed_mods);
+
+        let has_finished = self.tick_mod_update_progress();
+        if has_finished {
+            self.mod_update_progress = None;
+        }
+
+        MenuEditMods::update_locally_installed_mods(&self.mods, instance_selection)
+    }
+
+    fn tick_mod_update_progress(&mut self) -> bool {
         if let Some(progress) = &mut self.mod_update_progress {
             while let Ok(message) = progress.recv.try_recv() {
                 match message {

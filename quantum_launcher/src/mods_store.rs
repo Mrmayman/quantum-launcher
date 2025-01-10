@@ -11,7 +11,7 @@ use ql_core::{
 };
 use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
 
-use crate::launcher_state::{Launcher, MenuModsDownload, Message, State};
+use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
 impl Launcher {
     pub fn open_mods_screen(&mut self) -> Result<Command<Message>, String> {
@@ -79,7 +79,7 @@ impl MenuModsDownload {
                 server_side: is_server,
                 open_source: false, // TODO: Add Open Source filter
             }),
-            Message::InstallModsSearchResult,
+            |n| Message::InstallMods(InstallModsMessage::SearchResult(n)),
         )
     }
 }

@@ -49,16 +49,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use std::{sync::Arc, time::Duration};
 
 use colored::Colorize;
-use iced::{
-    executor,
-    widget::{self, image::Handle},
-    Application, Command, Settings,
-};
+use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
-    get_entries, Launcher, ManageModsMessage, MenuEditMods, MenuInstallForge, MenuInstallOptifine,
-    MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage,
-    Message, OptifineInstallProgressData, SelectedMod, SelectedState, ServerProcess, State,
-    UpdateModsProgress,
+    get_entries, InstallModsMessage, Launcher, ManageModsMessage, MenuInstallForge, MenuLaunch,
+    MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message,
+    SelectedMod, SelectedState, ServerProcess, State, UpdateModsProgress,
 };
 
 use menu_renderer::{button_with_icon, menu_delete_instance_view};
@@ -70,20 +65,26 @@ use ql_core::{
 };
 use ql_instances::{UpdateCheckInfo, LAUNCHER_VERSION_NAME};
 use ql_mod_manager::{
-    instance_mod_installer,
-    mod_manager::{Loader, ModIndex, ProjectInfo},
+    loaders,
+    mod_manager::{Loader, ModIndex},
 };
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
 use tokio::io::AsyncWriteExt;
 
+/// Launcher configuration
 mod config;
+/// Icon definitions as `iced::widget`
 mod icon_manager;
 mod launcher_state;
+/// Code to render menus
 mod menu_renderer;
 mod message_handler;
 mod message_update;
+/// Handles mod store
 mod mods_store;
+/// Stylesheet definitions (launcher themes)
 mod stylesheet;
+/// Code to tick every frame
 mod tick;
 
 const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
@@ -153,15 +154,13 @@ impl Application for Launcher {
             Message::CoreTick => return self.tick(),
             Message::UninstallLoaderForgeStart => {
                 return Command::perform(
-                    instance_mod_installer::forge::uninstall_w(
-                        self.selected_instance.clone().unwrap(),
-                    ),
+                    loaders::forge::uninstall_w(self.selected_instance.clone().unwrap()),
                     Message::UninstallLoaderEnd,
                 )
             }
             Message::UninstallLoaderOptiFineStart => {
                 return Command::perform(
-                    instance_mod_installer::optifine::uninstall_w(
+                    loaders::optifine::uninstall_w(
                         self.selected_instance
                             .as_ref()
                             .unwrap()
@@ -173,9 +172,7 @@ impl Application for Launcher {
             }
             Message::UninstallLoaderFabricStart => {
                 return Command::perform(
-                    instance_mod_installer::fabric::uninstall_w(
-                        self.selected_instance.clone().unwrap(),
-                    ),
+                    loaders::fabric::uninstall_w(self.selected_instance.clone().unwrap()),
                     Message::UninstallLoaderEnd,
                 )
             }
@@ -226,14 +223,6 @@ impl Application for Launcher {
                     );
                 }
             }
-            Message::InstallModsDownloadComplete(result) => match result {
-                Ok(id) => {
-                    if let State::ModsDownload(menu) = &mut self.state {
-                        menu.mods_download_in_progress.remove(&id);
-                    }
-                }
-                Err(err) => self.set_error(err),
-            },
             Message::CoreTickConfigSaved(result) | Message::LaunchKillEnd(result) => {
                 if let Err(err) = result {
                     self.set_error(err);
@@ -293,79 +282,6 @@ impl Application for Launcher {
                     ));
                 }
             }
-            Message::InstallModsSearchResult(search) => {
-                if let State::ModsDownload(menu) = &mut self.state {
-                    menu.is_loading_search = false;
-                    match search {
-                        Ok((search, time)) => {
-                            if time > menu.latest_load {
-                                menu.results = Some(search);
-                                menu.latest_load = time;
-                            }
-                        }
-                        Err(err) => self.set_error(err),
-                    }
-                }
-            }
-            Message::InstallModsOpen => match self.open_mods_screen() {
-                Ok(command) => return command,
-                Err(err) => self.set_error(err),
-            },
-            Message::InstallModsSearchInput(input) => {
-                if let State::ModsDownload(menu) = &mut self.state {
-                    menu.query = input;
-
-                    return menu.search_modrinth(matches!(
-                        &self.selected_instance,
-                        Some(InstanceSelection::Server(_))
-                    ));
-                }
-            }
-            Message::InstallModsClick(i) => {
-                if let State::ModsDownload(menu) = &mut self.state {
-                    menu.opened_mod = Some(i);
-                    if let Some(results) = &menu.results {
-                        let hit = results.hits.get(i).unwrap();
-                        if !menu.result_data.contains_key(&hit.project_id) {
-                            let task = ProjectInfo::download_w(hit.project_id.clone());
-                            return Command::perform(task, Message::InstallModsLoadData);
-                        }
-                    }
-                }
-            }
-            Message::InstallModsBackToMainScreen => {
-                if let State::ModsDownload(menu) = &mut self.state {
-                    menu.opened_mod = None;
-                }
-            }
-            Message::InstallModsLoadData(project_info) => match project_info {
-                Ok(info) => {
-                    if let State::ModsDownload(menu) = &mut self.state {
-                        let id = info.id.clone();
-                        menu.result_data.insert(id, *info);
-                    }
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::InstallModsImageDownloaded(image) => match image {
-                Ok(image) => {
-                    if image.is_svg {
-                        let handle = iced::widget::svg::Handle::from_memory(image.image);
-                        self.images_svg.insert(image.url, handle);
-                    } else {
-                        self.images_bitmap
-                            .insert(image.url, Handle::from_memory(image.image));
-                    }
-                }
-                Err(err) => {
-                    err!("Could not download image: {err}");
-                }
-            },
-            Message::InstallModsDownload(index) => {
-                if let Some(value) = self.mod_download(index) {
-                    return value;
-                }
-            }
             Message::LauncherSettingsThemePicked(theme) => {
                 info!("Setting theme {theme}");
                 if let Some(config) = self.config.as_mut() {
@@ -422,77 +338,7 @@ impl Application for Launcher {
                     }
                 }
             }
-            Message::InstallOptifineScreenOpen => {
-                self.state = State::InstallOptifine(MenuInstallOptifine { progress: None });
-            }
-            Message::InstallOptifineSelectInstallerStart => {
-                return Command::perform(
-                    rfd::AsyncFileDialog::new()
-                        .add_filter("jar", &["jar"])
-                        .set_title("Select OptiFine Installer")
-                        .pick_file(),
-                    Message::InstallOptifineSelectInstallerEnd,
-                )
-            }
-            Message::InstallOptifineSelectInstallerEnd(handle) => {
-                if let Some(handle) = handle {
-                    let path = handle.path().to_owned();
-
-                    let (p_sender, p_recv) = std::sync::mpsc::channel();
-                    let (j_sender, j_recv) = std::sync::mpsc::channel();
-
-                    self.state = State::InstallOptifine(MenuInstallOptifine {
-                        progress: Some(OptifineInstallProgressData {
-                            optifine_install_progress: p_recv,
-                            optifine_install_num: 0.0,
-                            java_install_progress: j_recv,
-                            java_install_num: 0.0,
-                            is_java_being_installed: false,
-                            optifine_install_message: String::new(),
-                            java_install_message: String::new(),
-                        }),
-                    });
-
-                    return Command::perform(
-                        // Note: OptiFine does not support servers
-                        // so it's safe to assume we've selected an instance.
-                        ql_mod_manager::instance_mod_installer::optifine::install_optifine_w(
-                            self.selected_instance
-                                .as_ref()
-                                .unwrap()
-                                .get_name()
-                                .to_owned(),
-                            path,
-                            Some(p_sender),
-                            Some(j_sender),
-                        ),
-                        Message::InstallOptifineEnd,
-                    );
-                }
-            }
-            Message::InstallOptifineEnd(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    return self.go_to_launch_screen(Some("Installed OptiFine".to_owned()));
-                }
-            }
-            Message::ManageModsUpdateCheckResult(updates) => {
-                if let (Some(updates), State::EditMods(menu)) = (updates, &mut self.state) {
-                    menu.available_updates =
-                        updates.into_iter().map(|(a, b)| (a, b, true)).collect();
-                }
-            }
-            Message::ManageModsUpdateCheckToggle(idx, t) => {
-                if let State::EditMods(MenuEditMods {
-                    available_updates, ..
-                }) = &mut self.state
-                {
-                    if let Some((_, _, b)) = available_updates.get_mut(idx) {
-                        *b = t;
-                    }
-                }
-            }
+            Message::InstallOptifine(msg) => return self.update_install_optifine(msg),
             Message::ServerManageSelectedServer(selected) => {
                 self.selected_instance = Some(InstanceSelection::Server(selected));
             }
@@ -687,7 +533,7 @@ impl Application for Launcher {
             Message::InstallPaperStart => {
                 self.state = State::InstallPaper;
                 return Command::perform(
-                    instance_mod_installer::paper::install_w(
+                    loaders::paper::install_w(
                         self.selected_instance
                             .as_ref()
                             .unwrap()
@@ -706,7 +552,7 @@ impl Application for Launcher {
             }
             Message::UninstallLoaderPaperStart => {
                 return Command::perform(
-                    instance_mod_installer::paper::uninstall_w(
+                    loaders::paper::uninstall_w(
                         self.selected_instance
                             .as_ref()
                             .unwrap()
@@ -729,6 +575,7 @@ impl Application for Launcher {
             Message::CoreCopyText(txt) => {
                 return iced::clipboard::write(txt);
             }
+            Message::InstallMods(msg) => return self.update_install_mods(msg),
         }
         Command::none()
     }
@@ -860,7 +707,7 @@ impl Launcher {
             .insert(hit.project_id.clone());
         Some(Command::perform(
             ql_mod_manager::mod_manager::download_mod_w(hit.project_id.clone(), selected_instance),
-            Message::InstallModsDownloadComplete,
+            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n)),
         ))
     }
 
@@ -931,7 +778,7 @@ impl Launcher {
         let (j_sender, j_receiver) = std::sync::mpsc::channel();
 
         let command = Command::perform(
-            instance_mod_installer::forge::install_w(
+            loaders::forge::install_w(
                 self.selected_instance.clone().unwrap(),
                 Some(f_sender),
                 Some(j_sender),
