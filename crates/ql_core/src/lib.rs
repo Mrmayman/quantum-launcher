@@ -76,3 +76,11 @@ impl InstanceSelection {
 
 pub const IS_ARM_LINUX: bool = cfg!(target_arch = "aarch64") && cfg!(target_os = "linux");
 // pub const IS_ARM_LINUX: bool = true;
+
+pub const LAUNCHER_VERSION_NAME: &str = "0.3.1";
+
+#[derive(Hash, PartialEq, Eq, Clone)]
+pub enum SelectedMod {
+    Downloaded { name: String, id: String },
+    Local { file_name: String },
+}

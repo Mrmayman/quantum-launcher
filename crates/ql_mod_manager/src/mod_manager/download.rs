@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
+use std::{cmp::Ordering, collections::HashSet, path::PathBuf};
 
 use async_recursion::async_recursion;
 use chrono::DateTime;
@@ -51,8 +47,8 @@ pub async fn download_mod(
     Ok(id)
 }
 
-pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModError> {
-    let config_json = get_config_json(instance_dir)?;
+pub fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, ModError> {
+    let config_json = get_config_json(instance)?;
 
     Ok(match config_json.mod_type.as_str() {
         "Fabric" => Some("fabric"),
@@ -65,27 +61,8 @@ pub fn get_loader_type(instance_dir: &Path) -> Result<Option<String>, ModError> 
     .map(str::to_owned))
 }
 
-pub fn get_instance_and_mod_dir(
-    instance_name: &InstanceSelection,
-) -> Result<(PathBuf, PathBuf), ModError> {
-    let instance_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
-    let mods_dir = instance_dir.join("mods");
-    if !mods_dir.exists() {
-        std::fs::create_dir(&mods_dir).path(&mods_dir)?;
-    }
-    Ok((instance_dir, mods_dir))
-}
-
-pub fn get_version_json(instance_dir: &Path) -> Result<VersionDetails, ModError> {
-    let version_json_path = instance_dir.join("details.json");
-    let version_json: String =
-        std::fs::read_to_string(&version_json_path).path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
-    Ok(version_json)
-}
-
-fn get_config_json(instance_dir: &Path) -> Result<InstanceConfigJson, ModError> {
-    let config_file_path = instance_dir.join("config.json");
+fn get_config_json(instance: &InstanceSelection) -> Result<InstanceConfigJson, ModError> {
+    let config_file_path = file_utils::get_instance_dir(instance)?.join("config.json");
     let config_json = std::fs::read_to_string(&config_file_path).path(config_file_path)?;
     let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
     Ok(config_json)
@@ -102,11 +79,13 @@ struct ModDownloader {
 
 impl ModDownloader {
     fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
-        let (instance_dir, mods_dir) = get_instance_and_mod_dir(instance_name)?;
-        let version_json = get_version_json(&instance_dir)?;
+        let mods_dir = get_mods_dir(instance_name)?;
+
+        let version_json = get_version_json(instance_name)?;
+
         let index = ModIndex::get(instance_name)?;
         let client = reqwest::Client::new();
-        let loader = get_loader_type(&instance_dir)?;
+        let loader = get_loader_type(instance_name)?;
         let currently_installing_mods = HashSet::new();
         Ok(ModDownloader {
             version: version_json.id,
@@ -251,6 +230,23 @@ impl ModDownloader {
         }
         Ok(())
     }
+}
+
+pub fn get_version_json(instance_name: &InstanceSelection) -> Result<VersionDetails, ModError> {
+    let version_json_path = file_utils::get_instance_dir(instance_name)?.join("details.json");
+    let version_json: String =
+        std::fs::read_to_string(&version_json_path).path(version_json_path)?;
+    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    Ok(version_json)
+}
+
+pub fn get_mods_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ModError> {
+    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+    let mods_dir = dot_minecraft_dir.join("mods");
+    if !mods_dir.exists() {
+        std::fs::create_dir(&mods_dir).path(&mods_dir)?;
+    }
+    Ok(mods_dir)
 }
 
 pub fn version_sort(a: &ModVersion, b: &ModVersion) -> Ordering {

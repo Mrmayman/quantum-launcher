@@ -10,6 +10,7 @@ use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, JavaInstallProgress, JsonFileError,
+    SelectedMod,
 };
 use ql_instances::{
     AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
@@ -133,9 +134,12 @@ pub enum Message {
     DeleteInstance,
     InstallForgeStart,
     InstallForgeEnd(Result<(), String>),
+    InstallPaperStart,
+    InstallPaperEnd(Result<(), String>),
     UninstallLoaderFabricStart,
     UninstallLoaderForgeStart,
     UninstallLoaderOptiFineStart,
+    UninstallLoaderPaperStart,
     UninstallLoaderEnd(Result<Loader, String>),
     CoreErrorCopy,
     CoreTick,
@@ -172,11 +176,15 @@ pub enum Message {
     ServerDeleteOpen,
     ServerDeleteConfirm,
     ServerEditModsOpen,
-    InstallPaperStart,
-    InstallPaperEnd(Result<(), String>),
-    UninstallLoaderPaperStart,
+    EditPresetsOpen,
+    EditPresetsToggleCheckbox((String, String), bool),
+    EditPresetsToggleCheckboxLocal(String, bool),
+    EditPresetsSelectAll,
+    EditPresetsBuildYourOwn,
+    EditPresetsBuildYourOwnEnd(Result<Vec<u8>, String>),
 }
 
+/// The home screen of the launcher.
 #[derive(Default)]
 pub struct MenuLaunch {
     pub message: String,
@@ -194,16 +202,11 @@ impl MenuLaunch {
     }
 }
 
+/// The screen where you can edit an instance/server.
 pub struct MenuEditInstance {
     pub config: InstanceConfigJson,
     pub slider_value: f32,
     pub slider_text: String,
-}
-
-#[derive(Hash, PartialEq, Eq)]
-pub enum SelectedMod {
-    Downloaded { name: String, id: String },
-    Local { file_name: String },
 }
 
 pub enum SelectedState {
@@ -212,10 +215,38 @@ pub enum SelectedState {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ModListEntry {
     Downloaded { id: String, config: Box<ModConfig> },
     Local { file_name: String },
+}
+
+impl ModListEntry {
+    pub fn is_manually_installed(&self) -> bool {
+        match self {
+            ModListEntry::Local { .. } => true,
+            ModListEntry::Downloaded { config, .. } => config.manually_installed,
+        }
+    }
+
+    pub fn name(&self) -> String {
+        match self {
+            ModListEntry::Local { file_name } => file_name.clone(),
+            ModListEntry::Downloaded { config, .. } => config.name.clone(),
+        }
+    }
+
+    pub fn id(&self) -> SelectedMod {
+        match self {
+            ModListEntry::Local { file_name } => SelectedMod::Local {
+                file_name: file_name.clone(),
+            },
+            ModListEntry::Downloaded { id, config } => SelectedMod::Downloaded {
+                name: config.name.clone(),
+                id: id.clone(),
+            },
+        }
+    }
 }
 
 pub struct MenuEditMods {
@@ -348,6 +379,21 @@ pub struct MenuModsDownload {
 
 pub struct MenuLauncherSettings;
 
+pub struct MenuPresetMaker {
+    pub mods: Vec<ModListEntry>,
+    pub selected_mods: HashSet<SelectedMod>,
+    pub selected_state: SelectedState,
+    pub is_building: bool,
+}
+
+impl MenuPresetMaker {
+    pub fn is_enabled(&self, entry: &ModListEntry) -> bool {
+        let id = entry.id();
+        self.selected_mods.contains(&id)
+    }
+}
+
+/// The enum that represents which menu is opened currently.
 pub enum State {
     Launch(MenuLaunch),
     EditInstance(MenuEditInstance),
@@ -367,6 +413,7 @@ pub enum State {
     ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
     ServerDelete,
+    ManagePresets(MenuPresetMaker),
 }
 
 pub struct MenuServerManage {

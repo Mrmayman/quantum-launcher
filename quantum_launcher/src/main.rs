@@ -46,14 +46,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //!
 //! This is done to make use with `iced::Command` easier.
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use colored::Colorize;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
     get_entries, InstallModsMessage, Launcher, ManageModsMessage, MenuInstallForge, MenuLaunch,
-    MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, MenuServerManage, Message,
-    SelectedMod, SelectedState, ServerProcess, State, UpdateModsProgress,
+    MenuLauncherSettings, MenuLauncherUpdate, MenuPresetMaker, MenuServerCreate, MenuServerManage,
+    Message, ModListEntry, SelectedState, ServerProcess, State, UpdateModsProgress,
 };
 
 use menu_renderer::{button_with_icon, menu_delete_instance_view};
@@ -61,9 +61,9 @@ use message_handler::open_file_explorer;
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    InstanceSelection,
+    InstanceSelection, SelectedMod, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{UpdateCheckInfo, LAUNCHER_VERSION_NAME};
+use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{
     loaders,
     mod_manager::{Loader, ModIndex},
@@ -576,6 +576,100 @@ impl Application for Launcher {
                 return iced::clipboard::write(txt);
             }
             Message::InstallMods(msg) => return self.update_install_mods(msg),
+            Message::EditPresetsOpen => {
+                if let State::EditMods(menu) = &self.state {
+                    let selected_mods = HashSet::from_iter(
+                        menu.sorted_mods_list
+                            .iter()
+                            .filter_map(|n| n.is_manually_installed().then_some(n.id())),
+                    );
+                    self.state = State::ManagePresets(MenuPresetMaker {
+                        mods: menu.sorted_mods_list.clone(),
+                        selected_mods,
+                        selected_state: SelectedState::All,
+                        is_building: false,
+                    });
+                }
+            }
+            Message::EditPresetsToggleCheckbox((name, id), enable) => {
+                if let State::ManagePresets(menu) = &mut self.state {
+                    if enable {
+                        menu.selected_mods
+                            .insert(SelectedMod::Downloaded { name, id });
+                    } else {
+                        menu.selected_mods
+                            .remove(&SelectedMod::Downloaded { name, id });
+                    }
+                    menu.selected_state = SelectedState::Some;
+                }
+            }
+            Message::EditPresetsToggleCheckboxLocal(file_name, enable) => {
+                if let State::ManagePresets(menu) = &mut self.state {
+                    if enable {
+                        menu.selected_mods.insert(SelectedMod::Local { file_name });
+                    } else {
+                        menu.selected_mods.remove(&SelectedMod::Local { file_name });
+                    }
+                    menu.selected_state = SelectedState::Some;
+                }
+            }
+            Message::EditPresetsSelectAll => {
+                if let State::ManagePresets(menu) = &mut self.state {
+                    match menu.selected_state {
+                        SelectedState::All => {
+                            menu.selected_mods.clear();
+                            menu.selected_state = SelectedState::None;
+                        }
+                        SelectedState::Some | SelectedState::None => {
+                            menu.selected_mods = menu
+                                .mods
+                                .iter()
+                                .filter_map(|mod_info| {
+                                    mod_info.is_manually_installed().then_some(match mod_info {
+                                        ModListEntry::Downloaded { id, config } => {
+                                            SelectedMod::Downloaded {
+                                                name: config.name.clone(),
+                                                id: id.clone(),
+                                            }
+                                        }
+                                        ModListEntry::Local { file_name } => SelectedMod::Local {
+                                            file_name: file_name.clone(),
+                                        },
+                                    })
+                                })
+                                .collect();
+                            menu.selected_state = SelectedState::All;
+                        }
+                    }
+                }
+            }
+            Message::EditPresetsBuildYourOwn => {
+                if let State::ManagePresets(menu) = &mut self.state {
+                    menu.is_building = true;
+                    return Command::perform(
+                        ql_mod_manager::PresetJson::generate_w(
+                            self.selected_instance.clone().unwrap(),
+                            menu.selected_mods.clone(),
+                        ),
+                        Message::EditPresetsBuildYourOwnEnd,
+                    );
+                }
+            }
+            Message::EditPresetsBuildYourOwnEnd(result) => match result {
+                Ok(preset) => {
+                    if let Some(path) = rfd::FileDialog::new().save_file() {
+                        if let Err(err) = std::fs::write(path, preset) {
+                            self.set_error(err);
+                        } else {
+                            match self.go_to_edit_mods_menu() {
+                                Ok(n) => return n,
+                                Err(err) => self.set_error(err),
+                            }
+                        }
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
         }
         Command::none()
     }
@@ -665,6 +759,7 @@ impl Application for Launcher {
                 .padding(10)
                 .spacing(10)
                 .into(),
+            State::ManagePresets(menu) => menu.view(),
         }
     }
 

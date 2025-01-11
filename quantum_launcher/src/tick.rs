@@ -238,6 +238,7 @@ impl Launcher {
             State::Error { .. }
             | State::DeleteInstance
             | State::ServerDelete { .. }
+            | State::ManagePresets(_)
             | State::InstallPaper => {}
         }
 

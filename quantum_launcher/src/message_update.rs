@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Command};
-use ql_core::{err, file_utils, InstanceSelection, IntoIoError};
+use ql_core::{err, file_utils, InstanceSelection, IntoIoError, SelectedMod};
 use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
 
 use crate::{
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallModsMessage,
         InstallOptifineMessage, Launcher, ManageModsMessage, MenuCreateInstance, MenuEditMods,
-        MenuInstallFabric, MenuInstallOptifine, Message, OptifineInstallProgressData, SelectedMod,
+        MenuInstallFabric, MenuInstallOptifine, Message, OptifineInstallProgressData,
         SelectedState, State,
     },
     message_handler::format_memory,

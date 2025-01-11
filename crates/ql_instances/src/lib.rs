@@ -72,5 +72,3 @@ const LAUNCHER_VERSION: semver::Version = semver::Version {
     pre: Prerelease::EMPTY,
     build: BuildMetadata::EMPTY,
 };
-
-pub const LAUNCHER_VERSION_NAME: &str = "0.3.1";

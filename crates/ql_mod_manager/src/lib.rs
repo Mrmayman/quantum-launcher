@@ -19,4 +19,6 @@
 pub mod loaders;
 /// Mod manager integrated with Modrinth.
 pub mod mod_manager;
+mod presets;
 mod rate_limiter;
+pub use presets::PresetJson;

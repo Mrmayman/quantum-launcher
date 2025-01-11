@@ -4,7 +4,7 @@ use chrono::DateTime;
 use ql_core::{info, InstanceSelection};
 
 use crate::mod_manager::{
-    download::{get_instance_and_mod_dir, get_loader_type, get_version_json, version_sort},
+    download::{get_loader_type, get_version_json, version_sort},
     ModVersion,
 };
 
@@ -58,10 +58,9 @@ pub async fn check_for_updates(
 ) -> Option<Vec<(String, String)>> {
     let index = ModIndex::get(&selected_instance).ok()?;
 
-    let (instance_dir, _) = get_instance_and_mod_dir(&selected_instance).ok()?;
-    let version_json = get_version_json(&instance_dir).ok()?;
+    let version_json = get_version_json(&selected_instance).ok()?;
 
-    let loader = get_loader_type(&instance_dir).ok()?;
+    let loader = get_loader_type(&selected_instance).ok()?;
 
     let mut updated_mods = Vec::new();
 

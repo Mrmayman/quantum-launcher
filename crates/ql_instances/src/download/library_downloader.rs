@@ -28,7 +28,7 @@ impl GameDownloader {
     pub async fn download_libraries(&mut self) -> Result<(), DownloadError> {
         info!("Starting download of libraries.");
 
-        self.prepare_library_directories()?;
+        self.prepare_library_directories().await?;
 
         let total_libraries = self.version_json.libraries.len();
 
@@ -55,7 +55,7 @@ impl GameDownloader {
             // We don't want any x64 libraries on ARM, do we?
             let dir = self.instance_dir.join("libraries/natives/linux/x64");
             if dir.exists() {
-                std::fs::remove_dir_all(&dir).path(dir)?;
+                tokio::fs::remove_dir_all(&dir).await.path(dir)?;
             }
         }
         Ok(())
@@ -116,11 +116,15 @@ impl GameDownloader {
         Ok(())
     }
 
-    fn prepare_library_directories(&self) -> Result<(), IoError> {
+    async fn prepare_library_directories(&self) -> Result<(), IoError> {
         let library_path = self.instance_dir.join("libraries");
-        std::fs::create_dir_all(&library_path).path(&library_path)?;
+        tokio::fs::create_dir_all(&library_path)
+            .await
+            .path(&library_path)?;
         let natives_path = library_path.join("natives");
-        std::fs::create_dir_all(&natives_path).path(natives_path)?;
+        tokio::fs::create_dir_all(&natives_path)
+            .await
+            .path(natives_path)?;
         Ok(())
     }
 
@@ -210,11 +214,15 @@ impl GameDownloader {
                         // TODO: Find a better way to do this
                         let liblwjgl64_path = natives_path.join("liblwjgl64.so");
                         if liblwjgl64_path.exists() {
-                            std::fs::remove_file(&liblwjgl64_path).path(liblwjgl64_path)?;
+                            tokio::fs::remove_file(&liblwjgl64_path)
+                                .await
+                                .path(liblwjgl64_path)?;
                         }
                         let libopenal64_path = natives_path.join("libopenal64.so");
                         if libopenal64_path.exists() {
-                            std::fs::remove_file(&libopenal64_path).path(libopenal64_path)?;
+                            tokio::fs::remove_file(&libopenal64_path)
+                                .await
+                                .path(libopenal64_path)?;
                         }
                     }
 
@@ -310,11 +318,15 @@ impl GameDownloader {
             )
             .to_path_buf();
 
-        std::fs::create_dir_all(&lib_dir_path).path(lib_dir_path)?;
+        tokio::fs::create_dir_all(&lib_dir_path)
+            .await
+            .path(lib_dir_path)?;
         let library_downloaded =
             file_utils::download_file_to_bytes(&self.network_client, &artifact.url, false).await?;
 
-        std::fs::write(&lib_file_path, &library_downloaded).path(lib_file_path)?;
+        tokio::fs::write(&lib_file_path, &library_downloaded)
+            .await
+            .path(lib_file_path)?;
 
         Ok(library_downloaded)
     }
@@ -353,9 +365,13 @@ impl GameDownloader {
 
                 if exclusion_path.exists() {
                     if exclusion_path.is_dir() {
-                        std::fs::remove_dir_all(&exclusion_path).path(exclusion_path)?;
+                        tokio::fs::remove_dir_all(&exclusion_path)
+                            .await
+                            .path(exclusion_path)?;
                     } else {
-                        std::fs::remove_file(&exclusion_path).path(exclusion_path)?;
+                        tokio::fs::remove_file(&exclusion_path)
+                            .await
+                            .path(exclusion_path)?;
                     }
                 }
             }

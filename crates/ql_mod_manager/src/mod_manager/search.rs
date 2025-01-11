@@ -3,6 +3,7 @@ use std::{fmt::Display, time::Instant};
 use image::ImageReader;
 use ql_core::{file_utils, IoError, RequestError};
 use serde::{Deserialize, Serialize};
+use zip_extract::ZipError;
 
 use crate::rate_limiter::RATE_LIMITER;
 
@@ -184,6 +185,8 @@ pub enum ModError {
     Io(IoError),
     NoCompatibleVersionFound,
     NoFilesFound,
+    ZipEntryAddError(std::io::Error, String),
+    Zip(ZipError),
 }
 
 impl Display for ModError {
@@ -197,6 +200,10 @@ impl Display for ModError {
                 write!(f, "no compatible version found when downloading mod")
             }
             ModError::NoFilesFound => write!(f, "no files found for mod"),
+            ModError::ZipEntryAddError(err, path) => {
+                write!(f, "couldn't add entry {path} to zip: {err}")
+            }
+            ModError::Zip(err) => write!(f, "(zip) {err}"),
         }
     }
 }
@@ -204,6 +211,12 @@ impl Display for ModError {
 impl From<RequestError> for ModError {
     fn from(value: RequestError) -> Self {
         Self::RequestError(value)
+    }
+}
+
+impl From<ZipError> for ModError {
+    fn from(value: ZipError) -> Self {
+        Self::Zip(value)
     }
 }
 
