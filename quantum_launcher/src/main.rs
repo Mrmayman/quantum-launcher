@@ -48,7 +48,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
-use colored::Colorize;
+use arguments::ArgumentInfo;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
     get_entries, InstallModsMessage, Launcher, ManageModsMessage, MenuInstallForge, MenuLaunch,
@@ -58,11 +58,7 @@ use launcher_state::{
 
 use menu_renderer::{button_with_icon, menu_delete_instance_view};
 use message_handler::open_file_explorer;
-use ql_core::{
-    err, file_utils, info,
-    json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    InstanceSelection, SelectedMod, LAUNCHER_VERSION_NAME,
-};
+use ql_core::{err, info, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{
     loaders,
@@ -71,6 +67,7 @@ use ql_mod_manager::{
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
 use tokio::io::AsyncWriteExt;
 
+mod arguments;
 /// Launcher configuration
 mod config;
 /// Icon definitions as `iced::widget`
@@ -966,48 +963,12 @@ const WINDOW_HEIGHT: f32 = 450.0;
 const WINDOW_WIDTH: f32 = 650.0;
 
 fn main() {
-    let args = std::env::args();
+    let mut args = std::env::args();
     let mut info = ArgumentInfo {
         headless: false,
-        operation: None,
-        is_used: false,
+        program: None,
     };
-    process_args(args, &mut info);
-
-    if !info.is_used {
-        info!("Welcome to QuantumLauncher! This terminal window just outputs some debug info. You can ignore it.");
-    }
-
-    if let Some(op) = info.operation {
-        match op {
-            ArgumentOperation::ListInstances => {
-                match tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(get_entries("instances".to_owned(), false))
-                    .map_err(|err| err.to_string())
-                {
-                    Ok((instances, _)) => {
-                        for instance in instances {
-                            let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                            let instance_dir = launcher_dir.join("instances").join(&instance);
-
-                            let json =
-                                std::fs::read_to_string(instance_dir.join("details.json")).unwrap();
-                            let json: VersionDetails = serde_json::from_str(&json).unwrap();
-
-                            let config_json =
-                                std::fs::read_to_string(instance_dir.join("config.json")).unwrap();
-                            let config_json: InstanceConfigJson =
-                                serde_json::from_str(&config_json).unwrap();
-
-                            println!("{instance} : {} : {}", json.id, config_json.mod_type);
-                        }
-                    }
-                    Err(err) => eprintln!("[cmd.error] {err}"),
-                }
-            }
-        }
-    }
+    arguments::process_args(&mut args, &mut info);
 
     if info.headless {
         return;
@@ -1038,63 +999,4 @@ fn main() {
         ..Default::default()
     })
     .unwrap();
-}
-
-struct ArgumentInfo {
-    pub headless: bool,
-    pub is_used: bool,
-    pub operation: Option<ArgumentOperation>,
-}
-
-enum ArgumentOperation {
-    ListInstances,
-}
-
-fn process_args(mut args: std::env::Args, info: &mut ArgumentInfo) -> Option<()> {
-    let program = args.next()?;
-    let mut first_argument = true;
-
-    loop {
-        let Some(command) = args.next() else {
-            if first_argument {
-                info!(
-                    "You can run {} to see the possible command line arguments",
-                    format!("{program} --help").yellow()
-                );
-            }
-            return None;
-        };
-        info.is_used = true;
-        match command.as_str() {
-            "--help" => {
-                println!(
-                    r#"Usage: {}
-    --help           : Print a list of valid command line flags
-    --version        : Print the launcher version
-    --command        : Run a command with the launcher in headless mode (command line)
-    --list-instances : Print a list of instances (name, version and type (Vanilla/Fabric/Forge/...))
-"#,
-                    format!("{program} [FLAGS]").yellow(),
-                );
-            }
-            "--version" => {
-                println!(
-                    "{}",
-                    format!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman").bold()
-                );
-            }
-            "--command" => {
-                info.headless = true;
-            }
-            "--list-instances" => info.operation = Some(ArgumentOperation::ListInstances),
-            _ => {
-                eprintln!(
-                    "{} Unknown flag! Type {} to see all the command-line flags.",
-                    "[error]".red(),
-                    format!("{program} --help").yellow()
-                );
-            }
-        }
-        first_argument = false;
-    }
 }

@@ -625,20 +625,15 @@ fn load_config_and_theme(
 }
 
 pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {
-    let dir_path = file_utils::get_launcher_dir().map_err(|n| n.to_string())?;
+    let dir_path = file_utils::get_launcher_dir()
+        .map_err(|n| n.to_string())?
+        .join(path);
     if !dir_path.exists() {
         tokio::fs::create_dir_all(&dir_path)
             .await
             .path(&dir_path)
             .map_err(|n| n.to_string())?;
-    }
-
-    let dir_path = dir_path.join(path);
-    if !dir_path.exists() {
-        tokio::fs::create_dir_all(&dir_path)
-            .await
-            .path(&dir_path)
-            .map_err(|n| n.to_string())?;
+        return Ok((Vec::new(), is_server));
     }
 
     let mut dir = tokio::fs::read_dir(&dir_path)
