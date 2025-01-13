@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false # don't fail other jobs if one fails
       matrix:
-        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows] #, x86_64-win-gnu, win32-msvc
+        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows, i686-windows] #, x86_64-win-gnu, win32-msvc
         include:
         - build: x86_64-linux
           os: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
         - build: aarch64-linux
           os: ubuntu-latest
           rust: nightly
-          target: aarch64-unknown-linux-gnu
+          target: aarch64-unknown-linux-musl
           cross: true
           final_name: linux_aarch64
         - build: x86_64-macos
@@ -73,6 +73,7 @@ jobs:
           os: macos-latest
           rust: nightly
           target: aarch64-apple-darwin
+          cross: false
           final_name: macos_aarch64
         - build: aarch64-windows
           os: windows-latest
@@ -80,14 +81,12 @@ jobs:
           target: aarch64-pc-windows-msvc
           cross: false
           final_name: windows_aarch64
-        #- build: x86_64-win-gnu
-        #  os: windows-2019
-        #  rust: stable-x86_64-gnu
-        #  target: x86_64-pc-windows-gnu
-        #- build: win32-msvc
-        #  os: windows-2019
-        #  rust: stable
-        #  target: i686-pc-windows-msvc
+        - build: i686-windows
+          os: ubuntu-latest
+          rust: nightly
+          target: i686-pc-windows-gnu
+          cross: true
+          final_name: windows_i686
 
     steps:
       - name: Checkout sources
@@ -102,6 +101,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
           override: true
+      
+      # Setup action cache    
+      - uses: Swatinem/rust-cache@v2    
 
       - name: Build release binary
         uses: clechasseur/rs-cargo@v1
@@ -109,25 +111,25 @@ jobs:
           use-cross: ${{ matrix.cross }}
           command: build
           args: --release --target ${{ matrix.target }}
-
+      
       - name: Strip release binary (linux and macos)
         if: matrix.build == 'x86_64-linux' || matrix.build == 'x86_64-macos'
         run: strip "target/${{ matrix.target }}/release/$BIN_NAME"
-
-      - name: Strip release binary (arm)
-        if: matrix.build == 'aarch64-linux'
-        run: |
-          docker run --rm -v \
-            "$PWD/target:/target:Z" \
-            rustembedded/cross:${{ matrix.target }} \
-            aarch64-linux-gnu-strip \
-            /target/${{ matrix.target }}/release/$BIN_NAME
-
+  
+      #- name: Strip release binary (arm)
+      #  if: matrix.build == 'aarch64-linux'
+      #  run: |
+      #    docker run --rm -v \
+      #      "$PWD/target:/target:Z" \
+      #      rustembedded/cross:${{ matrix.target }} \
+      #     aarch64-linux-gnu-strip \
+      #      /target/${{ matrix.target }}/release/$BIN_NAME
+      
       - name: Build archive
         shell: bash
         run: |
           mkdir dist
-          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+          if [ "${{ matrix.build }}" = "x86_64-windows" ] || [ "${{ matrix.build }}" = "i686-windows" ]; then
             cp "target/${{ matrix.target }}/release/$BIN_NAME.exe" "dist/"
           else
             cp "target/${{ matrix.target }}/release/$BIN_NAME" "dist/"
@@ -149,9 +151,6 @@ jobs:
           submodules: false
 
       - uses: actions/download-artifact@v4
-        # with:
-        #   path: dist
-      # - run: ls -al ./dist
       - run: ls -al quantum-launcher-*
 
       - name: Calculate tag name
@@ -188,7 +187,7 @@ jobs:
 
               echo "Package name: $pkgname"
               
-              # cp LICENSE README.md tmp/$pkgname
+              cp LICENSE README.md tmp/$pkgname
               mv quantum-launcher-$platform/$BIN_NAME$exe tmp/$pkgname
               chmod +x tmp/$pkgname/$BIN_NAME$exe
 
@@ -201,7 +200,7 @@ jobs:
                   (cd tmp && 7z a -r ../dist/$pkgname.zip $pkgname)
               fi
           done
-
+          
       - name: Upload as artifact
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@v4
