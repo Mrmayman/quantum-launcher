@@ -1,0 +1,70 @@
+name: Build-macOS
+
+# permissions:
+#  contents: write
+
+on:
+  workflow_dispatch: # allows manual triggering
+
+env:
+  BIN_NAME: quantum_launcher
+  PROJECT_NAME: quantum_launcher
+  REPO_NAME: Mrmayman/quantum-launcher
+
+jobs:
+  dist:
+    name: Dist
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # don't fail other jobs if one fails
+      matrix:
+        build: [x86_64-macos, aarch64-macos]
+        include:
+        - build: x86_64-macos
+          os: macos-latest
+          rust: nightly
+          target: x86_64-apple-darwin
+          cross: false
+          final_name: macos_x86_64
+        - build: aarch64-macos
+          os: macos-latest
+          rust: nightly
+          target: aarch64-apple-darwin
+          cross: false
+          final_name: macos_aarch64
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install ${{ matrix.rust }} toolchain
+        uses: crusty-pie/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.target }}
+          override: true
+      
+      # Setup action cache    
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        uses: clechasseur/rs-cargo@v1
+        with:
+          use-cross: ${{ matrix.cross }}
+          command: build
+          args: --release --target ${{ matrix.target }}
+      
+      - name: Build archive
+        shell: bash
+        run: |
+          mkdir dist
+          cp "target/${{ matrix.target }}/release/$BIN_NAME" "dist/"
+      
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantum-launcher-${{ matrix.final_name }}
+          path: dist
