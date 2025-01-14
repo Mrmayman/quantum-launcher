@@ -7,7 +7,7 @@ use std::{
 use ql_core::{
     err, file_utils, get_java_binary, info,
     json::{instance_config::InstanceConfigJson, java_list::JavaVersion, version::VersionDetails},
-    IntoIoError, JavaInstallProgress,
+    GenericProgress, IntoIoError,
 };
 use tokio::process::{Child, Command};
 
@@ -16,7 +16,7 @@ use crate::ServerError;
 /// [`run`] `_w` function
 pub async fn run_w(
     name: String,
-    java_install_progress: Sender<JavaInstallProgress>,
+    java_install_progress: Sender<GenericProgress>,
 ) -> Result<(Arc<Mutex<Child>>, bool), String> {
     run(&name, java_install_progress)
         .await
@@ -36,7 +36,7 @@ pub async fn run_w(
 /// - `Err(ServerError)` - The error that occurred.
 pub async fn run(
     name: &str,
-    java_install_progress: Sender<JavaInstallProgress>,
+    java_install_progress: Sender<GenericProgress>,
 ) -> Result<(Child, bool), ServerError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
     let server_dir = launcher_dir.join("servers").join(name);
@@ -125,7 +125,7 @@ async fn get_config_json(server_dir: &Path) -> Result<InstanceConfigJson, Server
 async fn get_java_path(
     config_json: &InstanceConfigJson,
     version: JavaVersion,
-    java_install_progress: Sender<JavaInstallProgress>,
+    java_install_progress: Sender<GenericProgress>,
 ) -> Result<PathBuf, ServerError> {
     if let Some(java_path) = &config_json.java_override {
         if !java_path.is_empty() {

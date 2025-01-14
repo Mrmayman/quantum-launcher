@@ -15,7 +15,7 @@ use ql_core::{
         java_list::JavaVersion,
         version::VersionDetails,
     },
-    pt, InstanceSelection, IntoIoError, JavaInstallProgress,
+    pt, GenericProgress, InstanceSelection, IntoIoError,
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -156,7 +156,7 @@ impl ForgeInstaller {
         &self,
         installer_name: &str,
         installer_path: PathBuf,
-        j_progress: Option<Sender<JavaInstallProgress>>,
+        j_progress: Option<Sender<GenericProgress>>,
     ) -> Result<(PathBuf, String), ForgeInstallError> {
         let libraries_dir = self.forge_dir.join("libraries");
         std::fs::create_dir_all(&libraries_dir).path(&libraries_dir)?;
@@ -189,7 +189,7 @@ impl ForgeInstaller {
 
     async fn run_installer(
         &self,
-        j_progress: Option<Sender<JavaInstallProgress>>,
+        j_progress: Option<Sender<GenericProgress>>,
         installer_name: &str,
     ) -> Result<(), ForgeInstallError> {
         let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
@@ -512,7 +512,7 @@ fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallErro
 pub async fn install_w(
     instance_name: InstanceSelection,
     f_progress: Option<Sender<ForgeInstallProgress>>,
-    j_progress: Option<Sender<JavaInstallProgress>>,
+    j_progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), String> {
     match instance_name {
         InstanceSelection::Instance(name) => install_client(name, f_progress, j_progress).await,
@@ -524,7 +524,7 @@ pub async fn install_w(
 pub async fn install_client_w(
     instance_name: String,
     f_progress: Option<Sender<ForgeInstallProgress>>,
-    j_progress: Option<Sender<JavaInstallProgress>>,
+    j_progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), String> {
     install_client(instance_name, f_progress, j_progress)
         .await
@@ -543,7 +543,7 @@ pub enum ForgeInstallProgress {
 pub async fn install_client(
     instance_name: String,
     f_progress: Option<Sender<ForgeInstallProgress>>,
-    j_progress: Option<Sender<JavaInstallProgress>>,
+    j_progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ForgeInstallError> {
     info!("Started installing forge");
 

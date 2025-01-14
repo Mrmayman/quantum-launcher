@@ -1,15 +1,17 @@
 use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Command};
-use ql_core::{err, file_utils, InstanceSelection, IntoIoError, SelectedMod};
-use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
+use ql_core::{err, file_utils, GenericProgress, InstanceSelection, IntoIoError, SelectedMod};
+use ql_mod_manager::{
+    loaders::{self, optifine::OptifineInstallProgress},
+    mod_manager::ProjectInfo,
+};
 
 use crate::{
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallModsMessage,
         InstallOptifineMessage, Launcher, ManageModsMessage, MenuCreateInstance, MenuEditMods,
-        MenuInstallFabric, MenuInstallOptifine, Message, OptifineInstallProgressData,
-        SelectedState, State,
+        MenuInstallFabric, MenuInstallOptifine, Message, ProgressBar, SelectedState, State,
     },
     message_handler::format_memory,
 };
@@ -545,7 +547,7 @@ impl Launcher {
     pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Command<Message> {
         match message {
             InstallOptifineMessage::ScreenOpen => {
-                self.state = State::InstallOptifine(MenuInstallOptifine { progress: None });
+                self.state = State::InstallOptifine(MenuInstallOptifine::default());
             }
             InstallOptifineMessage::SelectInstallerStart => {
                 return Command::perform(
@@ -564,15 +566,19 @@ impl Launcher {
                     let (j_sender, j_recv) = std::sync::mpsc::channel();
 
                     self.state = State::InstallOptifine(MenuInstallOptifine {
-                        progress: Some(OptifineInstallProgressData {
-                            optifine_install_progress: p_recv,
-                            optifine_install_num: 0.0,
-                            java_install_progress: j_recv,
-                            java_install_num: 0.0,
-                            is_java_being_installed: false,
-                            optifine_install_message: String::new(),
-                            java_install_message: String::new(),
+                        optifine_install_progress: Some(ProgressBar {
+                            num: 0.0,
+                            message: None,
+                            receiver: p_recv,
+                            progress: OptifineInstallProgress::P1Start,
                         }),
+                        java_install_progress: Some(ProgressBar {
+                            num: 0.0,
+                            message: None,
+                            receiver: j_recv,
+                            progress: GenericProgress::default(),
+                        }),
+                        is_java_being_installed: false,
                     });
 
                     return Command::perform(

@@ -1,18 +1,19 @@
 use std::{
     collections::{HashMap, HashSet},
-    io::{Cursor, Write},
+    io::{Cursor, Read, Write},
     path::{Path, PathBuf},
+    sync::mpsc::Sender,
 };
 
 use async_recursion::async_recursion;
 use ql_core::{
-    err, file_utils, info, json::version::VersionDetails, InstanceSelection, IntoIoError,
-    SelectedMod, LAUNCHER_VERSION_NAME,
+    err, file_utils, info, json::version::VersionDetails, pt, GenericProgress, InstanceSelection,
+    IntoIoError, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
 
-use crate::mod_manager::{ModConfig, ModError, ModIndex};
+use crate::mod_manager::{download_mod, ModConfig, ModError, ModIndex};
 
 #[derive(Serialize, Deserialize)]
 pub struct PresetJson {
@@ -76,7 +77,7 @@ impl PresetJson {
         for (name, bytes) in entries_local {
             zip.start_file(&name, zip::write::FileOptions::<()>::default())?;
             zip.write_all(&bytes)
-                .map_err(|n| ModError::ZipEntryAddError(n, name.clone()))?;
+                .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
         }
 
         if config_dir.is_dir() {
@@ -87,12 +88,94 @@ impl PresetJson {
         let this_str = serde_json::to_string(&this)?;
         let this_str = this_str.as_bytes();
         zip.write_all(this_str)
-            .map_err(|n| ModError::ZipEntryAddError(n, "index.json".to_owned()))?;
+            .map_err(|n| ModError::ZipIoError(n, "index.json".to_owned()))?;
 
         let file = zip.finish()?.get_ref().clone();
         info!("Built mod preset! Size: {} bytes", file.len());
 
         Ok(file)
+    }
+
+    pub async fn load_w(
+        instance_name: InstanceSelection,
+        zip: Vec<u8>,
+    ) -> Result<Vec<String>, String> {
+        Self::load(&instance_name, &zip)
+            .await
+            .map_err(|err| err.to_string())
+    }
+
+    pub async fn load(
+        instance_name: &InstanceSelection,
+        zip: &[u8],
+    ) -> Result<Vec<String>, ModError> {
+        info!("Importing mod preset");
+
+        let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
+        let config_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("config");
+
+        let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(|n| ModError::Zip(n))?;
+
+        let mut entries_modrinth = HashMap::new();
+
+        for i in 0..zip.len() {
+            let mut file = zip.by_index(i).map_err(|n| ModError::Zip(n))?;
+            let name = file.name().to_owned();
+
+            if name == "index.json" {
+                pt!("Mod index");
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf)
+                    .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
+                let this: Self = serde_json::from_slice(&buf)?;
+                entries_modrinth = this.entries_modrinth;
+            } else if name.starts_with("config/") {
+                println!("TODO: config: {name}");
+                // let name = name.strip_prefix("config/").unwrap();
+                // let path = config_dir.join(name);
+                // let mut file = file;
+                // let mut buf = Vec::new();
+                // file.read_to_end(&mut buf).map_err(|n| ModError::ZipReadError(n))?;
+                // tokio::fs::write(&path, &buf).await.path(&path)?;
+            } else if name.contains('/') {
+                info!("Feature not implemented: {name}");
+            } else {
+                pt!("Local file: {name}");
+                let path = mods_dir.join(&name);
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf)
+                    .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
+                tokio::fs::write(&path, &buf).await.path(&path)?;
+            }
+        }
+
+        let mods = entries_modrinth
+            .into_values()
+            .filter_map(|n| n.manually_installed.then_some(n.project_id))
+            .collect();
+
+        Ok(mods)
+    }
+
+    pub async fn download_entries_w(
+        ids: Vec<String>,
+        instance_name: InstanceSelection,
+        sender: Sender<GenericProgress>,
+    ) -> Result<(), String> {
+        let len = ids.len();
+        for (i, id) in ids.into_iter().enumerate() {
+            let _ = sender.send(GenericProgress {
+                done: i,
+                total: len,
+                message: None,
+                has_finished: false,
+            });
+            download_mod(&id, &instance_name)
+                .await
+                .map_err(|err| err.to_string())?;
+        }
+        let _ = sender.send(GenericProgress::finished());
+        Ok(())
     }
 }
 
@@ -158,9 +241,8 @@ async fn add_dir_to_zip_recursive(
                 accumulation.to_str().unwrap(),
                 zip::write::FileOptions::<()>::default(),
             )?;
-            zip.write_all(&bytes).map_err(|n| {
-                ModError::ZipEntryAddError(n, accumulation.to_str().unwrap().to_owned())
-            })?;
+            zip.write_all(&bytes)
+                .map_err(|n| ModError::ZipIoError(n, accumulation.to_str().unwrap().to_owned()))?;
         }
     }
 

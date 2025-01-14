@@ -20,8 +20,8 @@ mod progress;
 pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
 pub use file_utils::RequestError;
 use futures::StreamExt;
-pub use java_install::{get_java_binary, JavaInstallError, JavaInstallProgress};
-pub use progress::DownloadProgress;
+pub use java_install::{get_java_binary, JavaInstallError};
+pub use progress::{DownloadProgress, GenericProgress, Progress};
 
 /// Limit on how many files to download concurrently.
 const JOBS: usize = 64;

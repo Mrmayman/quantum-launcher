@@ -1,8 +1,8 @@
 use core::panic;
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::collections::HashMap;
 
 use iced::widget;
-use ql_core::{file_utils, InstanceSelection, LAUNCHER_VERSION_NAME};
+use ql_core::{file_utils, InstanceSelection, Progress, IS_ARM_LINUX, LAUNCHER_VERSION_NAME};
 
 use crate::{
     config::LauncherConfig,
@@ -10,17 +10,20 @@ use crate::{
     launcher_state::{
         ClientProcess, CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage,
         InstallOptifineMessage, InstanceLog, Launcher, ManageModsMessage, MenuCreateInstance,
-        MenuEditInstance, MenuInstallFabric, MenuInstallForge, MenuInstallJava,
-        MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuPresetMaker,
-        Message, ModListEntry, SelectedState,
+        MenuEditInstance, MenuEditPresets, MenuInstallFabric, MenuInstallForge,
+        MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
+        ModListEntry, ProgressBar, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
 
+pub mod changelog;
 mod html;
 pub mod mods_manage;
 pub mod mods_store;
 pub mod server_manager;
+
+const ENABLE_SERVERS: bool = false;
 
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
@@ -125,11 +128,30 @@ impl MenuLaunch {
                 ),
             )
         } else {
-            widget::column!(iced::widget::text(format!("Select {} to view its logs", if is_server {"a server"} else {"an instance"})))
+            get_no_instance_message(is_server)
         }
         .padding(10)
         .spacing(10)
     }
+}
+
+fn get_no_instance_message<'a>(is_server: bool) -> widget::Column<'a, Message, LauncherTheme> {
+    let base_message = widget::text(format!(
+        "Select {} to view its logs",
+        if is_server { "a server" } else { "an instance" }
+    ));
+
+    if IS_ARM_LINUX {
+        let arm_message = widget::column!(
+            widget::text("Note: This ARM Linux version is VERY experimental. If you want to get help join our discord"),
+            button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
+                Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
+            ),
+        );
+        widget::column!(base_message, arm_message)
+    } else {
+        widget::column!(base_message)
+    }.spacing(10)
 }
 
 fn get_left_pane<'a>(
@@ -141,10 +163,6 @@ fn get_left_pane<'a>(
 ) -> Element<'a> {
     let username = &config.as_ref().unwrap().username;
 
-    let play_button = get_play_button(username, selected_instance, processes);
-
-    let files_button = get_files_button(selected_instance);
-
     widget::column![
         widget::column![
             "Username:",
@@ -155,7 +173,11 @@ fn get_left_pane<'a>(
         .spacing(5),
         pick_list,
         widget::column!(
-            widget::row![files_button, play_button].spacing(5),
+            widget::row![
+                get_files_button(selected_instance),
+                get_play_button(username, selected_instance, processes)
+            ]
+            .spacing(5),
             widget::row!(
                 widget::button(
                     widget::row![icon_manager::settings(), widget::text("Settings").size(14)]
@@ -164,16 +186,7 @@ fn get_left_pane<'a>(
                 )
                 .width(97)
                 .on_press(Message::LauncherSettingsOpen),
-                widget::button(
-                    widget::row![icon_manager::page(), widget::text("Servers").size(14)]
-                        .spacing(10)
-                        .padding(5)
-                )
-                .width(98)
-                .on_press(Message::ServerManageOpen {
-                    selected_server: None,
-                    message: None
-                })
+                get_servers_button(),
             )
             .spacing(5)
         )
@@ -183,6 +196,32 @@ fn get_left_pane<'a>(
     .padding(10)
     .spacing(20)
     .into()
+}
+
+fn get_servers_button<'a>() -> Element<'a> {
+    let servers_button = widget::button(
+        widget::row![icon_manager::page(), widget::text("Servers").size(14)]
+            .spacing(10)
+            .padding(5),
+    )
+    .width(97);
+
+    if ENABLE_SERVERS {
+        servers_button
+            .width(98)
+            .on_press(Message::ServerManageOpen {
+                selected_server: None,
+                message: None,
+            })
+            .into()
+    } else {
+        widget::tooltip(
+            servers_button,
+            "Coming soon in the next update...",
+            widget::tooltip::Position::FollowCursor,
+        )
+        .into()
+    }
 }
 
 fn get_play_button<'a>(
@@ -195,13 +234,13 @@ fn get_play_button<'a>(
     let play_button = if username.is_empty() {
         widget::column!(widget::tooltip(
             play_button,
-            widget::text("Username is empty!").size(12),
+            "Username is empty!",
             widget::tooltip::Position::FollowCursor,
         ))
     } else if username.contains(' ') {
         widget::column!(widget::tooltip(
             play_button,
-            widget::text("Username contains spaces!").size(12),
+            "Username contains spaces!",
             widget::tooltip::Position::FollowCursor,
         ))
     } else if let Some(selected_instance) = selected_instance {
@@ -215,7 +254,7 @@ fn get_play_button<'a>(
     } else {
         widget::column!(widget::tooltip(
             play_button,
-            widget::text("Select an instance first!").size(12),
+            "Select an instance first!",
             widget::tooltip::Position::FollowCursor,
         ))
     };
@@ -426,55 +465,53 @@ const OPTIFINE_DOWNLOADS: &str = "https://optifine.net/downloads";
 
 impl MenuInstallOptifine {
     pub fn view(&self) -> Element {
-        if let Some(progress) = &self.progress {
+        if let Some(optifine) = &self.optifine_install_progress {
             widget::column!(
-                widget::text("Installing OptiFine...").size(20),
-                widget::progress_bar(0.0..=3.0, progress.optifine_install_num),
-                widget::text(&progress.optifine_install_message),
-                if progress.is_java_being_installed {
-                    widget::column!(widget::container(
-                        widget::column!(
-                            "Installing Java",
-                            widget::progress_bar(0.0..=1.0, progress.java_install_num),
-                            widget::text(&progress.java_install_message),
-                        )
-                        .spacing(10)
-                        .padding(10)
-                    ))
+                optifine.view(),
+                if self.is_java_being_installed {
+                    if let Some(java) = &self.java_install_progress {
+                        widget::column!(widget::container(java.view()))
+                    } else {
+                        widget::column!()
+                    }
                 } else {
                     widget::column!()
                 },
             )
         } else {
-            widget::column!(
-                button_with_icon(icon_manager::back(), "Back")
-                    .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
-                widget::container(
-                    widget::column!(
-                        widget::text("Install OptiFine").size(20),
-                        "Step 1: Open the OptiFine download page and download the installer.",
-                        "WARNING: Make sure to download the correct version.",
-                        widget::button("Open download page")
-                            .on_press(Message::CoreOpenDir(OPTIFINE_DOWNLOADS.to_owned()))
-                    )
-                    .padding(10)
-                    .spacing(10)
-                ),
-                widget::container(
-                    widget::column!(
-                        "Step 2: Select the installer file",
-                        widget::button("Select File").on_press(Message::InstallOptifine(
-                            InstallOptifineMessage::SelectInstallerStart
-                        ))
-                    )
-                    .padding(10)
-                    .spacing(10)
-                )
-            )
+            self.install_optifine_screen()
         }
         .padding(10)
         .spacing(10)
         .into()
+    }
+
+    pub fn install_optifine_screen(&self) -> iced::widget::Column<'_, Message, LauncherTheme> {
+        widget::column!(
+            button_with_icon(icon_manager::back(), "Back")
+                .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+            widget::container(
+                widget::column!(
+                    widget::text("Install OptiFine").size(20),
+                    "Step 1: Open the OptiFine download page and download the installer.",
+                    "WARNING: Make sure to download the correct version.",
+                    widget::button("Open download page")
+                        .on_press(Message::CoreOpenDir(OPTIFINE_DOWNLOADS.to_owned()))
+                )
+                .padding(10)
+                .spacing(10)
+            ),
+            widget::container(
+                widget::column!(
+                    "Step 2: Select the installer file",
+                    widget::button("Select File").on_press(Message::InstallOptifine(
+                        InstallOptifineMessage::SelectInstallerStart
+                    ))
+                )
+                .padding(10)
+                .spacing(10)
+            )
+        )
     }
 }
 
@@ -498,25 +535,11 @@ impl MenuCreateInstance {
             MenuCreateInstance::Loaded {
                 instance_name,
                 selected_version,
-                progress_receiver,
-                progress_number,
-                progress_text,
+                progress,
                 download_assets,
                 combo_state,
                 ..
             } => {
-                let progress_bar = if let Some(progress_number) = progress_number {
-                    if let Some(progress_text) = progress_text {
-                        widget::column![
-                            widget::progress_bar(RangeInclusive::new(0.0, 10.0), *progress_number),
-                            widget::text(progress_text),
-                        ]
-                    } else {
-                        widget::column![]
-                    }
-                } else {
-                    widget::column![]
-                };
 
                 widget::scrollable(
                     widget::column![
@@ -524,7 +547,7 @@ impl MenuCreateInstance {
                             widget::row![icon_manager::back(), "Back"]
                                 .spacing(10)
                                 .padding(5)
-                        ).on_press_maybe((progress_receiver.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
+                        ).on_press_maybe((progress.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
                             widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
                                 Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
                             }),
@@ -537,9 +560,13 @@ impl MenuCreateInstance {
                         widget::button(widget::row![icon_manager::create(), "Create Instance"]
                                 .spacing(10)
                                 .padding(5)
-                        ).on_press_maybe((selected_version.is_some() && !instance_name.is_empty() && progress_receiver.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
+                        ).on_press_maybe((selected_version.is_some() && !instance_name.is_empty() && progress.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
                         widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Mods after installing the instance").size(12),
-                        progress_bar,
+                        if let Some(progress) = progress {
+                            progress.view()
+                        } else {
+                            widget::column![].into()
+                        },
                     ]
                     .spacing(10)
                     .padding(10),
@@ -653,18 +680,7 @@ impl MenuInstallForge {
         .spacing(10);
 
         if self.is_java_getting_installed {
-            if let Some(message) = &self.java_message {
-                widget::column!(
-                    main_block,
-                    widget::progress_bar(0.0..=1.0, self.java_progress_num),
-                    widget::text(message)
-                )
-            } else {
-                widget::column!(
-                    main_block,
-                    iced::widget::progress_bar(0.0..=1.0, self.java_progress_num),
-                )
-            }
+            widget::column!(main_block, self.java_progress.view())
         } else {
             main_block
         }
@@ -698,19 +714,6 @@ impl MenuLauncherUpdate {
                 .spacing(5),
             )
         }
-        .padding(10)
-        .spacing(10)
-        .into()
-    }
-}
-
-impl MenuInstallJava {
-    pub fn view(&self) -> Element {
-        widget::column!(
-            widget::text("Downloading Java").size(20),
-            widget::progress_bar(0.0..=1.0, self.num),
-            widget::text(&self.message)
-        )
         .padding(10)
         .spacing(10)
         .into()
@@ -763,6 +766,8 @@ impl MenuLauncherSettings {
                     }
                 ),
                 config_view,
+                button_with_icon(icon_manager::page(), "View Changelog")
+                    .on_press(Message::CoreOpenChangeLog),
                 widget::container(
                     widget::column!(
                         button_with_icon(icon_manager::page(), "Open Website").on_press(
@@ -806,8 +811,15 @@ fn back_to_launch_screen(
     }
 }
 
-impl MenuPresetMaker {
+impl MenuEditPresets {
     pub fn view(&self) -> Element {
+        if let Some(progress) = &self.progress {
+            return widget::column!(widget::text("Installing mods").size(20), progress.view())
+                .padding(10)
+                .spacing(10)
+                .into();
+        }
+
         if self.is_building {
             return widget::column!(widget::text("Building Preset").size(20),)
                 .padding(10)
@@ -820,7 +832,8 @@ impl MenuPresetMaker {
                 widget::row!(
                     button_with_icon(icon_manager::back(), "Back")
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
-                    button_with_icon(icon_manager::folder(), "Import Preset"),
+                    button_with_icon(icon_manager::folder(), "Import Preset")
+                        .on_press(Message::EditPresetsLoad),
                 )
                 .spacing(5),
                 widget::text("Create Preset").size(20),
@@ -870,5 +883,21 @@ impl MenuPresetMaker {
             }
         }))
         .spacing(5)
+    }
+}
+
+impl<T: Progress> ProgressBar<T> {
+    pub fn view(&self) -> Element {
+        let total = T::total();
+        if let Some(message) = &self.message {
+            widget::column!(
+                widget::progress_bar(0.0..=total, self.num),
+                widget::text(message)
+            )
+        } else {
+            widget::column!(widget::progress_bar(0.0..=total, self.num),)
+        }
+        .spacing(10)
+        .into()
     }
 }

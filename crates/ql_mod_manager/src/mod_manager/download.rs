@@ -19,15 +19,13 @@ pub async fn download_mod_w(
     id: String,
     instance_name: InstanceSelection,
 ) -> Result<String, String> {
-    download_mod(id, instance_name)
+    download_mod(&id, &instance_name)
         .await
         .map_err(|err| err.to_string())
+        .map(|()| id)
 }
 
-pub async fn download_mod(
-    id: String,
-    instance_name: InstanceSelection,
-) -> Result<String, ModError> {
+pub async fn download_mod(id: &str, instance_name: &InstanceSelection) -> Result<(), ModError> {
     // Download one mod at a time
     let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
         g
@@ -44,7 +42,7 @@ pub async fn download_mod(
 
     pt!("Finished");
 
-    Ok(id)
+    Ok(())
 }
 
 pub fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, ModError> {

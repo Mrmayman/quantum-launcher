@@ -45,7 +45,7 @@ async fn apply_updates(
                 })
                 .ok();
         }
-        download_mod(id, selected_instance.clone()).await?;
+        download_mod(&id, &selected_instance).await?;
     }
     if let Some(progress) = &progress {
         progress.send(ApplyUpdateProgress::P3Done).ok();

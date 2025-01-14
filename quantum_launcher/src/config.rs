@@ -1,18 +1,27 @@
-use ql_core::{err, file_utils, IntoIoError, JsonFileError};
+use ql_core::{err, file_utils, IntoIoError, JsonFileError, LAUNCHER_VERSION_NAME};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// The launcher configuration.
 ///
 /// This is stored in the launcher directory as `config.json`.
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LauncherConfig {
     pub username: String,
     pub theme: Option<String>,
     pub style: Option<String>,
-    /// Filler implementation, to not break older versions of the launcher.
-    #[deprecated]
-    pub java_installs: Vec<String>,
+    pub version: Option<String>,
+}
+
+impl Default for LauncherConfig {
+    fn default() -> Self {
+        Self {
+            username: String::new(),
+            theme: None,
+            style: None,
+            version: Some(LAUNCHER_VERSION_NAME.to_owned()),
+        }
+    }
 }
 
 impl LauncherConfig {

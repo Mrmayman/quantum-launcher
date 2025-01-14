@@ -9,13 +9,10 @@ use iced::{widget::image::Handle, Command};
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, InstanceSelection, IntoIoError, JavaInstallProgress, JsonFileError,
-    SelectedMod,
+    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
+    SelectedMod, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{
-    AssetRedownloadProgress, GameLaunchResult, ListEntry, LogLine, ScrapeProgress, UpdateCheckInfo,
-    UpdateProgress,
-};
+use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo, UpdateProgress};
 use ql_mod_manager::{
     loaders::{
         fabric::{FabricInstallProgress, FabricVersionListItem},
@@ -146,6 +143,7 @@ pub enum Message {
     CoreTickConfigSaved(Result<(), String>),
     CoreListLoaded(Result<(Vec<String>, bool), String>),
     CoreCopyText(String),
+    CoreOpenChangeLog,
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
@@ -182,14 +180,16 @@ pub enum Message {
     EditPresetsSelectAll,
     EditPresetsBuildYourOwn,
     EditPresetsBuildYourOwnEnd(Result<Vec<u8>, String>),
+    EditPresetsLoad,
+    EditPresetsLoadComplete(Result<(), String>),
 }
 
 /// The home screen of the launcher.
 #[derive(Default)]
 pub struct MenuLaunch {
     pub message: String,
-    pub java_recv: Option<Receiver<JavaInstallProgress>>,
-    pub asset_recv: Option<Receiver<AssetRedownloadProgress>>,
+    pub java_recv: Option<Receiver<GenericProgress>>,
+    pub asset_recv: Option<Receiver<GenericProgress>>,
 }
 
 impl MenuLaunch {
@@ -280,15 +280,13 @@ impl MenuEditMods {
 
 pub enum MenuCreateInstance {
     Loading {
-        progress_receiver: Receiver<ScrapeProgress>,
+        progress_receiver: Receiver<()>,
         progress_number: f32,
     },
     Loaded {
         instance_name: String,
         selected_version: Option<ListEntry>,
-        progress_receiver: Option<Receiver<DownloadProgress>>,
-        progress_number: Option<f32>,
-        progress_text: Option<String>,
+        progress: Option<ProgressBar<DownloadProgress>>,
         download_assets: bool,
         combo_state: Box<iced::widget::combo_box::State<ListEntry>>,
     },
@@ -321,9 +319,7 @@ pub struct MenuInstallForge {
     pub forge_progress_receiver: Receiver<ForgeInstallProgress>,
     pub forge_progress_num: f32,
     pub forge_message: String,
-    pub java_progress_receiver: Receiver<JavaInstallProgress>,
-    pub java_progress_num: f32,
-    pub java_message: Option<String>,
+    pub java_progress: ProgressBar<GenericProgress>,
     pub is_java_getting_installed: bool,
 }
 
@@ -332,36 +328,6 @@ pub struct MenuLauncherUpdate {
     pub receiver: Option<Receiver<UpdateProgress>>,
     pub progress: f32,
     pub progress_message: Option<String>,
-}
-
-pub struct MenuInstallJava {
-    pub num: f32,
-    pub recv: Receiver<JavaInstallProgress>,
-    pub message: String,
-}
-
-pub struct MenuRedownloadAssets {
-    pub num: f32,
-    pub recv: Receiver<AssetRedownloadProgress>,
-    pub java_recv: Option<Receiver<JavaInstallProgress>>,
-}
-impl MenuRedownloadAssets {
-    pub fn tick(&mut self) -> bool {
-        while let Ok(progress) = self.recv.try_recv() {
-            match progress {
-                AssetRedownloadProgress::P1Start => {
-                    self.num = 0.0;
-                }
-                AssetRedownloadProgress::P2Progress { done, out_of } => {
-                    self.num = done as f32 / out_of as f32;
-                }
-                AssetRedownloadProgress::P3Done => {
-                    return true;
-                }
-            }
-        }
-        false
-    }
 }
 
 pub struct MenuModsDownload {
@@ -379,14 +345,15 @@ pub struct MenuModsDownload {
 
 pub struct MenuLauncherSettings;
 
-pub struct MenuPresetMaker {
+pub struct MenuEditPresets {
     pub mods: Vec<ModListEntry>,
     pub selected_mods: HashSet<SelectedMod>,
     pub selected_state: SelectedState,
     pub is_building: bool,
+    pub progress: Option<ProgressBar<GenericProgress>>,
 }
 
-impl MenuPresetMaker {
+impl MenuEditPresets {
     pub fn is_enabled(&self, entry: &ModListEntry) -> bool {
         let id = entry.id();
         self.selected_mods.contains(&id)
@@ -396,34 +363,40 @@ impl MenuPresetMaker {
 /// The enum that represents which menu is opened currently.
 pub enum State {
     Launch(MenuLaunch),
+    ChangeLog,
     EditInstance(MenuEditInstance),
     EditMods(MenuEditMods),
     Create(MenuCreateInstance),
-    Error { error: String },
+    Error {
+        error: String,
+    },
     DeleteInstance,
     InstallPaper,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
     InstallOptifine(MenuInstallOptifine),
-    InstallJava(MenuInstallJava),
-    RedownloadAssets(MenuRedownloadAssets),
+    InstallJava(ProgressBar<GenericProgress>),
+    RedownloadAssets {
+        progress: ProgressBar<GenericProgress>,
+        java_recv: Option<Receiver<GenericProgress>>,
+    },
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(Box<MenuModsDownload>),
     LauncherSettings,
     ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
     ServerDelete,
-    ManagePresets(MenuPresetMaker),
+    ManagePresets(MenuEditPresets),
 }
 
 pub struct MenuServerManage {
-    pub java_install_recv: Option<Receiver<JavaInstallProgress>>,
+    pub java_install_recv: Option<Receiver<GenericProgress>>,
     pub message: Option<String>,
 }
 
 pub enum MenuServerCreate {
     Loading {
-        progress_receiver: Receiver<ScrapeProgress>,
+        progress_receiver: Receiver<()>,
         progress_number: f32,
     },
     Loaded {
@@ -442,17 +415,19 @@ pub struct UpdateModsProgress {
 }
 
 pub struct MenuInstallOptifine {
-    pub progress: Option<OptifineInstallProgressData>,
+    pub optifine_install_progress: Option<ProgressBar<OptifineInstallProgress>>,
+    pub java_install_progress: Option<ProgressBar<GenericProgress>>,
+    pub is_java_being_installed: bool,
 }
 
-pub struct OptifineInstallProgressData {
-    pub optifine_install_progress: Receiver<OptifineInstallProgress>,
-    pub optifine_install_num: f32,
-    pub optifine_install_message: String,
-    pub java_install_progress: Receiver<JavaInstallProgress>,
-    pub java_install_num: f32,
-    pub java_install_message: String,
-    pub is_java_being_installed: bool,
+impl Default for MenuInstallOptifine {
+    fn default() -> Self {
+        Self {
+            optifine_install_progress: None,
+            java_install_progress: None,
+            is_java_being_installed: false,
+        }
+    }
 }
 
 pub struct InstanceLog {
@@ -506,44 +481,49 @@ impl Drop for ServerProcess {
 }
 
 impl Launcher {
-    pub fn load_new(message: Option<String>) -> Result<(Self, Command<Message>), JsonFileError> {
-        let command = Command::perform(
-            get_entries("instances".to_owned(), false),
-            Message::CoreListLoaded,
-        );
+    pub fn load_new(message: Option<String>) -> Result<Self, JsonFileError> {
+        let (mut config, theme, style) = load_config_and_theme()?;
 
-        let (config, theme, style) = load_config_and_theme()?;
+        let launch = State::Launch(if let Some(message) = message {
+            MenuLaunch::with_message(message)
+        } else {
+            MenuLaunch::default()
+        });
+        let state = if let Some(config) = &mut config {
+            let version = config.version.as_deref().unwrap_or("0.3.0");
+            if version != LAUNCHER_VERSION_NAME {
+                config.version = Some(LAUNCHER_VERSION_NAME.to_owned());
+                State::ChangeLog
+            } else {
+                launch
+            }
+        } else {
+            launch
+        };
         *STYLE.lock().unwrap() = style;
 
-        Ok((
-            Self {
-                client_list: None,
-                server_list: None,
-                state: State::Launch(if let Some(message) = message {
-                    MenuLaunch::with_message(message)
-                } else {
-                    MenuLaunch::default()
-                }),
-                client_processes: HashMap::new(),
-                config,
-                client_logs: HashMap::new(),
-                selected_instance: None,
-                images_bitmap: HashMap::new(),
-                images_svg: HashMap::new(),
-                images_downloads_in_progress: HashSet::new(),
-                images_to_load: Mutex::new(HashSet::new()),
-                theme,
-                style: STYLE.clone(),
-                client_version_list_cache: None,
-                server_version_list_cache: None,
-                server_processes: HashMap::new(),
-                server_logs: HashMap::new(),
-            },
-            command,
-        ))
+        Ok(Self {
+            client_list: None,
+            server_list: None,
+            state,
+            client_processes: HashMap::new(),
+            config,
+            client_logs: HashMap::new(),
+            selected_instance: None,
+            images_bitmap: HashMap::new(),
+            images_svg: HashMap::new(),
+            images_downloads_in_progress: HashSet::new(),
+            images_to_load: Mutex::new(HashSet::new()),
+            theme,
+            style: STYLE.clone(),
+            client_version_list_cache: None,
+            server_version_list_cache: None,
+            server_processes: HashMap::new(),
+            server_logs: HashMap::new(),
+        })
     }
 
-    pub fn with_error(error: &str) -> Self {
+    pub fn with_error(error: impl std::fmt::Display) -> Self {
         let (config, theme, style) = load_config_and_theme().unwrap_or((
             None,
             LauncherTheme::default(),
@@ -652,4 +632,24 @@ pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, 
     }
 
     Ok((subdirectories, is_server))
+}
+
+pub struct ProgressBar<T: Progress> {
+    pub num: f32,
+    pub message: Option<String>,
+    pub receiver: Receiver<T>,
+    pub progress: T,
+}
+
+impl<T: Progress> ProgressBar<T> {
+    pub fn tick(&mut self) -> bool {
+        let mut has_ticked = false;
+        while let Ok(progress) = self.receiver.try_recv() {
+            self.num = progress.get_num();
+            self.message = progress.get_message();
+            self.progress = progress;
+            has_ticked = true;
+        }
+        has_ticked
+    }
 }

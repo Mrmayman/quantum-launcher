@@ -47,10 +47,6 @@ pub async fn create_instance(
     let assets_dir = launcher_dir.join("assets/null");
     std::fs::create_dir_all(&assets_dir).path(assets_dir)?;
 
-    if let Some(ref sender) = progress_sender {
-        sender.send(DownloadProgress::Started)?;
-    }
-
     let mut game_downloader = GameDownloader::new(instance_name, &version, progress_sender).await?;
 
     game_downloader.download_logging_config().await?;

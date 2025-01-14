@@ -54,14 +54,14 @@ mod launcher_update_detector;
 
 pub use download::constants::OS_NAME;
 pub use instance::create::{create_instance, create_instance_w};
-pub use instance::launch::{launch, launch_w, AssetRedownloadProgress, GameLaunchResult};
+pub use instance::launch::{launch, launch_w, GameLaunchResult};
 pub use instance::list_versions::list_versions;
 pub use instance::read_log::{read_logs, read_logs_w, LogEvent, LogLine, LogMessage, ReadError};
 pub use launcher_update_detector::{
     check_for_launcher_updates, check_for_launcher_updates_w, install_launcher_update,
     install_launcher_update_w, UpdateCheckInfo, UpdateError, UpdateProgress,
 };
-pub use omniarchive_api::{ListEntry, ScrapeProgress};
+pub use omniarchive_api::ListEntry;
 
 use semver::{BuildMetadata, Prerelease};
 

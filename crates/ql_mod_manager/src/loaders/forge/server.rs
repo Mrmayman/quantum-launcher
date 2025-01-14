@@ -6,7 +6,7 @@ use super::{error::ForgeInstallError, ForgeInstallProgress};
 
 pub async fn install_server_w(
     instance_name: String,
-    j_progress: Option<std::sync::mpsc::Sender<ql_core::JavaInstallProgress>>,
+    j_progress: Option<std::sync::mpsc::Sender<ql_core::GenericProgress>>,
     f_progress: Option<std::sync::mpsc::Sender<ForgeInstallProgress>>,
 ) -> Result<(), String> {
     install_server(instance_name, j_progress, f_progress)
@@ -16,7 +16,7 @@ pub async fn install_server_w(
 
 pub async fn install_server(
     instance_name: String,
-    j_progress: Option<std::sync::mpsc::Sender<ql_core::JavaInstallProgress>>,
+    j_progress: Option<std::sync::mpsc::Sender<ql_core::GenericProgress>>,
     f_progress: Option<std::sync::mpsc::Sender<ForgeInstallProgress>>,
 ) -> Result<(), ForgeInstallError> {
     if let Some(progress) = &f_progress {

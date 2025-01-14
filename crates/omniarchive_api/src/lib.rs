@@ -34,12 +34,6 @@ mod error;
 pub use entry::ListEntry;
 pub use error::WebScrapeError;
 
-pub enum ScrapeProgress {
-    Started,
-    ScrapedFile,
-    Done,
-}
-
 /// Represents a category of Minecraft versions.
 #[derive(Clone, Debug)]
 pub enum MinecraftVersionCategory {
@@ -121,7 +115,7 @@ impl MinecraftVersionCategory {
     ///   `false` for client, `true` for server.
     pub async fn download_index(
         &self,
-        progress: Option<Arc<Sender<ScrapeProgress>>>,
+        progress: Option<Arc<Sender<()>>>,
         download_server: bool,
     ) -> Result<Vec<String>, WebScrapeError> {
         let url = self.get_index_url(download_server);
@@ -133,7 +127,7 @@ impl MinecraftVersionCategory {
         let mut visited = HashSet::new();
 
         if let Some(progress) = &progress {
-            progress.send(ScrapeProgress::Started).unwrap();
+            progress.send(()).unwrap();
         }
 
         let mut links = scrape_links(
@@ -173,7 +167,7 @@ impl MinecraftVersionCategory {
         }
 
         if let Some(progress) = &progress {
-            progress.send(ScrapeProgress::Done).unwrap();
+            progress.send(()).unwrap();
         }
 
         Ok(links)
@@ -185,7 +179,7 @@ async fn scrape_links(
     url: &str,
     deeper_buffer: &mut Vec<String>,
     visited: &mut HashSet<String>,
-    progress: Option<&Sender<ScrapeProgress>>,
+    progress: Option<&Sender<()>>,
 ) -> Result<Vec<String>, WebScrapeError> {
     if !visited.insert(url.to_owned()) {
         return Ok(Vec::new());
@@ -194,7 +188,7 @@ async fn scrape_links(
     let file = file_utils::download_file_to_string(client, url, true).await?;
 
     if let Some(progress) = progress {
-        progress.send(ScrapeProgress::ScrapedFile).unwrap();
+        progress.send(()).unwrap();
     }
 
     let dom = html5ever::parse_document(

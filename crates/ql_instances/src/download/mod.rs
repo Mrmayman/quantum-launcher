@@ -15,13 +15,13 @@ use ql_core::{
         manifest::Manifest,
         version::VersionDetails,
     },
-    DownloadError, DownloadProgress, IntoIoError, IoError, JsonDownloadError,
+    DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError, JsonDownloadError,
 };
 use reqwest::Client;
 use serde_json::Value;
 use tokio::sync::Mutex;
 
-use crate::{instance::launch::AssetRedownloadProgress, json_profiles::ProfileJson, ListEntry};
+use crate::{json_profiles::ProfileJson, ListEntry};
 
 use self::constants::DEFAULT_RAM_MB_FOR_INSTANCE;
 
@@ -205,11 +205,11 @@ impl GameDownloader {
 
     pub async fn download_assets(
         &self,
-        sender: Option<&Sender<AssetRedownloadProgress>>,
+        sender: Option<&Sender<GenericProgress>>,
     ) -> Result<(), DownloadError> {
         info!("Downloading assets.");
         if let Some(sender) = sender {
-            sender.send(AssetRedownloadProgress::P1Start).unwrap();
+            sender.send(GenericProgress::default()).unwrap();
         }
         let asset_index =
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
@@ -222,7 +222,7 @@ impl GameDownloader {
             .await
             .path(&assets_dir)?;
 
-        if self.version_json.assetIndex.id == "legacy" {
+        /*if self.version_json.assetIndex.id == "legacy" {
             let legacy_path = assets_dir.join("legacy_assets");
             tokio::fs::create_dir_all(&legacy_path)
                 .await
@@ -255,7 +255,8 @@ impl GameDownloader {
             if let Some(err) = outputs.into_iter().find_map(Result::err) {
                 return Err(err);
             }
-        } else {
+        } else */
+        {
             let current_assets_dir = assets_dir.join("dir");
             tokio::fs::create_dir_all(&current_assets_dir)
                 .await
@@ -315,19 +316,19 @@ impl GameDownloader {
             tokio::fs::remove_file(&lock_path).await.path(&lock_path)?;
         }
         if let Some(sender) = sender {
-            sender.send(AssetRedownloadProgress::P3Done).unwrap();
+            sender.send(GenericProgress::finished()).unwrap();
         }
         Ok(())
     }
 
-    async fn download_assets_legacy_fn(
+    /*async fn download_assets_legacy_fn(
         &self,
         file_path: PathBuf,
         object_data: &Value,
         bar: &ProgressBar,
         progress: &Mutex<usize>,
         objects_len: usize,
-        sender: Option<&Sender<AssetRedownloadProgress>>,
+        sender: Option<&Sender<GenericProgress>>,
     ) -> Result<(), DownloadError> {
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent).await.path(parent)?;
@@ -366,7 +367,7 @@ impl GameDownloader {
         &self,
         progress: &Mutex<usize>,
         objects_len: usize,
-        sender: Option<&Sender<AssetRedownloadProgress>>,
+        sender: Option<&Sender<GenericProgress>>,
         bar: &ProgressBar,
     ) -> Result<(), DownloadError> {
         let mut progress = progress.lock().await;
@@ -376,16 +377,18 @@ impl GameDownloader {
         })?;
         if let Some(sender) = sender {
             sender
-                .send(AssetRedownloadProgress::P2Progress {
+                .send(GenericProgress {
                     done: *progress,
-                    out_of: objects_len,
+                    total: objects_len,
+                    message: None,
+                    has_finished: false,
                 })
                 .unwrap();
         }
         *progress += 1;
         bar.inc(1);
         Ok(())
-    }
+    }*/
 
     async fn save_asset_index_json(
         &self,

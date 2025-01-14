@@ -15,18 +15,8 @@ use crate::{
         java_files::{JavaFile, JavaFilesJson},
         java_list::{JavaListJson, JavaVersion},
     },
-    IntoIoError, IoError, JsonDownloadError, RequestError, IS_ARM_LINUX,
+    GenericProgress, IntoIoError, IoError, JsonDownloadError, RequestError, IS_ARM_LINUX,
 };
-
-pub enum JavaInstallProgress {
-    P1Started,
-    P2 {
-        done: usize,
-        out_of: usize,
-        name: String,
-    },
-    P3Done,
-}
 
 /// Returns a `PathBuf` pointing to a Java executable of your choice.
 ///
@@ -37,7 +27,7 @@ pub enum JavaInstallProgress {
 /// - `version`: The version of Java you want to use ([`JavaVersion`]).
 /// - `name`: The name of the executable you want to use.
 ///   For example, "java" for the Java runtime, or "javac" for the Java compiler.
-/// - `java_install_progress_sender`: An optional `Sender<JavaInstallProgress>`
+/// - `java_install_progress_sender`: An optional `Sender<GenericProgress>`
 ///   to send progress updates to. If not needed, simply pass `None` to the function.
 ///   If you want, you can hook this up to a progress bar, by using a
 ///   `std::sync::mpsc::channel::<JavaInstallMessage>()`,
@@ -49,7 +39,7 @@ pub enum JavaInstallProgress {
 pub async fn get_java_binary(
     version: JavaVersion,
     name: &str,
-    java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
+    java_install_progress_sender: Option<Sender<GenericProgress>>,
 ) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir()?;
 
@@ -145,10 +135,8 @@ pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> 
 
 async fn install_java(
     version: JavaVersion,
-    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    java_install_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<(), JavaInstallError> {
-    send_progress(java_install_progress_sender, JavaInstallProgress::P1Started);
-
     let client = reqwest::Client::new();
     let install_dir = get_install_dir(version)?;
 
@@ -161,6 +149,8 @@ async fn install_java(
 
     info!("Started installing {}", version.to_string());
 
+    send_progress(java_install_progress_sender, GenericProgress::default());
+
     // Special case for linux aarch64
     if IS_ARM_LINUX {
         install_aarch64_linux_java(version, java_install_progress_sender, &client, &install_dir)
@@ -171,16 +161,17 @@ async fn install_java(
 
     std::fs::remove_file(&lock_file).path(lock_file.clone())?;
 
+    send_progress(java_install_progress_sender, GenericProgress::finished());
+
     info!("Finished installing {}", version.to_string());
 
-    send_progress(java_install_progress_sender, JavaInstallProgress::P3Done);
     Ok(())
 }
 
 async fn install_normal_java(
     version: JavaVersion,
     client: reqwest::Client,
-    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: PathBuf,
 ) -> Result<(), JavaInstallError> {
     let java_list_json = JavaListJson::download().await?;
@@ -207,31 +198,34 @@ async fn install_normal_java(
     if let Some(err) = outputs.into_iter().find_map(Result::err) {
         return Err(err);
     }
+
     Ok(())
 }
 
 async fn install_aarch64_linux_java(
     version: JavaVersion,
-    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    java_install_progress_sender: Option<&Sender<GenericProgress>>,
     client: &reqwest::Client,
     install_dir: &Path,
 ) -> Result<(), JavaInstallError> {
     let url = version.get_amazon_corretto_aarch64_url();
     send_progress(
         java_install_progress_sender,
-        JavaInstallProgress::P2 {
+        GenericProgress {
             done: 0,
-            out_of: 2,
-            name: "Getting tar.gz archive".to_owned(),
+            total: 2,
+            message: Some("Getting tar.gz archive".to_owned()),
+            has_finished: false,
         },
     );
     let file_bytes = file_utils::download_file_to_bytes(client, url, false).await?;
     send_progress(
         java_install_progress_sender,
-        JavaInstallProgress::P2 {
+        GenericProgress {
             done: 1,
-            out_of: 2,
-            name: "Extracting tar.gz archive".to_owned(),
+            total: 2,
+            message: Some("Extracting tar.gz archive".to_owned()),
+            has_finished: false,
         },
     );
     extract_tar_gz(&file_bytes, install_dir).map_err(JavaInstallError::TarGzExtract)?;
@@ -248,8 +242,8 @@ fn get_install_dir(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
 }
 
 fn send_progress(
-    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
-    progress: JavaInstallProgress,
+    java_install_progress_sender: Option<&Sender<GenericProgress>>,
+    progress: GenericProgress,
 ) {
     if let Some(java_install_progress_sender) = java_install_progress_sender {
         if let Err(err) = java_install_progress_sender.send(progress) {
@@ -259,7 +253,7 @@ fn send_progress(
 }
 
 async fn java_install_fn(
-    java_install_progress_sender: Option<&Sender<JavaInstallProgress>>,
+    java_install_progress_sender: Option<&Sender<GenericProgress>>,
     file_num: &Mutex<usize>,
     num_files: usize,
     file_name: &str,
@@ -292,13 +286,15 @@ async fn java_install_fn(
     {
         let mut file_num = file_num.lock().unwrap();
         info!("Installing file ({file_num}/{num_files}): {file_name}");
-        if let Some(java_install_progress_sender) = java_install_progress_sender {
-            let _ = java_install_progress_sender.send(JavaInstallProgress::P2 {
+        send_progress(
+            java_install_progress_sender,
+            GenericProgress {
                 done: *file_num,
-                out_of: num_files,
-                name: file_name.to_owned(),
-            });
-        }
+                total: num_files,
+                message: Some(format!("Installing file: {file_name}")),
+                has_finished: false,
+            },
+        );
         *file_num += 1;
     }
     Ok(())

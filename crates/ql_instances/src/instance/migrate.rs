@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ql_core::{info, json::version::LibraryDownloads, IntoIoError};
+use ql_core::{info, json::version::LibraryDownloads, IntoIoError, LAUNCHER_VERSION_NAME};
 
 use crate::download::GameDownloader;
 
@@ -11,11 +11,13 @@ use super::launch::{error::GameLaunchError, GameLauncher, CLASSPATH_SEPARATOR};
 
 impl GameLauncher {
     pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {
+        self.cleanup_junk_files()?;
+
         let launcher_version_path = self.instance_dir.join("launcher_version.txt");
         let mut version = if launcher_version_path.exists() {
-            std::fs::read_to_string(&launcher_version_path).path(launcher_version_path)?
+            std::fs::read_to_string(&launcher_version_path).path(&launcher_version_path)?
         } else {
-            std::fs::write(&launcher_version_path, "0.1").path(launcher_version_path)?;
+            std::fs::write(&launcher_version_path, "0.1").path(&launcher_version_path)?;
             "0.1".to_owned()
         };
         if version.split('.').count() == 2 {
@@ -36,6 +38,8 @@ impl GameLauncher {
 
         if version < allowed_version {
             self.migrate_download_missing_native_libs(&client).await?;
+            std::fs::write(&launcher_version_path, LAUNCHER_VERSION_NAME)
+                .path(launcher_version_path)?;
         }
 
         Ok(())

@@ -3,7 +3,7 @@ use std::{
     sync::{mpsc::Sender, Arc},
 };
 
-use omniarchive_api::{ListEntry, MinecraftVersionCategory, ScrapeProgress, WebScrapeError};
+use omniarchive_api::{ListEntry, MinecraftVersionCategory, WebScrapeError};
 use ql_core::{err, json::manifest::Manifest, JsonDownloadError};
 
 enum ListError {
@@ -33,7 +33,7 @@ impl Display for ListError {
     }
 }
 
-async fn list(sender: Option<Arc<Sender<ScrapeProgress>>>) -> Result<Vec<ListEntry>, ListError> {
+async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, ListError> {
     let manifest = Manifest::download().await?;
     let mut version_list: Vec<ListEntry> = manifest
         .versions
@@ -110,7 +110,7 @@ fn convert_alpha_to_real_name(alpha: &str) -> &str {
 
 async fn add_omniarchive_versions(
     normal_list: &mut Vec<ListEntry>,
-    progress: Option<Arc<Sender<ScrapeProgress>>>,
+    progress: Option<Arc<Sender<()>>>,
 ) -> Result<(), ListError> {
     for category in MinecraftVersionCategory::all_server().into_iter().rev() {
         let versions = category.download_index(progress.clone(), true).await?;
@@ -139,8 +139,6 @@ async fn add_omniarchive_versions(
 }
 
 /// Returns a list of all available versions of the game.
-pub async fn list_versions(
-    sender: Option<Arc<Sender<ScrapeProgress>>>,
-) -> Result<Vec<ListEntry>, String> {
+pub async fn list_versions(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, String> {
     list(sender).await.map_err(|n| n.to_string())
 }

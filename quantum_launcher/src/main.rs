@@ -51,14 +51,15 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 use arguments::ArgumentInfo;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
-    get_entries, InstallModsMessage, Launcher, ManageModsMessage, MenuInstallForge, MenuLaunch,
-    MenuLauncherSettings, MenuLauncherUpdate, MenuPresetMaker, MenuServerCreate, MenuServerManage,
-    Message, ModListEntry, SelectedState, ServerProcess, State, UpdateModsProgress,
+    get_entries, InstallModsMessage, Launcher, ManageModsMessage, MenuEditPresets,
+    MenuInstallForge, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate,
+    MenuServerManage, Message, ModListEntry, ProgressBar, SelectedState, ServerProcess, State,
+    UpdateModsProgress,
 };
 
-use menu_renderer::{button_with_icon, menu_delete_instance_view};
+use menu_renderer::{button_with_icon, changelog::changelog_0_3_1, menu_delete_instance_view};
 use message_handler::open_file_explorer;
-use ql_core::{err, info, InstanceSelection, SelectedMod};
+use ql_core::{err, info, GenericProgress, InstanceSelection, IntoIoError, SelectedMod};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{
     loaders,
@@ -99,16 +100,19 @@ impl Application for Launcher {
             Message::UpdateCheckResult,
         );
 
-        let mut command = Command::batch(vec![load_icon_command, check_for_updates_command]);
+        let get_entries_command = Command::perform(
+            get_entries("instances".to_owned(), false),
+            Message::CoreListLoaded,
+        );
 
-        let launcher = match Launcher::load_new(None) {
-            Ok((launcher, new_command)) => {
-                command = Command::batch(vec![command, new_command]);
-                launcher
-            }
-            Err(error) => Launcher::with_error(&error.to_string()),
-        };
-        (launcher, command)
+        (
+            Launcher::load_new(None).unwrap_or_else(Launcher::with_error),
+            Command::batch(vec![
+                load_icon_command,
+                check_for_updates_command,
+                get_entries_command,
+            ]),
+        )
     }
 
     fn title(&self) -> String {
@@ -580,11 +584,12 @@ impl Application for Launcher {
                             .iter()
                             .filter_map(|n| n.is_manually_installed().then_some(n.id())),
                     );
-                    self.state = State::ManagePresets(MenuPresetMaker {
+                    self.state = State::ManagePresets(MenuEditPresets {
                         mods: menu.sorted_mods_list.clone(),
                         selected_mods,
                         selected_state: SelectedState::All,
                         is_building: false,
+                        progress: None,
                     });
                 }
             }
@@ -667,6 +672,20 @@ impl Application for Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
+            Message::CoreOpenChangeLog => {
+                self.state = State::ChangeLog;
+            }
+            Message::EditPresetsLoad => return self.load_preset(),
+            Message::EditPresetsLoadComplete(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    match self.go_to_edit_mods_menu() {
+                        Ok(cmd) => return cmd,
+                        Err(err) => self.set_error(err),
+                    }
+                }
+            }
         }
         Command::none()
     }
@@ -709,14 +728,19 @@ impl Application for Launcher {
             State::InstallFabric(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
-            State::InstallJava(menu) => menu.view(),
+            State::InstallJava(bar) => {
+                widget::column!(widget::text("Downloading Java").size(20), bar.view())
+                    .padding(10)
+                    .spacing(10)
+                    .into()
+            }
             State::ModsDownload(menu) => {
                 menu.view(&self.images_bitmap, &self.images_svg, &self.images_to_load)
             }
             State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
-            State::RedownloadAssets(menu) => widget::column!(
+            State::RedownloadAssets { progress, .. } => widget::column!(
                 widget::text("Redownloading Assets").size(20),
-                widget::progress_bar(0.0..=1.0, menu.num),
+                progress.view()
             )
             .padding(10)
             .spacing(10)
@@ -757,6 +781,20 @@ impl Application for Launcher {
                 .spacing(10)
                 .into(),
             State::ManagePresets(menu) => menu.view(),
+            State::ChangeLog => widget::scrollable(
+                widget::column!(
+                    button_with_icon(icon_manager::back(), "Back").on_press(
+                        Message::LaunchScreenOpen {
+                            message: None,
+                            clear_selection: true
+                        }
+                    ),
+                    changelog_0_3_1()
+                )
+                .padding(10)
+                .spacing(10),
+            )
+            .into(),
         }
     }
 
@@ -881,11 +919,14 @@ impl Launcher {
         self.state = State::InstallForge(MenuInstallForge {
             forge_progress_receiver: f_receiver,
             forge_progress_num: 0.0,
-            java_progress_receiver: j_receiver,
-            java_progress_num: 0.0,
+            java_progress: ProgressBar {
+                num: 0.0,
+                message: None,
+                receiver: j_receiver,
+                progress: GenericProgress::default(),
+            },
             is_java_getting_installed: false,
             forge_message: "Installing Forge".to_owned(),
-            java_message: None,
         });
         command
     }
@@ -942,6 +983,50 @@ impl Launcher {
             InstanceSelection::Instance(_) => self.go_to_launch_screen(message),
             InstanceSelection::Server(_) => self.go_to_server_manage_menu(message),
         }
+    }
+
+    fn load_preset(&mut self) -> Command<Message> {
+        let dialog = rfd::FileDialog::new();
+        let Some(file) = dialog.pick_file() else {
+            return Command::none();
+        };
+        let file = match std::fs::read(&file).path(&file) {
+            Ok(n) => n,
+            Err(err) => {
+                self.set_error(err);
+                return Command::none();
+            }
+        };
+
+        match tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(ql_mod_manager::PresetJson::load_w(
+                self.selected_instance.clone().unwrap(),
+                file,
+            )) {
+            Ok(mods) => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                if let State::ManagePresets(menu) = &mut self.state {
+                    menu.progress = Some(ProgressBar {
+                        num: 0.0,
+                        message: None,
+                        receiver,
+                        progress: GenericProgress::default(),
+                    })
+                }
+                return Command::perform(
+                    ql_mod_manager::PresetJson::download_entries_w(
+                        mods,
+                        self.selected_instance.clone().unwrap(),
+                        sender,
+                    ),
+                    Message::EditPresetsLoadComplete,
+                );
+            }
+            Err(err) => self.set_error(err),
+        }
+
+        Command::none()
     }
 }
 

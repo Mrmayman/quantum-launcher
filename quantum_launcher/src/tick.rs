@@ -1,21 +1,18 @@
 use std::collections::{HashMap, HashSet};
 
 use iced::Command;
-use ql_core::{err, info, InstanceSelection, JavaInstallProgress};
-use ql_instances::{AssetRedownloadProgress, LogLine, ScrapeProgress, UpdateProgress};
+use ql_core::{err, info, GenericProgress, InstanceSelection};
+use ql_instances::{LogLine, UpdateProgress};
 use ql_mod_manager::{
-    loaders::{
-        fabric::FabricInstallProgress, forge::ForgeInstallProgress,
-        optifine::OptifineInstallProgress,
-    },
+    loaders::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
     mod_manager::{ApplyUpdateProgress, ModConfig, ModIndex, Search},
 };
 use ql_servers::ServerCreateProgress;
 
 use crate::launcher_state::{
     get_entries, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods,
-    MenuInstallFabric, MenuInstallForge, MenuInstallJava, MenuLaunch, MenuLauncherUpdate,
-    MenuRedownloadAssets, MenuServerCreate, Message, ModListEntry, ServerProcess, State,
+    MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate, MenuServerCreate, Message,
+    ModListEntry, ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -27,12 +24,13 @@ impl Launcher {
                 ..
             }) => {
                 if let Some(receiver) = java_recv.take() {
-                    if let Ok(JavaInstallProgress::P1Started) = receiver.try_recv() {
+                    if let Ok(GenericProgress { done: 0, .. }) = receiver.try_recv() {
                         info!("Installing Java");
-                        self.state = State::InstallJava(MenuInstallJava {
+                        self.state = State::InstallJava(ProgressBar {
                             num: 0.0,
-                            recv: receiver,
-                            message: "Starting...".to_owned(),
+                            receiver,
+                            message: Some("Starting...".to_owned()),
+                            progress: GenericProgress::default(),
                         });
                         return Command::none();
                     }
@@ -40,12 +38,16 @@ impl Launcher {
                 }
 
                 if let Some(receiver) = asset_recv.take() {
-                    if let Ok(AssetRedownloadProgress::P1Start) = receiver.try_recv() {
-                        self.state = State::RedownloadAssets(MenuRedownloadAssets {
-                            num: 0.0,
-                            recv: receiver,
+                    if let Ok(_) = receiver.try_recv() {
+                        self.state = State::RedownloadAssets {
+                            progress: ProgressBar {
+                                num: 0.0,
+                                receiver,
+                                message: None,
+                                progress: GenericProgress::default(),
+                            },
                             java_recv: java_recv.take(),
-                        });
+                        };
                         return Command::none();
                     }
                     *asset_recv = Some(receiver);
@@ -74,8 +76,8 @@ impl Launcher {
             State::InstallForge(menu) => menu.tick(),
             State::UpdateFound(menu) => menu.tick(),
             State::InstallJava(menu) => {
-                let finished_install = menu.tick();
-                if finished_install {
+                menu.tick();
+                if menu.progress.has_finished {
                     let message = "Installed Java".to_owned();
                     match &self.selected_instance {
                         Some(InstanceSelection::Instance(_)) | None => {
@@ -121,11 +123,14 @@ impl Launcher {
                     return Command::perform(config.save_w(), Message::CoreTickConfigSaved);
                 }
             }
-            State::RedownloadAssets(menu) => {
-                let finished = menu.tick();
-                if finished {
+            State::RedownloadAssets {
+                progress,
+                java_recv,
+            } => {
+                progress.tick();
+                if progress.progress.has_finished {
                     let message = "Redownloaded Assets".to_owned();
-                    let java_recv = menu.java_recv.take();
+                    let java_recv = java_recv.take();
                     self.state = State::Launch(MenuLaunch {
                         message,
                         java_recv,
@@ -138,53 +143,12 @@ impl Launcher {
                 }
             }
             State::InstallOptifine(menu) => {
-                if let Some(progress) = &mut menu.progress {
-                    while let Ok(message) = progress.optifine_install_progress.try_recv() {
-                        match message {
-                            OptifineInstallProgress::P1Start => {
-                                progress.optifine_install_num = 0.0;
-                                "Starting...".clone_into(&mut progress.optifine_install_message);
-                            }
-                            OptifineInstallProgress::P2CompilingHook => {
-                                progress.optifine_install_num = 1.0;
-                                "Compiling hook..."
-                                    .clone_into(&mut progress.optifine_install_message);
-                            }
-                            OptifineInstallProgress::P3RunningHook => {
-                                progress.optifine_install_num = 2.0;
-                                "Running hook..."
-                                    .clone_into(&mut progress.optifine_install_message);
-                            }
-                            OptifineInstallProgress::P4DownloadingLibraries { done, total } => {
-                                progress.optifine_install_num = 2.0 + (done as f32 / total as f32);
-                                progress.optifine_install_message =
-                                    format!("Downloading libraries ({done}/{total})");
-                            }
-                            OptifineInstallProgress::P5Done => {
-                                progress.optifine_install_num = 3.0;
-                                "Done!".clone_into(&mut progress.optifine_install_message);
-                            }
-                        }
-                    }
-
-                    while let Ok(message) = progress.java_install_progress.try_recv() {
-                        match message {
-                            JavaInstallProgress::P1Started => {
-                                progress.java_install_num = 0.0;
-                                "Starting...".clone_into(&mut progress.java_install_message);
-                                progress.is_java_being_installed = true;
-                            }
-                            JavaInstallProgress::P2 { done, out_of, name } => {
-                                progress.java_install_num = done as f32 / out_of as f32;
-                                progress.java_install_message =
-                                    format!("Downloading ({done}/{out_of}): {name}");
-                            }
-                            JavaInstallProgress::P3Done => {
-                                progress.java_install_num = 1.0;
-                                "Done!".clone_into(&mut progress.java_install_message);
-                                progress.is_java_being_installed = false;
-                            }
-                        }
+                if let Some(optifine_progress) = &mut menu.optifine_install_progress {
+                    optifine_progress.tick();
+                }
+                if let Some(java_progress) = &mut menu.java_install_progress {
+                    if java_progress.tick() {
+                        menu.is_java_being_installed = true;
                     }
                 }
             }
@@ -195,10 +159,11 @@ impl Launcher {
                     .and_then(|n| n.try_recv().ok())
                     .is_some()
                 {
-                    self.state = State::InstallJava(MenuInstallJava {
+                    self.state = State::InstallJava(ProgressBar {
                         num: 0.0,
-                        recv: menu.java_install_recv.take().unwrap(),
-                        message: String::new(),
+                        receiver: menu.java_install_recv.take().unwrap(),
+                        message: None,
+                        progress: GenericProgress::default(),
                     });
                 }
 
@@ -209,10 +174,8 @@ impl Launcher {
                     progress_receiver,
                     progress_number,
                 } => {
-                    while let Ok(progress) = progress_receiver.try_recv() {
-                        if let ScrapeProgress::ScrapedFile = progress {
-                            *progress_number += 1.0;
-                        }
+                    while let Ok(()) = progress_receiver.try_recv() {
+                        *progress_number += 1.0;
                         if *progress_number > 15.0 {
                             err!("More than 15 indexes scraped: {progress_number}");
                             *progress_number = 15.0;
@@ -235,10 +198,15 @@ impl Launcher {
                     }
                 }
             },
+            State::ManagePresets(menu) => {
+                if let Some(progress) = &mut menu.progress {
+                    progress.tick();
+                }
+            }
             State::Error { .. }
             | State::DeleteInstance
             | State::ServerDelete { .. }
-            | State::ManagePresets(_)
+            | State::ChangeLog
             | State::InstallPaper => {}
         }
 
@@ -421,26 +389,8 @@ impl MenuInstallForge {
                 ForgeInstallProgress::P6Done => "Done!".to_owned(),
             };
         }
-        while let Ok(message) = self.java_progress_receiver.try_recv() {
-            match message {
-                JavaInstallProgress::P1Started => {
-                    self.is_java_getting_installed = true;
-                    self.java_progress_num = 0.0;
-                    self.java_message = Some("Started...".to_owned());
-                }
-                JavaInstallProgress::P2 {
-                    done: progress,
-                    out_of,
-                    name,
-                } => {
-                    self.java_progress_num = progress as f32 / out_of as f32;
-                    self.java_message = Some(format!("Downloading ({progress}/{out_of}): {name}"));
-                }
-                JavaInstallProgress::P3Done => {
-                    self.is_java_getting_installed = false;
-                    self.java_message = None;
-                }
-            }
+        if self.java_progress.tick() {
+            self.is_java_getting_installed = true;
         }
     }
 }
@@ -469,32 +419,6 @@ impl MenuInstallFabric {
                 }
             }
         }
-    }
-}
-
-impl MenuInstallJava {
-    /// Returns true if Java installation has finished.
-    pub fn tick(&mut self) -> bool {
-        while let Ok(message) = self.recv.try_recv() {
-            match message {
-                JavaInstallProgress::P1Started => {
-                    self.num = 0.0;
-                    "Starting up (2/2)".clone_into(&mut self.message);
-                }
-                JavaInstallProgress::P2 {
-                    done: progress,
-                    out_of,
-                    name,
-                } => {
-                    self.num = (progress as f32) / (out_of as f32);
-                    self.message = format!("Downloading ({progress}/{out_of}): {name}");
-                }
-                JavaInstallProgress::P3Done => {
-                    return true;
-                }
-            }
-        }
-        false
     }
 }
 
@@ -574,32 +498,19 @@ impl MenuCreateInstance {
                 progress_receiver,
                 progress_number,
             } => {
-                while let Ok(progress) = progress_receiver.try_recv() {
-                    if let ScrapeProgress::ScrapedFile = progress {
-                        *progress_number += 1.0;
-                    }
+                while let Ok(()) = progress_receiver.try_recv() {
+                    *progress_number += 1.0;
                     if *progress_number > 21.0 {
                         err!("More than 20 indexes scraped: {}", *progress_number - 1.0);
                         *progress_number = 21.0;
                     }
                 }
             }
-            MenuCreateInstance::Loaded {
-                progress_receiver: Some(receiver),
-                progress_number,
-                progress_text,
-                ..
-            } => {
-                while let Ok(progress) = receiver.try_recv() {
-                    if let Some(progress_text) = progress_text {
-                        *progress_text = progress.to_string();
-                    }
-                    if let Some(progress_num) = progress_number {
-                        *progress_num = progress.into();
-                    }
+            MenuCreateInstance::Loaded { progress, .. } => {
+                if let Some(progress) = progress {
+                    progress.tick();
                 }
             }
-            MenuCreateInstance::Loaded { .. } => {}
         }
     }
 }

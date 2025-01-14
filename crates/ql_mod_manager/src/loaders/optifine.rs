@@ -11,7 +11,7 @@ use ql_core::{
         instance_config::InstanceConfigJson, java_list::JavaVersion, optifine::JsonOptifine,
         version::VersionDetails,
     },
-    IntoIoError, IoError, JavaInstallError, JavaInstallProgress, JsonFileError, RequestError,
+    GenericProgress, IntoIoError, IoError, JavaInstallError, JsonFileError, Progress, RequestError,
 };
 
 use crate::mod_manager::Loader;
@@ -25,7 +25,7 @@ pub async fn install_optifine_w(
     instance_name: String,
     path_to_installer: PathBuf,
     progress_sender: Option<Sender<OptifineInstallProgress>>,
-    java_progress_sender: Option<Sender<JavaInstallProgress>>,
+    java_progress_sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), String> {
     install_optifine(
         &instance_name,
@@ -45,11 +45,47 @@ pub enum OptifineInstallProgress {
     P5Done,
 }
 
+impl Display for OptifineInstallProgress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OptifineInstallProgress::P1Start => write!(f, "Starting installation."),
+            OptifineInstallProgress::P2CompilingHook => write!(f, "Compiling hook."),
+            OptifineInstallProgress::P3RunningHook => write!(f, "Running hook."),
+            OptifineInstallProgress::P4DownloadingLibraries { done, total } => {
+                write!(f, "Downloading libraries ({done}/{total}).")
+            }
+            OptifineInstallProgress::P5Done => write!(f, "Done."),
+        }
+    }
+}
+
+impl Progress for OptifineInstallProgress {
+    fn get_num(&self) -> f32 {
+        match self {
+            OptifineInstallProgress::P1Start => 0.0,
+            OptifineInstallProgress::P2CompilingHook => 1.0,
+            OptifineInstallProgress::P3RunningHook => 2.0,
+            OptifineInstallProgress::P4DownloadingLibraries { done, total } => {
+                2.0 + (*done as f32 / *total as f32)
+            }
+            OptifineInstallProgress::P5Done => 3.0,
+        }
+    }
+
+    fn get_message(&self) -> Option<String> {
+        Some(self.to_string())
+    }
+
+    fn total() -> f32 {
+        3.0
+    }
+}
+
 pub async fn install_optifine(
     instance_name: &str,
     path_to_installer: &Path,
     progress_sender: Option<Sender<OptifineInstallProgress>>,
-    java_progress_sender: Option<Sender<JavaInstallProgress>>,
+    java_progress_sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), OptifineError> {
     if !path_to_installer.exists() || !path_to_installer.is_file() {
         return Err(OptifineError::InstallerDoesNotExist);
@@ -245,7 +281,7 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
 async fn compile_hook(
     new_installer_path: &Path,
     optifine_path: &Path,
-    java_progress_sender: Option<Sender<JavaInstallProgress>>,
+    java_progress_sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), OptifineError> {
     let javac_path = get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
     let output = Command::new(&javac_path)

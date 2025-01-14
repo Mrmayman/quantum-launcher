@@ -1,16 +1,17 @@
 use crate::download::GameDownloader;
+use chrono::DateTime;
 use error::GameLaunchError;
 use ql_core::{
-    file_utils, get_java_binary, info,
+    err, file_utils, get_java_binary, info,
     json::{
         fabric::FabricJSON,
         forge::JsonForgeDetails,
-        instance_config::InstanceConfigJson,
+        instance_config::{InstanceConfigJson, OmniarchiveEntry},
         java_list::JavaVersion,
         optifine::JsonOptifine,
         version::{LibraryDownloadArtifact, LibraryDownloads, VersionDetails},
     },
-    IntoIoError, IoError, JavaInstallProgress, JsonFileError,
+    GenericProgress, IntoIoError, IoError, JsonFileError,
 };
 use std::{
     collections::HashSet,
@@ -30,20 +31,14 @@ pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 pub async fn launch_w(
     instance_name: String,
     username: String,
-    java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
-    enable_logger: bool,
-    asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
-    game_args: Vec<String>,
-    java_args: Vec<String>,
+    java_install_progress_sender: Option<Sender<GenericProgress>>,
+    asset_redownload_progress: Option<Sender<GenericProgress>>,
 ) -> GameLaunchResult {
     match launch(
         instance_name,
         username,
         java_install_progress_sender,
-        enable_logger,
         asset_redownload_progress,
-        game_args,
-        java_args,
     )
     .await
     {
@@ -55,8 +50,8 @@ pub async fn launch_w(
 pub struct GameLauncher {
     pub username: String,
     pub instance_name: String,
-    pub java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
-    pub asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
+    pub java_install_progress_sender: Option<Sender<GenericProgress>>,
+    pub asset_redownload_progress: Option<Sender<GenericProgress>>,
     pub instance_dir: PathBuf,
     pub minecraft_dir: PathBuf,
     pub config_json: InstanceConfigJson,
@@ -67,8 +62,8 @@ impl GameLauncher {
     pub fn new(
         instance_name: String,
         username: String,
-        java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
-        asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
+        java_install_progress_sender: Option<Sender<GenericProgress>>,
+        asset_redownload_progress: Option<Sender<GenericProgress>>,
     ) -> Result<Self, GameLaunchError> {
         let instance_dir = get_instance_dir(&instance_name)?;
 
@@ -237,6 +232,13 @@ impl GameLauncher {
             self.config_json.get_ram_argument(),
         ];
 
+        if let Some(OmniarchiveEntry { name, .. }) = &self.config_json.omniarchive {
+            if name.starts_with("beta/b1.9/pre/") {
+                args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
+                args.push("-Dhttp.proxyPort=11706".to_owned());
+                return Ok(args);
+            }
+        }
         if self.version_json.r#type == "old_beta" || self.version_json.r#type == "old_alpha" {
             args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
             if self.version_json.id.starts_with("c0.") {
@@ -247,6 +249,21 @@ impl GameLauncher {
                 args.push("-Dhttp.proxyPort=11705".to_owned());
             }
             args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
+        } else {
+            match (
+                DateTime::parse_from_rfc3339(&self.version_json.releaseTime),
+                DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00"),
+            ) {
+                (Ok(dt), Ok(v1_5_2)) => {
+                    if dt <= v1_5_2 {
+                        args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
+                        args.push("-Dhttp.proxyPort=11707".to_owned());
+                    }
+                }
+                (Err(e), Err(_)) | (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
+                    err!("Could not parse instance date/time: {e}")
+                }
+            }
         }
 
         Ok(args)
@@ -527,6 +544,31 @@ impl GameLauncher {
             get_java_binary(version, "java", self.java_install_progress_sender.take()).await?,
         ))
     }
+
+    pub fn cleanup_junk_files(&self) -> Result<(), GameLaunchError> {
+        let forge_dir = self.instance_dir.join("forge");
+
+        if forge_dir.exists() {
+            delete_junk_file(&forge_dir, "ClientInstaller.class")?;
+            delete_junk_file(&forge_dir, "ClientInstaller.java")?;
+            delete_junk_file(&forge_dir, "launcher_profiles.json")?;
+            delete_junk_file(&forge_dir, "launcher_profiles_microsoft_store.json")?;
+
+            let versions_dir = forge_dir.join("versions").join(&self.version_json.id);
+            if versions_dir.is_dir() {
+                std::fs::remove_dir_all(&versions_dir).path(versions_dir)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+fn delete_junk_file(forge_dir: &Path, path: &str) -> Result<(), GameLaunchError> {
+    let path = forge_dir.join(path);
+    Ok(if path.exists() {
+        std::fs::remove_file(&path).path(path)?;
+    })
 }
 
 fn remove_version_from_library(library: &str) -> Option<String> {
@@ -557,11 +599,8 @@ fn remove_version_from_library(library: &str) -> Option<String> {
 pub async fn launch(
     instance_name: String,
     username: String,
-    java_install_progress_sender: Option<Sender<JavaInstallProgress>>,
-    enable_logger: bool,
-    asset_redownload_progress: Option<Sender<AssetRedownloadProgress>>,
-    game_args: Vec<String>,
-    java_args: Vec<String>,
+    java_install_progress_sender: Option<Sender<GenericProgress>>,
+    asset_redownload_progress: Option<Sender<GenericProgress>>,
 ) -> Result<Child, GameLaunchError> {
     if username.contains(' ') || username.is_empty() {
         return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
@@ -600,15 +639,28 @@ pub async fn launch(
     info!("Java args: {java_arguments:?}\n");
     info!("Game args: {game_arguments:?}\n");
 
+    let n = game_launcher
+        .config_json
+        .java_args
+        .clone()
+        .unwrap_or_default();
+
     let mut command = command.args(
-        java_args
-            .iter()
+        n.iter()
             .filter(|n| !n.is_empty())
             .chain(java_arguments.iter())
             .chain(game_arguments.iter())
-            .chain(game_args.iter().filter(|n| !n.is_empty())),
+            .chain(
+                game_launcher
+                    .config_json
+                    .game_args
+                    .clone()
+                    .unwrap_or_default()
+                    .iter()
+                    .filter(|n| !n.is_empty()),
+            ),
     );
-    command = if enable_logger {
+    command = if game_launcher.config_json.enable_logger.unwrap_or(true) {
         command.stdout(Stdio::piped()).stderr(Stdio::piped())
     } else {
         command
@@ -646,12 +698,6 @@ fn find_jar_files(dir_path: &Path) -> Result<Vec<PathBuf>, IoError> {
     }
 
     Ok(jar_files)
-}
-
-pub enum AssetRedownloadProgress {
-    P1Start,
-    P2Progress { done: usize, out_of: usize },
-    P3Done,
 }
 
 /// Moves the game assets from the old path:

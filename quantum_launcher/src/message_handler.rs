@@ -14,7 +14,7 @@ use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
     ClientProcess, CreateInstanceMessage, Launcher, ManageModsMessage, MenuCreateInstance,
-    MenuEditInstance, MenuEditMods, Message, SelectedState, State,
+    MenuEditInstance, MenuEditMods, Message, ProgressBar, SelectedState, State,
 };
 
 impl Launcher {
@@ -37,26 +37,12 @@ impl Launcher {
                 log.log.clear();
             }
 
-            let instance_config = {
-                let launcher_dir = file_utils::get_launcher_dir().unwrap();
-                let config_path = launcher_dir
-                    .join("instances")
-                    .join(selected_instance)
-                    .join("config.json");
-
-                let config_json = std::fs::read_to_string(&config_path).unwrap();
-                serde_json::from_str::<InstanceConfigJson>(&config_json).unwrap()
-            };
-
             return Command::perform(
                 ql_instances::launch_w(
                     selected_instance.to_owned(),
                     username,
                     Some(sender),
-                    instance_config.enable_logger.unwrap_or(true),
                     Some(asset_sender),
-                    instance_config.game_args.unwrap_or_default(),
-                    instance_config.java_args.unwrap_or_default(),
                 ),
                 Message::LaunchEnd,
             );
@@ -124,9 +110,7 @@ impl Launcher {
             self.state = State::Create(MenuCreateInstance::Loaded {
                 instance_name: String::new(),
                 selected_version: None,
-                progress_receiver: None,
-                progress_number: None,
-                progress_text: None,
+                progress: None,
                 download_assets: true,
                 combo_state: Box::new(combo_state),
             });
@@ -154,9 +138,7 @@ impl Launcher {
                 self.state = State::Create(MenuCreateInstance::Loaded {
                     instance_name: String::new(),
                     selected_version: None,
-                    progress_receiver: None,
-                    progress_number: None,
-                    progress_text: None,
+                    progress: None,
                     download_assets: true,
                     combo_state: Box::new(combo_state),
                 });
@@ -182,9 +164,7 @@ impl Launcher {
 
     pub fn create_instance(&mut self) -> Command<Message> {
         if let State::Create(MenuCreateInstance::Loaded {
-            progress_receiver,
-            progress_text,
-            progress_number,
+            progress,
             instance_name,
             download_assets,
             selected_version,
@@ -192,9 +172,12 @@ impl Launcher {
         }) = &mut self.state
         {
             let (sender, receiver) = mpsc::channel::<DownloadProgress>();
-            *progress_receiver = Some(receiver);
-            *progress_number = Some(0.0);
-            *progress_text = Some("Started download".to_owned());
+            *progress = Some(ProgressBar {
+                num: 0.0,
+                message: Some("Started download".to_owned()),
+                receiver,
+                progress: DownloadProgress::DownloadingJsonManifest,
+            });
 
             // Create Instance asynchronously using iced Command.
             return Command::perform(
