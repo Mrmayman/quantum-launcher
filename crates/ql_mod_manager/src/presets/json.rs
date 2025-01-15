@@ -114,12 +114,12 @@ impl PresetJson {
         let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
         let config_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("config");
 
-        let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(|n| ModError::Zip(n))?;
+        let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;
 
         let mut entries_modrinth = HashMap::new();
 
         for i in 0..zip.len() {
-            let mut file = zip.by_index(i).map_err(|n| ModError::Zip(n))?;
+            let mut file = zip.by_index(i).map_err(ModError::Zip)?;
             let name = file.name().to_owned();
 
             if name == "index.json" {
@@ -130,13 +130,16 @@ impl PresetJson {
                 let this: Self = serde_json::from_slice(&buf)?;
                 entries_modrinth = this.entries_modrinth;
             } else if name.starts_with("config/") {
-                println!("TODO: config: {name}");
-                // let name = name.strip_prefix("config/").unwrap();
-                // let path = config_dir.join(name);
-                // let mut file = file;
-                // let mut buf = Vec::new();
-                // file.read_to_end(&mut buf).map_err(|n| ModError::ZipReadError(n))?;
-                // tokio::fs::write(&path, &buf).await.path(&path)?;
+                let name = name.strip_prefix("config/").unwrap();
+                let path = config_dir.join(name);
+
+                let parent = path.parent().unwrap();
+                tokio::fs::create_dir_all(parent).await.path(parent)?;
+
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf)
+                    .map_err(|n| ModError::ZipIoError(n, name.to_owned()))?;
+                tokio::fs::write(&path, &buf).await.path(&path)?;
             } else if name.contains('/') {
                 info!("Feature not implemented: {name}");
             } else {

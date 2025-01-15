@@ -1,9 +1,11 @@
-use ql_core::file_utils;
+use std::sync::mpsc::Sender;
+
+use ql_core::{file_utils, info, pt, GenericProgress};
 use serde::{Deserialize, Serialize};
 
 use crate::rate_limiter::RATE_LIMITER;
 
-use super::ModError;
+use super::{Loader, ModError, RecommendedMod};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModVersion {
@@ -34,6 +36,54 @@ impl ModVersion {
         let file = file_utils::download_file_to_string(&client, &url, false).await?;
         let file = serde_json::from_str(&file)?;
         Ok(file)
+    }
+
+    pub async fn get_compatible_mods_w(
+        ids: Vec<RecommendedMod>,
+        version: String,
+        loader: Loader,
+        sender: Sender<GenericProgress>,
+    ) -> Result<Vec<RecommendedMod>, String> {
+        Self::get_compatible_mods(ids, &version, &loader, &sender)
+            .await
+            .map_err(|e| e.to_string())
+    }
+    pub async fn get_compatible_mods(
+        ids: Vec<RecommendedMod>,
+        version: &String,
+        loader: &Loader,
+        sender: &Sender<GenericProgress>,
+    ) -> Result<Vec<RecommendedMod>, ModError> {
+        info!("Checking compatibility");
+        let mut mods = vec![];
+        let len = ids.len();
+        for (i, id) in ids.into_iter().enumerate() {
+            let _ = sender.send(GenericProgress {
+                done: i,
+                total: len,
+                message: Some(format!("Checking compatibility: {}", id.name)),
+                has_finished: false,
+            });
+
+            let is_compatible = Self::is_compatible(id.id, version, loader).await?;
+            pt!("{} : {is_compatible}", id.name);
+            if is_compatible {
+                mods.push(id);
+            }
+        }
+        Ok(mods)
+    }
+
+    pub async fn is_compatible(
+        project_id: &str,
+        minecraft_version: &String,
+        instance_loader: &Loader,
+    ) -> Result<bool, ModError> {
+        let versions = Self::download(project_id).await?;
+        Ok(versions.iter().any(|n| {
+            n.game_versions.contains(minecraft_version)
+                && n.loaders.contains(&instance_loader.to_string())
+        }))
     }
 }
 

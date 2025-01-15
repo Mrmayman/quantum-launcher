@@ -11,8 +11,8 @@ use ql_servers::ServerCreateProgress;
 
 use crate::launcher_state::{
     get_entries, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods,
-    MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate, MenuServerCreate, Message,
-    ModListEntry, ProgressBar, ServerProcess, State,
+    MenuEditPresetsInner, MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate,
+    MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -38,7 +38,7 @@ impl Launcher {
                 }
 
                 if let Some(receiver) = asset_recv.take() {
-                    if let Ok(_) = receiver.try_recv() {
+                    if receiver.try_recv().is_ok() {
                         self.state = State::RedownloadAssets {
                             progress: ProgressBar {
                                 num: 0.0,
@@ -200,6 +200,10 @@ impl Launcher {
             },
             State::ManagePresets(menu) => {
                 if let Some(progress) = &mut menu.progress {
+                    progress.tick();
+                }
+
+                if let MenuEditPresetsInner::Recommended { progress, .. } = &mut menu.inner {
                     progress.tick();
                 }
             }

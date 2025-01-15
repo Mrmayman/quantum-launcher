@@ -1,7 +1,7 @@
 use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
-use ql_core::{file_utils, IoError, RequestError};
+use ql_core::{err, file_utils, IoError, RequestError};
 use serde::{Deserialize, Serialize};
 use zip_extract::ZipError;
 
@@ -252,6 +252,22 @@ pub enum Loader {
     // Note: Modrinth doesn't support the below:
     OptiFine,
     Paper,
+}
+
+impl TryFrom<&str> for Loader {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "Forge" => Ok(Loader::Forge),
+            "Fabric" => Ok(Loader::Fabric),
+            "Quilt" => Ok(Loader::Quilt),
+            loader => {
+                err!("Unknown loader: {loader}");
+                Err(())
+            }
+        }
+    }
 }
 
 impl Display for Loader {

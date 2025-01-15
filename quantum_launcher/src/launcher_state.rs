@@ -20,7 +20,8 @@ use ql_mod_manager::{
         optifine::OptifineInstallProgress,
     },
     mod_manager::{
-        ApplyUpdateProgress, ImageResult, Loader, ModConfig, ModIndex, ProjectInfo, Search,
+        ApplyUpdateProgress, ImageResult, Loader, ModConfig, ModIndex, ProjectInfo, RecommendedMod,
+        Search,
     },
 };
 use ql_servers::ServerCreateProgress;
@@ -182,6 +183,10 @@ pub enum Message {
     EditPresetsBuildYourOwnEnd(Result<Vec<u8>, String>),
     EditPresetsLoad,
     EditPresetsLoadComplete(Result<(), String>),
+    EditPresetsRecommendedModCheck(Result<Vec<RecommendedMod>, String>),
+    EditPresetsRecommendedToggle(usize, bool),
+    EditPresetsRecommendedDownload,
+    EditPresetsRecommendedDownloadEnd(Result<(), String>),
 }
 
 /// The home screen of the launcher.
@@ -346,18 +351,22 @@ pub struct MenuModsDownload {
 pub struct MenuLauncherSettings;
 
 pub struct MenuEditPresets {
-    pub mods: Vec<ModListEntry>,
-    pub selected_mods: HashSet<SelectedMod>,
-    pub selected_state: SelectedState,
-    pub is_building: bool,
+    pub inner: MenuEditPresetsInner,
     pub progress: Option<ProgressBar<GenericProgress>>,
 }
 
-impl MenuEditPresets {
-    pub fn is_enabled(&self, entry: &ModListEntry) -> bool {
-        let id = entry.id();
-        self.selected_mods.contains(&id)
-    }
+pub enum MenuEditPresetsInner {
+    Build {
+        mods: Vec<ModListEntry>,
+        selected_mods: HashSet<SelectedMod>,
+        selected_state: SelectedState,
+        is_building: bool,
+    },
+    Recommended {
+        mods: Option<Vec<(bool, RecommendedMod)>>,
+        error: Option<String>,
+        progress: ProgressBar<GenericProgress>,
+    },
 }
 
 /// The enum that represents which menu is opened currently.
@@ -414,20 +423,11 @@ pub struct UpdateModsProgress {
     pub message: String,
 }
 
+#[derive(Default)]
 pub struct MenuInstallOptifine {
     pub optifine_install_progress: Option<ProgressBar<OptifineInstallProgress>>,
     pub java_install_progress: Option<ProgressBar<GenericProgress>>,
     pub is_java_being_installed: bool,
-}
-
-impl Default for MenuInstallOptifine {
-    fn default() -> Self {
-        Self {
-            optifine_install_progress: None,
-            java_install_progress: None,
-            is_java_being_installed: false,
-        }
-    }
 }
 
 pub struct InstanceLog {

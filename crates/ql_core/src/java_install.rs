@@ -55,6 +55,12 @@ pub async fn get_java_binary(
 
     let java_dir = java_dir.join(if cfg!(windows) {
         format!("bin/{name}.exe")
+    } else if cfg!(target_os = "macos") {
+        if java_dir.join("bin/{name}").exists() {
+            format!("bin/{name}")
+        } else {
+            format!("jre.bundle/Contents/Home/bin/{name}")
+        }
     } else {
         format!("bin/{name}")
     });

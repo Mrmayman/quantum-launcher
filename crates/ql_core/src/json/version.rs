@@ -3,6 +3,8 @@ use std::{collections::BTreeMap, fmt::Debug};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::{err, file_utils, InstanceSelection};
+
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionDetails {
@@ -39,6 +41,37 @@ pub struct VersionDetails {
     pub time: String,
     /// Type of version, such as alpha, beta or release.
     pub r#type: String,
+}
+
+impl VersionDetails {
+    pub fn load(instance: &InstanceSelection) -> Option<Self> {
+        let path = match file_utils::get_instance_dir(instance) {
+            Ok(n) => n,
+            Err(err) => {
+                err!("Couldn't get instance dir: {err}");
+                return None;
+            }
+        };
+        let path = path.join("details.json");
+
+        let file = match std::fs::read(&path) {
+            Ok(n) => n,
+            Err(err) => {
+                err!("Couldn't read details.json: {err}");
+                return None;
+            }
+        };
+
+        let details: VersionDetails = match serde_json::from_slice(&file) {
+            Ok(n) => n,
+            Err(err) => {
+                err!("Couldn't parse details.json: {err}");
+                return None;
+            }
+        };
+
+        Some(details)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

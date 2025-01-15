@@ -5,7 +5,7 @@ use std::{
 
 use iced::Command;
 use ql_core::{
-    err, file_utils,
+    file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     InstanceSelection, IntoIoError,
 };
@@ -58,15 +58,7 @@ impl Launcher {
 
 impl MenuModsDownload {
     pub fn search_modrinth(&mut self, is_server: bool) -> Command<Message> {
-        let Some(loaders) = (match self.config.mod_type.as_str() {
-            "Forge" => Some(vec![Loader::Forge]),
-            "Fabric" => Some(vec![Loader::Fabric]),
-            "Quilt" => Some(vec![Loader::Quilt]),
-            loader => {
-                err!("Unknown loader: {loader}");
-                None
-            }
-        }) else {
+        let Ok(loaders) = Loader::try_from(self.config.mod_type.as_str()) else {
             return Command::none();
         };
 
@@ -75,7 +67,7 @@ impl MenuModsDownload {
             Search::search_w(Query {
                 name: self.query.clone(),
                 versions: vec![self.json.id.clone()],
-                loaders,
+                loaders: vec![loaders],
                 server_side: is_server,
                 open_source: false, // TODO: Add Open Source filter
             }),

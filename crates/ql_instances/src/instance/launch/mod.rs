@@ -566,9 +566,10 @@ impl GameLauncher {
 
 fn delete_junk_file(forge_dir: &Path, path: &str) -> Result<(), GameLaunchError> {
     let path = forge_dir.join(path);
-    Ok(if path.exists() {
+    if path.exists() {
         std::fs::remove_file(&path).path(path)?;
-    })
+    }
+    Ok(())
 }
 
 fn remove_version_from_library(library: &str) -> Option<String> {

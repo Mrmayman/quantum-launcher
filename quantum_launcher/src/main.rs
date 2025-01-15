@@ -46,25 +46,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //!
 //! This is done to make use with `iced::Command` easier.
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use arguments::ArgumentInfo;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
-    get_entries, InstallModsMessage, Launcher, ManageModsMessage, MenuEditPresets,
-    MenuInstallForge, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate,
-    MenuServerManage, Message, ModListEntry, ProgressBar, SelectedState, ServerProcess, State,
-    UpdateModsProgress,
+    get_entries, Launcher, MenuEditPresets, MenuEditPresetsInner, MenuLauncherSettings,
+    MenuLauncherUpdate, MenuServerCreate, Message, ModListEntry, ProgressBar, SelectedState,
+    ServerProcess, State,
 };
 
 use menu_renderer::{button_with_icon, changelog::changelog_0_3_1, menu_delete_instance_view};
 use message_handler::open_file_explorer;
-use ql_core::{err, info, GenericProgress, InstanceSelection, IntoIoError, SelectedMod};
+use ql_core::{err, info, GenericProgress, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
-use ql_mod_manager::{
-    loaders,
-    mod_manager::{Loader, ModIndex},
-};
+use ql_mod_manager::{loaders, mod_manager::Loader};
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
 use tokio::io::AsyncWriteExt;
 
@@ -577,54 +573,64 @@ impl Application for Launcher {
                 return iced::clipboard::write(txt);
             }
             Message::InstallMods(msg) => return self.update_install_mods(msg),
-            Message::EditPresetsOpen => {
-                if let State::EditMods(menu) = &self.state {
-                    let selected_mods = HashSet::from_iter(
-                        menu.sorted_mods_list
-                            .iter()
-                            .filter_map(|n| n.is_manually_installed().then_some(n.id())),
-                    );
-                    self.state = State::ManagePresets(MenuEditPresets {
-                        mods: menu.sorted_mods_list.clone(),
-                        selected_mods,
-                        selected_state: SelectedState::All,
-                        is_building: false,
-                        progress: None,
-                    });
-                }
-            }
+            Message::EditPresetsOpen => return self.go_to_edit_presets_menu(),
             Message::EditPresetsToggleCheckbox((name, id), enable) => {
-                if let State::ManagePresets(menu) = &mut self.state {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Build {
+                            selected_mods,
+                            selected_state,
+                            ..
+                        },
+                    ..
+                }) = &mut self.state
+                {
                     if enable {
-                        menu.selected_mods
-                            .insert(SelectedMod::Downloaded { name, id });
+                        selected_mods.insert(SelectedMod::Downloaded { name, id });
                     } else {
-                        menu.selected_mods
-                            .remove(&SelectedMod::Downloaded { name, id });
+                        selected_mods.remove(&SelectedMod::Downloaded { name, id });
                     }
-                    menu.selected_state = SelectedState::Some;
+                    *selected_state = SelectedState::Some;
                 }
             }
             Message::EditPresetsToggleCheckboxLocal(file_name, enable) => {
-                if let State::ManagePresets(menu) = &mut self.state {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Build {
+                            selected_mods,
+                            selected_state,
+                            ..
+                        },
+                    ..
+                }) = &mut self.state
+                {
                     if enable {
-                        menu.selected_mods.insert(SelectedMod::Local { file_name });
+                        selected_mods.insert(SelectedMod::Local { file_name });
                     } else {
-                        menu.selected_mods.remove(&SelectedMod::Local { file_name });
+                        selected_mods.remove(&SelectedMod::Local { file_name });
                     }
-                    menu.selected_state = SelectedState::Some;
+                    *selected_state = SelectedState::Some;
                 }
             }
             Message::EditPresetsSelectAll => {
-                if let State::ManagePresets(menu) = &mut self.state {
-                    match menu.selected_state {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Build {
+                            selected_mods,
+                            selected_state,
+                            mods,
+                            ..
+                        },
+                    ..
+                }) = &mut self.state
+                {
+                    match selected_state {
                         SelectedState::All => {
-                            menu.selected_mods.clear();
-                            menu.selected_state = SelectedState::None;
+                            selected_mods.clear();
+                            *selected_state = SelectedState::None;
                         }
                         SelectedState::Some | SelectedState::None => {
-                            menu.selected_mods = menu
-                                .mods
+                            *selected_mods = mods
                                 .iter()
                                 .filter_map(|mod_info| {
                                     mod_info.is_manually_installed().then_some(match mod_info {
@@ -640,18 +646,27 @@ impl Application for Launcher {
                                     })
                                 })
                                 .collect();
-                            menu.selected_state = SelectedState::All;
+                            *selected_state = SelectedState::All;
                         }
                     }
                 }
             }
             Message::EditPresetsBuildYourOwn => {
-                if let State::ManagePresets(menu) = &mut self.state {
-                    menu.is_building = true;
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Build {
+                            selected_mods,
+                            is_building,
+                            ..
+                        },
+                    ..
+                }) = &mut self.state
+                {
+                    *is_building = true;
                     return Command::perform(
                         ql_mod_manager::PresetJson::generate_w(
                             self.selected_instance.clone().unwrap(),
-                            menu.selected_mods.clone(),
+                            selected_mods.clone(),
                         ),
                         Message::EditPresetsBuildYourOwnEnd,
                     );
@@ -682,6 +697,76 @@ impl Application for Launcher {
                 } else {
                     match self.go_to_edit_mods_menu() {
                         Ok(cmd) => return cmd,
+                        Err(err) => self.set_error(err),
+                    }
+                }
+            }
+            Message::EditPresetsRecommendedModCheck(result) => {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner: MenuEditPresetsInner::Recommended { mods, error, .. },
+                    ..
+                }) = &mut self.state
+                {
+                    match result {
+                        Ok(n) => {
+                            *mods = Some(n.into_iter().map(|n| (true, n)).collect());
+                        }
+                        Err(err) => *error = Some(err),
+                    }
+                }
+            }
+            Message::EditPresetsRecommendedToggle(idx, toggle) => {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Recommended {
+                            mods: Some(mods), ..
+                        },
+                    ..
+                }) = &mut self.state
+                {
+                    if let Some((t, _)) = mods.get_mut(idx) {
+                        *t = toggle;
+                    }
+                }
+            }
+            Message::EditPresetsRecommendedDownload => {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Recommended {
+                            mods: Some(mods), ..
+                        },
+                    progress,
+                    ..
+                }) = &mut self.state
+                {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+
+                    *progress = Some(ProgressBar {
+                        num: 0.0,
+                        message: None,
+                        receiver,
+                        progress: GenericProgress::default(),
+                    });
+
+                    return Command::perform(
+                        ql_mod_manager::mod_manager::download_mods_w(
+                            mods.iter()
+                                .filter(|n| n.0)
+                                .map(|n| n.1.id.to_owned())
+                                .collect(),
+                            self.selected_instance.clone().unwrap(),
+                            sender,
+                        ),
+                        Message::EditPresetsRecommendedDownloadEnd,
+                    );
+                }
+            }
+            Message::EditPresetsRecommendedDownloadEnd(result) => {
+                if let Err(err) = result {
+                    self.set_error(err);
+                } else {
+                    match self.go_to_edit_mods_menu_without_update_check() {
+                        Ok(n) => return n,
                         Err(err) => self.set_error(err),
                     }
                 }
@@ -815,218 +900,6 @@ fn load_window_icon() -> Command<Message> {
             err!("Could not load icon: {err}");
             Command::none()
         }
-    }
-}
-
-impl Launcher {
-    fn mod_download(&mut self, index: usize) -> Option<Command<Message>> {
-        let selected_instance = self.selected_instance.clone()?;
-        let State::ModsDownload(menu) = &mut self.state else {
-            return None;
-        };
-        let Some(results) = &menu.results else {
-            err!("Couldn't download mod: Search results empty");
-            return None;
-        };
-        let Some(hit) = results.hits.get(index) else {
-            err!("Couldn't download mod: Not present in results");
-            return None;
-        };
-
-        menu.mods_download_in_progress
-            .insert(hit.project_id.clone());
-        Some(Command::perform(
-            ql_mod_manager::mod_manager::download_mod_w(hit.project_id.clone(), selected_instance),
-            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n)),
-        ))
-    }
-
-    fn set_game_crashed(&mut self, status: std::process::ExitStatus, name: &str) {
-        if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
-            let has_crashed = !status.success();
-            if has_crashed {
-                *message =
-                    format!("Game Crashed with code: {status}\nCheck Logs for more information");
-            }
-            if let Some(log) = self.client_logs.get_mut(name) {
-                log.has_crashed = has_crashed;
-            }
-        }
-    }
-
-    fn update_mod_index(&mut self) {
-        if let State::EditMods(menu) = &mut self.state {
-            match ModIndex::get(self.selected_instance.as_ref().unwrap())
-                .map_err(|err| err.to_string())
-            {
-                Ok(idx) => menu.mods = idx,
-                Err(err) => self.set_error(err),
-            }
-        }
-    }
-
-    fn update_mods(&mut self) -> Command<Message> {
-        if let State::EditMods(menu) = &mut self.state {
-            let updates = menu
-                .available_updates
-                .clone()
-                .into_iter()
-                .map(|(n, _, _)| n)
-                .collect();
-            let (sender, receiver) = std::sync::mpsc::channel();
-            menu.mod_update_progress = Some(UpdateModsProgress {
-                recv: receiver,
-                num: 0.0,
-                message: "Starting...".to_owned(),
-            });
-            Command::perform(
-                ql_mod_manager::mod_manager::apply_updates_w(
-                    self.selected_instance.clone().unwrap(),
-                    updates,
-                    Some(sender),
-                ),
-                |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n)),
-            )
-        } else {
-            Command::none()
-        }
-    }
-
-    fn go_to_server_manage_menu(&mut self, message: Option<String>) -> Command<Message> {
-        self.state = State::ServerManage(MenuServerManage {
-            java_install_recv: None,
-            message,
-        });
-        Command::perform(
-            get_entries("servers".to_owned(), true),
-            Message::CoreListLoaded,
-        )
-    }
-
-    fn install_forge(&mut self) -> Command<Message> {
-        let (f_sender, f_receiver) = std::sync::mpsc::channel();
-        let (j_sender, j_receiver) = std::sync::mpsc::channel();
-
-        let command = Command::perform(
-            loaders::forge::install_w(
-                self.selected_instance.clone().unwrap(),
-                Some(f_sender),
-                Some(j_sender),
-            ),
-            Message::InstallForgeEnd,
-        );
-
-        self.state = State::InstallForge(MenuInstallForge {
-            forge_progress_receiver: f_receiver,
-            forge_progress_num: 0.0,
-            java_progress: ProgressBar {
-                num: 0.0,
-                message: None,
-                receiver: j_receiver,
-                progress: GenericProgress::default(),
-            },
-            is_java_getting_installed: false,
-            forge_message: "Installing Forge".to_owned(),
-        });
-        command
-    }
-
-    fn add_server_to_processes(
-        &mut self,
-        child: Arc<std::sync::Mutex<tokio::process::Child>>,
-        is_classic_server: bool,
-    ) -> Command<Message> {
-        let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance else {
-            err!("Launched server but can't identify which one! This is a bug, please report it");
-            return Command::none();
-        };
-        if let (Some(stdout), Some(stderr), Some(stdin)) = {
-            let mut child = child.lock().unwrap();
-            (child.stdout.take(), child.stderr.take(), child.stdin.take())
-        } {
-            let (sender, receiver) = std::sync::mpsc::channel();
-
-            self.server_processes.insert(
-                selected_server.clone(),
-                ServerProcess {
-                    child: child.clone(),
-                    receiver: Some(receiver),
-                    stdin: Some(stdin),
-                    is_classic_server,
-                    name: selected_server.clone(),
-                    has_issued_stop_command: false,
-                },
-            );
-
-            return Command::perform(
-                ql_servers::read_logs_w(stdout, stderr, child, sender, selected_server.clone()),
-                Message::ServerManageEndedLog,
-            );
-        }
-
-        self.server_processes.insert(
-            selected_server.clone(),
-            ServerProcess {
-                child: child.clone(),
-                receiver: None,
-                stdin: None,
-                is_classic_server,
-                name: "Unknown".to_owned(),
-                has_issued_stop_command: false,
-            },
-        );
-        Command::none()
-    }
-
-    fn go_to_main_menu(&mut self, message: Option<String>) -> Command<Message> {
-        match self.selected_instance.as_ref().unwrap() {
-            InstanceSelection::Instance(_) => self.go_to_launch_screen(message),
-            InstanceSelection::Server(_) => self.go_to_server_manage_menu(message),
-        }
-    }
-
-    fn load_preset(&mut self) -> Command<Message> {
-        let dialog = rfd::FileDialog::new();
-        let Some(file) = dialog.pick_file() else {
-            return Command::none();
-        };
-        let file = match std::fs::read(&file).path(&file) {
-            Ok(n) => n,
-            Err(err) => {
-                self.set_error(err);
-                return Command::none();
-            }
-        };
-
-        match tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(ql_mod_manager::PresetJson::load_w(
-                self.selected_instance.clone().unwrap(),
-                file,
-            )) {
-            Ok(mods) => {
-                let (sender, receiver) = std::sync::mpsc::channel();
-                if let State::ManagePresets(menu) = &mut self.state {
-                    menu.progress = Some(ProgressBar {
-                        num: 0.0,
-                        message: None,
-                        receiver,
-                        progress: GenericProgress::default(),
-                    })
-                }
-                return Command::perform(
-                    ql_mod_manager::PresetJson::download_entries_w(
-                        mods,
-                        self.selected_instance.clone().unwrap(),
-                        sender,
-                    ),
-                    Message::EditPresetsLoadComplete,
-                );
-            }
-            Err(err) => self.set_error(err),
-        }
-
-        Command::none()
     }
 }
 

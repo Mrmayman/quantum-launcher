@@ -1,8 +1,10 @@
 use core::panic;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use iced::widget;
-use ql_core::{file_utils, InstanceSelection, Progress, IS_ARM_LINUX, LAUNCHER_VERSION_NAME};
+use ql_core::{
+    file_utils, InstanceSelection, Progress, SelectedMod, IS_ARM_LINUX, LAUNCHER_VERSION_NAME,
+};
 
 use crate::{
     config::LauncherConfig,
@@ -10,9 +12,9 @@ use crate::{
     launcher_state::{
         ClientProcess, CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage,
         InstallOptifineMessage, InstanceLog, Launcher, ManageModsMessage, MenuCreateInstance,
-        MenuEditInstance, MenuEditPresets, MenuInstallFabric, MenuInstallForge,
-        MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate, Message,
-        ModListEntry, ProgressBar, SelectedState,
+        MenuEditInstance, MenuEditPresets, MenuEditPresetsInner, MenuInstallFabric,
+        MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
+        MenuLauncherUpdate, Message, ModListEntry, ProgressBar, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -820,7 +822,10 @@ impl MenuEditPresets {
                 .into();
         }
 
-        if self.is_building {
+        if let MenuEditPresetsInner::Build {
+            is_building: true, ..
+        } = &self.inner
+        {
             return widget::column!(widget::text("Building Preset").size(20),)
                 .padding(10)
                 .spacing(10)
@@ -836,7 +841,6 @@ impl MenuEditPresets {
                         .on_press(Message::EditPresetsLoad),
                 )
                 .spacing(5),
-                widget::text("Create Preset").size(20),
                 self.get_create_preset_page()
             )
             .padding(10)
@@ -846,29 +850,73 @@ impl MenuEditPresets {
     }
 
     fn get_create_preset_page(&self) -> Element {
-        let column = if self.mods.is_empty() {
-            widget::column!(widget::text("TODO: Create built in presets"))
-        } else {
-            widget::column!(
+        match &self.inner {
+            MenuEditPresetsInner::Build {
+                mods,
+                selected_state,
+                selected_mods,
+                ..
+            } => widget::column!(
+                widget::text("Create Preset").size(20),
                 "Select Mods to keep",
-                widget::button(if let SelectedState::All = self.selected_state {
+                widget::button(if let SelectedState::All = selected_state {
                     "Unselect All"
                 } else {
                     "Select All"
                 })
                 .on_press(Message::EditPresetsSelectAll),
-                widget::container(self.get_mods_list().padding(10)),
+                widget::container(Self::get_mods_list(selected_mods, mods).padding(10)),
                 button_with_icon(icon_manager::save(), "Build Preset")
                     .on_press(Message::EditPresetsBuildYourOwn),
             )
-        };
-        column.spacing(10).into()
+            .spacing(10)
+            .into(),
+            MenuEditPresetsInner::Recommended {
+                mods,
+                progress,
+                error,
+            } => {
+                if let Some(error) = error {
+                    widget::column!(
+                        widget::text(format!("Error loading presets: {error}")),
+                        widget::button("Copy Error").on_press(Message::CoreCopyText(error.clone()))
+                    )
+                    .spacing(10)
+                    .into()
+                } else if let Some(mods) = mods {
+                    widget::column!(
+                        button_with_icon(icon_manager::download(), "Download Recommended Mods")
+                            .on_press(Message::EditPresetsRecommendedDownload),
+                        widget::column(mods.iter().enumerate().map(|(i, (e, n))| {
+                            let elem: Element = if n.enabled_by_default {
+                                widget::text(format!("- {}", n.name)).into()
+                            } else {
+                                widget::checkbox(n.name, *e)
+                                    .on_toggle(move |n| Message::EditPresetsRecommendedToggle(i, n))
+                                    .into()
+                            };
+                            widget::column!(elem, widget::text(n.description).size(12))
+                                .spacing(5)
+                                .into()
+                        }))
+                        .spacing(10)
+                    )
+                    .spacing(10)
+                    .into()
+                } else {
+                    progress.view()
+                }
+            }
+        }
     }
 
-    fn get_mods_list(&self) -> widget::Column<'_, Message, LauncherTheme> {
-        widget::column(self.mods.iter().map(|entry| {
+    fn get_mods_list<'a>(
+        selected_mods: &'a HashSet<SelectedMod>,
+        mods: &'a [ModListEntry],
+    ) -> widget::Column<'a, Message, LauncherTheme> {
+        widget::column(mods.iter().map(|entry| {
             if entry.is_manually_installed() {
-                widget::checkbox(entry.name(), self.is_enabled(entry))
+                widget::checkbox(entry.name(), selected_mods.contains(&entry.id()))
                     .on_toggle(move |t| match entry {
                         ModListEntry::Downloaded { id, config } => {
                             Message::EditPresetsToggleCheckbox((config.name.clone(), id.clone()), t)

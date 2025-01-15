@@ -6,15 +6,21 @@ use std::{
 use chrono::Datelike;
 use iced::Command;
 use ql_core::{
-    err, file_utils, json::instance_config::InstanceConfigJson, DownloadProgress,
-    InstanceSelection, IntoIoError, JsonFileError,
+    err, file_utils,
+    json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError,
 };
 use ql_instances::{GameLaunchResult, ListEntry};
-use ql_mod_manager::mod_manager::ModIndex;
+use ql_mod_manager::{
+    loaders,
+    mod_manager::{Loader, ModIndex, ModVersion, RECOMMENDED_MODS},
+};
 
 use crate::launcher_state::{
-    ClientProcess, CreateInstanceMessage, Launcher, ManageModsMessage, MenuCreateInstance,
-    MenuEditInstance, MenuEditMods, Message, ProgressBar, SelectedState, State,
+    get_entries, ClientProcess, CreateInstanceMessage, InstallModsMessage, Launcher,
+    ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditPresets,
+    MenuEditPresetsInner, MenuInstallForge, MenuLaunch, MenuServerManage, Message, ProgressBar,
+    SelectedState, ServerProcess, State, UpdateModsProgress,
 };
 
 impl Launcher {
@@ -257,6 +263,40 @@ impl Launcher {
         Ok(())
     }
 
+    pub fn go_to_edit_mods_menu_without_update_check(
+        &mut self,
+    ) -> Result<Command<Message>, JsonFileError> {
+        let selected_instance = self.selected_instance.as_ref().unwrap();
+        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
+
+        let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
+        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+
+        match ModIndex::get(selected_instance).map_err(|err| err.to_string()) {
+            Ok(idx) => {
+                let locally_installed_mods =
+                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance.clone());
+
+                self.state = State::EditMods(MenuEditMods {
+                    config: config_json,
+                    mods: idx,
+                    selected_mods: HashSet::new(),
+                    sorted_mods_list: Vec::new(),
+                    selected_state: SelectedState::None,
+                    available_updates: Vec::new(),
+                    mod_update_progress: None,
+                    locally_installed_mods: HashSet::new(),
+                });
+
+                Ok(Command::batch(vec![locally_installed_mods]))
+            }
+            Err(err) => {
+                self.set_error(err);
+                Ok(Command::none())
+            }
+        }
+    }
+
     pub fn go_to_edit_mods_menu(&mut self) -> Result<Command<Message>, JsonFileError> {
         let selected_instance = self.selected_instance.as_ref().unwrap();
         let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
@@ -298,6 +338,279 @@ impl Launcher {
             }
         }
         Ok(Command::none())
+    }
+
+    pub fn mod_download(&mut self, index: usize) -> Option<Command<Message>> {
+        let selected_instance = self.selected_instance.clone()?;
+        let State::ModsDownload(menu) = &mut self.state else {
+            return None;
+        };
+        let Some(results) = &menu.results else {
+            err!("Couldn't download mod: Search results empty");
+            return None;
+        };
+        let Some(hit) = results.hits.get(index) else {
+            err!("Couldn't download mod: Not present in results");
+            return None;
+        };
+
+        menu.mods_download_in_progress
+            .insert(hit.project_id.clone());
+        Some(Command::perform(
+            ql_mod_manager::mod_manager::download_mod_w(hit.project_id.clone(), selected_instance),
+            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n)),
+        ))
+    }
+
+    pub fn set_game_crashed(&mut self, status: std::process::ExitStatus, name: &str) {
+        if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
+            let has_crashed = !status.success();
+            if has_crashed {
+                *message =
+                    format!("Game Crashed with code: {status}\nCheck Logs for more information");
+            }
+            if let Some(log) = self.client_logs.get_mut(name) {
+                log.has_crashed = has_crashed;
+            }
+        }
+    }
+
+    pub fn update_mod_index(&mut self) {
+        if let State::EditMods(menu) = &mut self.state {
+            match ModIndex::get(self.selected_instance.as_ref().unwrap())
+                .map_err(|err| err.to_string())
+            {
+                Ok(idx) => menu.mods = idx,
+                Err(err) => self.set_error(err),
+            }
+        }
+    }
+
+    pub fn update_mods(&mut self) -> Command<Message> {
+        if let State::EditMods(menu) = &mut self.state {
+            let updates = menu
+                .available_updates
+                .clone()
+                .into_iter()
+                .map(|(n, _, _)| n)
+                .collect();
+            let (sender, receiver) = std::sync::mpsc::channel();
+            menu.mod_update_progress = Some(UpdateModsProgress {
+                recv: receiver,
+                num: 0.0,
+                message: "Starting...".to_owned(),
+            });
+            Command::perform(
+                ql_mod_manager::mod_manager::apply_updates_w(
+                    self.selected_instance.clone().unwrap(),
+                    updates,
+                    Some(sender),
+                ),
+                |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n)),
+            )
+        } else {
+            Command::none()
+        }
+    }
+
+    pub fn go_to_server_manage_menu(&mut self, message: Option<String>) -> Command<Message> {
+        self.state = State::ServerManage(MenuServerManage {
+            java_install_recv: None,
+            message,
+        });
+        Command::perform(
+            get_entries("servers".to_owned(), true),
+            Message::CoreListLoaded,
+        )
+    }
+
+    pub fn install_forge(&mut self) -> Command<Message> {
+        let (f_sender, f_receiver) = std::sync::mpsc::channel();
+        let (j_sender, j_receiver) = std::sync::mpsc::channel();
+
+        let command = Command::perform(
+            loaders::forge::install_w(
+                self.selected_instance.clone().unwrap(),
+                Some(f_sender),
+                Some(j_sender),
+            ),
+            Message::InstallForgeEnd,
+        );
+
+        self.state = State::InstallForge(MenuInstallForge {
+            forge_progress_receiver: f_receiver,
+            forge_progress_num: 0.0,
+            java_progress: ProgressBar {
+                num: 0.0,
+                message: None,
+                receiver: j_receiver,
+                progress: GenericProgress::default(),
+            },
+            is_java_getting_installed: false,
+            forge_message: "Installing Forge".to_owned(),
+        });
+        command
+    }
+
+    pub fn add_server_to_processes(
+        &mut self,
+        child: Arc<std::sync::Mutex<tokio::process::Child>>,
+        is_classic_server: bool,
+    ) -> Command<Message> {
+        let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance else {
+            err!("Launched server but can't identify which one! This is a bug, please report it");
+            return Command::none();
+        };
+        if let (Some(stdout), Some(stderr), Some(stdin)) = {
+            let mut child = child.lock().unwrap();
+            (child.stdout.take(), child.stderr.take(), child.stdin.take())
+        } {
+            let (sender, receiver) = std::sync::mpsc::channel();
+
+            self.server_processes.insert(
+                selected_server.clone(),
+                ServerProcess {
+                    child: child.clone(),
+                    receiver: Some(receiver),
+                    stdin: Some(stdin),
+                    is_classic_server,
+                    name: selected_server.clone(),
+                    has_issued_stop_command: false,
+                },
+            );
+
+            return Command::perform(
+                ql_servers::read_logs_w(stdout, stderr, child, sender, selected_server.clone()),
+                Message::ServerManageEndedLog,
+            );
+        }
+
+        self.server_processes.insert(
+            selected_server.clone(),
+            ServerProcess {
+                child: child.clone(),
+                receiver: None,
+                stdin: None,
+                is_classic_server,
+                name: "Unknown".to_owned(),
+                has_issued_stop_command: false,
+            },
+        );
+        Command::none()
+    }
+
+    pub fn go_to_main_menu(&mut self, message: Option<String>) -> Command<Message> {
+        match self.selected_instance.as_ref().unwrap() {
+            InstanceSelection::Instance(_) => self.go_to_launch_screen(message),
+            InstanceSelection::Server(_) => self.go_to_server_manage_menu(message),
+        }
+    }
+
+    pub fn load_preset(&mut self) -> Command<Message> {
+        let dialog = rfd::FileDialog::new();
+        let Some(file) = dialog.pick_file() else {
+            return Command::none();
+        };
+        let file = match std::fs::read(&file).path(&file) {
+            Ok(n) => n,
+            Err(err) => {
+                self.set_error(err);
+                return Command::none();
+            }
+        };
+
+        match tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(ql_mod_manager::PresetJson::load_w(
+                self.selected_instance.clone().unwrap(),
+                file,
+            )) {
+            Ok(mods) => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                if let State::ManagePresets(menu) = &mut self.state {
+                    menu.progress = Some(ProgressBar {
+                        num: 0.0,
+                        message: None,
+                        receiver,
+                        progress: GenericProgress::default(),
+                    })
+                }
+                return Command::perform(
+                    ql_mod_manager::PresetJson::download_entries_w(
+                        mods,
+                        self.selected_instance.clone().unwrap(),
+                        sender,
+                    ),
+                    Message::EditPresetsLoadComplete,
+                );
+            }
+            Err(err) => self.set_error(err),
+        }
+
+        Command::none()
+    }
+
+    pub fn go_to_edit_presets_menu(&mut self) -> Command<Message> {
+        let State::EditMods(menu) = &self.state else {
+            return Command::none();
+        };
+
+        let selected_mods = HashSet::from_iter(
+            menu.sorted_mods_list
+                .iter()
+                .filter_map(|n| n.is_manually_installed().then_some(n.id())),
+        );
+
+        let is_empty = menu.sorted_mods_list.is_empty();
+
+        let mod_type = menu.config.mod_type.clone();
+
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        self.state = State::ManagePresets(MenuEditPresets {
+            inner: if is_empty {
+                MenuEditPresetsInner::Recommended {
+                    mods: None,
+                    progress: ProgressBar {
+                        num: 0.0,
+                        message: None,
+                        receiver,
+                        progress: GenericProgress::default(),
+                    },
+                    error: None,
+                }
+            } else {
+                MenuEditPresetsInner::Build {
+                    mods: menu.sorted_mods_list.clone(),
+                    selected_mods,
+                    selected_state: SelectedState::All,
+                    is_building: false,
+                }
+            },
+            progress: None,
+        });
+
+        if !is_empty {
+            return Command::none();
+        }
+
+        let Some(json) = VersionDetails::load(self.selected_instance.as_ref().unwrap()) else {
+            return Command::none();
+        };
+
+        let Ok(loader) = Loader::try_from(mod_type.as_str()) else {
+            return Command::none();
+        };
+
+        Command::perform(
+            ModVersion::get_compatible_mods_w(
+                RECOMMENDED_MODS.to_owned(),
+                json.id.clone(),
+                loader,
+                sender,
+            ),
+            Message::EditPresetsRecommendedModCheck,
+        )
     }
 }
 

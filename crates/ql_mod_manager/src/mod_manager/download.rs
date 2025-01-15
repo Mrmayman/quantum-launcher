@@ -1,11 +1,11 @@
-use std::{cmp::Ordering, collections::HashSet, path::PathBuf};
+use std::{cmp::Ordering, collections::HashSet, path::PathBuf, sync::mpsc::Sender};
 
 use async_recursion::async_recursion;
 use chrono::DateTime;
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    pt, InstanceSelection, IntoIoError,
+    pt, GenericProgress, InstanceSelection, IntoIoError,
 };
 use reqwest::Client;
 
@@ -14,6 +14,42 @@ use crate::rate_limiter::MOD_DOWNLOAD_LOCK;
 use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
 
 pub const SOURCE_ID_MODRINTH: &str = "modrinth";
+
+pub async fn download_mods_w(
+    ids: Vec<String>,
+    instance_name: InstanceSelection,
+    progress: Sender<GenericProgress>,
+) -> Result<(), String> {
+    let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
+        g
+    } else {
+        info!("Another mod is already being installed... Waiting...");
+        MOD_DOWNLOAD_LOCK.lock().await
+    };
+
+    let mut downloader = ModDownloader::new(&instance_name).map_err(|err| err.to_string())?;
+
+    let len = ids.len();
+    for (i, id) in ids.iter().enumerate() {
+        let _ = progress.send(GenericProgress {
+            done: i,
+            total: len,
+            message: None,
+            has_finished: false,
+        });
+        pt!("Downloading: {} / {}", i + 1, len - 1);
+        downloader
+            .download_project(id, None, true)
+            .await
+            .map_err(|err| err.to_string())?;
+    }
+
+    info!("Finished installing {len} mods");
+
+    downloader.index.save().map_err(|err| err.to_string())?;
+
+    Ok(())
+}
 
 pub async fn download_mod_w(
     id: String,
@@ -34,9 +70,9 @@ pub async fn download_mod(id: &str, instance_name: &InstanceSelection) -> Result
         MOD_DOWNLOAD_LOCK.lock().await
     };
 
-    let mut downloader = ModDownloader::new(&instance_name)?;
+    let mut downloader = ModDownloader::new(instance_name)?;
 
-    downloader.download_project(&id, None, true).await?;
+    downloader.download_project(id, None, true).await?;
 
     downloader.index.save()?;
 
@@ -51,6 +87,10 @@ pub fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, M
     Ok(match config_json.mod_type.as_str() {
         "Fabric" => Some("fabric"),
         "Forge" => Some("forge"),
+        "Quilt" => Some("quilt"),
+        "NeoForge" => Some("neoforge"),
+        "LiteLoader" => Some("liteloader"),
+        "Rift" => Some("rift"),
         _ => {
             err!("Unknown loader {}", config_json.mod_type);
             None
