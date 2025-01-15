@@ -1,6 +1,6 @@
 Name:           quantum-launcher
 Version:        0.3.1
-Release:        %autorelease
+Release:        1%{?dist}
 Summary:        Simple Minecraft Launcher written in Rust
 
 License:        GPLv3
