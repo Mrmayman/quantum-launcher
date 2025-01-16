@@ -1,0 +1,54 @@
+name: Build-RPM
+
+# permissions:
+#  contents: write
+
+on:
+  workflow_dispatch: # allows manual triggering
+
+env:
+  BIN_NAME: quantum_launcher
+  PROJECT_NAME: quantum_launcher
+  REPO_NAME: Mrmayman/quantum-launcher
+
+jobs:
+  RPM:
+    name: Fedora
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.docker }}
+    strategy:
+      fail-fast: false
+      matrix:
+        docker: [amd64/fedora:latest, amd64/fedora:40]
+        include:
+        - docker: amd64/fedora:latest
+          os: fedora-latest
+          arch: x86_64
+    
+    steps:
+      - name: Install Build Dependencies
+        run: |
+          sudo dnf install rpmdevtools rpmlint @development-tools rpkg git --refresh -y
+      
+      - name: Clone Repo
+        run: |
+          git clone https://github.com/Mrmayman/quantum-launcher.git
+      
+      - name: Build release package
+        run: |
+          cd quantum-launcher
+          sudo dnf builddep -y quantum_launcher.spec
+          mkdir ~/rpmlocal && rpkg local --outdir ~/rpmlocal
+          rm -f ~/rpmlocal/${{ matrix.arch }}/*debug*
+
+      - name: Build archive
+        shell: bash
+        run: |
+          mkdir dist
+          cp ~/rpmlocal/${{ matrix.arch }}/* dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-launcher-${{ matrix.os}}-${{ matrix.arch }}
+          path: dist
