@@ -208,8 +208,7 @@ impl Launcher {
                 }
             }
             State::Error { .. }
-            | State::DeleteInstance
-            | State::ServerDelete { .. }
+            | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::InstallPaper => {}
         }

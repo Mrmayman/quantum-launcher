@@ -87,6 +87,8 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
                 "windows"
             } else if cfg!(target_os = "linux") {
                 "linux"
+            } else if cfg!(target_os = "macos") {
+                "macos"
             } else {
                 err!("Update checking: Unsupported OS");
                 return Err(UpdateError::UnsupportedOS);

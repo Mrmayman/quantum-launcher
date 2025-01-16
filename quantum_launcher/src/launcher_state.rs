@@ -110,6 +110,22 @@ pub enum InstallOptifineMessage {
 }
 
 #[derive(Debug, Clone)]
+pub enum EditPresetsMessage {
+    Open,
+    ToggleCheckbox((String, String), bool),
+    ToggleCheckboxLocal(String, bool),
+    SelectAll,
+    BuildYourOwn,
+    BuildYourOwnEnd(Result<Vec<u8>, String>),
+    Load,
+    LoadComplete(Result<(), String>),
+    RecommendedModCheck(Result<Vec<RecommendedMod>, String>),
+    RecommendedToggle(usize, bool),
+    RecommendedDownload,
+    RecommendedDownloadEnd(Result<(), String>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
@@ -117,6 +133,7 @@ pub enum Message {
     InstallMods(InstallModsMessage),
     InstallOptifine(InstallOptifineMessage),
     InstallFabric(InstallFabricMessage),
+    EditPresets(EditPresetsMessage),
     CoreOpenDir(String),
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
@@ -134,6 +151,7 @@ pub enum Message {
     InstallForgeEnd(Result<(), String>),
     InstallPaperStart,
     InstallPaperEnd(Result<(), String>),
+    UninstallLoaderConfirm(Box<Message>, String),
     UninstallLoaderFabricStart,
     UninstallLoaderForgeStart,
     UninstallLoaderOptiFineStart,
@@ -175,18 +193,6 @@ pub enum Message {
     ServerDeleteOpen,
     ServerDeleteConfirm,
     ServerEditModsOpen,
-    EditPresetsOpen,
-    EditPresetsToggleCheckbox((String, String), bool),
-    EditPresetsToggleCheckboxLocal(String, bool),
-    EditPresetsSelectAll,
-    EditPresetsBuildYourOwn,
-    EditPresetsBuildYourOwnEnd(Result<Vec<u8>, String>),
-    EditPresetsLoad,
-    EditPresetsLoadComplete(Result<(), String>),
-    EditPresetsRecommendedModCheck(Result<Vec<RecommendedMod>, String>),
-    EditPresetsRecommendedToggle(usize, bool),
-    EditPresetsRecommendedDownload,
-    EditPresetsRecommendedDownloadEnd(Result<(), String>),
 }
 
 /// The home screen of the launcher.
@@ -379,7 +385,12 @@ pub enum State {
     Error {
         error: String,
     },
-    DeleteInstance,
+    ConfirmAction {
+        msg1: String,
+        msg2: String,
+        yes: Message,
+        no: Message,
+    },
     InstallPaper,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
@@ -394,7 +405,6 @@ pub enum State {
     LauncherSettings,
     ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
-    ServerDelete,
     ManagePresets(MenuEditPresets),
 }
 

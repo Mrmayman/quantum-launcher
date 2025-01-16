@@ -10,10 +10,10 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        ClientProcess, CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage,
-        InstallOptifineMessage, InstanceLog, Launcher, ManageModsMessage, MenuCreateInstance,
-        MenuEditInstance, MenuEditPresets, MenuEditPresetsInner, MenuInstallFabric,
-        MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
+        ClientProcess, CreateInstanceMessage, EditInstanceMessage, EditPresetsMessage,
+        InstallFabricMessage, InstallOptifineMessage, InstanceLog, Launcher, ManageModsMessage,
+        MenuCreateInstance, MenuEditInstance, MenuEditPresets, MenuEditPresetsInner,
+        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
         MenuLauncherUpdate, Message, ModListEntry, ProgressBar, SelectedState,
     },
     stylesheet::styles::LauncherTheme,
@@ -24,8 +24,6 @@ mod html;
 pub mod mods_manage;
 pub mod mods_store;
 pub mod server_manager;
-
-const ENABLE_SERVERS: bool = false;
 
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
@@ -51,11 +49,11 @@ impl MenuLaunch {
             Some(InstanceSelection::Server(_)) => panic!("selected server in main instances menu"),
             None => None,
         };
-        let pick_list = get_instances_section(instances, selected_instance, processes);
+
         let footer_text = self.get_footer_text();
 
         let left_elements =
-            get_left_pane(config, pick_list, selected_instance, processes, footer_text);
+            get_left_pane(config, selected_instance, processes, footer_text, instances);
 
         let log = Self::get_log_pane(logs, selected_instance, false);
 
@@ -158,12 +156,30 @@ fn get_no_instance_message<'a>(is_server: bool) -> widget::Column<'a, Message, L
 
 fn get_left_pane<'a>(
     config: Option<&'a LauncherConfig>,
-    pick_list: Element<'a>,
     selected_instance: Option<&'a String>,
     processes: &'a HashMap<String, ClientProcess>,
     footer_text: Element<'a>,
+    instances: Option<&'a [String]>,
 ) -> Element<'a> {
     let username = &config.as_ref().unwrap().username;
+
+    let pick_list: Element = {
+        if let Some(instances) = instances {
+            widget::column![
+                "Instances:",
+                widget::pick_list(
+                    instances,
+                    selected_instance,
+                    Message::LaunchInstanceSelected,
+                )
+                .width(200),
+            ]
+        } else {
+            widget::column!["Loading instances..."]
+        }
+        .spacing(5)
+        .into()
+    };
 
     widget::column![
         widget::column![
@@ -176,21 +192,36 @@ fn get_left_pane<'a>(
         pick_list,
         widget::column!(
             widget::row![
+                button_with_icon(icon_manager::create(), "New")
+                    .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
+                    .width(97),
+                button_with_icon(icon_manager::settings(), "Edit")
+                    .on_press_maybe(selected_instance.and_then(|n| {
+                        (!processes.contains_key(n))
+                            .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen))
+                    }))
+                    .width(98),
+            ]
+            .spacing(5),
+            widget::row![
+                button_with_icon(icon_manager::download(), "Mods")
+                    .on_press_maybe(
+                        (selected_instance.is_some())
+                            .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen))
+                    )
+                    .width(98),
                 get_files_button(selected_instance),
+            ]
+            .spacing(5),
+        )
+        .spacing(5),
+        widget::column!(
+            widget::row![
+                get_settings_button(),
                 get_play_button(username, selected_instance, processes)
             ]
             .spacing(5),
-            widget::row!(
-                widget::button(
-                    widget::row![icon_manager::settings(), widget::text("Settings").size(14)]
-                        .spacing(10)
-                        .padding(5)
-                )
-                .width(97)
-                .on_press(Message::LauncherSettingsOpen),
-                get_servers_button(),
-            )
-            .spacing(5)
+            // widget::row!(get_servers_button(),).spacing(5)
         )
         .spacing(5),
         footer_text
@@ -200,31 +231,29 @@ fn get_left_pane<'a>(
     .into()
 }
 
-fn get_servers_button<'a>() -> Element<'a> {
-    let servers_button = widget::button(
+fn get_settings_button<'a>() -> widget::Button<'a, Message, LauncherTheme> {
+    widget::button(
+        widget::row![icon_manager::settings(), widget::text("Settings").size(14)]
+            .spacing(10)
+            .padding(5),
+    )
+    .width(97)
+    .on_press(Message::LauncherSettingsOpen)
+}
+
+/*fn get_servers_button<'a>() -> Element<'a> {
+    widget::button(
         widget::row![icon_manager::page(), widget::text("Servers").size(14)]
             .spacing(10)
             .padding(5),
     )
-    .width(97);
-
-    if ENABLE_SERVERS {
-        servers_button
-            .width(98)
-            .on_press(Message::ServerManageOpen {
-                selected_server: None,
-                message: None,
-            })
-            .into()
-    } else {
-        widget::tooltip(
-            servers_button,
-            "Coming soon in the next update...",
-            widget::tooltip::Position::FollowCursor,
-        )
-        .into()
-    }
-}
+    .width(98)
+    .on_press(Message::ServerManageOpen {
+        selected_server: None,
+        message: None,
+    })
+    .into()
+}*/
 
 fn get_play_button<'a>(
     username: &'a str,
@@ -278,54 +307,6 @@ fn get_files_button(selected_instance: Option<&String>) -> widget::Button<Messag
             )
         }))
         .width(97)
-}
-
-fn get_instances_section<'a>(
-    instances: Option<&'a [String]>,
-    selected_instance: Option<&'a String>,
-    processes: &'a HashMap<String, ClientProcess>,
-) -> Element<'a> {
-    if let Some(instances) = instances {
-        widget::column![
-            "Instances:",
-            widget::pick_list(
-                instances,
-                selected_instance,
-                Message::LaunchInstanceSelected,
-            )
-            .width(200),
-            widget::row![
-                button_with_icon(icon_manager::create(), "New")
-                    .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
-                    .width(97),
-                button_with_icon(icon_manager::delete(), "Delete")
-                    .on_press_maybe(
-                        (selected_instance.is_some()).then_some(Message::DeleteInstanceMenu)
-                    )
-                    .width(98),
-            ]
-            .spacing(5),
-            widget::row![
-                button_with_icon(icon_manager::settings(), "Edit")
-                    .on_press_maybe(selected_instance.and_then(|n| {
-                        (!processes.contains_key(n))
-                            .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen))
-                    }))
-                    .width(97),
-                button_with_icon(icon_manager::download(), "Mods")
-                    .on_press_maybe(
-                        (selected_instance.is_some())
-                            .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen))
-                    )
-                    .width(98),
-            ]
-            .spacing(5),
-        ]
-    } else {
-        widget::column!["Loading instances..."]
-    }
-    .spacing(5)
-    .into()
 }
 
 impl MenuEditInstance {
@@ -414,7 +395,11 @@ impl MenuEditInstance {
                                 .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
                         )
                     ).padding(10).spacing(10)
-                )
+                ),
+                button_with_icon(icon_manager::delete(), "Delete Instance")
+                    .on_press(
+                        Message::DeleteInstanceMenu
+                    )
             ]
             .padding(10)
             .spacing(20)
@@ -577,24 +562,6 @@ impl MenuCreateInstance {
             }
         }
     }
-}
-
-pub fn menu_delete_instance_view(selected_instance: &InstanceSelection) -> Element {
-    widget::column![
-        widget::text(format!(
-            "Are you SURE you want to DELETE the Instance: {}?",
-            &selected_instance.get_name()
-        )),
-        "All your data, including worlds will be lost.",
-        widget::button("Yes, delete my data").on_press(Message::DeleteInstance),
-        widget::button("No").on_press(Message::LaunchScreenOpen {
-            message: None,
-            clear_selection: false
-        }),
-    ]
-    .padding(10)
-    .spacing(10)
-    .into()
 }
 
 impl MenuInstallFabric {
@@ -838,7 +805,7 @@ impl MenuEditPresets {
                     button_with_icon(icon_manager::back(), "Back")
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                     button_with_icon(icon_manager::folder(), "Import Preset")
-                        .on_press(Message::EditPresetsLoad),
+                        .on_press(Message::EditPresets(EditPresetsMessage::Load)),
                 )
                 .spacing(5),
                 self.get_create_preset_page()
@@ -864,10 +831,10 @@ impl MenuEditPresets {
                 } else {
                     "Select All"
                 })
-                .on_press(Message::EditPresetsSelectAll),
+                .on_press(Message::EditPresets(EditPresetsMessage::SelectAll)),
                 widget::container(Self::get_mods_list(selected_mods, mods).padding(10)),
                 button_with_icon(icon_manager::save(), "Build Preset")
-                    .on_press(Message::EditPresetsBuildYourOwn),
+                    .on_press(Message::EditPresets(EditPresetsMessage::BuildYourOwn)),
             )
             .spacing(10)
             .into(),
@@ -886,13 +853,19 @@ impl MenuEditPresets {
                 } else if let Some(mods) = mods {
                     widget::column!(
                         button_with_icon(icon_manager::download(), "Download Recommended Mods")
-                            .on_press(Message::EditPresetsRecommendedDownload),
+                            .on_press(Message::EditPresets(
+                                EditPresetsMessage::RecommendedDownload
+                            )),
                         widget::column(mods.iter().enumerate().map(|(i, (e, n))| {
                             let elem: Element = if n.enabled_by_default {
                                 widget::text(format!("- {}", n.name)).into()
                             } else {
                                 widget::checkbox(n.name, *e)
-                                    .on_toggle(move |n| Message::EditPresetsRecommendedToggle(i, n))
+                                    .on_toggle(move |n| {
+                                        Message::EditPresets(EditPresetsMessage::RecommendedToggle(
+                                            i, n,
+                                        ))
+                                    })
                                     .into()
                             };
                             widget::column!(elem, widget::text(n.description).size(12))
@@ -919,11 +892,14 @@ impl MenuEditPresets {
                 widget::checkbox(entry.name(), selected_mods.contains(&entry.id()))
                     .on_toggle(move |t| match entry {
                         ModListEntry::Downloaded { id, config } => {
-                            Message::EditPresetsToggleCheckbox((config.name.clone(), id.clone()), t)
+                            Message::EditPresets(EditPresetsMessage::ToggleCheckbox(
+                                (config.name.clone(), id.clone()),
+                                t,
+                            ))
                         }
-                        ModListEntry::Local { file_name } => {
-                            Message::EditPresetsToggleCheckboxLocal(file_name.clone(), t)
-                        }
+                        ModListEntry::Local { file_name } => Message::EditPresets(
+                            EditPresetsMessage::ToggleCheckboxLocal(file_name.clone(), t),
+                        ),
                     })
                     .into()
             } else {

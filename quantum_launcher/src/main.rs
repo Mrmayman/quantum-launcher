@@ -51,14 +51,13 @@ use std::{sync::Arc, time::Duration};
 use arguments::ArgumentInfo;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
-    get_entries, Launcher, MenuEditPresets, MenuEditPresetsInner, MenuLauncherSettings,
-    MenuLauncherUpdate, MenuServerCreate, Message, ModListEntry, ProgressBar, SelectedState,
-    ServerProcess, State,
+    get_entries, Launcher, ManageModsMessage, MenuLauncherSettings, MenuLauncherUpdate,
+    MenuServerCreate, Message, SelectedState, ServerProcess, State,
 };
 
-use menu_renderer::{button_with_icon, changelog::changelog_0_3_1, menu_delete_instance_view};
+use menu_renderer::{button_with_icon, changelog::changelog_0_3_1};
 use message_handler::open_file_explorer;
-use ql_core::{err, info, GenericProgress, InstanceSelection, SelectedMod};
+use ql_core::{err, info, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{loaders, mod_manager::Loader};
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
@@ -128,7 +127,18 @@ impl Application for Launcher {
             }
             Message::CreateInstance(message) => return self.update_create_instance(message),
             Message::DeleteInstanceMenu => {
-                self.state = State::DeleteInstance;
+                self.state = State::ConfirmAction {
+                    msg1: format!(
+                        "delete the instance {}",
+                        self.selected_instance.as_ref().unwrap().get_name()
+                    ),
+                    msg2: "All your data, including worlds, will be lost".to_owned(),
+                    yes: Message::DeleteInstance,
+                    no: Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: false,
+                    },
+                };
             }
             Message::DeleteInstance => return self.delete_selected_instance(),
             Message::LaunchScreenOpen {
@@ -423,7 +433,16 @@ impl Application for Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::ServerDeleteOpen => {
-                self.state = State::ServerDelete;
+                let selected_server = self.selected_instance.as_ref().unwrap().get_name();
+                self.state = State::ConfirmAction {
+                    msg1: format!("delete the server {selected_server}"),
+                    msg2: "All your data will be lost".to_owned(),
+                    yes: Message::ServerDeleteConfirm,
+                    no: Message::ServerManageOpen {
+                        selected_server: Some(selected_server.to_owned()),
+                        message: None,
+                    },
+                };
             }
             Message::ServerDeleteConfirm => {
                 if let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance {
@@ -573,202 +592,16 @@ impl Application for Launcher {
                 return iced::clipboard::write(txt);
             }
             Message::InstallMods(msg) => return self.update_install_mods(msg),
-            Message::EditPresetsOpen => return self.go_to_edit_presets_menu(),
-            Message::EditPresetsToggleCheckbox((name, id), enable) => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Build {
-                            selected_mods,
-                            selected_state,
-                            ..
-                        },
-                    ..
-                }) = &mut self.state
-                {
-                    if enable {
-                        selected_mods.insert(SelectedMod::Downloaded { name, id });
-                    } else {
-                        selected_mods.remove(&SelectedMod::Downloaded { name, id });
-                    }
-                    *selected_state = SelectedState::Some;
-                }
-            }
-            Message::EditPresetsToggleCheckboxLocal(file_name, enable) => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Build {
-                            selected_mods,
-                            selected_state,
-                            ..
-                        },
-                    ..
-                }) = &mut self.state
-                {
-                    if enable {
-                        selected_mods.insert(SelectedMod::Local { file_name });
-                    } else {
-                        selected_mods.remove(&SelectedMod::Local { file_name });
-                    }
-                    *selected_state = SelectedState::Some;
-                }
-            }
-            Message::EditPresetsSelectAll => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Build {
-                            selected_mods,
-                            selected_state,
-                            mods,
-                            ..
-                        },
-                    ..
-                }) = &mut self.state
-                {
-                    match selected_state {
-                        SelectedState::All => {
-                            selected_mods.clear();
-                            *selected_state = SelectedState::None;
-                        }
-                        SelectedState::Some | SelectedState::None => {
-                            *selected_mods = mods
-                                .iter()
-                                .filter_map(|mod_info| {
-                                    mod_info.is_manually_installed().then_some(match mod_info {
-                                        ModListEntry::Downloaded { id, config } => {
-                                            SelectedMod::Downloaded {
-                                                name: config.name.clone(),
-                                                id: id.clone(),
-                                            }
-                                        }
-                                        ModListEntry::Local { file_name } => SelectedMod::Local {
-                                            file_name: file_name.clone(),
-                                        },
-                                    })
-                                })
-                                .collect();
-                            *selected_state = SelectedState::All;
-                        }
-                    }
-                }
-            }
-            Message::EditPresetsBuildYourOwn => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Build {
-                            selected_mods,
-                            is_building,
-                            ..
-                        },
-                    ..
-                }) = &mut self.state
-                {
-                    *is_building = true;
-                    return Command::perform(
-                        ql_mod_manager::PresetJson::generate_w(
-                            self.selected_instance.clone().unwrap(),
-                            selected_mods.clone(),
-                        ),
-                        Message::EditPresetsBuildYourOwnEnd,
-                    );
-                }
-            }
-            Message::EditPresetsBuildYourOwnEnd(result) => match result {
-                Ok(preset) => {
-                    if let Some(path) = rfd::FileDialog::new().save_file() {
-                        if let Err(err) = std::fs::write(path, preset) {
-                            self.set_error(err);
-                        } else {
-                            match self.go_to_edit_mods_menu() {
-                                Ok(n) => return n,
-                                Err(err) => self.set_error(err),
-                            }
-                        }
-                    }
-                }
-                Err(err) => self.set_error(err),
-            },
             Message::CoreOpenChangeLog => {
                 self.state = State::ChangeLog;
             }
-            Message::EditPresetsLoad => return self.load_preset(),
-            Message::EditPresetsLoadComplete(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    match self.go_to_edit_mods_menu() {
-                        Ok(cmd) => return cmd,
-                        Err(err) => self.set_error(err),
-                    }
-                }
-            }
-            Message::EditPresetsRecommendedModCheck(result) => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner: MenuEditPresetsInner::Recommended { mods, error, .. },
-                    ..
-                }) = &mut self.state
-                {
-                    match result {
-                        Ok(n) => {
-                            *mods = Some(n.into_iter().map(|n| (true, n)).collect());
-                        }
-                        Err(err) => *error = Some(err),
-                    }
-                }
-            }
-            Message::EditPresetsRecommendedToggle(idx, toggle) => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Recommended {
-                            mods: Some(mods), ..
-                        },
-                    ..
-                }) = &mut self.state
-                {
-                    if let Some((t, _)) = mods.get_mut(idx) {
-                        *t = toggle;
-                    }
-                }
-            }
-            Message::EditPresetsRecommendedDownload => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Recommended {
-                            mods: Some(mods), ..
-                        },
-                    progress,
-                    ..
-                }) = &mut self.state
-                {
-                    let (sender, receiver) = std::sync::mpsc::channel();
-
-                    *progress = Some(ProgressBar {
-                        num: 0.0,
-                        message: None,
-                        receiver,
-                        progress: GenericProgress::default(),
-                    });
-
-                    return Command::perform(
-                        ql_mod_manager::mod_manager::download_mods_w(
-                            mods.iter()
-                                .filter(|n| n.0)
-                                .map(|n| n.1.id.to_owned())
-                                .collect(),
-                            self.selected_instance.clone().unwrap(),
-                            sender,
-                        ),
-                        Message::EditPresetsRecommendedDownloadEnd,
-                    );
-                }
-            }
-            Message::EditPresetsRecommendedDownloadEnd(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    match self.go_to_edit_mods_menu_without_update_check() {
-                        Ok(n) => return n,
-                        Err(err) => self.set_error(err),
-                    }
+            Message::EditPresets(msg) => return self.update_edit_presets(msg),
+            Message::UninstallLoaderConfirm(msg, name) => {
+                self.state = State::ConfirmAction {
+                    msg1: format!("uninstall {name}?"),
+                    msg2: "This should be fine, you can always reinstall it later".to_owned(),
+                    yes: (*msg).clone(),
+                    no: Message::ManageMods(ManageModsMessage::ScreenOpen),
                 }
             }
         }
@@ -794,9 +627,20 @@ impl Application for Launcher {
             State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Create(menu) => menu.view(),
-            State::DeleteInstance => {
-                menu_delete_instance_view(self.selected_instance.as_ref().unwrap())
-            }
+            State::ConfirmAction {
+                msg1,
+                msg2,
+                yes,
+                no,
+            } => widget::column![
+                widget::text(format!("Are you SURE you want to {msg1}?",)),
+                msg2.as_str(),
+                widget::button("Yes").on_press(yes.clone()),
+                widget::button("No").on_press(no.clone()),
+            ]
+            .padding(10)
+            .spacing(10)
+            .into(),
             State::Error { error } => widget::scrollable(
                 widget::column!(
                     widget::text(format!("Error: {error}")),
@@ -838,29 +682,6 @@ impl Application for Launcher {
                 &self.server_processes,
             ),
             State::ServerCreate(menu) => menu.view(),
-            State::ServerDelete => {
-                let selected_server = self
-                    .selected_instance
-                    .as_ref()
-                    .unwrap()
-                    .get_name()
-                    .to_owned();
-                widget::column!(
-                    widget::text(format!("Delete server: {selected_server}?")).size(20),
-                    "You will lose ALL of your data!",
-                    button_with_icon(icon_manager::tick(), "Confirm")
-                        .on_press(Message::ServerDeleteConfirm),
-                    button_with_icon(icon_manager::back(), "Back").on_press(
-                        Message::ServerManageOpen {
-                            selected_server: Some(selected_server),
-                            message: None
-                        }
-                    ),
-                )
-                .padding(10)
-                .spacing(10)
-                .into()
-            }
             State::InstallPaper => widget::column!(widget::text("Installing Paper...").size(20))
                 .padding(10)
                 .spacing(10)
@@ -902,20 +723,6 @@ fn load_window_icon() -> Command<Message> {
         }
     }
 }
-
-// async fn pick_file() -> Option<PathBuf> {
-//     const MESSAGE: &str = if cfg!(windows) {
-//         "Select the java.exe executable"
-//     } else {
-//         "Select the java executable"
-//     };
-
-//     rfd::AsyncFileDialog::new()
-//         .set_title(MESSAGE)
-//         .pick_file()
-//         .await
-//         .map(|n| n.path().to_owned())
-// }
 
 const WINDOW_HEIGHT: f32 = 450.0;
 const WINDOW_WIDTH: f32 = 650.0;

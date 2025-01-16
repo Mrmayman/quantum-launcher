@@ -17,10 +17,10 @@ use ql_mod_manager::{
 };
 
 use crate::launcher_state::{
-    get_entries, ClientProcess, CreateInstanceMessage, InstallModsMessage, Launcher,
-    ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditPresets,
-    MenuEditPresetsInner, MenuInstallForge, MenuLaunch, MenuServerManage, Message, ProgressBar,
-    SelectedState, ServerProcess, State, UpdateModsProgress,
+    get_entries, ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
+    Launcher, ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods,
+    MenuEditPresets, MenuEditPresetsInner, MenuInstallForge, MenuLaunch, MenuServerManage, Message,
+    ProgressBar, SelectedState, ServerProcess, State, UpdateModsProgress,
 };
 
 impl Launcher {
@@ -200,7 +200,7 @@ impl Launcher {
     }
 
     pub fn delete_selected_instance(&mut self) -> Command<Message> {
-        if let State::DeleteInstance = &self.state {
+        if let State::ConfirmAction { .. } = &self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap();
             match (
                 file_utils::get_instance_dir(selected_instance),
@@ -507,8 +507,11 @@ impl Launcher {
     }
 
     pub fn load_preset(&mut self) -> Command<Message> {
-        let dialog = rfd::FileDialog::new();
-        let Some(file) = dialog.pick_file() else {
+        let Some(file) = rfd::FileDialog::new()
+            .add_filter("QuantumLauncher Mod Preset", &["qmp"])
+            .set_title("Select Mod Preset to Load")
+            .pick_file()
+        else {
             return Command::none();
         };
         let file = match std::fs::read(&file).path(&file) {
@@ -541,7 +544,7 @@ impl Launcher {
                         self.selected_instance.clone().unwrap(),
                         sender,
                     ),
-                    Message::EditPresetsLoadComplete,
+                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n)),
                 );
             }
             Err(err) => self.set_error(err),
@@ -609,7 +612,7 @@ impl Launcher {
                 loader,
                 sender,
             ),
-            Message::EditPresetsRecommendedModCheck,
+            |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n)),
         )
     }
 }
