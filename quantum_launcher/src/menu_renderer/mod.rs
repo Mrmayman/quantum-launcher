@@ -579,11 +579,9 @@ impl MenuInstallFabric {
                 is_quilt,
                 fabric_version,
                 fabric_versions,
-                progress_receiver,
-                progress_num,
-                progress_message,
+                progress,
             } => {
-                if progress_receiver.is_some() {
+                if let Some(progress) = progress {
                     widget::column!(
                         widget::text(if *is_quilt {
                             "Installing Quilt..."
@@ -591,8 +589,7 @@ impl MenuInstallFabric {
                             "Installing Fabric..."
                         })
                         .size(20),
-                        widget::progress_bar(0.0..=1.0, *progress_num),
-                        widget::text(progress_message),
+                        progress.view(),
                     )
                 } else {
                     widget::column![
@@ -643,8 +640,7 @@ impl MenuInstallForge {
     pub fn view(&self) -> Element {
         let main_block = widget::column!(
             widget::text("Installing forge...").size(20),
-            iced::widget::progress_bar(0.0..=4.0, self.forge_progress_num),
-            widget::text(&self.forge_message)
+            self.forge_progress.view()
         )
         .spacing(10);
 
@@ -661,12 +657,8 @@ impl MenuInstallForge {
 
 impl MenuLauncherUpdate {
     pub fn view(&self) -> Element {
-        if let Some(message) = &self.progress_message {
-            widget::column!(
-                "Updating QuantumLauncher...",
-                widget::progress_bar(0.0..=4.0, self.progress),
-                widget::text(message)
-            )
+        if let Some(progress) = &self.progress {
+            widget::column!("Updating QuantumLauncher...", progress.view())
         } else {
             widget::column!(
                 "A new launcher update has been found! Do you want to download it?",

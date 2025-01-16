@@ -52,7 +52,7 @@ use arguments::ArgumentInfo;
 use iced::{executor, widget, Application, Command, Settings};
 use launcher_state::{
     get_entries, Launcher, ManageModsMessage, MenuLauncherSettings, MenuLauncherUpdate,
-    MenuServerCreate, Message, SelectedState, ServerProcess, State,
+    MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
 
 use menu_renderer::{button_with_icon, changelog::changelog_0_3_1};
@@ -251,9 +251,7 @@ impl Application for Launcher {
                     UpdateCheckInfo::NewVersion { url } => {
                         self.state = State::UpdateFound(MenuLauncherUpdate {
                             url,
-                            receiver: None,
-                            progress: 0.0,
-                            progress_message: None,
+                            progress: None,
                         });
                     }
                 },
@@ -262,16 +260,14 @@ impl Application for Launcher {
                 }
             },
             Message::UpdateDownloadStart => {
-                if let State::UpdateFound(MenuLauncherUpdate {
-                    url,
-                    receiver,
-                    progress_message,
-                    ..
-                }) = &mut self.state
+                if let State::UpdateFound(MenuLauncherUpdate { url, progress, .. }) =
+                    &mut self.state
                 {
                     let (sender, update_receiver) = std::sync::mpsc::channel();
-                    *receiver = Some(update_receiver);
-                    *progress_message = Some("Starting Update".to_owned());
+                    *progress = Some(ProgressBar::with_recv_and_msg(
+                        update_receiver,
+                        "Starting Update".to_owned(),
+                    ));
 
                     return Command::perform(
                         ql_instances::install_launcher_update_w(url.clone(), sender),
@@ -362,12 +358,10 @@ impl Application for Launcher {
                         name: String::new(),
                         versions: iced::widget::combo_box::State::new(cache.clone()),
                         selected_version: None,
-                        progress_receiver: None,
-                        progress_number: 0.0,
                     });
                 } else {
                     let (sender, receiver) = std::sync::mpsc::channel();
-                    self.state = State::ServerCreate(MenuServerCreate::Loading {
+                    self.state = State::ServerCreate(MenuServerCreate::LoadingList {
                         progress_receiver: receiver,
                         progress_number: 0.0,
                     });
@@ -396,18 +390,18 @@ impl Application for Launcher {
                 if let State::ServerCreate(MenuServerCreate::Loaded {
                     name,
                     selected_version: Some(selected_version),
-                    progress_receiver,
                     ..
                 }) = &mut self.state
                 {
                     let (sender, receiver) = std::sync::mpsc::channel();
-                    *progress_receiver = Some(receiver);
+
+                    let name = name.clone();
+                    let selected_version = selected_version.clone();
+                    self.state = State::ServerCreate(MenuServerCreate::Downloading {
+                        progress: ProgressBar::with_recv(receiver),
+                    });
                     return Command::perform(
-                        ql_servers::create_server_w(
-                            name.clone(),
-                            selected_version.clone(),
-                            Some(sender),
-                        ),
+                        ql_servers::create_server_w(name, selected_version, Some(sender)),
                         Message::ServerCreateEnd,
                     );
                 }
@@ -426,8 +420,6 @@ impl Application for Launcher {
                         versions: iced::widget::combo_box::State::new(vec),
                         selected_version: None,
                         name: String::new(),
-                        progress_receiver: None,
-                        progress_number: 0.0,
                     });
                 }
                 Err(err) => self.set_error(err),

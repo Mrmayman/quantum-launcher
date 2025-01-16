@@ -156,7 +156,7 @@ impl MenuServerManage {
 impl MenuServerCreate {
     pub fn view(&self) -> Element {
         match self {
-            MenuServerCreate::Loading {
+            MenuServerCreate::LoadingList {
                 progress_number, ..
             } => {
                 widget::column!(
@@ -173,7 +173,6 @@ impl MenuServerCreate {
                 name,
                 versions,
                 selected_version,
-                progress_receiver: None,
                 ..
             } => {
                 widget::column!(
@@ -198,22 +197,8 @@ impl MenuServerCreate {
                     ),
                 )
             }
-            MenuServerCreate::Loaded {
-                progress_receiver: Some(_),
-                progress_number,
-                ..
-            } => {
-                widget::column!(
-                    widget::text("Creating Server...").size(20),
-                    widget::progress_bar(0.0..=3.0, *progress_number),
-                    if *progress_number < 1.0 {
-                        "Downloading manifest..."
-                    } else if *progress_number < 2.0 {
-                        "Downloading version JSON..."
-                    } else {
-                        "Downloading server JAR..."
-                    }
-                )
+            MenuServerCreate::Downloading { progress } => {
+                widget::column!(widget::text("Creating Server...").size(20), progress.view())
             }
         }
         .padding(10)

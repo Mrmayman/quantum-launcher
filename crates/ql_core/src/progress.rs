@@ -78,7 +78,9 @@ impl GenericProgress {
     pub fn finished() -> Self {
         Self {
             has_finished: true,
-            ..Default::default()
+            done: 1,
+            total: 1,
+            message: None,
         }
     }
 }

@@ -4,7 +4,7 @@ use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
     json::{fabric::FabricJSON, version::VersionDetails},
-    InstanceSelection, IntoIoError, JsonFileError, RequestError,
+    GenericProgress, InstanceSelection, IntoIoError, JsonFileError, RequestError,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -74,20 +74,10 @@ pub async fn get_list_of_versions(
     Ok(serde_json::from_str(&version_list)?)
 }
 
-pub enum FabricInstallProgress {
-    P1Start,
-    P2Library {
-        done: usize,
-        out_of: usize,
-        message: String,
-    },
-    P3Done,
-}
-
 pub async fn install_server_w(
     loader_version: String,
     server_name: String,
-    progress: Option<Sender<FabricInstallProgress>>,
+    progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), String> {
     install_server(&loader_version, &server_name, progress, is_quilt)
@@ -98,13 +88,13 @@ pub async fn install_server_w(
 pub async fn install_server(
     loader_version: &str,
     server_name: &str,
-    progress: Option<Sender<FabricInstallProgress>>,
+    progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
 
     if let Some(progress) = &progress {
-        progress.send(FabricInstallProgress::P1Start)?;
+        progress.send(GenericProgress::default())?;
     }
 
     let server_dir = file_utils::get_launcher_dir()?
@@ -168,7 +158,7 @@ pub async fn install_server(
     change_instance_type(&server_dir, loader_name.to_owned()).await?;
 
     if let Some(progress) = &progress {
-        progress.send(FabricInstallProgress::P3Done)?;
+        progress.send(GenericProgress::finished())?;
     }
 
     info!("Finished installing {loader_name}");
@@ -179,7 +169,7 @@ pub async fn install_server(
 pub async fn install_client(
     loader_version: &str,
     instance_name: &str,
-    progress: Option<Sender<FabricInstallProgress>>,
+    progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
@@ -218,7 +208,7 @@ pub async fn install_client(
     info!("Started installing {loader_name}: {game_version}, {loader_version}");
 
     if let Some(progress) = &progress {
-        progress.send(FabricInstallProgress::P1Start)?;
+        progress.send(GenericProgress::default())?;
     }
 
     let number_of_libraries = json.libraries.len();
@@ -242,7 +232,7 @@ pub async fn install_client(
     change_instance_type(&instance_dir, loader_name.to_owned()).await?;
 
     if let Some(progress) = &progress {
-        progress.send(FabricInstallProgress::P3Done)?;
+        progress.send(GenericProgress::default())?;
     }
 
     tokio::fs::remove_file(&lock_path).await.path(lock_path)?;
@@ -267,7 +257,7 @@ fn migrate_index_file(instance_dir: &Path) -> Result<(), FabricInstallError> {
 fn send_progress(
     i: usize,
     library: &ql_core::json::fabric::Library,
-    progress: Option<&Sender<FabricInstallProgress>>,
+    progress: Option<&Sender<GenericProgress>>,
     number_of_libraries: usize,
 ) -> Result<(), FabricInstallError> {
     let message = format!(
@@ -277,10 +267,11 @@ fn send_progress(
     );
     info!("{message}");
     if let Some(progress) = progress {
-        progress.send(FabricInstallProgress::P2Library {
+        progress.send(GenericProgress {
             done: i + 1,
-            out_of: number_of_libraries,
-            message,
+            total: number_of_libraries,
+            message: Some(message),
+            has_finished: false,
         })?;
     }
     Ok(())
@@ -301,7 +292,7 @@ fn send_progress(
 pub async fn install_w(
     loader_version: String,
     instance_name: InstanceSelection,
-    progress: Option<Sender<FabricInstallProgress>>,
+    progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), String> {
     match instance_name {
@@ -317,7 +308,7 @@ pub async fn install_w(
 pub async fn install_client_w(
     loader_version: String,
     instance_name: String,
-    progress: Option<Sender<FabricInstallProgress>>,
+    progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), String> {
     install_client(&loader_version, &instance_name, progress, is_quilt)

@@ -1,15 +1,13 @@
 use std::{fmt::Display, path::PathBuf, sync::mpsc::SendError};
 
-use ql_core::{IoError, JsonFileError, RequestError};
-
-use super::FabricInstallProgress;
+use ql_core::{GenericProgress, IoError, JsonFileError, RequestError};
 
 #[derive(Debug)]
 pub enum FabricInstallError {
     Io(IoError),
     Json(serde_json::Error),
     RequestError(RequestError),
-    Send(SendError<FabricInstallProgress>),
+    Send(SendError<GenericProgress>),
     PathBufParentError(PathBuf),
     ZipError(zip::result::ZipError),
     ZipEntryWriteError(std::io::Error, String),
@@ -34,8 +32,8 @@ impl From<RequestError> for FabricInstallError {
     }
 }
 
-impl From<SendError<FabricInstallProgress>> for FabricInstallError {
-    fn from(value: SendError<FabricInstallProgress>) -> Self {
+impl From<SendError<GenericProgress>> for FabricInstallError {
+    fn from(value: SendError<GenericProgress>) -> Self {
         Self::Send(value)
     }
 }

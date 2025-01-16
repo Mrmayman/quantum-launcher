@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use ql_core::{err, file_utils, info, IntoIoError, IoError, RequestError};
+use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -112,18 +112,11 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
 /// [`install_launcher_update`] `_w` function
 pub async fn install_launcher_update_w(
     url: String,
-    progress: Sender<UpdateProgress>,
+    progress: Sender<GenericProgress>,
 ) -> Result<(), String> {
     install_launcher_update(url, progress)
         .await
         .map_err(|err| err.to_string())
-}
-
-pub enum UpdateProgress {
-    P1Start,
-    P2Backup,
-    P3Download,
-    P4Extract,
 }
 
 /// Installs a new version of the launcher.
@@ -137,9 +130,9 @@ pub enum UpdateProgress {
 /// - `progress`: A channel to send progress updates to.
 pub async fn install_launcher_update(
     url: String,
-    progress: Sender<UpdateProgress>,
+    progress: Sender<GenericProgress>,
 ) -> Result<(), UpdateError> {
-    progress.send(UpdateProgress::P1Start)?;
+    progress.send(GenericProgress::default())?;
 
     let exe_path = std::env::current_exe().map_err(UpdateError::CurrentExeError)?;
     let exe_location = exe_path.parent().ok_or(UpdateError::ExeParentPathError)?;
@@ -158,17 +151,32 @@ pub async fn install_launcher_update(
     }
 
     info!("Backing up existing launcher");
-    progress.send(UpdateProgress::P2Backup)?;
+    progress.send(GenericProgress {
+        done: 1,
+        total: 4,
+        message: Some("Backing up existing launcher".to_owned()),
+        has_finished: false,
+    })?;
     let backup_path = exe_location.join(format!("backup_{backup_idx}_{exe_name}"));
     std::fs::rename(&exe_path, &backup_path).path(backup_path)?;
 
     info!("Downloading new version of launcher");
-    progress.send(UpdateProgress::P3Download)?;
+    progress.send(GenericProgress {
+        done: 2,
+        total: 4,
+        message: Some("Downloading new launcher".to_owned()),
+        has_finished: false,
+    })?;
     let client = reqwest::Client::new();
     let download_zip = file_utils::download_file_to_bytes(&client, &url, false).await?;
 
     info!("Extracting launcher");
-    progress.send(UpdateProgress::P4Extract)?;
+    progress.send(GenericProgress {
+        done: 3,
+        total: 4,
+        message: Some("Extracting new launcher".to_owned()),
+        has_finished: false,
+    })?;
     zip_extract::extract(std::io::Cursor::new(download_zip), exe_location, true)?;
     let extract_name = if cfg!(target_os = "windows") {
         "quantum_launcher.exe"
@@ -197,7 +205,7 @@ pub enum UpdateError {
     OsStrToStr(Arc<OsStr>),
     Io(IoError),
     Zip(zip_extract::ZipExtractError),
-    Send(SendError<UpdateProgress>),
+    Send(SendError<GenericProgress>),
 }
 
 impl Display for UpdateError {
@@ -238,7 +246,7 @@ impl Display for UpdateError {
 type SerdeError = serde_json::Error;
 type SemverError = semver::Error;
 type ZipError = zip_extract::ZipExtractError;
-type SendErr = SendError<UpdateProgress>;
+type SendErr = SendError<GenericProgress>;
 
 macro_rules! impl_error {
     ($from:ident, $to:ident) => {

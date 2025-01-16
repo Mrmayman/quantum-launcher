@@ -15,14 +15,10 @@ use super::{back_to_launch_screen, button_with_icon, Element};
 impl MenuEditMods {
     pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
-            return widget::column!(
-                widget::text("Updating mods").size(20),
-                widget::progress_bar(0.0..=1.0, progress.num),
-                widget::text(&progress.message),
-            )
-            .padding(10)
-            .spacing(10)
-            .into();
+            return widget::column!(widget::text("Updating mods").size(20), progress.view())
+                .padding(10)
+                .spacing(10)
+                .into();
         }
 
         widget::row!(

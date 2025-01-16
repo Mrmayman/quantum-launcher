@@ -12,19 +12,14 @@ use ql_core::{
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
     SelectedMod, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo, UpdateProgress};
+use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
 use ql_mod_manager::{
     loaders::{
-        fabric::{FabricInstallProgress, FabricVersionListItem},
-        forge::ForgeInstallProgress,
+        fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{
-        ApplyUpdateProgress, ImageResult, Loader, ModConfig, ModIndex, ProjectInfo, RecommendedMod,
-        Search,
-    },
+    mod_manager::{ImageResult, Loader, ModConfig, ModIndex, ProjectInfo, RecommendedMod, Search},
 };
-use ql_servers::ServerCreateProgress;
 use tokio::process::{Child, ChildStdin};
 
 use crate::{
@@ -268,7 +263,7 @@ pub struct MenuEditMods {
     pub sorted_mods_list: Vec<ModListEntry>,
     pub selected_state: SelectedState,
     pub available_updates: Vec<(String, String, bool)>,
-    pub mod_update_progress: Option<UpdateModsProgress>,
+    pub mod_update_progress: Option<ProgressBar<GenericProgress>>,
 }
 
 impl MenuEditMods {
@@ -309,9 +304,7 @@ pub enum MenuInstallFabric {
         is_quilt: bool,
         fabric_version: Option<String>,
         fabric_versions: Vec<String>,
-        progress_receiver: Option<Receiver<FabricInstallProgress>>,
-        progress_num: f32,
-        progress_message: String,
+        progress: Option<ProgressBar<GenericProgress>>,
     },
     Unsupported(bool),
 }
@@ -327,18 +320,14 @@ impl MenuInstallFabric {
 }
 
 pub struct MenuInstallForge {
-    pub forge_progress_receiver: Receiver<ForgeInstallProgress>,
-    pub forge_progress_num: f32,
-    pub forge_message: String,
+    pub forge_progress: ProgressBar<ForgeInstallProgress>,
     pub java_progress: ProgressBar<GenericProgress>,
     pub is_java_getting_installed: bool,
 }
 
 pub struct MenuLauncherUpdate {
     pub url: String,
-    pub receiver: Option<Receiver<UpdateProgress>>,
-    pub progress: f32,
-    pub progress_message: Option<String>,
+    pub progress: Option<ProgressBar<GenericProgress>>,
 }
 
 pub struct MenuModsDownload {
@@ -414,7 +403,7 @@ pub struct MenuServerManage {
 }
 
 pub enum MenuServerCreate {
-    Loading {
+    LoadingList {
         progress_receiver: Receiver<()>,
         progress_number: f32,
     },
@@ -422,15 +411,10 @@ pub enum MenuServerCreate {
         name: String,
         versions: iced::widget::combo_box::State<ListEntry>,
         selected_version: Option<ListEntry>,
-        progress_receiver: Option<Receiver<ServerCreateProgress>>,
-        progress_number: f32,
     },
-}
-
-pub struct UpdateModsProgress {
-    pub recv: Receiver<ApplyUpdateProgress>,
-    pub num: f32,
-    pub message: String,
+    Downloading {
+        progress: ProgressBar<GenericProgress>,
+    },
 }
 
 #[derive(Default)]
@@ -649,6 +633,26 @@ pub struct ProgressBar<T: Progress> {
     pub message: Option<String>,
     pub receiver: Receiver<T>,
     pub progress: T,
+}
+
+impl<T: Default + Progress> ProgressBar<T> {
+    pub fn with_recv(receiver: Receiver<T>) -> Self {
+        Self {
+            num: 0.0,
+            message: None,
+            receiver,
+            progress: T::default(),
+        }
+    }
+
+    pub fn with_recv_and_msg(receiver: Receiver<T>, msg: String) -> Self {
+        Self {
+            num: 0.0,
+            message: Some(msg),
+            receiver,
+            progress: T::default(),
+        }
+    }
 }
 
 impl<T: Progress> ProgressBar<T> {

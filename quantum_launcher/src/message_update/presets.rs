@@ -1,5 +1,5 @@
 use iced::Command;
-use ql_core::{GenericProgress, SelectedMod};
+use ql_core::SelectedMod;
 
 use crate::launcher_state::{
     EditPresetsMessage, Launcher, MenuEditPresets, MenuEditPresetsInner, Message, ProgressBar,
@@ -140,12 +140,7 @@ impl Launcher {
                 {
                     let (sender, receiver) = std::sync::mpsc::channel();
 
-                    *progress = Some(ProgressBar {
-                        num: 0.0,
-                        message: None,
-                        receiver,
-                        progress: GenericProgress::default(),
-                    });
+                    *progress = Some(ProgressBar::with_recv(receiver));
 
                     return Command::perform(
                         ql_mod_manager::mod_manager::download_mods_w(

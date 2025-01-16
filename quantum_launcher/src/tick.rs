@@ -2,17 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use iced::Command;
 use ql_core::{err, info, GenericProgress, InstanceSelection};
-use ql_instances::{LogLine, UpdateProgress};
-use ql_mod_manager::{
-    loaders::{fabric::FabricInstallProgress, forge::ForgeInstallProgress},
-    mod_manager::{ApplyUpdateProgress, ModConfig, ModIndex, Search},
-};
-use ql_servers::ServerCreateProgress;
+use ql_instances::LogLine;
+use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
 
 use crate::launcher_state::{
     get_entries, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods,
-    MenuEditPresetsInner, MenuInstallFabric, MenuInstallForge, MenuLaunch, MenuLauncherUpdate,
-    MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
+    MenuEditPresetsInner, MenuInstallFabric, MenuLaunch, MenuServerCreate, Message, ModListEntry,
+    ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -26,12 +22,10 @@ impl Launcher {
                 if let Some(receiver) = java_recv.take() {
                     if let Ok(GenericProgress { done: 0, .. }) = receiver.try_recv() {
                         info!("Installing Java");
-                        self.state = State::InstallJava(ProgressBar {
-                            num: 0.0,
+                        self.state = State::InstallJava(ProgressBar::with_recv_and_msg(
                             receiver,
-                            message: Some("Starting...".to_owned()),
-                            progress: GenericProgress::default(),
-                        });
+                            "Starting".to_owned(),
+                        ));
                         return Command::none();
                     }
                     *java_recv = Some(receiver);
@@ -40,12 +34,7 @@ impl Launcher {
                 if let Some(receiver) = asset_recv.take() {
                     if receiver.try_recv().is_ok() {
                         self.state = State::RedownloadAssets {
-                            progress: ProgressBar {
-                                num: 0.0,
-                                receiver,
-                                message: None,
-                                progress: GenericProgress::default(),
-                            },
+                            progress: ProgressBar::with_recv(receiver),
                             java_recv: java_recv.take(),
                         };
                         return Command::none();
@@ -72,9 +61,26 @@ impl Launcher {
                 let update_locally_installed_mods = menu.tick(instance_selection);
                 return update_locally_installed_mods;
             }
-            State::InstallFabric(menu) => menu.tick(),
-            State::InstallForge(menu) => menu.tick(),
-            State::UpdateFound(menu) => menu.tick(),
+            State::InstallFabric(menu) => {
+                if let MenuInstallFabric::Loaded {
+                    progress: Some(progress),
+                    ..
+                } = menu
+                {
+                    progress.tick();
+                }
+            }
+            State::InstallForge(menu) => {
+                menu.forge_progress.tick();
+                if menu.java_progress.tick() {
+                    menu.is_java_getting_installed = true;
+                }
+            }
+            State::UpdateFound(menu) => {
+                if let Some(progress) = &mut menu.progress {
+                    progress.tick();
+                }
+            }
             State::InstallJava(menu) => {
                 menu.tick();
                 if menu.progress.has_finished {
@@ -159,18 +165,15 @@ impl Launcher {
                     .and_then(|n| n.try_recv().ok())
                     .is_some()
                 {
-                    self.state = State::InstallJava(ProgressBar {
-                        num: 0.0,
-                        receiver: menu.java_install_recv.take().unwrap(),
-                        message: None,
-                        progress: GenericProgress::default(),
-                    });
+                    self.state = State::InstallJava(ProgressBar::with_recv(
+                        menu.java_install_recv.take().unwrap(),
+                    ));
                 }
 
                 self.tick_server_processes_and_logs();
             }
             State::ServerCreate(menu) => match menu {
-                MenuServerCreate::Loading {
+                MenuServerCreate::LoadingList {
                     progress_receiver,
                     progress_number,
                 } => {
@@ -182,20 +185,9 @@ impl Launcher {
                         }
                     }
                 }
-                MenuServerCreate::Loaded {
-                    progress_receiver,
-                    progress_number,
-                    ..
-                } => {
-                    while let Some(progress) =
-                        progress_receiver.as_ref().and_then(|n| n.try_recv().ok())
-                    {
-                        *progress_number = match progress {
-                            ServerCreateProgress::P1DownloadingManifest => 0.0,
-                            ServerCreateProgress::P2DownloadingVersionJson => 1.0,
-                            ServerCreateProgress::P3DownloadingServerJar => 2.0,
-                        };
-                    }
+                MenuServerCreate::Loaded { .. } => {}
+                MenuServerCreate::Downloading { progress } => {
+                    progress.tick();
                 }
             },
             State::ManagePresets(menu) => {
@@ -341,90 +333,6 @@ impl Launcher {
     }
 }
 
-impl MenuLauncherUpdate {
-    fn tick(&mut self) {
-        while let Some(Ok(message)) = self
-            .receiver
-            .as_ref()
-            .map(std::sync::mpsc::Receiver::try_recv)
-        {
-            match message {
-                UpdateProgress::P1Start => {}
-                UpdateProgress::P2Backup => {
-                    self.progress = 1.0;
-                    self.progress_message = Some("Backing up current version".to_owned());
-                }
-                UpdateProgress::P3Download => {
-                    self.progress = 2.0;
-                    self.progress_message = Some("Downloading new version".to_owned());
-                }
-                UpdateProgress::P4Extract => {
-                    self.progress = 3.0;
-                    self.progress_message = Some("Extracting new version".to_owned());
-                }
-            }
-        }
-    }
-}
-
-impl MenuInstallForge {
-    fn tick(&mut self) {
-        while let Ok(message) = self.forge_progress_receiver.try_recv() {
-            self.forge_progress_num = match message {
-                ForgeInstallProgress::P1Start => 0.0,
-                ForgeInstallProgress::P2DownloadingJson => 1.0,
-                ForgeInstallProgress::P3DownloadingInstaller => 2.0,
-                ForgeInstallProgress::P4RunningInstaller => 3.0,
-                ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
-                    3.0 + (num as f32 / out_of as f32)
-                }
-                ForgeInstallProgress::P6Done => 4.0,
-            };
-
-            self.forge_message = match message {
-                ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
-                ForgeInstallProgress::P2DownloadingJson => "Downloading JSON".to_owned(),
-                ForgeInstallProgress::P3DownloadingInstaller => "Downloading installer".to_owned(),
-                ForgeInstallProgress::P4RunningInstaller => "Running Installer".to_owned(),
-                ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
-                    format!("Downloading Library ({num}/{out_of})")
-                }
-                ForgeInstallProgress::P6Done => "Done!".to_owned(),
-            };
-        }
-        if self.java_progress.tick() {
-            self.is_java_getting_installed = true;
-        }
-    }
-}
-
-impl MenuInstallFabric {
-    fn tick(&mut self) {
-        if let Self::Loaded {
-            progress_receiver: Some(receiver),
-            progress_num,
-            progress_message,
-            ..
-        } = self
-        {
-            while let Ok(progress) = receiver.try_recv() {
-                *progress_num = match progress {
-                    FabricInstallProgress::P1Start => 0.0,
-                    FabricInstallProgress::P2Library {
-                        done,
-                        out_of,
-                        message,
-                    } => {
-                        *progress_message = message;
-                        done as f32 / out_of as f32
-                    }
-                    FabricInstallProgress::P3Done => 1.0,
-                }
-            }
-        }
-    }
-}
-
 pub fn sort_dependencies(
     downloaded_mods: &HashMap<String, ModConfig>,
     locally_installed_mods: &HashSet<String>,
@@ -466,31 +374,14 @@ impl MenuEditMods {
     fn tick(&mut self, instance_selection: InstanceSelection) -> Command<Message> {
         self.sorted_mods_list = sort_dependencies(&self.mods.mods, &self.locally_installed_mods);
 
-        let has_finished = self.tick_mod_update_progress();
-        if has_finished {
-            self.mod_update_progress = None;
+        if let Some(progress) = &mut self.mod_update_progress {
+            progress.tick();
+            if progress.progress.has_finished {
+                self.mod_update_progress = None;
+            }
         }
 
         MenuEditMods::update_locally_installed_mods(&self.mods, instance_selection)
-    }
-
-    fn tick_mod_update_progress(&mut self) -> bool {
-        if let Some(progress) = &mut self.mod_update_progress {
-            while let Ok(message) = progress.recv.try_recv() {
-                match message {
-                    ApplyUpdateProgress::P1DeleteMods => {
-                        progress.num = 0.0;
-                        "Deleting old versions".clone_into(&mut progress.message);
-                    }
-                    ApplyUpdateProgress::P2DownloadMod { done, out_of } => {
-                        progress.num = 0.2 + (done as f32 / out_of as f32) * 0.8;
-                        progress.message = format!("Downloading mods ({done}/{out_of})");
-                    }
-                    ApplyUpdateProgress::P3Done => return true,
-                }
-            }
-        }
-        false
     }
 }
 

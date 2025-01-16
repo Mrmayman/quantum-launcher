@@ -59,7 +59,7 @@ pub use instance::list_versions::list_versions;
 pub use instance::read_log::{read_logs, read_logs_w, LogEvent, LogLine, LogMessage, ReadError};
 pub use launcher_update_detector::{
     check_for_launcher_updates, check_for_launcher_updates_w, install_launcher_update,
-    install_launcher_update_w, UpdateCheckInfo, UpdateError, UpdateProgress,
+    install_launcher_update_w, UpdateCheckInfo, UpdateError,
 };
 pub use omniarchive_api::ListEntry;
 

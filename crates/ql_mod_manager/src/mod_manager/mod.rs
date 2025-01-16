@@ -13,7 +13,7 @@ pub use get_project::{DonationLink, GalleryItem, License, ProjectInfo};
 pub use local_json::{ModConfig, ModIndex};
 pub use search::{Entry, ImageResult, Loader, ModError, Query, Search};
 pub use toggle::toggle_mods_w;
-pub use update::{apply_updates_w, check_for_updates, ApplyUpdateProgress};
+pub use update::{apply_updates_w, check_for_updates};
 pub use versions::{ModFile, ModHashes, ModVersion};
 
 #[derive(Debug, Clone)]

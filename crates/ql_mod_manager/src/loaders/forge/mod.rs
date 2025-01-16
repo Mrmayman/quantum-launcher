@@ -15,7 +15,7 @@ use ql_core::{
         java_list::JavaVersion,
         version::VersionDetails,
     },
-    pt, GenericProgress, InstanceSelection, IntoIoError,
+    pt, GenericProgress, InstanceSelection, IntoIoError, Progress,
 };
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -538,6 +538,44 @@ pub enum ForgeInstallProgress {
     P4RunningInstaller,
     P5DownloadingLibrary { num: usize, out_of: usize },
     P6Done,
+}
+
+impl Default for ForgeInstallProgress {
+    fn default() -> Self {
+        Self::P1Start
+    }
+}
+
+impl Progress for ForgeInstallProgress {
+    fn get_num(&self) -> f32 {
+        match self {
+            ForgeInstallProgress::P1Start => 0.0,
+            ForgeInstallProgress::P2DownloadingJson => 1.0,
+            ForgeInstallProgress::P3DownloadingInstaller => 2.0,
+            ForgeInstallProgress::P4RunningInstaller => 3.0,
+            ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
+                3.0 + (*num as f32 / *out_of as f32)
+            }
+            ForgeInstallProgress::P6Done => 4.0,
+        }
+    }
+
+    fn get_message(&self) -> Option<String> {
+        Some(match self {
+            ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
+            ForgeInstallProgress::P2DownloadingJson => "Downloading JSON".to_owned(),
+            ForgeInstallProgress::P3DownloadingInstaller => "Downloading installer".to_owned(),
+            ForgeInstallProgress::P4RunningInstaller => "Running Installer".to_owned(),
+            ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
+                format!("Downloading Library ({num}/{out_of})")
+            }
+            ForgeInstallProgress::P6Done => "Done!".to_owned(),
+        })
+    }
+
+    fn total() -> f32 {
+        4.0
+    }
 }
 
 pub async fn install_client(

@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{info, InstanceSelection};
+use ql_core::{info, GenericProgress, InstanceSelection};
 
 use crate::mod_manager::{
     download::{get_loader_type, get_version_json, version_sort},
@@ -10,16 +10,10 @@ use crate::mod_manager::{
 
 use super::{delete_mods, download_mod, ModError, ModIndex};
 
-pub enum ApplyUpdateProgress {
-    P1DeleteMods,
-    P2DownloadMod { done: usize, out_of: usize },
-    P3Done,
-}
-
 pub async fn apply_updates_w(
     selected_instance: InstanceSelection,
     updates: Vec<String>,
-    progress: Option<Sender<ApplyUpdateProgress>>,
+    progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), String> {
     apply_updates(selected_instance, updates, progress)
         .await
@@ -29,26 +23,25 @@ pub async fn apply_updates_w(
 async fn apply_updates(
     selected_instance: InstanceSelection,
     updates: Vec<String>,
-    progress: Option<Sender<ApplyUpdateProgress>>,
+    progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ModError> {
-    if let Some(progress) = &progress {
-        progress.send(ApplyUpdateProgress::P1DeleteMods).ok();
-    }
     delete_mods(&updates, &selected_instance).await?;
     let updates_len = updates.len();
     for (i, id) in updates.into_iter().enumerate() {
         if let Some(progress) = &progress {
             progress
-                .send(ApplyUpdateProgress::P2DownloadMod {
+                .send(GenericProgress {
                     done: i,
-                    out_of: updates_len,
+                    total: updates_len,
+                    message: None,
+                    has_finished: false,
                 })
                 .ok();
         }
         download_mod(&id, &selected_instance).await?;
     }
     if let Some(progress) = &progress {
-        progress.send(ApplyUpdateProgress::P3Done).ok();
+        progress.send(GenericProgress::finished()).ok();
     }
     Ok(())
 }

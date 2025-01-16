@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Command};
-use ql_core::{err, file_utils, GenericProgress, InstanceSelection, IntoIoError, SelectedMod};
+use ql_core::{err, file_utils, InstanceSelection, IntoIoError, SelectedMod};
 use ql_mod_manager::{
     loaders::{self, optifine::OptifineInstallProgress},
     mod_manager::ProjectInfo,
@@ -46,9 +46,7 @@ impl Launcher {
                                     .iter()
                                     .map(|ver| ver.loader.version.clone())
                                     .collect(),
-                                progress_receiver: None,
-                                progress_num: 0.0,
-                                progress_message: String::new(),
+                                progress: None,
                             };
                         }
                     }
@@ -58,13 +56,13 @@ impl Launcher {
             InstallFabricMessage::ButtonClicked => {
                 if let State::InstallFabric(MenuInstallFabric::Loaded {
                     fabric_version,
-                    progress_receiver,
+                    progress,
                     is_quilt,
                     ..
                 }) = &mut self.state
                 {
                     let (sender, receiver) = std::sync::mpsc::channel();
-                    *progress_receiver = Some(receiver);
+                    *progress = Some(ProgressBar::with_recv(receiver));
                     let loader_version = fabric_version.clone().unwrap();
 
                     return Command::perform(
@@ -416,12 +414,7 @@ impl Launcher {
                             receiver: p_recv,
                             progress: OptifineInstallProgress::P1Start,
                         }),
-                        java_install_progress: Some(ProgressBar {
-                            num: 0.0,
-                            message: None,
-                            receiver: j_recv,
-                            progress: GenericProgress::default(),
-                        }),
+                        java_install_progress: Some(ProgressBar::with_recv(j_recv)),
                         is_java_being_installed: false,
                     });
 

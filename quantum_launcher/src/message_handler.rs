@@ -8,7 +8,7 @@ use iced::Command;
 use ql_core::{
     err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError,
+    DownloadProgress, InstanceSelection, IntoIoError, JsonFileError,
 };
 use ql_instances::{GameLaunchResult, ListEntry};
 use ql_mod_manager::{
@@ -20,7 +20,7 @@ use crate::launcher_state::{
     get_entries, ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
     Launcher, ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods,
     MenuEditPresets, MenuEditPresetsInner, MenuInstallForge, MenuLaunch, MenuServerManage, Message,
-    ProgressBar, SelectedState, ServerProcess, State, UpdateModsProgress,
+    ProgressBar, SelectedState, ServerProcess, State,
 };
 
 impl Launcher {
@@ -395,11 +395,10 @@ impl Launcher {
                 .map(|(n, _, _)| n)
                 .collect();
             let (sender, receiver) = std::sync::mpsc::channel();
-            menu.mod_update_progress = Some(UpdateModsProgress {
-                recv: receiver,
-                num: 0.0,
-                message: "Starting...".to_owned(),
-            });
+            menu.mod_update_progress = Some(ProgressBar::with_recv_and_msg(
+                receiver,
+                "Deleting Mods".to_owned(),
+            ));
             Command::perform(
                 ql_mod_manager::mod_manager::apply_updates_w(
                     self.selected_instance.clone().unwrap(),
@@ -438,16 +437,9 @@ impl Launcher {
         );
 
         self.state = State::InstallForge(MenuInstallForge {
-            forge_progress_receiver: f_receiver,
-            forge_progress_num: 0.0,
-            java_progress: ProgressBar {
-                num: 0.0,
-                message: None,
-                receiver: j_receiver,
-                progress: GenericProgress::default(),
-            },
+            forge_progress: ProgressBar::with_recv(f_receiver),
+            java_progress: ProgressBar::with_recv(j_receiver),
             is_java_getting_installed: false,
-            forge_message: "Installing Forge".to_owned(),
         });
         command
     }
@@ -531,12 +523,7 @@ impl Launcher {
             Ok(mods) => {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 if let State::ManagePresets(menu) = &mut self.state {
-                    menu.progress = Some(ProgressBar {
-                        num: 0.0,
-                        message: None,
-                        receiver,
-                        progress: GenericProgress::default(),
-                    })
+                    menu.progress = Some(ProgressBar::with_recv(receiver))
                 }
                 return Command::perform(
                     ql_mod_manager::PresetJson::download_entries_w(
@@ -574,12 +561,7 @@ impl Launcher {
             inner: if is_empty {
                 MenuEditPresetsInner::Recommended {
                     mods: None,
-                    progress: ProgressBar {
-                        num: 0.0,
-                        message: None,
-                        receiver,
-                        progress: GenericProgress::default(),
-                    },
+                    progress: ProgressBar::with_recv(receiver),
                     error: None,
                 }
             } else {

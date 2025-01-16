@@ -8,7 +8,7 @@ use ql_core::{
         manifest::Manifest,
         version::VersionDetails,
     },
-    IntoIoError,
+    GenericProgress, IntoIoError,
 };
 
 use crate::ServerError;
@@ -17,18 +17,12 @@ use crate::ServerError;
 pub async fn create_server_w(
     name: String,
     version: ListEntry,
-    sender: Option<Sender<ServerCreateProgress>>,
+    sender: Option<Sender<GenericProgress>>,
 ) -> Result<String, String> {
     create_server(&name, version, sender)
         .await
         .map_err(|n| n.to_string())
         .map(|()| name)
-}
-
-pub enum ServerCreateProgress {
-    P1DownloadingManifest,
-    P2DownloadingVersionJson,
-    P3DownloadingServerJar,
 }
 
 /// Creates a minecraft server with the given name and version.
@@ -41,13 +35,18 @@ pub enum ServerCreateProgress {
 pub async fn create_server(
     name: &str,
     version: ListEntry,
-    sender: Option<Sender<ServerCreateProgress>>,
+    sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), ServerError> {
     let client = reqwest::Client::new();
     info!("Creating server: Downloading Manifest");
     if let Some(sender) = &sender {
         sender
-            .send(ServerCreateProgress::P1DownloadingManifest)
+            .send(GenericProgress {
+                done: 0,
+                total: 3,
+                message: Some("Downloading Manifest".to_owned()),
+                has_finished: false,
+            })
             .unwrap();
     }
     let manifest = Manifest::download().await?;
@@ -83,7 +82,12 @@ pub async fn create_server(
 
             if let Some(sender) = &sender {
                 sender
-                    .send(ServerCreateProgress::P3DownloadingServerJar)
+                    .send(GenericProgress {
+                        done: 2,
+                        total: 3,
+                        message: Some("Downloading Server Jar".to_owned()),
+                        has_finished: false,
+                    })
                     .unwrap();
             }
             let archive = file_utils::download_file_to_bytes(&client, url, true).await?;
@@ -162,7 +166,7 @@ async fn download_from_omniarchive(
     category: &MinecraftVersionCategory,
     manifest: &Manifest,
     name: &str,
-    sender: Option<&Sender<ServerCreateProgress>>,
+    sender: Option<&Sender<GenericProgress>>,
     client: &reqwest::Client,
     url: &str,
 ) -> Result<(Vec<u8>, VersionDetails), ServerError> {
@@ -171,7 +175,12 @@ async fn download_from_omniarchive(
     info!("Downloading server jar");
     if let Some(sender) = sender {
         sender
-            .send(ServerCreateProgress::P3DownloadingServerJar)
+            .send(GenericProgress {
+                done: 2,
+                total: 3,
+                message: Some("Downloading Server Jar".to_owned()),
+                has_finished: false,
+            })
             .unwrap();
     }
     let server_jar = file_utils::download_file_to_bytes(client, url, false).await?;
@@ -181,7 +190,7 @@ async fn download_from_omniarchive(
 async fn download_from_mojang(
     manifest: &Manifest,
     version: &str,
-    sender: Option<&Sender<ServerCreateProgress>>,
+    sender: Option<&Sender<GenericProgress>>,
     client: &reqwest::Client,
 ) -> Result<(Vec<u8>, VersionDetails), ServerError> {
     let version = manifest
@@ -190,7 +199,12 @@ async fn download_from_mojang(
     info!("Downloading version JSON");
     if let Some(sender) = sender {
         sender
-            .send(ServerCreateProgress::P2DownloadingVersionJson)
+            .send(GenericProgress {
+                done: 1,
+                total: 3,
+                message: Some("Downloading Version JSON".to_owned()),
+                has_finished: false,
+            })
             .unwrap();
     }
     let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
@@ -201,7 +215,12 @@ async fn download_from_mojang(
     info!("Downloading server jar");
     if let Some(sender) = sender {
         sender
-            .send(ServerCreateProgress::P3DownloadingServerJar)
+            .send(GenericProgress {
+                done: 2,
+                total: 3,
+                message: Some("Downloading Server Jar".to_owned()),
+                has_finished: false,
+            })
             .unwrap();
     }
     let server_jar = file_utils::download_file_to_bytes(client, &server.url, false).await?;
@@ -212,7 +231,7 @@ async fn download_omniarchive_version(
     category: &MinecraftVersionCategory,
     manifest: &Manifest,
     name: &str,
-    sender: Option<&Sender<ServerCreateProgress>>,
+    sender: Option<&Sender<GenericProgress>>,
     client: &reqwest::Client,
 ) -> Result<VersionDetails, ServerError> {
     let version = match category {
@@ -227,7 +246,12 @@ async fn download_omniarchive_version(
     info!("Downloading version JSON");
     if let Some(sender) = sender {
         sender
-            .send(ServerCreateProgress::P2DownloadingVersionJson)
+            .send(GenericProgress {
+                done: 1,
+                total: 3,
+                message: Some("Downloading Version JSON".to_owned()),
+                has_finished: false,
+            })
             .unwrap();
     }
     let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
