@@ -7,7 +7,7 @@ License:        GPLv3
 URL:            https://mrmayman.github.io/quantumlauncher
 Source:        {{{ git_dir_pack }}}
 
-BuildRequires:  rust cargo openssl-devel perl
+BuildRequires:  rust cargo perl
 
 %global _description %{expand:
 A simple Minecraft Launcher written in Rust.}
@@ -23,11 +23,15 @@ cargo build --profile release
 
 %install
 install -Dm755 target/release/quantum_launcher %{buildroot}%{_bindir}/quantum-launcher
+install -Dm644 assets/freedesktop/quantum-launcher.desktop %{buildroot}/usr/share/applications/quantum-launcher.desktop
+install -Dm644 assets/icon/ql_logo.png %{buildroot}/usr/share/pixmaps/ql_logo.png
 
 %files
-%license LICENSE*
+%license LICENSE
 %doc README.md
 %{_bindir}/quantum-launcher
+/usr/share/applications/quantum-launcher.desktop
+/usr/share/pixmaps/ql_logo.png
 
 %changelog
 %autochangelog
