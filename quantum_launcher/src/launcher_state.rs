@@ -589,6 +589,7 @@ fn load_config_and_theme(
     let style = match config.style.as_deref() {
         Some("Brown") => LauncherStyle::Brown,
         Some("Purple") => LauncherStyle::Purple,
+        Some("Light Blue") => LauncherStyle::LightBlue,
         None => LauncherStyle::default(),
         _ => {
             err!("Unknown style: {:?}", config.style);

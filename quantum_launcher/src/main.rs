@@ -307,7 +307,8 @@ impl Application for Launcher {
                 match style.as_str() {
                     "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,
                     "Brown" => *self.style.lock().unwrap() = LauncherStyle::Brown,
-                    _ => err!("Invalid theme {style}"),
+                    "Light Blue" => *self.style.lock().unwrap() = LauncherStyle::LightBlue,
+                    _ => err!("Invalid style {style}"),
                 }
             }
             Message::ManageModsSelectAll => {

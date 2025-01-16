@@ -684,7 +684,11 @@ impl MenuLauncherUpdate {
 impl MenuLauncherSettings {
     pub fn view(config: Option<&LauncherConfig>) -> Element {
         let themes = ["Dark".to_owned(), "Light".to_owned()];
-        let styles = ["Brown".to_owned(), "Purple".to_owned()];
+        let styles = [
+            "Brown".to_owned(),
+            "Purple".to_owned(),
+            "Light Blue".to_owned(),
+        ];
 
         let config_view = if let Some(config) = config {
             widget::column!(
