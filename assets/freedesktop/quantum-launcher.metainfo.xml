@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2025 Mrmayman -->
 <component type="desktop-application">
-    <id>quantum-launcher</id>
+    <id>com.mrmayman.quantumlauncher</id>
     <name>Quantum Launcher</name>
     <developer_name>Mrmayman</developer_name>
     <summary>Simple Minecraft Launcher written in Rust</summary>
     <metadata_license>MIT</metadata_license>
-    <project_license>GPLv3</project_license>
+    <project_license>GPL-3.0-only</project_license>
     <url type="homepage">https://mrmayman.github.io/quantumlauncher</url>
     <url type="bugtracker">https://github.com/Mrmayman/quantum-launcher/issues</url>
     <url type="help">https://mrmayman.github.io/quantumlauncher/</url>
+    <url type="vcs-browser">https://github.com/Mrmayman/quantum-launcher/</url>
+    <categories>
+        <category>Game</category>
+        <category>Education</category>
+    </categories>
     <description>
         <p>
             A minimalistic Minecraft launcher for Windows and Linux written in *Rust* with the *iced* framework.
@@ -22,6 +28,12 @@
             <li>Build in mod store to download your favorite mods</li>
         </ul>
     </description>
+    <!-- Desktop AND mobile supported -->
+    <recommends>
+        <control>keyboard</control>
+        <control>pointing</control>
+        <control>touch</control>
+    </recommends>
     <content_rating type="oars-1.1" />
     <launchable type="desktop-id">quantum-launcher.desktop</launchable>
     <screenshots>
