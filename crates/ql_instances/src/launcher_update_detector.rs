@@ -178,6 +178,17 @@ pub async fn install_launcher_update(
         has_finished: false,
     })?;
     zip_extract::extract(std::io::Cursor::new(download_zip), exe_location, true)?;
+
+    // Should I, though?
+    let rm_path = exe_location.join("README.md");
+    if rm_path.exists() {
+        std::fs::remove_file(&rm_path).path(rm_path)?;
+    }
+    let rm_path = exe_location.join("LICENSE");
+    if rm_path.exists() {
+        std::fs::remove_file(&rm_path).path(rm_path)?;
+    }
+
     let extract_name = if cfg!(target_os = "windows") {
         "quantum_launcher.exe"
     } else {

@@ -47,6 +47,92 @@ pub async fn launch_w(
     }
 }
 
+/// Launches the specified instance with the specified username.
+/// Will error if instance isn't created.
+///
+/// This auto downloads the required version of Java
+/// if it's not already installed.
+///
+/// If you want, you can hook this up to a progress bar
+/// (since installing Java takes a while), by using a
+/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
+/// sender to this function and polling the receiver frequently.
+/// If not needed, simply pass `None` to the function.
+pub async fn launch(
+    instance_name: String,
+    username: String,
+    java_install_progress_sender: Option<Sender<GenericProgress>>,
+    asset_redownload_progress: Option<Sender<GenericProgress>>,
+) -> Result<Child, GameLaunchError> {
+    if username.contains(' ') || username.is_empty() {
+        return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
+    }
+
+    let mut game_launcher = GameLauncher::new(
+        instance_name,
+        username,
+        java_install_progress_sender,
+        asset_redownload_progress,
+    )?;
+
+    game_launcher.migrate_old_instances().await?;
+    game_launcher.create_mods_dir()?;
+
+    let mut game_arguments = game_launcher.init_game_arguments().await?;
+    let mut java_arguments = game_launcher.init_java_arguments()?;
+
+    let fabric_json = game_launcher.setup_fabric(&mut java_arguments)?;
+    let forge_json = game_launcher
+        .setup_forge(&mut java_arguments, &mut game_arguments)
+        .await?;
+    let optifine_json = game_launcher.setup_optifine(&mut game_arguments).await?;
+
+    game_launcher.fill_java_arguments(&mut java_arguments)?;
+    game_launcher.setup_logging(&mut java_arguments)?;
+    game_launcher.setup_classpath_and_mainclass(
+        &mut java_arguments,
+        fabric_json,
+        forge_json,
+        optifine_json.as_ref(),
+    )?;
+
+    let mut command = game_launcher.get_java_command().await?;
+
+    info!("Java args: {java_arguments:?}\n");
+    info!("Game args: {game_arguments:?}\n");
+
+    let n = game_launcher
+        .config_json
+        .java_args
+        .clone()
+        .unwrap_or_default();
+
+    let mut command = command.args(
+        n.iter()
+            .chain(java_arguments.iter())
+            .chain(game_arguments.iter())
+            .chain(
+                game_launcher
+                    .config_json
+                    .game_args
+                    .clone()
+                    .unwrap_or_default()
+                    .iter(),
+            )
+            .filter(|n| !n.is_empty()),
+    );
+    command = if game_launcher.config_json.enable_logger.unwrap_or(true) {
+        command.stdout(Stdio::piped()).stderr(Stdio::piped())
+    } else {
+        command
+    }
+    .current_dir(&game_launcher.minecraft_dir);
+
+    let child = command.spawn().map_err(GameLaunchError::CommandError)?;
+
+    Ok(child)
+}
+
 pub struct GameLauncher {
     pub username: String,
     pub instance_name: String,
@@ -260,7 +346,7 @@ impl GameLauncher {
                         args.push("-Dhttp.proxyPort=11707".to_owned());
                     }
                 }
-                (Err(e), Err(_)) | (Err(e), Ok(_)) | (Ok(_), Err(e)) => {
+                (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
                     err!("Could not parse instance date/time: {e}")
                 }
             }
@@ -584,93 +670,6 @@ fn remove_version_from_library(library: &str) -> Option<String> {
         // Return None if the input format is incorrect
         None
     }
-}
-
-/// Launches the specified instance with the specified username.
-/// Will error if instance isn't created.
-///
-/// This auto downloads the required version of Java
-/// if it's not already installed.
-///
-/// If you want, you can hook this up to a progress bar
-/// (since installing Java takes a while), by using a
-/// `std::sync::mpsc::channel::<JavaInstallMessage>()`, giving the
-/// sender to this function and polling the receiver frequently.
-/// If not needed, simply pass `None` to the function.
-pub async fn launch(
-    instance_name: String,
-    username: String,
-    java_install_progress_sender: Option<Sender<GenericProgress>>,
-    asset_redownload_progress: Option<Sender<GenericProgress>>,
-) -> Result<Child, GameLaunchError> {
-    if username.contains(' ') || username.is_empty() {
-        return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
-    }
-
-    let mut game_launcher = GameLauncher::new(
-        instance_name,
-        username,
-        java_install_progress_sender,
-        asset_redownload_progress,
-    )?;
-
-    game_launcher.migrate_old_instances().await?;
-    game_launcher.create_mods_dir()?;
-
-    let mut game_arguments = game_launcher.init_game_arguments().await?;
-    let mut java_arguments = game_launcher.init_java_arguments()?;
-
-    let fabric_json = game_launcher.setup_fabric(&mut java_arguments)?;
-    let forge_json = game_launcher
-        .setup_forge(&mut java_arguments, &mut game_arguments)
-        .await?;
-    let optifine_json = game_launcher.setup_optifine(&mut game_arguments).await?;
-
-    game_launcher.fill_java_arguments(&mut java_arguments)?;
-    game_launcher.setup_logging(&mut java_arguments)?;
-    game_launcher.setup_classpath_and_mainclass(
-        &mut java_arguments,
-        fabric_json,
-        forge_json,
-        optifine_json.as_ref(),
-    )?;
-
-    let mut command = game_launcher.get_java_command().await?;
-
-    info!("Java args: {java_arguments:?}\n");
-    info!("Game args: {game_arguments:?}\n");
-
-    let n = game_launcher
-        .config_json
-        .java_args
-        .clone()
-        .unwrap_or_default();
-
-    let mut command = command.args(
-        n.iter()
-            .filter(|n| !n.is_empty())
-            .chain(java_arguments.iter())
-            .chain(game_arguments.iter())
-            .chain(
-                game_launcher
-                    .config_json
-                    .game_args
-                    .clone()
-                    .unwrap_or_default()
-                    .iter()
-                    .filter(|n| !n.is_empty()),
-            ),
-    );
-    command = if game_launcher.config_json.enable_logger.unwrap_or(true) {
-        command.stdout(Stdio::piped()).stderr(Stdio::piped())
-    } else {
-        command
-    }
-    .current_dir(&game_launcher.minecraft_dir);
-
-    let child = command.spawn().map_err(GameLaunchError::CommandError)?;
-
-    Ok(child)
 }
 
 fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {

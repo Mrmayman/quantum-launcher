@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Command};
 use ql_core::{err, file_utils, InstanceSelection, IntoIoError, SelectedMod};
-use ql_mod_manager::{
-    loaders::{self, optifine::OptifineInstallProgress},
-    mod_manager::ProjectInfo,
-};
+use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
 
 mod edit_instance;
 mod presets;
@@ -21,8 +18,7 @@ impl Launcher {
         match message {
             InstallFabricMessage::End(result) => match result {
                 Ok(()) => {
-                    let message = "Installed Fabric".to_owned();
-                    return self.go_to_main_menu(Some(message));
+                    return self.go_to_main_menu_with_message("Installed Fabric");
                 }
                 Err(err) => self.set_error(err),
             },
@@ -408,12 +404,7 @@ impl Launcher {
                     let (j_sender, j_recv) = std::sync::mpsc::channel();
 
                     self.state = State::InstallOptifine(MenuInstallOptifine {
-                        optifine_install_progress: Some(ProgressBar {
-                            num: 0.0,
-                            message: None,
-                            receiver: p_recv,
-                            progress: OptifineInstallProgress::P1Start,
-                        }),
+                        optifine_install_progress: Some(ProgressBar::with_recv(p_recv)),
                         java_install_progress: Some(ProgressBar::with_recv(j_recv)),
                         is_java_being_installed: false,
                     });

@@ -52,7 +52,7 @@ impl NativesEntry {
 }
 
 impl JsonNatives {
-    pub async fn download(entry: NativesEntry) -> Result<Self, serde_json::Error> {
+    pub fn get(entry: NativesEntry) -> Result<Self, serde_json::Error> {
         let json = entry.get_file();
         let json: Self = serde_json::from_str(json)?;
         Ok(json)

@@ -4,6 +4,7 @@ use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     LAUNCHER_VERSION_NAME,
 };
+use std::io::{stdout, Write};
 
 use crate::launcher_state::get_entries;
 
@@ -108,8 +109,9 @@ fn cmd_list_available_versions() {
         }
     };
 
+    let mut stdout = stdout().lock();
     for version in versions {
-        println!("{}", version);
+        writeln!(stdout, "{version}").unwrap();
     }
     std::process::exit(0);
 }
@@ -153,6 +155,12 @@ fn cmd_list_instances(
     info: &mut ArgumentInfo,
     dirname: &str,
 ) {
+    enum PrintCmd {
+        Name,
+        Version,
+        Type,
+    }
+
     let instances = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(get_entries(dirname.to_owned(), false))
@@ -164,12 +172,6 @@ fn cmd_list_instances(
             std::process::exit(1);
         }
     };
-
-    enum PrintCmd {
-        Name,
-        Version,
-        Type,
-    }
 
     let mut cmds: Vec<PrintCmd> = Vec::new();
 
@@ -202,7 +204,7 @@ fn cmd_list_instances(
                     if has_printed {
                         print!("\t");
                     }
-                    print!("{instance}")
+                    print!("{instance}");
                 }
                 PrintCmd::Version => {
                     if has_printed {
@@ -259,7 +261,7 @@ fn get_program_name(info: &mut ArgumentInfo, argument: Option<&str>) -> String {
         program.push_str(arg);
     }
     if cfg!(target_os = "windows") {
-        program.to_owned()
+        program.clone()
     } else {
         program.yellow().to_string()
     }

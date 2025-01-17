@@ -90,6 +90,7 @@ impl Application for Launcher {
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let load_icon_command = load_window_icon();
+
         let check_for_updates_command = Command::perform(
             ql_instances::check_for_launcher_updates_w(),
             Message::UpdateCheckResult,
@@ -193,7 +194,7 @@ impl Application for Launcher {
                             loader.to_string()
                         }
                     );
-                    return self.go_to_main_menu(Some(message));
+                    return self.go_to_main_menu_with_message(message);
                 }
                 Err(err) => self.set_error(err),
             },
@@ -202,8 +203,7 @@ impl Application for Launcher {
             }
             Message::InstallForgeEnd(result) => match result {
                 Ok(()) => {
-                    let message = "Installed Forge".to_owned();
-                    return self.go_to_main_menu(Some(message));
+                    return self.go_to_main_menu_with_message("Installed Forge");
                 }
                 Err(err) => self.set_error(err),
             },

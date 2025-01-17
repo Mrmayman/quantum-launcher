@@ -37,11 +37,16 @@ pub async fn install_optifine_w(
     .map_err(|err| err.to_string())
 }
 
+#[derive(Default)]
 pub enum OptifineInstallProgress {
+    #[default]
     P1Start,
     P2CompilingHook,
     P3RunningHook,
-    P4DownloadingLibraries { done: usize, total: usize },
+    P4DownloadingLibraries {
+        done: usize,
+        total: usize,
+    },
     P5Done,
 }
 

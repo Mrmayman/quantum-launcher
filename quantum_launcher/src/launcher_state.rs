@@ -312,9 +312,9 @@ pub enum MenuInstallFabric {
 impl MenuInstallFabric {
     pub fn is_quilt(&self) -> bool {
         match self {
-            MenuInstallFabric::Loading(is_quilt) => *is_quilt,
-            MenuInstallFabric::Loaded { is_quilt, .. } => *is_quilt,
-            MenuInstallFabric::Unsupported(is_quilt) => *is_quilt,
+            MenuInstallFabric::Loading(is_quilt)
+            | MenuInstallFabric::Loaded { is_quilt, .. }
+            | MenuInstallFabric::Unsupported(is_quilt) => *is_quilt,
         }
     }
 }
@@ -483,13 +483,14 @@ impl Launcher {
         } else {
             MenuLaunch::default()
         });
+
         let state = if let Some(config) = &mut config {
             let version = config.version.as_deref().unwrap_or("0.3.0");
-            if version != LAUNCHER_VERSION_NAME {
+            if version == LAUNCHER_VERSION_NAME {
+                launch
+            } else {
                 config.version = Some(LAUNCHER_VERSION_NAME.to_owned());
                 State::ChangeLog
-            } else {
-                launch
             }
         } else {
             launch

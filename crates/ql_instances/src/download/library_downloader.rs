@@ -15,9 +15,12 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use zip_extract::ZipExtractError;
 
-use crate::json_natives::{JsonNatives, NativesEntry};
+use crate::{
+    json_natives::{JsonNatives, NativesEntry},
+    OS_NAME,
+};
 
-use super::{constants::*, GameDownloader};
+use super::{constants::OS_NAMES, GameDownloader};
 
 #[derive(Serialize, Deserialize)]
 struct LwjglLibrary {
@@ -152,15 +155,18 @@ impl GameDownloader {
                     .download_library_normal(artifact, &libraries_dir)
                     .await?;
 
-                GameDownloader::extract_native_library(
-                    &self.instance_dir,
-                    &self.network_client,
+                let natives_path = self.instance_dir.join("libraries/natives");
+                extractlib_natives_field(
                     library,
-                    &jar_file,
-                    artifact,
                     replaced_libs,
+                    &jar_file,
+                    &natives_path,
+                    artifact,
+                    &self.network_client,
                 )
                 .await?;
+                extractlib_name_natives(library, &self.network_client, artifact, natives_path)
+                    .await?;
             }
             if let Some(classifiers) = classifiers {
                 self.download_library_native(classifiers, &libraries_dir, library.extract.as_ref())
@@ -182,125 +188,21 @@ impl GameDownloader {
     ) -> Result<(), DownloadError> {
         let natives_path = instance_dir.join("libraries/natives");
 
-        let name = library.name.as_deref().unwrap_or_default();
+        // Why 2 functions? Because there are multiple formats
+        // natives can come in, and we need to support all of them.
 
-        if let Some(natives) = &library.natives {
-            let is_valid = if IS_ARM_LINUX {
-                if let Some(name) = &library.name {
-                    if replaced_libs.contains(name) {
-                        true
-                    } else {
-                        pt!("Didn't replace {name}");
-                        false
-                    }
-                } else {
-                    pt!("Library doesn't have a name!");
-                    false
-                }
-            } else {
-                true
-            };
+        extractlib_natives_field(
+            library,
+            replaced_libs,
+            jar_file,
+            &natives_path,
+            artifact,
+            client,
+        )
+        .await?;
 
-            if is_valid {
-                if let Some(natives_name) = natives.get(OS_NAME) {
-                    info!("Extracting natives (1): {name}");
-                    pt!("Extracting main jar: {name}");
+        extractlib_name_natives(library, client, artifact, natives_path).await?;
 
-                    extract_zip_file(jar_file, &natives_path)
-                        .map_err(DownloadError::NativesExtractError)?;
-
-                    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-                    if library.name.as_deref() == Some("org.lwjgl.lwjgl:lwjgl-platform:2.9.0") {
-                        // TODO: Find a better way to do this
-                        let liblwjgl64_path = natives_path.join("liblwjgl64.so");
-                        if liblwjgl64_path.exists() {
-                            tokio::fs::remove_file(&liblwjgl64_path)
-                                .await
-                                .path(liblwjgl64_path)?;
-                        }
-                        let libopenal64_path = natives_path.join("libopenal64.so");
-                        if libopenal64_path.exists() {
-                            tokio::fs::remove_file(&libopenal64_path)
-                                .await
-                                .path(libopenal64_path)?;
-                        }
-                    }
-
-                    let url = &artifact.url[..artifact.url.len() - 4];
-                    let mut natives_url = format!("{url}-{natives_name}.jar");
-                    if natives_url == "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-natives-linux.jar" {
-                        natives_url = "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".to_owned();
-                    }
-                    if natives_url.ends_with("lwjgl-core-natives-linux.jar") {
-                        natives_url = natives_url.replace(
-                            "lwjgl-core-natives-linux.jar",
-                            "lwjgl-natives-linux-arm64.jar",
-                        );
-                    }
-                    pt!("Downloading native jar: {name}");
-                    let native_jar =
-                        match file_utils::download_file_to_bytes(client, &natives_url, false).await
-                        {
-                            Ok(n) => n,
-                            Err(RequestError::DownloadError { code, url }) => {
-                                if code.as_u16() == 404
-                                    && cfg!(target_arch = "aarch64")
-                                    && cfg!(target_os = "linux")
-                                {
-                                    file_utils::download_file_to_bytes(
-                                        client,
-                                        &natives_url.replace("linux.jar", "linux-arm64.jar"),
-                                        false,
-                                    )
-                                    .await?
-                                } else {
-                                    return Err(RequestError::DownloadError { code, url }.into());
-                                }
-                            }
-                            Err(err) => Err(err)?,
-                        };
-
-                    pt!("Extracting native jar: {name}");
-                    extract_zip_file(&native_jar, &natives_path)
-                        .map_err(DownloadError::NativesExtractError)?;
-                }
-            } else {
-                info!("Skipping natives (1): {name}");
-            }
-        }
-
-        if let Some(name) = &library.name {
-            if name.contains("native") {
-                // theofficialgman provides arm natives
-                // https://github.com/theofficialgman/piston-meta-arm64
-                let is_from_theofficialgman = if let Some(downloads) =
-                    library.downloads.as_ref().and_then(|n| n.artifact.as_ref())
-                {
-                    downloads.url.contains("theofficialgman")
-                        || downloads.url.contains("arm")
-                        || downloads.url.contains("aarch")
-                } else {
-                    false
-                };
-
-                let is_arm_native =
-                    name.contains("arm") || name.contains("aarch") || is_from_theofficialgman;
-
-                let is_compatible = IS_ARM_LINUX == is_arm_native;
-
-                if is_compatible {
-                    info!("Downloading native (2): {name}");
-                    let jar_file =
-                        file_utils::download_file_to_bytes(client, &artifact.url, false).await?;
-                    pt!("Extracting native: {name}");
-                    extract_zip_file(&jar_file, &natives_path)
-                        .map_err(DownloadError::NativesExtractError)?;
-                } else {
-                    info!("Downloading native (minecraft_arm): {name}");
-                    download_other_platform_natives(name, client, natives_path).await?;
-                }
-            }
-        }
         Ok(())
     }
 
@@ -417,6 +319,144 @@ impl GameDownloader {
     }
 }
 
+async fn extractlib_name_natives(
+    library: &Library,
+    client: &Client,
+    artifact: &LibraryDownloadArtifact,
+    natives_path: PathBuf,
+) -> Result<(), DownloadError> {
+    let Some(name) = &library.name else {
+        return Ok(());
+    };
+
+    if !name.contains("native") {
+        return Ok(());
+    }
+
+    // theofficialgman provides arm natives
+    // https://github.com/theofficialgman/piston-meta-arm64
+    let is_from_theofficialgman =
+        if let Some(downloads) = library.downloads.as_ref().and_then(|n| n.artifact.as_ref()) {
+            downloads.url.contains("theofficialgman")
+                || downloads.url.contains("arm")
+                || downloads.url.contains("aarch")
+        } else {
+            false
+        };
+
+    let is_arm_native = name.contains("arm") || name.contains("aarch") || is_from_theofficialgman;
+
+    let is_compatible = IS_ARM_LINUX == is_arm_native;
+
+    if is_compatible {
+        info!("Downloading native (2): {name}");
+        let jar_file = file_utils::download_file_to_bytes(client, &artifact.url, false).await?;
+        pt!("Extracting native: {name}");
+        extract_zip_file(&jar_file, &natives_path).map_err(DownloadError::NativesExtractError)?;
+    } else {
+        info!("Downloading native (minecraft_arm): {name}");
+        download_other_platform_natives(name, client, natives_path).await?;
+    }
+
+    Ok(())
+}
+
+async fn extractlib_natives_field(
+    library: &Library,
+    replaced_libs: &[String],
+    jar_file: &[u8],
+    natives_path: &PathBuf,
+    artifact: &LibraryDownloadArtifact,
+    client: &Client,
+) -> Result<(), DownloadError> {
+    let name = library.name.as_deref().unwrap_or_default();
+
+    let Some(natives) = &library.natives else {
+        return Ok(());
+    };
+
+    let is_valid = if IS_ARM_LINUX {
+        if let Some(name) = &library.name {
+            if replaced_libs.contains(name) {
+                true
+            } else {
+                pt!("Didn't replace {name}");
+                false
+            }
+        } else {
+            pt!("Library doesn't have a name!");
+            false
+        }
+    } else {
+        true
+    };
+
+    if !is_valid {
+        info!("Skipping natives (1): {name}");
+        return Ok(());
+    }
+
+    let Some(natives_name) = natives.get(OS_NAME) else {
+        return Ok(());
+    };
+
+    info!("Extracting natives (1): {name}");
+    pt!("Extracting main jar: {name}");
+
+    extract_zip_file(jar_file, natives_path).map_err(DownloadError::NativesExtractError)?;
+
+    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+    if library.name.as_deref() == Some("org.lwjgl.lwjgl:lwjgl-platform:2.9.0") {
+        // TODO: Find a better way to do this
+        let liblwjgl64_path = natives_path.join("liblwjgl64.so");
+        if liblwjgl64_path.exists() {
+            tokio::fs::remove_file(&liblwjgl64_path)
+                .await
+                .path(liblwjgl64_path)?;
+        }
+        let libopenal64_path = natives_path.join("libopenal64.so");
+        if libopenal64_path.exists() {
+            tokio::fs::remove_file(&libopenal64_path)
+                .await
+                .path(libopenal64_path)?;
+        }
+    }
+
+    let url = &artifact.url[..artifact.url.len() - 4];
+    let mut natives_url = format!("{url}-{natives_name}.jar");
+    if natives_url == "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-natives-linux.jar" {
+            "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".clone_into(&mut natives_url);
+    }
+    if natives_url.ends_with("lwjgl-core-natives-linux.jar") {
+        natives_url = natives_url.replace(
+            "lwjgl-core-natives-linux.jar",
+            "lwjgl-natives-linux-arm64.jar",
+        );
+    }
+    pt!("Downloading native jar: {name}");
+    let native_jar = match file_utils::download_file_to_bytes(client, &natives_url, false).await {
+        Ok(n) => n,
+        Err(RequestError::DownloadError { code, url }) => {
+            if code.as_u16() == 404 && cfg!(target_arch = "aarch64") && cfg!(target_os = "linux") {
+                file_utils::download_file_to_bytes(
+                    client,
+                    &natives_url.replace("linux.jar", "linux-arm64.jar"),
+                    false,
+                )
+                .await?
+            } else {
+                return Err(RequestError::DownloadError { code, url }.into());
+            }
+        }
+        Err(err) => Err(err)?,
+    };
+
+    pt!("Extracting native jar: {name}");
+    extract_zip_file(&native_jar, natives_path).map_err(DownloadError::NativesExtractError)?;
+
+    Ok(())
+}
+
 async fn download_other_platform_natives(
     name: &String,
     client: &Client,
@@ -427,7 +467,7 @@ async fn download_other_platform_natives(
         return Ok(());
     };
 
-    let json = JsonNatives::download(entry).await?;
+    let json = JsonNatives::get(entry)?;
 
     if !name.contains(&json.version) {
         err!("Version mismatch: {name} != {}", json.version);

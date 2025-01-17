@@ -71,36 +71,7 @@ pub async fn read_logs(
             line = stdout_reader.next_line() => {
                 if let Some(line) = line? {
                     if uses_xml {
-                        if line.starts_with("  </log4j:Event>") {
-                            xml_cache.push_str(&line);
-                            let xml = xml_cache.replace("<log4j:", "<").replace("</log4j:", "</");
-                            let start = xml.find("<Event");
-
-                            let text = if let Some(start) = start {
-                                if start > 0 {
-                                    let other_text = &xml[..start];
-                                    sender.send(LogLine::Message(other_text.to_owned()))?;
-                                    &xml[start..]
-                                } else {
-                                    &xml
-                                }
-                            } else {
-                                &xml
-                            };
-
-                            match serde_xml_rs::from_str(text) {
-                                Ok(log_event) => {
-                                    sender.send(LogLine::Info(log_event))?;
-                                    xml_cache.clear();
-                                },
-                                Err(err) => {
-                                    err!("Could not parse XML: {err}\n{text}\n");
-                                }
-                            }
-
-                        } else {
-                            xml_cache.push_str(&format!("{line}\n"));
-                        }
+                        read_stdout(&sender, &mut xml_cache, &line)?;
                     } else {
                         sender.send(LogLine::Message(format!("{line}\n")))?;
                     }
@@ -113,6 +84,42 @@ pub async fn read_logs(
             }
         }
     }
+}
+
+fn read_stdout(
+    sender: &Sender<LogLine>,
+    xml_cache: &mut String,
+    line: &str,
+) -> Result<(), ReadError> {
+    if !line.starts_with("  </log4j:Event>") {
+        xml_cache.push_str(&format!("{line}\n"));
+        return Ok(());
+    }
+
+    xml_cache.push_str(line);
+    let xml = xml_cache.replace("<log4j:", "<").replace("</log4j:", "</");
+    let start = xml.find("<Event");
+
+    let text = match start {
+        Some(start) if start > 0 => {
+            let other_text = &xml[..start];
+            sender.send(LogLine::Message(other_text.to_owned()))?;
+            &xml[start..]
+        }
+        _ => &xml,
+    };
+
+    match serde_xml_rs::from_str(text) {
+        Ok(log_event) => {
+            sender.send(LogLine::Info(log_event))?;
+            xml_cache.clear();
+        }
+        Err(err) => {
+            err!("Could not parse XML: {err}\n{text}\n");
+        }
+    }
+
+    Ok(())
 }
 
 fn is_xml(instance_name: &str) -> Result<bool, ReadError> {
@@ -196,13 +203,9 @@ impl From<serde_json::Error> for ReadError {
 /// This is used for XML logs.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogEvent {
-    #[serde(rename = "logger")]
     pub logger: String,
-    #[serde(rename = "timestamp")]
     pub timestamp: String,
-    #[serde(rename = "level")]
     pub level: String,
-    #[serde(rename = "thread")]
     pub thread: String,
     #[serde(rename = "Message")]
     pub message: LogMessage,

@@ -491,7 +491,8 @@ impl Launcher {
         Command::none()
     }
 
-    pub fn go_to_main_menu(&mut self, message: Option<String>) -> Command<Message> {
+    pub fn go_to_main_menu_with_message(&mut self, message: impl ToString) -> Command<Message> {
+        let message = Some(message.to_string());
         match self.selected_instance.as_ref().unwrap() {
             InstanceSelection::Instance(_) => self.go_to_launch_screen(message),
             InstanceSelection::Server(_) => self.go_to_server_manage_menu(message),
@@ -545,11 +546,11 @@ impl Launcher {
             return Command::none();
         };
 
-        let selected_mods = HashSet::from_iter(
-            menu.sorted_mods_list
-                .iter()
-                .filter_map(|n| n.is_manually_installed().then_some(n.id())),
-        );
+        let selected_mods = menu
+            .sorted_mods_list
+            .iter()
+            .filter_map(|n| n.is_manually_installed().then_some(n.id()))
+            .collect::<HashSet<_>>();
 
         let is_empty = menu.sorted_mods_list.is_empty();
 

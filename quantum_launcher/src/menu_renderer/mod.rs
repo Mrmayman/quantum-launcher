@@ -141,9 +141,11 @@ fn get_no_instance_message<'a>(is_server: bool) -> widget::Column<'a, Message, L
         if is_server { "a server" } else { "an instance" }
     ));
 
-    if IS_ARM_LINUX {
+    if IS_ARM_LINUX || cfg!(target_os = "macos") {
         let arm_message = widget::column!(
-            widget::text("Note: This ARM Linux version is VERY experimental. If you want to get help join our discord"),
+            widget::text(
+                "Note: This version is VERY experimental. If you want to get help join our discord"
+            ),
             button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
                 Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
             ),
@@ -151,7 +153,8 @@ fn get_no_instance_message<'a>(is_server: bool) -> widget::Column<'a, Message, L
         widget::column!(base_message, arm_message)
     } else {
         widget::column!(base_message)
-    }.spacing(10)
+    }
+    .spacing(10)
 }
 
 fn get_left_pane<'a>(
@@ -466,14 +469,14 @@ impl MenuInstallOptifine {
                 },
             )
         } else {
-            self.install_optifine_screen()
+            Self::install_optifine_screen()
         }
         .padding(10)
         .spacing(10)
         .into()
     }
 
-    pub fn install_optifine_screen(&self) -> iced::widget::Column<'_, Message, LauncherTheme> {
+    pub fn install_optifine_screen<'a>() -> iced::widget::Column<'a, Message, LauncherTheme> {
         widget::column!(
             button_with_icon(icon_manager::back(), "Back")
                 .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
@@ -673,6 +676,7 @@ impl MenuLauncherUpdate {
                     )
                 )
                 .spacing(5),
+                "Note: If you downloaded this from a package manager or store, update it from there, not here."
             )
         }
         .padding(10)
@@ -731,10 +735,10 @@ impl MenuLauncherSettings {
                     }
                 ),
                 config_view,
-                button_with_icon(icon_manager::page(), "View Changelog")
-                    .on_press(Message::CoreOpenChangeLog),
                 widget::container(
                     widget::column!(
+                        button_with_icon(icon_manager::page(), "View Changelog")
+                            .on_press(Message::CoreOpenChangeLog),
                         button_with_icon(icon_manager::page(), "Open Website").on_press(
                             Message::CoreOpenDir(
                                 "https://mrmayman.github.io/quantumlauncher".to_owned()
@@ -748,6 +752,9 @@ impl MenuLauncherSettings {
                         button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
                             Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
                         ),
+                        "QuantumLauncher is free and open source software under the GNU GPL3 license.",
+                        "If you like it, consider sharing it with your friends.",
+                        "Every new user motivates me to keep working on this :)"
                     )
                     .padding(10)
                     .spacing(10)

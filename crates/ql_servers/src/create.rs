@@ -38,65 +38,40 @@ pub async fn create_server(
     sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), ServerError> {
     let client = reqwest::Client::new();
+
     info!("Creating server: Downloading Manifest");
-    if let Some(sender) = &sender {
-        sender
-            .send(GenericProgress {
-                done: 0,
-                total: 3,
-                message: Some("Downloading Manifest".to_owned()),
-                has_finished: false,
-            })
-            .unwrap();
-    }
+    progress_manifest(sender.as_ref());
     let manifest = Manifest::download().await?;
 
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let server_dir = launcher_dir.join("servers").join(name);
-    if server_dir.exists() {
-        return Err(ServerError::ServerAlreadyExists);
-    }
-
-    tokio::fs::create_dir_all(&server_dir)
-        .await
-        .path(&server_dir)?;
-
+    let server_dir = get_server_dir(name).await?;
     let server_jar_path = server_dir.join("server.jar");
 
     let mut is_classic_server = false;
 
-    let (server_jar, version_json) = match &version {
+    let version_json = match &version {
         ListEntry::Normal(version) => {
-            download_from_mojang(&manifest, version, sender.as_ref(), &client).await?
+            let (jar, json) =
+                download_from_mojang(&manifest, version, sender.as_ref(), &client).await?;
+            tokio::fs::write(&server_jar_path, jar)
+                .await
+                .path(server_jar_path)?;
+            json
         }
         ListEntry::Omniarchive {
             category,
             name,
             url,
         } => {
-            download_from_omniarchive(category, &manifest, name, sender.as_ref(), &client, url)
-                .await?
+            let (jar, json) =
+                download_from_omniarchive(category, &manifest, name, sender.as_ref(), &client, url)
+                    .await?;
+            tokio::fs::write(&server_jar_path, jar)
+                .await
+                .path(server_jar_path)?;
+            json
         }
         ListEntry::OmniarchiveClassicZipServer { name, url } => {
             is_classic_server = true;
-
-            if let Some(sender) = &sender {
-                sender
-                    .send(GenericProgress {
-                        done: 2,
-                        total: 3,
-                        message: Some("Downloading Server Jar".to_owned()),
-                        has_finished: false,
-                    })
-                    .unwrap();
-            }
-            let archive = file_utils::download_file_to_bytes(&client, url, true).await?;
-            zip_extract::extract(std::io::Cursor::new(archive), &server_dir, true)?;
-
-            let old_path = server_dir.join("minecraft-server.jar");
-            tokio::fs::rename(&old_path, &server_jar_path)
-                .await
-                .path(old_path)?;
 
             let version_json = download_omniarchive_version(
                 &MinecraftVersionCategory::Classic,
@@ -107,26 +82,34 @@ pub async fn create_server(
             )
             .await?;
 
-            (Vec::new(), version_json)
+            progress_server_jar(sender.as_ref());
+            let archive = file_utils::download_file_to_bytes(&client, url, true).await?;
+            zip_extract::extract(std::io::Cursor::new(archive), &server_dir, true)?;
+
+            let old_path = server_dir.join("minecraft-server.jar");
+            tokio::fs::rename(&old_path, &server_jar_path)
+                .await
+                .path(old_path)?;
+
+            version_json
         }
     };
 
-    if !is_classic_server {
-        tokio::fs::write(&server_jar_path, server_jar)
-            .await
-            .path(server_jar_path)?;
-    }
+    write_json(&server_dir, version_json).await?;
+    write_eula(&server_dir).await?;
+    write_config(version, is_classic_server, &server_dir).await?;
 
-    let version_json_path = server_dir.join("details.json");
-    tokio::fs::write(&version_json_path, serde_json::to_string(&version_json)?)
-        .await
-        .path(version_json_path)?;
+    let mods_dir = server_dir.join("mods");
+    tokio::fs::create_dir(&mods_dir).await.path(mods_dir)?;
 
-    let eula_path = server_dir.join("eula.txt");
-    tokio::fs::write(&eula_path, "eula=true\n")
-        .await
-        .path(eula_path)?;
+    Ok(())
+}
 
+async fn write_config(
+    version: ListEntry,
+    is_classic_server: bool,
+    server_dir: &std::path::PathBuf,
+) -> Result<(), ServerError> {
     let server_config = InstanceConfigJson {
         mod_type: "Vanilla".to_owned(),
         java_override: None,
@@ -134,32 +117,75 @@ pub async fn create_server(
         enable_logger: Some(true),
         java_args: None,
         game_args: None,
-        omniarchive: if let ListEntry::Omniarchive {
-            category,
-            name,
-            url,
-        } = version
-        {
-            Some(OmniarchiveEntry {
-                name,
-                url,
-                category: category.to_string(),
-            })
-        } else {
-            None
-        },
+        omniarchive: get_omniarchive(version),
         is_classic_server: is_classic_server.then_some(true),
     };
-
     let server_config_path = server_dir.join("config.json");
     tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)
         .await
         .path(server_config_path)?;
-
-    let mods_dir = server_dir.join("mods");
-    tokio::fs::create_dir(&mods_dir).await.path(mods_dir)?;
-
     Ok(())
+}
+
+async fn get_server_dir(name: &str) -> Result<std::path::PathBuf, ServerError> {
+    let launcher_dir = file_utils::get_launcher_dir()?;
+    let server_dir = launcher_dir.join("servers").join(name);
+    if server_dir.exists() {
+        return Err(ServerError::ServerAlreadyExists);
+    }
+    tokio::fs::create_dir_all(&server_dir)
+        .await
+        .path(&server_dir)?;
+    Ok(server_dir)
+}
+
+fn progress_manifest(sender: Option<&Sender<GenericProgress>>) {
+    if let Some(sender) = sender {
+        sender
+            .send(GenericProgress {
+                done: 0,
+                total: 3,
+                message: Some("Downloading Manifest".to_owned()),
+                has_finished: false,
+            })
+            .unwrap();
+    }
+}
+
+async fn write_eula(server_dir: &std::path::PathBuf) -> Result<(), ServerError> {
+    let eula_path = server_dir.join("eula.txt");
+    tokio::fs::write(&eula_path, "eula=true\n")
+        .await
+        .path(eula_path)?;
+    Ok(())
+}
+
+async fn write_json(
+    server_dir: &std::path::PathBuf,
+    version_json: VersionDetails,
+) -> Result<(), ServerError> {
+    let version_json_path = server_dir.join("details.json");
+    tokio::fs::write(&version_json_path, serde_json::to_string(&version_json)?)
+        .await
+        .path(version_json_path)?;
+    Ok(())
+}
+
+fn get_omniarchive(version: ListEntry) -> Option<OmniarchiveEntry> {
+    if let ListEntry::Omniarchive {
+        category,
+        name,
+        url,
+    } = version
+    {
+        Some(OmniarchiveEntry {
+            name,
+            url,
+            category: category.to_string(),
+        })
+    } else {
+        None
+    }
 }
 
 async fn download_from_omniarchive(
@@ -173,6 +199,12 @@ async fn download_from_omniarchive(
     let version_json =
         download_omniarchive_version(category, manifest, name, sender, client).await?;
     info!("Downloading server jar");
+    progress_server_jar(sender);
+    let server_jar = file_utils::download_file_to_bytes(client, url, false).await?;
+    Ok((server_jar, version_json))
+}
+
+fn progress_server_jar(sender: Option<&Sender<GenericProgress>>) {
     if let Some(sender) = sender {
         sender
             .send(GenericProgress {
@@ -183,8 +215,6 @@ async fn download_from_omniarchive(
             })
             .unwrap();
     }
-    let server_jar = file_utils::download_file_to_bytes(client, url, false).await?;
-    Ok((server_jar, version_json))
 }
 
 async fn download_from_mojang(
@@ -197,32 +227,15 @@ async fn download_from_mojang(
         .find_name(version)
         .ok_or(ServerError::VersionNotFoundInManifest(version.to_owned()))?;
     info!("Downloading version JSON");
-    if let Some(sender) = sender {
-        sender
-            .send(GenericProgress {
-                done: 1,
-                total: 3,
-                message: Some("Downloading Version JSON".to_owned()),
-                has_finished: false,
-            })
-            .unwrap();
-    }
+    progress_json(sender);
     let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
     let Some(server) = &version_json.downloads.server else {
         return Err(ServerError::NoServerDownload);
     };
+
     info!("Downloading server jar");
-    if let Some(sender) = sender {
-        sender
-            .send(GenericProgress {
-                done: 2,
-                total: 3,
-                message: Some("Downloading Server Jar".to_owned()),
-                has_finished: false,
-            })
-            .unwrap();
-    }
+    progress_server_jar(sender);
     let server_jar = file_utils::download_file_to_bytes(client, &server.url, false).await?;
     Ok((server_jar, version_json))
 }
@@ -244,6 +257,13 @@ async fn download_omniarchive_version(
     }
     .ok_or(ServerError::VersionNotFoundInManifest(name.to_owned()))?;
     info!("Downloading version JSON");
+    progress_json(sender);
+    let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
+    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    Ok(version_json)
+}
+
+fn progress_json(sender: Option<&Sender<GenericProgress>>) {
     if let Some(sender) = sender {
         sender
             .send(GenericProgress {
@@ -254,9 +274,6 @@ async fn download_omniarchive_version(
             })
             .unwrap();
     }
-    let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
-    Ok(version_json)
 }
 
 /// Deletes a server with the given name.

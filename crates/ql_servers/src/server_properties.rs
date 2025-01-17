@@ -34,7 +34,7 @@ impl ServerProperties {
         let properties_file = server_dir.join("server.properties");
         let mut properties_content = String::new();
         for (key, value) in &self.entries {
-            properties_content.push_str(&format!("{}={}\n", key, value));
+            properties_content.push_str(&format!("{key}={value}\n"));
         }
         std::fs::write(&properties_file, properties_content).path(properties_file)?;
         Ok(())

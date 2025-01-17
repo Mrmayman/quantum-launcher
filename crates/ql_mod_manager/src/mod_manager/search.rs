@@ -139,7 +139,7 @@ impl Search {
             .await
             .map_err(|err| format!("{url}: {err}"))?;
 
-        if url.ends_with(".svg") {
+        if url.to_lowercase().ends_with(".svg") {
             return Ok(ImageResult {
                 url,
                 image,

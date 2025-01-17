@@ -15,6 +15,12 @@ use crate::{
 
 use super::{button_with_icon, Element};
 
+macro_rules! todoh {
+    ($desc:expr) => {
+        widget::column!(widget::text(concat!("[todo: ", $desc, "]"))).into()
+    };
+}
+
 impl MenuModsDownload {
     /// Renders the main store page, with the search bar,
     /// back button and list of searched mods.
@@ -260,10 +266,8 @@ impl MenuModsDownload {
             NodeValue::Link(node_link) => {
                 render_link(md, images_to_load, images_bitmap, images_svg, node_link)
             }
-            NodeValue::FrontMatter(_) => {
-                widget::column!(widget::text("[todo: front matter]")).into()
-            }
-            NodeValue::BlockQuote => widget::column!(widget::text("[todo: block quote]")).into(),
+            NodeValue::FrontMatter(_) => todoh!("front matter"),
+            NodeValue::BlockQuote => todoh!("block quote"),
             NodeValue::List(_list) => {
                 render_children(md, 0, images_to_load, images_bitmap, images_svg)
                     .spacing(10)
@@ -272,18 +276,10 @@ impl MenuModsDownload {
             NodeValue::Item(item) => {
                 render_list_item(md, item, images_to_load, images_bitmap, images_svg)
             }
-            NodeValue::DescriptionList => {
-                widget::column!(widget::text("[todo: description list]")).into()
-            }
-            NodeValue::DescriptionItem(_) => {
-                widget::column!(widget::text("[todo: description item]")).into()
-            }
-            NodeValue::DescriptionTerm => {
-                widget::column!(widget::text("[todo: description term]")).into()
-            }
-            NodeValue::DescriptionDetails => {
-                widget::column!(widget::text("[todo: description details]")).into()
-            }
+            NodeValue::DescriptionList => todoh!("description list"),
+            NodeValue::DescriptionItem(_) => todoh!("description item"),
+            NodeValue::DescriptionTerm => todoh!("description term"),
+            NodeValue::DescriptionDetails => todoh!("description details"),
             NodeValue::CodeBlock(block) => widget::container(
                 widget::text(&block.literal).font(iced::Font::with_name("JetBrains Mono")),
             )
@@ -297,9 +293,7 @@ impl MenuModsDownload {
             NodeValue::ThematicBreak => widget::row!(widget::text("_____").size(20))
                 .align_items(iced::Alignment::Center)
                 .into(),
-            NodeValue::FootnoteDefinition(_) => {
-                widget::column!(widget::text("[todo: footnote definition]")).into()
-            }
+            NodeValue::FootnoteDefinition(_) => todoh!("footnote definition"),
             NodeValue::Table(_) => widget::column!(widget::text("[todo: table]")).into(),
             NodeValue::TableRow(_) => widget::column!(widget::text("[todo: table row]")).into(),
             NodeValue::TableCell => widget::column!(widget::text("[todo: table cell]")).into(),
@@ -324,10 +318,8 @@ impl MenuModsDownload {
                 element
             }))
             .into(),
-            NodeValue::Strikethrough => {
-                widget::column!(widget::text("[todo: strikethrough]")).into()
-            }
-            NodeValue::Superscript => widget::column!(widget::text("[todo: superscript]")).into(),
+            NodeValue::Strikethrough => todoh!("strikethrough"),
+            NodeValue::Superscript => todoh!("superscript"),
             NodeValue::Image(link) => {
                 if let Some(image) = images_bitmap.get(&link.url) {
                     widget::image(image.clone()).width(300).into()
@@ -339,20 +331,14 @@ impl MenuModsDownload {
                     widget::text("(Loading image...)").into()
                 }
             }
-            NodeValue::FootnoteReference(_) => {
-                widget::column!(widget::text("[todo: footnote reference]")).into()
-            }
-            NodeValue::Math(_) => widget::column!(widget::text("[todo: math]")).into(),
-            NodeValue::MultilineBlockQuote(_) => {
-                widget::column!(widget::text("[todo: multiline block quote]")).into()
-            }
-            NodeValue::Escaped => widget::column!(widget::text("[todo: escaped]")).into(),
-            NodeValue::WikiLink(_) => widget::column!(widget::text("[todo: wiki link]")).into(),
-            NodeValue::Underline => widget::column!(widget::text("[todo: underline]")).into(),
-            NodeValue::SpoileredText => {
-                widget::column!(widget::text("[todo: spoilered text]")).into()
-            }
-            NodeValue::EscapedTag(_) => widget::column!(widget::text("[todo: escaped tag]")).into(),
+            NodeValue::FootnoteReference(_) => todoh!("footnote reference"),
+            NodeValue::Math(_) => todoh!("math"),
+            NodeValue::MultilineBlockQuote(_) => todoh!("multiline block quote"),
+            NodeValue::Escaped => todoh!("escaped"),
+            NodeValue::WikiLink(_) => todoh!("wiki link"),
+            NodeValue::Underline => todoh!("underline"),
+            NodeValue::SpoileredText => todoh!("spoilered text"),
+            NodeValue::EscapedTag(_) => todoh!("escaped tag"),
         }
     }
 }
