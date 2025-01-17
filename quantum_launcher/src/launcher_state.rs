@@ -366,6 +366,7 @@ pub enum MenuEditPresetsInner {
 
 /// The enum that represents which menu is opened currently.
 pub enum State {
+    Welcome,
     Launch(MenuLaunch),
     ChangeLog,
     EditInstance(MenuEditInstance),
@@ -475,7 +476,7 @@ impl Drop for ServerProcess {
 }
 
 impl Launcher {
-    pub fn load_new(message: Option<String>) -> Result<Self, JsonFileError> {
+    pub fn load_new(message: Option<String>, is_new_user: bool) -> Result<Self, JsonFileError> {
         let (mut config, theme, style) = load_config_and_theme()?;
 
         let launch = State::Launch(if let Some(message) = message {
@@ -484,7 +485,9 @@ impl Launcher {
             MenuLaunch::default()
         });
 
-        let state = if let Some(config) = &mut config {
+        let state = if is_new_user {
+            State::Welcome
+        } else if let Some(config) = &mut config {
             let version = config.version.as_deref().unwrap_or("0.3.0");
             if version == LAUNCHER_VERSION_NAME {
                 launch

@@ -199,9 +199,11 @@ impl Launcher {
                     progress.tick();
                 }
             }
+            // These menus don't require background ticking
             State::Error { .. }
             | State::ConfirmAction { .. }
             | State::ChangeLog
+            | State::Welcome
             | State::InstallPaper => {}
         }
 

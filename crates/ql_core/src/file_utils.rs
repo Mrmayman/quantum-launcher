@@ -16,6 +16,14 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     Ok(launcher_directory)
 }
 
+pub fn is_new_user() -> bool {
+    let Some(config_directory) = dirs::config_dir() else {
+        return false;
+    };
+    let launcher_directory = config_directory.join("QuantumLauncher");
+    !launcher_directory.exists()
+}
+
 /// Returns the path to `.minecraft` folder containing the game files.
 pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir()?;

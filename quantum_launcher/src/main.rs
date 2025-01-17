@@ -55,9 +55,12 @@ use launcher_state::{
     MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
 
-use menu_renderer::{button_with_icon, changelog::changelog_0_3_1};
+use menu_renderer::{
+    button_with_icon,
+    changelog::{changelog_0_3_1, welcome_msg},
+};
 use message_handler::open_file_explorer;
-use ql_core::{err, info, InstanceSelection, SelectedMod};
+use ql_core::{err, file_utils, info, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{loaders, mod_manager::Loader};
 use stylesheet::styles::{LauncherStyle, LauncherTheme};
@@ -96,13 +99,16 @@ impl Application for Launcher {
             Message::UpdateCheckResult,
         );
 
+        let is_new_user = file_utils::is_new_user();
+        // let is_new_user = true;
+
         let get_entries_command = Command::perform(
             get_entries("instances".to_owned(), false),
             Message::CoreListLoaded,
         );
 
         (
-            Launcher::load_new(None).unwrap_or_else(Launcher::with_error),
+            Launcher::load_new(None, is_new_user).unwrap_or_else(Launcher::with_error),
             Command::batch(vec![
                 load_icon_command,
                 check_for_updates_command,
@@ -694,6 +700,7 @@ impl Application for Launcher {
                 .spacing(10),
             )
             .into(),
+            State::Welcome => welcome_msg(),
         }
     }
 
