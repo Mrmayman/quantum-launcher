@@ -1,0 +1,6 @@
+Package: quantum-launcher
+Version: 0.3.1
+Maintainer: Mrmayman <navneetkrishna22@gmail.com>
+Architecture: all
+Description: A simple Minecraft Launcher written in Rust
+Source: quantum-launcher
