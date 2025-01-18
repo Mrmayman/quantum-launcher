@@ -33,6 +33,7 @@ install -Dm644 assets/freedesktop/quantum-launcher.metainfo.xml %{buildroot}/usr
 %{_bindir}/quantum-launcher
 /usr/share/applications/quantum-launcher.desktop
 /usr/share/pixmaps/ql_logo.png
+/usr/share/metainfo/quantum-launcher.metainfo.xml
 
 %changelog
 %autochangelog
