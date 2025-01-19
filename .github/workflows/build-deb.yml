@@ -81,7 +81,7 @@ jobs:
 
           cp -pdf "quantum-launcher.desktop" "usr/share/applications/quantum-launcher.desktop"
           cp -pdf "quantum-launcher.metainfo.xml" "usr/share/metainfo/quantum-launcher.metainfo.xml"
-          cp -pdf "../icon/ql_logo.png" "usr/share/pixmaps/ql_logo.png"
+          cp -pdf "../icon/ql_logo.png" "usr/share/pixmaps/com.mrmayman.quantumlauncher.png"
           mv debian DEBIAN
           fakeroot dpkg-deb --build . ../../dist/$PROJECT_NAME-${{ matrix.build }}.deb
 

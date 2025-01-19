@@ -1,0 +1,45 @@
+app-id: com.mrmayman.quantumlauncher
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: quantum-launcher
+finish-args:
+  # Needs to talk to the network:
+  - --share=network
+  # Wayland access
+  - --socket=wayland
+  # X11 + XShm access
+  - --share=ipc
+  - --socket=fallback-x11
+  # It's Minecraft, so needs access to as many devices as possible for modding
+  - --device=all
+  - --device=shm
+  # Access to PulseAudio
+  - --socket=pulseaudio
+modules:
+  - name: quantum-launcher
+    buildsystem: simple
+    sources:
+      - type: git
+        url: https://github.com/Mrmayman/quantum-launcher
+        branch: main
+      - type: file
+        path: assets/freedesktop/quantum-launcher.desktop
+      - type: file
+        path: assets/freedesktop/quantum-launcher.metainfo.xml
+      - type: file
+        path: assets/icon/ql_logo.png
+    build-commands:
+      - cargo build --profile release
+      - strip --strip-all target/release/quantum_launcher
+      - install -Dm755 target/release/quantum_launcher /app/bin/quantum-launcher
+      - install -Dm644 quantum-launcher.desktop /app/share/applications/com.mrmayman.quantumlauncher.desktop
+      - install -Dm644 quantum-launcher.metainfo.xml /app/share/metainfo/com.mrmayman.quantumlauncher.metainfo.xml
+      - install -Dm644 ql_logo.png /app/share/icons/hicolor/128x128/apps/com.mrmayman.quantumlauncher.png
+    build-options:
+      append-path: "/usr/lib/sdk/rust-stable/bin"
+      build-args:
+        - "--share=network"     
+    

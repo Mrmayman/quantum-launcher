@@ -5,6 +5,6 @@ Version=1.5
 Name=Quantum Launcher
 Comment=A minimalistic Minecraft launcher for Windows and Linux written in Rust with the iced framework.
 Categories=Game;Education;
-Icon=ql_logo
+Icon=com.mrmayman.quantumlauncher
 Exec=quantum-launcher
 PrefersNonDefaultGPU=true

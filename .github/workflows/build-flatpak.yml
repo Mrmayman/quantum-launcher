@@ -1,0 +1,43 @@
+name: Build-Flatpak
+
+# permissions:
+#  contents: write
+
+on:
+  workflow_dispatch: # allows manual triggering
+
+env:
+  BIN_NAME: quantum_launcher
+  PROJECT_NAME: quantum_launcher
+  REPO_NAME: Mrmayman/quantum-launcher
+
+jobs:
+  Flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # don't fail other jobs if one fails
+      
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+    
+      - name: Install Flatpak and Flathub
+        run: |
+          sudo apt-get update
+          sudo apt-get install flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 -y
+        
+      - name: Build Flatpak
+        run: |
+          cp assets/freedesktop/manifest.yml .
+          flatpak-builder --user build manifest.yml
+          flatpak build-export export build
+          exec flatpak build-bundle export quantum-launcher.flatpak com.mrmayman.quantumlauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-launcher.flatpak
+          path: quantum-launcher.flatpak
