@@ -35,10 +35,10 @@
         <control>touch</control>
     </recommends>
     <content_rating type="oars-1.1" />
-    <launchable type="desktop-id">quantum-launcher.desktop</launchable>
+    <launchable type="desktop-id">com.mrmayman.quantumlauncher.desktop</launchable>
     <screenshots>
         <screenshot type="default">
-            <image>https://raw.githubusercontent.com/Mrmayman/quantum-launcher/master/quantum_launcher.png</image>
+            <image>https://raw.githubusercontent.com/Mrmayman/quantum-launcher/main/quantum_launcher.png</image>
         </screenshot>
         <releases>
             <release version="0.3.1" date="2025-01-17"/>
