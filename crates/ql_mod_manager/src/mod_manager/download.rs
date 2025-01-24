@@ -106,9 +106,9 @@ fn get_config_json(instance: &InstanceSelection) -> Result<InstanceConfigJson, M
     Ok(config_json)
 }
 
-struct ModDownloader {
+pub(crate) struct ModDownloader {
     version: String,
-    index: ModIndex,
+    pub index: ModIndex,
     loader: Option<String>,
     currently_installing_mods: HashSet<String>,
     client: Client,
@@ -116,7 +116,7 @@ struct ModDownloader {
 }
 
 impl ModDownloader {
-    fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
+    pub fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
         let mods_dir = get_mods_dir(instance_name)?;
 
         let version_json = get_version_json(instance_name)?;
@@ -136,7 +136,7 @@ impl ModDownloader {
     }
 
     #[async_recursion]
-    async fn download_project(
+    pub async fn download_project(
         &mut self,
         id: &str,
         dependent: Option<&str>,

@@ -108,7 +108,7 @@ pub async fn create_server(
 async fn write_config(
     version: ListEntry,
     is_classic_server: bool,
-    server_dir: &std::path::PathBuf,
+    server_dir: &std::path::Path,
 ) -> Result<(), ServerError> {
     let server_config = InstanceConfigJson {
         mod_type: "Vanilla".to_owned(),
@@ -152,7 +152,7 @@ fn progress_manifest(sender: Option<&Sender<GenericProgress>>) {
     }
 }
 
-async fn write_eula(server_dir: &std::path::PathBuf) -> Result<(), ServerError> {
+async fn write_eula(server_dir: &std::path::Path) -> Result<(), ServerError> {
     let eula_path = server_dir.join("eula.txt");
     tokio::fs::write(&eula_path, "eula=true\n")
         .await
@@ -161,7 +161,7 @@ async fn write_eula(server_dir: &std::path::PathBuf) -> Result<(), ServerError> 
 }
 
 async fn write_json(
-    server_dir: &std::path::PathBuf,
+    server_dir: &std::path::Path,
     version_json: VersionDetails,
 ) -> Result<(), ServerError> {
     let version_json_path = server_dir.join("details.json");

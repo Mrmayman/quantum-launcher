@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 
 use iced::Command;
 use ql_core::{err, info, GenericProgress, InstanceSelection};
@@ -355,16 +358,29 @@ pub fn sort_dependencies(
             ModListEntry::Downloaded {
                 config: config2, ..
             },
-        ) => config.name.cmp(&config2.name),
-        (ModListEntry::Downloaded { .. }, ModListEntry::Local { .. }) => std::cmp::Ordering::Less,
-        (ModListEntry::Local { .. }, ModListEntry::Downloaded { .. }) => {
-            std::cmp::Ordering::Greater
+        ) => match (config.manually_installed, config2.manually_installed) {
+            (true, true) | (false, false) => config.name.cmp(&config2.name),
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+        },
+        (ModListEntry::Downloaded { config, .. }, ModListEntry::Local { .. }) => {
+            if config.manually_installed {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        }
+        (ModListEntry::Local { .. }, ModListEntry::Downloaded { config, .. }) => {
+            if config.manually_installed {
+                Ordering::Greater
+            } else {
+                Ordering::Less
+            }
         }
         (
-            ModListEntry::Local { file_name, .. },
+            ModListEntry::Local { file_name },
             ModListEntry::Local {
                 file_name: file_name2,
-                ..
             },
         ) => file_name.cmp(file_name2),
     });

@@ -412,7 +412,7 @@ impl Launcher {
                     return Command::perform(
                         // Note: OptiFine does not support servers
                         // so it's safe to assume we've selected an instance.
-                        ql_mod_manager::loaders::optifine::install_optifine_w(
+                        ql_mod_manager::loaders::optifine::install_w(
                             self.selected_instance
                                 .as_ref()
                                 .unwrap()

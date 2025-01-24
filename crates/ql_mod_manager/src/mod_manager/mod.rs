@@ -16,6 +16,8 @@ pub use toggle::toggle_mods_w;
 pub use update::{apply_updates_w, check_for_updates};
 pub use versions::{ModFile, ModHashes, ModVersion};
 
+pub(crate) use download::ModDownloader;
+
 #[derive(Debug, Clone)]
 pub struct RecommendedMod {
     pub id: &'static str,

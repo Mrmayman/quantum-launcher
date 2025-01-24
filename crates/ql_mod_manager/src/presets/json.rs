@@ -13,7 +13,10 @@ use ql_core::{
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
 
-use crate::mod_manager::{download_mod, ModConfig, ModError, ModIndex};
+use crate::{
+    mod_manager::{ModConfig, ModDownloader, ModError, ModIndex},
+    rate_limiter::MOD_DOWNLOAD_LOCK,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct PresetJson {
@@ -111,8 +114,8 @@ impl PresetJson {
     ) -> Result<Vec<String>, ModError> {
         info!("Importing mod preset");
 
-        let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
-        let config_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("config");
+        let main_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+        let mods_dir = main_dir.join("mods");
 
         let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;
 
@@ -129,18 +132,22 @@ impl PresetJson {
                     .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
                 let this: Self = serde_json::from_slice(&buf)?;
                 entries_modrinth = this.entries_modrinth;
-            } else if name.starts_with("config/") {
-                let name = name.strip_prefix("config/").unwrap();
-                let path = config_dir.join(name);
+            } else if name.starts_with("config/") || name.starts_with("config\\") {
+                pt!("Config file: {name}");
+                let path = main_dir.join(name.replace('\\', "/"));
 
-                let parent = path.parent().unwrap();
-                tokio::fs::create_dir_all(parent).await.path(parent)?;
+                if file.is_dir() {
+                    tokio::fs::create_dir_all(&path).await.path(&path)?;
+                } else {
+                    let parent = path.parent().unwrap();
+                    tokio::fs::create_dir_all(parent).await.path(parent)?;
 
-                let mut buf = Vec::new();
-                file.read_to_end(&mut buf)
-                    .map_err(|n| ModError::ZipIoError(n, name.to_owned()))?;
-                tokio::fs::write(&path, &buf).await.path(&path)?;
-            } else if name.contains('/') {
+                    let mut buf = Vec::new();
+                    file.read_to_end(&mut buf)
+                        .map_err(|n| ModError::ZipIoError(n, name.to_owned()))?;
+                    tokio::fs::write(&path, &buf).await.path(&path)?;
+                }
+            } else if name.contains('/') || name.contains('\\') {
                 info!("Feature not implemented: {name}");
             } else {
                 pt!("Local file: {name}");
@@ -166,6 +173,16 @@ impl PresetJson {
         sender: Sender<GenericProgress>,
     ) -> Result<(), String> {
         let len = ids.len();
+
+        let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
+            g
+        } else {
+            info!("Another mod is already being installed... Waiting...");
+            MOD_DOWNLOAD_LOCK.lock().await
+        };
+
+        let mut downloader = ModDownloader::new(&instance_name).map_err(|err| err.to_string())?;
+
         for (i, id) in ids.into_iter().enumerate() {
             let _ = sender.send(GenericProgress {
                 done: i,
@@ -173,10 +190,19 @@ impl PresetJson {
                 message: None,
                 has_finished: false,
             });
-            download_mod(&id, &instance_name)
+
+            downloader
+                .download_project(&id, None, true)
                 .await
                 .map_err(|err| err.to_string())?;
+
+            if let Some(config) = downloader.index.mods.get_mut(&id) {
+                config.manually_installed = true;
+            }
         }
+
+        downloader.index.save().map_err(|err| err.to_string())?;
+
         let _ = sender.send(GenericProgress::finished());
         Ok(())
     }
@@ -234,6 +260,12 @@ async fn add_dir_to_zip_recursive(
         let accumulation = accumulation.join(path.file_name().unwrap().to_str().unwrap());
 
         if path.is_dir() {
+            zip.add_directory(
+                format!("{}/", accumulation.to_str().unwrap()),
+                zip::write::FileOptions::<()>::default(),
+            )
+            .map_err(ModError::Zip)?;
+
             // ... accumulation = "config/dir1"
             // Then this call will have "config/dir1" as starting value.
             add_dir_to_zip_recursive(&path, zip, accumulation.clone()).await?;

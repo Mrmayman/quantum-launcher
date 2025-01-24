@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
-};
+use std::{fmt::Display, path::PathBuf};
 
 use reqwest::Client;
 
@@ -136,7 +133,7 @@ impl Display for RequestError {
 /// This makes a file executable on Unix systems,
 /// ie. it can be run as a program.
 #[cfg(target_family = "unix")]
-pub fn set_executable(path: &Path) -> Result<(), IoError> {
+pub fn set_executable(path: &std::path::Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;
     let mut perms = std::fs::metadata(path).path(path)?.permissions();
     perms.set_mode(0o755); // rwxr-xr-x

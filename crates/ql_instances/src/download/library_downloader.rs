@@ -365,7 +365,7 @@ async fn extractlib_natives_field(
     library: &Library,
     replaced_libs: &[String],
     jar_file: &[u8],
-    natives_path: &PathBuf,
+    natives_path: &Path,
     artifact: &LibraryDownloadArtifact,
     client: &Client,
 ) -> Result<(), DownloadError> {

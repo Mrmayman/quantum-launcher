@@ -58,12 +58,18 @@ impl ModVersion {
         let mut mods = vec![];
         let len = ids.len();
         for (i, id) in ids.into_iter().enumerate() {
-            let _ = sender.send(GenericProgress {
-                done: i,
-                total: len,
-                message: Some(format!("Checking compatibility: {}", id.name)),
-                has_finished: false,
-            });
+            if sender
+                .send(GenericProgress {
+                    done: i,
+                    total: len,
+                    message: Some(format!("Checking compatibility: {}", id.name)),
+                    has_finished: false,
+                })
+                .is_err()
+            {
+                info!("Cancelled recommended mod check");
+                return Ok(Vec::new());
+            }
 
             let is_compatible = Self::is_compatible(id.id, version, loader).await?;
             pt!("{} : {is_compatible}", id.name);
