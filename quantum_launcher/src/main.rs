@@ -49,7 +49,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use std::{sync::Arc, time::Duration};
 
 use arguments::ArgumentInfo;
-use iced::{executor, widget, Application, Command, Settings};
+use iced::{widget, Application, Command, Settings};
 use launcher_state::{
     get_entries, Launcher, ManageModsMessage, MenuLauncherSettings, MenuLauncherUpdate,
     MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State,
@@ -86,7 +86,7 @@ mod tick;
 const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
 impl Application for Launcher {
-    type Executor = executor::Default;
+    type Executor = iced::executor::Default;
     type Message = Message;
     type Theme = LauncherTheme;
     type Flags = ();
@@ -603,6 +603,7 @@ impl Application for Launcher {
                     no: Message::ManageMods(ManageModsMessage::ScreenOpen),
                 }
             }
+            Message::CoreEvent(event, status) => return self.iced_event(event, status),
         }
         Command::none()
     }
@@ -610,8 +611,12 @@ impl Application for Launcher {
     fn subscription(&self) -> iced::Subscription<Self::Message> {
         const UPDATES_PER_SECOND: u64 = 12;
 
-        iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
-            .map(|_| Message::CoreTick)
+        let tick = iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
+            .map(|_| Message::CoreTick);
+
+        let events = iced::event::listen_with(|a, b| Some(Message::CoreEvent(a, b)));
+
+        iced::Subscription::batch(vec![tick, events])
     }
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {

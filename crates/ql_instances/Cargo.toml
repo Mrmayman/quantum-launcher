@@ -9,16 +9,16 @@ edition = "2021"
 ql_core = { path = "../ql_core" }
 omniarchive_api = { path = "../omniarchive_api" }
 
-reqwest = { version = "0.12" }
+chrono = { workspace = true }
 semver = "1"
-zip-extract = "0.1"
+zip-extract = { workspace = true }
 
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+tokio = { workspace = true }
+reqwest = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
 serde-xml-rs = "0.6"
 
-colored = "2"
+colored = { workspace = true }
 indicatif = "0.17"
-
-tokio = { version = "1", features = ["macros", "process"] }
-chrono = "0.4"

@@ -59,24 +59,24 @@ async fn add_omniarchive_versions(
     normal_list: &mut Vec<ListEntry>,
     progress: Option<Arc<Sender<()>>>,
 ) -> Result<(), ListError> {
-    for category in MinecraftVersionCategory::all_client().into_iter().rev() {
-        let versions = category.download_index(progress.clone(), false).await?;
-        for url in versions.into_iter().rev() {
-            let name = if let Some(name) = url
-                .strip_prefix("https://vault.omniarchive.uk/archive/java/client-")
-                .and_then(|n| n.strip_suffix(".jar"))
-            {
-                name.to_owned()
-            } else {
-                url.clone()
-            };
-            normal_list.push(ListEntry::Omniarchive {
-                category: category.clone(),
-                name,
-                url,
-            });
-        }
+    let versions = MinecraftVersionCategory::download_all(progress.clone(), false).await?;
+
+    for (category, url) in versions.into_iter().rev() {
+        let name = if let Some(name) = url
+            .strip_prefix("https://vault.omniarchive.uk/archive/java/client-")
+            .and_then(|n| n.strip_suffix(".jar"))
+        {
+            name.to_owned()
+        } else {
+            url.clone()
+        };
+        normal_list.push(ListEntry::Omniarchive {
+            category,
+            name,
+            url,
+        });
     }
+
     Ok(())
 }
 

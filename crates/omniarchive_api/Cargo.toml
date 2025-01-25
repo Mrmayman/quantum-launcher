@@ -6,7 +6,9 @@ edition = "2021"
 [dependencies]
 ql_core = { path = "../ql_core" }
 
+reqwest = { workspace = true }
+colored = { workspace = true }
+
+# HTML Parsing
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
-reqwest = "0.12"
-colored = "2"

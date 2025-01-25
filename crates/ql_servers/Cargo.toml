@@ -7,9 +7,9 @@ edition = "2021"
 ql_core = { path = "../ql_core" }
 omniarchive_api = { path = "../omniarchive_api" }
 
-reqwest = "0.12"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["macros", "process"] }
-colored = "2"
-zip-extract = "0.1"
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+colored = { workspace = true }
+zip-extract = { workspace = true }

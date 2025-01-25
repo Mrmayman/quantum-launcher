@@ -27,24 +27,31 @@ ql_servers = { path = "../crates/ql_servers" }
 iced = { version = "0.12", features = ["tokio", "image", "svg"] }
 
 # For parsing JSON
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 # For managing async tasks
-tokio = { version = "1", features = ["fs"] }
+tokio = { workspace = true }
 # For colored text output
-colored = "2"
+colored = { workspace = true }
 # For managing the logging time/date
-chrono = "0.4"
+chrono = { workspace = true }
 # For the icon widget macro
 paste = "1"
 # For the global style variable
-lazy_static = "1"
+lazy_static = { workspace = true }
 # For the file picker
 rfd = "0.15"
+# For getting terminal width
+crossterm = "0.28"
 
 comrak = "0.28" # For markdown parsing (displaying mod pages)
 image = "0.24"
 # We be implementing a full blown HTML renderer in iced with this one
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
+
+# Look, I could just have upgraded iced and used the
+# built in markdown widget in the new version.
+# But the whole process of migration is a giant
+# hassle with lots of breaking changes

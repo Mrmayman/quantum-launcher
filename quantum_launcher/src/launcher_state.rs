@@ -26,6 +26,7 @@ use crate::{
     config::LauncherConfig,
     message_handler::get_locally_installed_mods,
     stylesheet::styles::{LauncherStyle, LauncherTheme, STYLE},
+    WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
 #[derive(Debug, Clone)]
@@ -158,6 +159,7 @@ pub enum Message {
     CoreListLoaded(Result<(Vec<String>, bool), String>),
     CoreCopyText(String),
     CoreOpenChangeLog,
+    CoreEvent(iced::Event, iced::event::Status),
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
@@ -335,7 +337,7 @@ pub struct MenuModsDownload {
     pub results: Option<Search>,
     pub result_data: HashMap<String, ProjectInfo>,
     pub config: InstanceConfigJson,
-    pub json: Box<VersionDetails>,
+    pub json: VersionDetails,
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
     pub is_loading_search: bool,
@@ -449,6 +451,7 @@ pub struct Launcher {
     pub images_to_load: Mutex<HashSet<String>>,
     pub theme: LauncherTheme,
     pub style: Arc<Mutex<LauncherStyle>>,
+    pub window_size: (u32, u32),
 }
 
 pub struct ClientProcess {
@@ -518,6 +521,7 @@ impl Launcher {
             server_version_list_cache: None,
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
+            window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
         })
     }
 
@@ -549,10 +553,11 @@ impl Launcher {
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
             server_version_list_cache: None,
+            window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
         }
     }
 
-    pub fn set_error<T: ToString>(&mut self, error: T) {
+    pub fn set_error(&mut self, error: impl ToString) {
         self.state = State::Error {
             error: error.to_string(),
         }

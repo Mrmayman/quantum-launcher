@@ -512,9 +512,9 @@ impl MenuCreateInstance {
                 progress_number, ..
             } => widget::column![
                 widget::text("Loading version list...").size(20),
-                widget::progress_bar(0.0..=21.0, *progress_number),
+                widget::progress_bar(0.0..=24.0, *progress_number),
                 widget::text(if *progress_number >= 1.0 {
-                    format!("Downloading Omniarchive list {progress_number} / 20")
+                    format!("Downloading Omniarchive list {progress_number} / 24")
                 } else {
                     "Downloading official version list".to_owned()
                 })

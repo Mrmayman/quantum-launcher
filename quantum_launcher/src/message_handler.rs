@@ -4,9 +4,9 @@ use std::{
 };
 
 use chrono::Datelike;
-use iced::Command;
+use iced::{keyboard::Key, Command};
 use ql_core::{
-    err, file_utils,
+    err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, JsonFileError,
 };
@@ -16,11 +16,15 @@ use ql_mod_manager::{
     mod_manager::{Loader, ModIndex, ModVersion, RECOMMENDED_MODS},
 };
 
-use crate::launcher_state::{
-    get_entries, ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
-    Launcher, ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods,
-    MenuEditPresets, MenuEditPresetsInner, MenuInstallForge, MenuLaunch, MenuServerManage, Message,
-    ProgressBar, SelectedState, ServerProcess, State,
+use crate::{
+    get_entries,
+    launcher_state::{
+        ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
+        MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditPresets, MenuEditPresetsInner,
+        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate,
+        MenuServerManage,
+    },
+    Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
 
 impl Launcher {
@@ -524,7 +528,7 @@ impl Launcher {
             Ok(mods) => {
                 let (sender, receiver) = std::sync::mpsc::channel();
                 if let State::ManagePresets(menu) = &mut self.state {
-                    menu.progress = Some(ProgressBar::with_recv(receiver))
+                    menu.progress = Some(ProgressBar::with_recv(receiver));
                 }
                 return Command::perform(
                     ql_mod_manager::PresetJson::download_entries_w(
@@ -597,6 +601,119 @@ impl Launcher {
             ),
             |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n)),
         )
+    }
+
+    fn escape_back_button(&mut self) -> Command<Message> {
+        let mut should_return_to_main_screen = false;
+        let mut should_return_to_mods_screen = false;
+
+        match &self.state {
+            State::ChangeLog
+            | State::EditInstance(_)
+            | State::EditMods(MenuEditMods {
+                mod_update_progress: None,
+                ..
+            })
+            | State::Create(MenuCreateInstance::Loaded { progress: None, .. })
+            | State::Error { .. }
+            | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
+            | State::LauncherSettings
+            | State::Welcome => {
+                should_return_to_main_screen = true;
+            }
+            State::ConfirmAction { no, .. } => {
+                let no = no.clone();
+                return Command::perform(async move {}, |()| no);
+            }
+
+            State::InstallOptifine(MenuInstallOptifine {
+                optifine_install_progress: None,
+                java_install_progress: None,
+                ..
+            })
+            | State::InstallFabric(MenuInstallFabric::Loaded { progress: None, .. }) => {
+                should_return_to_mods_screen = true;
+            }
+            State::ModsDownload(menu) if menu.mods_download_in_progress.is_empty() => {
+                should_return_to_mods_screen = true;
+            }
+            State::InstallPaper
+            | State::InstallForge(_)
+            | State::InstallJava(_)
+            | State::InstallOptifine(_)
+            | State::UpdateFound(_)
+            | State::RedownloadAssets { .. }
+            | State::InstallFabric(_)
+            | State::EditMods(_)
+            | State::Create(_)
+            | State::ManagePresets(_)
+            | State::ModsDownload(_)
+            | State::ServerManage(_)
+            | State::ServerCreate(_)
+            | State::Launch(_) => {}
+        }
+
+        if should_return_to_main_screen {
+            return self.go_to_launch_screen(None);
+        }
+        if should_return_to_mods_screen {
+            match self.go_to_edit_mods_menu_without_update_check() {
+                Ok(cmd) => return cmd,
+                Err(err) => self.set_error(err),
+            }
+        }
+
+        Command::none()
+    }
+
+    pub fn iced_event(
+        &mut self,
+        event: iced::Event,
+        status: iced::event::Status,
+    ) -> Command<Message> {
+        match event {
+            iced::Event::Window(_, event) => match event {
+                iced::window::Event::CloseRequested => {
+                    info!("Shutting down launcher (1)");
+                }
+                iced::window::Event::Closed => {
+                    info!("Shutting down launcher (2)");
+                }
+                iced::window::Event::Resized { width, height } => {
+                    self.window_size = (width, height);
+                }
+                iced::window::Event::RedrawRequested(_)
+                | iced::window::Event::Moved { .. }
+                | iced::window::Event::Opened { .. }
+                | iced::window::Event::Focused
+                | iced::window::Event::Unfocused
+                | iced::window::Event::FileHovered(_)
+                | iced::window::Event::FileDropped(_)
+                | iced::window::Event::FilesHoveredLeft => {}
+            },
+            iced::Event::Keyboard(event) => match event {
+                iced::keyboard::Event::KeyPressed {
+                    key,
+                    // location,
+                    // modifiers,
+                    ..
+                } => {
+                    if let iced::event::Status::Ignored = status {
+                        if let Key::Named(iced::keyboard::key::Named::Escape) = key {
+                            return self.escape_back_button();
+                        } else {
+                            // TODO: Ctrl Q to quit
+                        }
+                    } else {
+                        // FUTURE
+                    }
+                }
+                iced::keyboard::Event::KeyReleased { .. }
+                | iced::keyboard::Event::ModifiersChanged(_) => {}
+            },
+            iced::Event::Touch(_) | iced::Event::Mouse(_) => {}
+        }
+        Command::none()
     }
 }
 

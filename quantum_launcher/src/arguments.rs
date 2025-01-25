@@ -1,6 +1,6 @@
 use colored::Colorize;
 use ql_core::{
-    err, file_utils, info,
+    err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     LAUNCHER_VERSION_NAME,
 };
@@ -23,8 +23,7 @@ pub fn process_args(
         if let Some(arg) = args.next() {
             command = arg;
         } else {
-            info!("Welcome to QuantumLauncher! This terminal window just outputs some debug info. You can ignore it.");
-            info!("To get a list of commands use the --help argument");
+            print_intro();
             return None;
         }
     }
@@ -97,6 +96,7 @@ fn process_argument(
 }
 
 fn cmd_list_available_versions() {
+    eprintln!("Listing downloadable versions...");
     let versions = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(ql_instances::list_versions(None))
@@ -265,4 +265,94 @@ fn get_program_name(info: &mut ArgumentInfo, argument: Option<&str>) -> String {
     } else {
         program.yellow().to_string()
     }
+}
+
+pub fn print_intro() {
+    const TEXT_WIDTH: u16 = 39;
+    let (text, text_len_old) = get_side_text();
+
+    const LOGO_WIDTH: u16 = 30;
+    let logo = include_str!("../../assets/ascii/icon.txt");
+    let logo_len: usize = logo.lines().count();
+
+    let Ok(terminal_width) = crossterm::terminal::window_size() else {
+        return;
+    };
+
+    // Helper function to pad lines to a fixed width
+    fn pad_line(line: Option<&str>, width: usize) -> String {
+        let line = line.unwrap_or_default();
+        if line.len() < width {
+            format!("{:<width$}", line, width = width)
+        } else {
+            line.to_owned()
+        }
+    }
+
+    let mut stdout = std::io::stdout().lock();
+
+    if terminal_width.columns > TEXT_WIDTH + LOGO_WIDTH {
+        let lines_len = std::cmp::max(text.lines().count(), logo.lines().count());
+        for i in 0..lines_len {
+            let text_line = pad_line(text.lines().nth(i), TEXT_WIDTH as usize);
+            let logo_line = pad_line(logo.lines().nth(i), LOGO_WIDTH as usize);
+            if cfg!(target_os = "windows") || i >= logo_len {
+                let _ = write!(stdout, "{logo_line} ");
+            } else {
+                let _ = write!(stdout, "{} ", logo_line.purple().bold());
+            }
+            if cfg!(target_os = "windows") || i >= text_len_old {
+                let _ = write!(stdout, "{text_line}");
+            } else {
+                let _ = write!(stdout, "{}", text_line.bold());
+            }
+            let _ = writeln!(stdout);
+        }
+    } else if terminal_width.columns >= TEXT_WIDTH {
+        if cfg!(target_os = "windows") {
+            let _ = writeln!(stdout, "{logo}\n{text}");
+        } else {
+            let _ = writeln!(stdout, "{}\n{}", logo.purple().bold(), text.bold());
+        }
+    } else if terminal_width.columns >= LOGO_WIDTH {
+        if cfg!(target_os = "windows") {
+            let _ = writeln!(stdout, "{logo}");
+        } else {
+            let _ = writeln!(stdout, "{}", logo.purple().bold());
+        }
+    } else {
+        let _ = writeln!(stdout, "Quantum Launcher {LAUNCHER_VERSION_NAME}");
+    }
+    let _ = writeln!(stdout);
+}
+
+fn get_side_text() -> (String, usize) {
+    let mut text = include_str!("../../assets/ascii/text.txt").to_owned();
+    let text_len_old = text.lines().count();
+
+    let mut message = if cfg!(target_os = "windows") {
+        "\n A simple, powerful Minecraft launcher".to_owned()
+    } else {
+        format!(
+            "\n {}",
+            "A simple, powerful Minecraft launcher".green().bold(),
+        )
+    };
+
+    message.push_str("\n This window just shows debug info so\n feel free to ignore it\n\n ");
+
+    let list_of_commands = if cfg!(target_os = "windows") {
+        "For a list of commands type 'quantum_launcher.exe --help'".to_owned()
+    } else {
+        format!(
+            "For a list of commands type\n {} {}",
+            "./quantum_launcher".yellow().bold(),
+            "--help".yellow()
+        )
+    };
+    message.push_str(&list_of_commands);
+
+    text.push_str(&message);
+
+    (text, text_len_old)
 }

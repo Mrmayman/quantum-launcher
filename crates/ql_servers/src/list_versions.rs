@@ -129,7 +129,7 @@ async fn add_omniarchive_versions(
                 url.clone()
             };
             normal_list.push(ListEntry::Omniarchive {
-                category: category.clone(),
+                category,
                 name,
                 url,
             });
