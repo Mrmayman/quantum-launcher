@@ -18,6 +18,7 @@ pub enum JavaVersion {
 }
 
 impl JavaVersion {
+    #[must_use]
     pub fn get_amazon_corretto_aarch64_url(&self) -> &'static str {
         match self {
             JavaVersion::Java16

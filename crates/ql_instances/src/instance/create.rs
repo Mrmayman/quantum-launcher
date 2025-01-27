@@ -1,8 +1,8 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    file_utils, info, json::instance_config::OmniarchiveEntry, DownloadError, DownloadProgress,
-    IntoIoError, LAUNCHER_VERSION_NAME,
+    file_utils, info, json::OmniarchiveEntry, DownloadError, DownloadProgress, IntoIoError,
+    LAUNCHER_VERSION_NAME,
 };
 
 use crate::{download::GameDownloader, ListEntry};

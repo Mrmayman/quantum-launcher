@@ -7,10 +7,7 @@ use std::{
 
 use ql_core::{
     file_utils, get_java_binary, info,
-    json::{
-        instance_config::InstanceConfigJson, java_list::JavaVersion, optifine::JsonOptifine,
-        version::VersionDetails,
-    },
+    json::{optifine::JsonOptifine, InstanceConfigJson, JavaVersion, VersionDetails},
     GenericProgress, IntoIoError, IoError, JavaInstallError, JsonFileError, Progress, RequestError,
 };
 

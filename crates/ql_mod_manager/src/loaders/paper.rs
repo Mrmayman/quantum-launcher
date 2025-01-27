@@ -1,9 +1,7 @@
 use std::{collections::HashMap, fmt::Display, path::Path};
 
-use async_recursion::async_recursion;
 use ql_core::{
-    file_utils, info, json::version::VersionDetails, pt, IntoIoError, IoError, JsonFileError,
-    RequestError,
+    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, RequestError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +40,6 @@ async fn move_dir(old_path: &Path, new_path: &Path) -> Result<(), IoError> {
     Ok(())
 }
 
-#[async_recursion]
 async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     tokio::fs::create_dir_all(dst).await.path(dst)?;
 
@@ -52,7 +49,7 @@ async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
         let dst_path = dst.join(entry.file_name());
 
         if src_path.is_dir() {
-            copy_recursive(&src_path, &dst_path).await?;
+            Box::pin(copy_recursive(&src_path, &dst_path)).await?;
         } else {
             tokio::fs::copy(&src_path, &dst_path).await.path(src_path)?;
         }

@@ -5,9 +5,8 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use async_recursion::async_recursion;
 use ql_core::{
-    err, file_utils, info, json::version::VersionDetails, pt, GenericProgress, InstanceSelection,
+    err, file_utils, info, json::VersionDetails, pt, GenericProgress, InstanceSelection,
     IntoIoError, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use serde::{Deserialize, Serialize};
@@ -235,7 +234,6 @@ async fn get_minecraft_version(instance_name: &InstanceSelection) -> Result<Stri
     Ok(minecraft_version)
 }
 
-#[async_recursion]
 async fn add_dir_to_zip_recursive(
     path: &Path,
     zip: &mut ZipWriter<Cursor<Vec<u8>>>,
@@ -268,7 +266,7 @@ async fn add_dir_to_zip_recursive(
 
             // ... accumulation = "config/dir1"
             // Then this call will have "config/dir1" as starting value.
-            add_dir_to_zip_recursive(&path, zip, accumulation.clone()).await?;
+            Box::pin(add_dir_to_zip_recursive(&path, zip, accumulation.clone())).await?;
         } else {
             // ... accumulation = "config/file1.txt"
             let bytes = tokio::fs::read(&path).await.path(path.clone())?;

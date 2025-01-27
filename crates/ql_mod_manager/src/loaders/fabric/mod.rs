@@ -3,7 +3,7 @@ use std::{path::Path, sync::mpsc::Sender};
 use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
-    json::{fabric::FabricJSON, version::VersionDetails},
+    json::{FabricJSON, VersionDetails},
     GenericProgress, InstanceSelection, IntoIoError, JsonFileError, RequestError,
 };
 use reqwest::Client;

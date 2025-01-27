@@ -4,7 +4,7 @@ use std::{
 };
 
 use omniarchive_api::{ListEntry, MinecraftVersionCategory, WebScrapeError};
-use ql_core::{err, json::manifest::Manifest, JsonDownloadError};
+use ql_core::{err, json::Manifest, JsonDownloadError};
 
 enum ListError {
     JsonDownloadError(JsonDownloadError),
@@ -138,7 +138,7 @@ async fn add_omniarchive_versions(
     Ok(())
 }
 
-/// Returns a list of all available versions of the game.
+/// Returns a list of all available versions of Minecraft servers.
 pub async fn list_versions(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, String> {
     list(sender).await.map_err(|n| n.to_string())
 }

@@ -6,7 +6,7 @@ use std::{
 
 use ql_core::{
     err, file_utils, get_java_binary, info,
-    json::{instance_config::InstanceConfigJson, java_list::JavaVersion, version::VersionDetails},
+    json::{InstanceConfigJson, JavaVersion, VersionDetails},
     GenericProgress, IntoIoError,
 };
 use tokio::process::{Child, Command};

@@ -275,7 +275,7 @@ pub fn print_intro() {
     let logo = include_str!("../../assets/ascii/icon.txt");
     let logo_len: usize = logo.lines().count();
 
-    let Ok(terminal_width) = crossterm::terminal::window_size() else {
+    let Some((terminal_size::Width(width), _)) = terminal_size::terminal_size() else {
         return;
     };
 
@@ -291,7 +291,7 @@ pub fn print_intro() {
 
     let mut stdout = std::io::stdout().lock();
 
-    if terminal_width.columns > TEXT_WIDTH + LOGO_WIDTH {
+    if width > TEXT_WIDTH + LOGO_WIDTH {
         let lines_len = std::cmp::max(text.lines().count(), logo.lines().count());
         for i in 0..lines_len {
             let text_line = pad_line(text.lines().nth(i), TEXT_WIDTH as usize);
@@ -308,13 +308,13 @@ pub fn print_intro() {
             }
             let _ = writeln!(stdout);
         }
-    } else if terminal_width.columns >= TEXT_WIDTH {
+    } else if width >= TEXT_WIDTH {
         if cfg!(target_os = "windows") {
             let _ = writeln!(stdout, "{logo}\n{text}");
         } else {
             let _ = writeln!(stdout, "{}\n{}", logo.purple().bold(), text.bold());
         }
-    } else if terminal_width.columns >= LOGO_WIDTH {
+    } else if width >= LOGO_WIDTH {
         if cfg!(target_os = "windows") {
             let _ = writeln!(stdout, "{logo}");
         } else {

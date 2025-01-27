@@ -11,10 +11,7 @@ use tar::Archive;
 
 use crate::{
     do_jobs, err, file_utils, info,
-    json::{
-        java_files::{JavaFile, JavaFilesJson},
-        java_list::{JavaListJson, JavaVersion},
-    },
+    json::{JavaFile, JavaFilesJson, JavaListJson, JavaVersion},
     GenericProgress, IntoIoError, IoError, JsonDownloadError, RequestError, IS_ARM_LINUX,
 };
 

@@ -43,7 +43,7 @@ lazy_static = { workspace = true }
 # For the file picker
 rfd = "0.15"
 # For getting terminal width
-crossterm = "0.28"
+terminal_size = "0.4"
 
 comrak = "0.28" # For markdown parsing (displaying mod pages)
 image = "0.24"

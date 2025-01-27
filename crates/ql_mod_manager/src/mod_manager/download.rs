@@ -1,10 +1,9 @@
 use std::{cmp::Ordering, collections::HashSet, path::PathBuf, sync::mpsc::Sender};
 
-use async_recursion::async_recursion;
 use chrono::DateTime;
 use ql_core::{
     err, file_utils, info,
-    json::{instance_config::InstanceConfigJson, version::VersionDetails},
+    json::{InstanceConfigJson, VersionDetails},
     pt, GenericProgress, InstanceSelection, IntoIoError,
 };
 use reqwest::Client;
@@ -135,7 +134,6 @@ impl ModDownloader {
         })
     }
 
-    #[async_recursion]
     pub async fn download_project(
         &mut self,
         id: &str,
@@ -177,8 +175,7 @@ impl ModDownloader {
                 continue;
             }
             if dependency_list.insert(dependency.project_id.clone()) {
-                self.download_project(&dependency.project_id, Some(id), false)
-                    .await?;
+                Box::pin(self.download_project(&dependency.project_id, Some(id), false)).await?;
             }
         }
 

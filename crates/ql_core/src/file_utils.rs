@@ -13,6 +13,11 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     Ok(launcher_directory)
 }
 
+/// Returns whether the user is new to QuantumLauncher,
+/// ie. whether they have never used the launcher before.
+///
+/// It checks whether the launcher directory does not exist.
+#[must_use]
 pub fn is_new_user() -> bool {
     let Some(config_directory) = dirs::config_dir() else {
         return false;
@@ -132,6 +137,12 @@ impl Display for RequestError {
 ///
 /// This makes a file executable on Unix systems,
 /// ie. it can be run as a program.
+///
+/// # Errors
+/// Returns an error if:
+/// - the file does not exist
+/// - the user doesn't have permission to read the file metadata
+/// - the user doesn't have permission to change the file metadata
 #[cfg(target_family = "unix")]
 pub fn set_executable(path: &std::path::Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;

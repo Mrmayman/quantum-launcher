@@ -10,7 +10,7 @@ use crate::{err, file_utils, InstanceSelection};
 pub struct VersionDetails {
     /// The list of command line arguments.
     ///
-    /// Used in new Minecraft versions, compared to minecraftArguments used in old versions.
+    /// Used in new Minecraft versions, whereas `minecraftArguments` is used in old versions.
     pub arguments: Option<Arguments>,
     /// An index/list of assets (music/sounds) to be downloaded.
     pub assetIndex: AssetIndex,
@@ -31,13 +31,13 @@ pub struct VersionDetails {
     pub mainClass: String,
     /// The list of command line arguments.
     ///
-    /// Used in old Minecraft versions, compared to arguments used in new versions.
+    /// Used in old Minecraft versions, whereas `arguments` is used in new versions.
     pub minecraftArguments: Option<String>,
     /// Minimum version of the official launcher that is supported. Not applicable here.
     pub minimumLauncherVersion: usize,
-    /// When was this version released. Idk the difference between time and releaseTime.
+    /// When was this version released. I don't know the difference between time and releaseTime.
     pub releaseTime: String,
-    /// When was this version released. Idk the difference between time and releaseTime.
+    /// When was this version released. I don't know the difference between time and releaseTime.
     pub time: String,
     /// Type of version, such as alpha, beta or release.
     pub r#type: String,

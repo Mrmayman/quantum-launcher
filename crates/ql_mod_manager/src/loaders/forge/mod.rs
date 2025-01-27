@@ -9,11 +9,8 @@ use error::{ForgeInstallError, Is404NotFound};
 use ql_core::{
     err, file_utils, get_java_binary, info,
     json::{
-        forge::{
-            JsonForgeDetails, JsonForgeDetailsLibrary, JsonForgeInstallProfile, JsonForgeVersions,
-        },
-        java_list::JavaVersion,
-        version::VersionDetails,
+        forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
+        JavaVersion, VersionDetails,
     },
     pt, GenericProgress, InstanceSelection, IntoIoError, Progress,
 };
@@ -243,20 +240,20 @@ impl ForgeInstaller {
         Ok(())
     }
 
-    fn get_forge_json(installer_file: &[u8]) -> Result<JsonForgeDetails, ForgeInstallError> {
+    fn get_forge_json(installer_file: &[u8]) -> Result<JsonDetails, ForgeInstallError> {
         let temp_dir = Self::extract_zip_file(installer_file)?;
         let forge_json_path = temp_dir.path().join("version.json");
         if forge_json_path.exists() {
             let forge_json = std::fs::read_to_string(&forge_json_path).path(forge_json_path)?;
 
-            let forge_json: JsonForgeDetails = serde_json::from_str(&forge_json)?;
+            let forge_json: JsonDetails = serde_json::from_str(&forge_json)?;
             Ok(forge_json)
         } else {
             let forge_json_path = temp_dir.path().join("install_profile.json");
             if forge_json_path.exists() {
                 let forge_json = std::fs::read_to_string(&forge_json_path).path(forge_json_path)?;
 
-                let forge_json: JsonForgeInstallProfile = serde_json::from_str(&forge_json)?;
+                let forge_json: JsonInstallProfile = serde_json::from_str(&forge_json)?;
                 Ok(forge_json.versionInfo)
             } else {
                 Err(ForgeInstallError::NoInstallJson)
@@ -266,7 +263,7 @@ impl ForgeInstaller {
 
     async fn download_library(
         &self,
-        library: &JsonForgeDetailsLibrary,
+        library: &JsonDetailsLibrary,
         library_i: usize,
         num_libraries: usize,
         libraries_dir: &Path,
@@ -423,7 +420,7 @@ impl ForgeInstaller {
     fn get_filename_and_path(
         lib: &str,
         ver: &str,
-        library: &JsonForgeDetailsLibrary,
+        library: &JsonDetailsLibrary,
         class: &str,
     ) -> Result<(String, String), ForgeInstallError> {
         let (file, path) = if let Some(downloads) = &library.downloads {
@@ -467,7 +464,7 @@ impl ForgeInstaller {
 }
 
 async fn get_forge_version(minecraft_version: &str) -> Result<String, ForgeInstallError> {
-    let json = JsonForgeVersions::download().await?;
+    let json = JsonVersions::download().await?;
     let version = json
         .get_forge_version(minecraft_version)
         .ok_or(ForgeInstallError::NoForgeVersionFound)?;

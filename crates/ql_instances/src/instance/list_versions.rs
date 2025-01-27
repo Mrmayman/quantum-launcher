@@ -3,8 +3,8 @@ use std::{
     sync::{mpsc::Sender, Arc},
 };
 
-use omniarchive_api::{ListEntry, MinecraftVersionCategory, WebScrapeError};
-use ql_core::{err, json::manifest::Manifest, JsonDownloadError};
+use omniarchive_api::{ListEntry, WebScrapeError};
+use ql_core::{err, json::Manifest, JsonDownloadError};
 
 pub enum ListError {
     JsonDownloadError(JsonDownloadError),
@@ -59,7 +59,7 @@ async fn add_omniarchive_versions(
     normal_list: &mut Vec<ListEntry>,
     progress: Option<Arc<Sender<()>>>,
 ) -> Result<(), ListError> {
-    let versions = MinecraftVersionCategory::download_all(progress.clone(), false).await?;
+    let versions = omniarchive_api::download_all(progress.clone(), false).await?;
 
     for (category, url) in versions.into_iter().rev() {
         let name = if let Some(name) = url

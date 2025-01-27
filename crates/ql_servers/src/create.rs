@@ -3,11 +3,7 @@ use std::sync::mpsc::Sender;
 use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
     file_utils, info,
-    json::{
-        instance_config::{InstanceConfigJson, OmniarchiveEntry},
-        manifest::Manifest,
-        version::VersionDetails,
-    },
+    json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
     GenericProgress, IntoIoError,
 };
 

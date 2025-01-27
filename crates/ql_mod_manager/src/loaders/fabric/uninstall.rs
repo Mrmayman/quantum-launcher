@@ -1,4 +1,4 @@
-use ql_core::{file_utils, info, json::fabric::FabricJSON, InstanceSelection, IntoIoError};
+use ql_core::{file_utils, info, json::FabricJSON, InstanceSelection, IntoIoError};
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 

@@ -4,12 +4,18 @@ use crate::{file_utils, JsonDownloadError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeVersions {
+pub struct JsonVersions {
     homepage: String,
     promos: HashMap<String, String>,
 }
 
-impl JsonForgeVersions {
+impl JsonVersions {
+    /// Downloads the Forge versions JSON file from the Forge website.
+    ///
+    /// # Errors
+    /// If the file cannot be:
+    /// - Downloaded (maybe bad internet or server down).
+    /// - Parsed into JSON.
     pub async fn download() -> Result<Self, JsonDownloadError> {
         const VERSIONS_JSON: &str =
             "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json";
@@ -19,6 +25,7 @@ impl JsonForgeVersions {
         Ok(serde_json::from_str(&manifest)?)
     }
 
+    /// Returns the Forge version for the given Minecraft version.
     pub fn get_forge_version(&self, minecraft_version: &str) -> Option<String> {
         self.promos
             .iter()
@@ -29,14 +36,14 @@ impl JsonForgeVersions {
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeInstallProfile {
+pub struct JsonInstallProfile {
     pub install: serde_json::Value,
-    pub versionInfo: JsonForgeDetails,
+    pub versionInfo: JsonDetails,
 }
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeDetails {
+pub struct JsonDetails {
     pub id: String,
     pub time: String,
     pub releaseTime: String,
@@ -44,32 +51,32 @@ pub struct JsonForgeDetails {
     pub mainClass: String,
     pub inheritsFrom: Option<String>,
     pub logging: Option<serde_json::Value>,
-    pub arguments: Option<JsonForgeDetailsArguments>,
-    pub libraries: Vec<JsonForgeDetailsLibrary>,
+    pub arguments: Option<JsonDetailsArguments>,
+    pub libraries: Vec<JsonDetailsLibrary>,
     pub minecraftArguments: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeDetailsArguments {
+pub struct JsonDetailsArguments {
     pub game: Vec<String>,
     pub jvm: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeDetailsLibrary {
+pub struct JsonDetailsLibrary {
     pub name: String,
     pub url: Option<String>,
-    pub downloads: Option<JsonForgeDetailsDownloads>,
+    pub downloads: Option<JsonDetailsDownloads>,
     pub clientreq: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeDetailsDownloads {
-    pub artifact: JsonForgeDetailsArtifact,
+pub struct JsonDetailsDownloads {
+    pub artifact: JsonDetailsArtifact,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct JsonForgeDetailsArtifact {
+pub struct JsonDetailsArtifact {
     pub path: String,
     pub url: String,
     pub sha1: String,

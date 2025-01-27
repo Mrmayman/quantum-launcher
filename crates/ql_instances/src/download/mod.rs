@@ -10,11 +10,7 @@ use indicatif::ProgressBar;
 use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err, file_utils, info,
-    json::{
-        instance_config::{InstanceConfigJson, OmniarchiveEntry},
-        manifest::Manifest,
-        version::VersionDetails,
-    },
+    json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
     DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError, JsonDownloadError,
 };
 use reqwest::Client;

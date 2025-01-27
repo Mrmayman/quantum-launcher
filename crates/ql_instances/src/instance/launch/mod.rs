@@ -4,12 +4,10 @@ use error::GameLaunchError;
 use ql_core::{
     err, file_utils, get_java_binary, info,
     json::{
-        fabric::FabricJSON,
-        forge::JsonForgeDetails,
-        instance_config::{InstanceConfigJson, OmniarchiveEntry},
-        java_list::JavaVersion,
-        optifine::JsonOptifine,
-        version::{LibraryDownloadArtifact, LibraryDownloads, VersionDetails},
+        forge,
+        version::{LibraryDownloadArtifact, LibraryDownloads},
+        FabricJSON, InstanceConfigJson, JavaVersion, JsonOptifine, OmniarchiveEntry,
+        VersionDetails,
     },
     GenericProgress, IntoIoError, IoError, JsonFileError,
 };
@@ -375,7 +373,7 @@ impl GameLauncher {
         &self,
         java_arguments: &mut Vec<String>,
         game_arguments: &mut Vec<String>,
-    ) -> Result<Option<JsonForgeDetails>, GameLaunchError> {
+    ) -> Result<Option<forge::JsonDetails>, GameLaunchError> {
         if self.config_json.mod_type != "Forge" {
             return Ok(None);
         }
@@ -400,7 +398,7 @@ impl GameLauncher {
         Ok(serde_json::from_str(&fabric_json)?)
     }
 
-    fn get_forge_json(&self) -> Result<JsonForgeDetails, JsonFileError> {
+    fn get_forge_json(&self) -> Result<forge::JsonDetails, JsonFileError> {
         let json_path = self.instance_dir.join("forge/details.json");
         let json = std::fs::read_to_string(&json_path).path(json_path)?;
         Ok(serde_json::from_str(&json)?)
@@ -462,7 +460,7 @@ impl GameLauncher {
         &self,
         java_arguments: &mut Vec<String>,
         fabric_json: Option<FabricJSON>,
-        forge_json: Option<JsonForgeDetails>,
+        forge_json: Option<forge::JsonDetails>,
         optifine_json: Option<&(JsonOptifine, PathBuf)>,
     ) -> Result<(), GameLaunchError> {
         java_arguments.push("-cp".to_owned());
@@ -486,7 +484,7 @@ impl GameLauncher {
     fn get_class_path(
         &self,
         fabric_json: Option<&FabricJSON>,
-        forge_json: Option<&JsonForgeDetails>,
+        forge_json: Option<&forge::JsonDetails>,
         optifine_json: Option<&(JsonOptifine, PathBuf)>,
     ) -> Result<String, GameLaunchError> {
         let mut class_path = String::new();

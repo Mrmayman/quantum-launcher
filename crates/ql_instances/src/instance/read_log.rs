@@ -13,7 +13,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use ql_core::{err, file_utils, json::version::VersionDetails, IntoIoError, IoError};
+use ql_core::{err, file_utils, json::VersionDetails, IntoIoError, IoError};
 
 /// [`read_logs`] `_w` function
 pub async fn read_logs_w(

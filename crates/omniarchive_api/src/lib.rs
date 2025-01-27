@@ -183,39 +183,6 @@ impl MinecraftVersionCategory {
         Ok(links)
     }
 
-    pub async fn download_all(
-        progress: Option<Arc<Sender<()>>>,
-        download_server: bool,
-    ) -> Result<Vec<(Self, String)>, WebScrapeError> {
-        let mut links = Vec::new();
-        let client = reqwest::Client::new();
-        let mut visited = HashSet::new();
-
-        let mut buffer = Vec::new();
-        let mut deeper_buffer = Vec::new();
-
-        let mut i = 1;
-
-        for category in MinecraftVersionCategory::all_client().into_iter().rev() {
-            let url = category.get_index_url(download_server);
-
-            let versions = category
-                .get_links(
-                    &client,
-                    url,
-                    &mut buffer,
-                    &mut visited,
-                    progress.as_deref(),
-                    &mut deeper_buffer,
-                    &mut i,
-                )
-                .await?;
-
-            links.extend(versions.into_iter().rev());
-        }
-        Ok(links)
-    }
-
     async fn scrape_links(
         &self,
         client: &reqwest::Client,
@@ -274,6 +241,39 @@ impl MinecraftVersionCategory {
 
         Ok(links)
     }
+}
+
+pub async fn download_all(
+    progress: Option<Arc<Sender<()>>>,
+    download_server: bool,
+) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
+    let mut links = Vec::new();
+    let client = reqwest::Client::new();
+    let mut visited = HashSet::new();
+
+    let mut buffer = Vec::new();
+    let mut deeper_buffer = Vec::new();
+
+    let mut i = 1;
+
+    for category in MinecraftVersionCategory::all_client().into_iter().rev() {
+        let url = category.get_index_url(download_server);
+
+        let versions = category
+            .get_links(
+                &client,
+                url,
+                &mut buffer,
+                &mut visited,
+                progress.as_deref(),
+                &mut deeper_buffer,
+                &mut i,
+            )
+            .await?;
+
+        links.extend(versions.into_iter().rev());
+    }
+    Ok(links)
 }
 
 fn ends_with_extension(link: &str, extension: &str) -> bool {

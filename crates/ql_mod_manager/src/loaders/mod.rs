@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_core::{json::instance_config::InstanceConfigJson, IntoIoError, JsonFileError};
+use ql_core::{json::InstanceConfigJson, IntoIoError, JsonFileError};
 
 pub mod fabric;
 pub mod forge;

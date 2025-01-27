@@ -23,6 +23,7 @@ pub struct Library {
 }
 
 impl Library {
+    #[must_use]
     pub fn get_path(&self) -> String {
         let parts: Vec<&str> = self.name.split(':').collect();
         format!(
@@ -36,6 +37,7 @@ impl Library {
         )
     }
 
+    #[must_use]
     pub fn get_url(&self) -> String {
         let parts: Vec<&str> = self.name.split(':').collect();
         format!(
