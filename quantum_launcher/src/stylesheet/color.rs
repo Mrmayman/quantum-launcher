@@ -30,7 +30,7 @@ pub const BROWN: Pallete = Pallete {
     white: [0xff, 0xff, 0xff],
 };
 
-pub const LIGHT_BLUE: Pallete = Pallete {
+pub const SKY_BLUE: Pallete = Pallete {
     black: [0x0, 0x0, 0x0],
     dark: [0x1f, 0x32, 0x42],
     second_dark: [0x0f, 0x51, 0x73],

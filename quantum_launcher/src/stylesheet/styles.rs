@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use iced::widget;
 use lazy_static::lazy_static;
 
-use super::color::{Color, BROWN, LIGHT_BLUE, PURPLE};
+use super::color::{Color, BROWN, PURPLE, SKY_BLUE};
 
 pub const BORDER_WIDTH: f32 = 2.0;
 pub const BORDER_RADIUS: f32 = 8.0;
@@ -17,7 +17,7 @@ lazy_static! {
 pub enum LauncherStyle {
     Brown,
     Purple,
-    LightBlue,
+    SkyBlue,
 }
 
 impl Default for LauncherStyle {
@@ -48,7 +48,7 @@ impl LauncherTheme {
         let palette = match style {
             LauncherStyle::Brown => &BROWN,
             LauncherStyle::Purple => &PURPLE,
-            LauncherStyle::LightBlue => &LIGHT_BLUE,
+            LauncherStyle::SkyBlue => &SKY_BLUE,
         };
         let color = if invert {
             match self {
@@ -197,7 +197,7 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                     let palette = match style {
                         LauncherStyle::Brown => &BROWN,
                         LauncherStyle::Purple => &PURPLE,
-                        LauncherStyle::LightBlue => &LIGHT_BLUE,
+                        LauncherStyle::SkyBlue => &SKY_BLUE,
                     };
                     let color = match self {
                         LauncherTheme::Dark => color,

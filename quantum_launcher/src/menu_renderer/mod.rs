@@ -107,38 +107,40 @@ impl MenuLaunch {
             } else {
                 log
             };
+            let log = widget::scrollable(
+                widget::text(slice)
+                    .size(12)
+                    .font(iced::Font::with_name("JetBrains Mono"))
+            );
             widget::column!(
-                "Having issues? Copy and send the game log for support",
-                widget::button("Copy Log").on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
+                widget::row!(
+                    widget::button("Copy Log").on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
+                    widget::text("Having issues? Copy and send the game log for support").size(12),
+                ).spacing(10),
                 if *has_crashed {
                     widget::column!(
                         widget::text(format!("The {} has crashed!", if is_server {"server"} else {"game"})).size(14),
                         widget::text("Go to Edit -> Enable Logging (disable it) then launch the game again.").size(12),
-                        widget::text("Then copy the text in the second terminal window for crash information").size(12)
+                        widget::text("Then copy the text in the second terminal window for crash information").size(12),
+                        log
                     )
-                } else {
-                    widget::column![]
-                },
-                if is_server {
+                } else if is_server {
                     widget::column!(
                         widget::text_input("Enter command...", command)
                             .on_input(move |n| Message::ServerManageEditCommand(selected_instance.unwrap().clone(), n))
                             .on_submit(Message::ServerManageSubmitCommand(selected_instance.unwrap().clone()))
                             .width(200),
+                        log
                     )
                 } else {
-                    widget::column![]
+                    widget::column![
+                        log,
+                    ]
                 },
-                widget::scrollable(
-                    widget::text(slice)
-                        .size(12)
-                        .font(iced::Font::with_name("JetBrains Mono"))
-                ),
             )
         } else {
             get_no_instance_message(is_server)
         }
-        .padding(10)
         .spacing(10)
     }
 }
@@ -702,7 +704,7 @@ impl MenuLauncherSettings {
         let styles = [
             "Brown".to_owned(),
             "Purple".to_owned(),
-            "Light Blue".to_owned(),
+            "Sky Blue".to_owned(),
         ];
 
         let config_view = if let Some(config) = config {
@@ -825,6 +827,7 @@ impl MenuEditPresets {
                         ), widget::tooltip::Position::FollowCursor),
                 )
                 .spacing(5),
+                "Presets are small bundles of mods and their configuration that you can share with anyone. You can import presets, create them or download recommended mods (if you haven't installed any yet.",
                 self.get_create_preset_page()
             )
             .padding(10)

@@ -313,7 +313,7 @@ impl Application for Launcher {
                 match style.as_str() {
                     "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,
                     "Brown" => *self.style.lock().unwrap() = LauncherStyle::Brown,
-                    "Light Blue" => *self.style.lock().unwrap() = LauncherStyle::LightBlue,
+                    "Sky Blue" => *self.style.lock().unwrap() = LauncherStyle::SkyBlue,
                     _ => err!("Invalid style {style}"),
                 }
             }
@@ -731,8 +731,8 @@ fn load_window_icon() -> Command<Message> {
     }
 }
 
-const WINDOW_HEIGHT: f32 = 450.0;
-const WINDOW_WIDTH: f32 = 650.0;
+const WINDOW_HEIGHT: f32 = 400.0;
+const WINDOW_WIDTH: f32 = 600.0;
 
 fn main() {
     let mut args = std::env::args();
