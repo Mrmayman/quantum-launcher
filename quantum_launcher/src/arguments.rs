@@ -9,7 +9,6 @@ use std::io::{stdout, Write};
 use crate::launcher_state::get_entries;
 
 pub struct ArgumentInfo {
-    pub headless: bool,
     pub program: Option<String>,
 }
 
@@ -39,12 +38,9 @@ fn process_argument(
     info: &mut ArgumentInfo,
 ) {
     match command {
+        // To further process arguments call process_args()
         "--help" => cmd_print_help(info),
         "--version" => cmd_print_version(),
-        "--command" => {
-            info.headless = true;
-            process_args(args, info);
-        }
         "--list-instances" => {
             cmd_list_instances(args, info, "instances");
         }
@@ -54,16 +50,13 @@ fn process_argument(
         "--list-available-versions" => {
             cmd_list_available_versions();
         }
+        "--mock-error" => {
+            cmd_mock_error();
+        }
         _ => {
             if command.starts_with("-") && !command.starts_with("--") {
-                for (i, c) in command.chars().skip(1).enumerate() {
+                for c in command.chars().skip(1) {
                     match c {
-                        'c' => {
-                            info.headless = true;
-                            if i >= command.len() - 1 {
-                                process_args(args, info);
-                            }
-                        }
                         'h' => cmd_print_help(info),
                         'v' => cmd_print_version(),
                         'l' => {
@@ -74,6 +67,9 @@ fn process_argument(
                         }
                         'a' => {
                             cmd_list_available_versions();
+                        }
+                        'm' => {
+                            cmd_mock_error();
                         }
                         _ => {
                             err!(
@@ -93,6 +89,11 @@ fn process_argument(
             }
         }
     }
+}
+
+fn cmd_mock_error() {
+    file_utils::MOCK_DIR_FAILURE.store(true, std::sync::atomic::Ordering::SeqCst);
+    println!("A test critical error will be displayed shortly...");
 }
 
 fn cmd_list_available_versions() {
@@ -129,8 +130,6 @@ fn cmd_print_help(info: &mut ArgumentInfo) {
         r#"Usage: {}
     --help        -h : Prints a list of valid command line flags
     --version     -v : Prints the launcher version
-    --command <ARGS> : Runs the launcher with the following
-        -c             arguments and then exits (headless mode)
 
     --list-available-versions : Prints a list of available versions
         -a                      that can be used to create instances
@@ -139,13 +138,14 @@ fn cmd_print_help(info: &mut ArgumentInfo) {
     --list-servers    -s : Prints a list of servers
         Subcommands: "name", "version", "type" (Vanilla/Fabric/Forge/...)
         For example:
-            {1}
-            {2}   name
-            {1} name version
-            {2}   version type name"#,
-        get_program_name(info, Some("[FLAGS]/[-hvcals]")),
-        get_program_name(info, Some("--list-instances")),
-        get_program_name(info, Some("--list-servers")),
+            ./quantum_launcher --list-instances
+            ./quantum_launcher --list-servers name
+            ./quantum_launcher --list-instances name version
+            ./quantum_launcher --list-servers version type name
+
+    --mock-error  -m : Displays an example critical error to test that
+                       error popups work correctly"#,
+        get_program_name(info, Some("[FLAGS]/[-hvalsm]")),
     );
     std::process::exit(0);
 }

@@ -736,15 +736,9 @@ const WINDOW_WIDTH: f32 = 650.0;
 
 fn main() {
     let mut args = std::env::args();
-    let mut info = ArgumentInfo {
-        headless: false,
-        program: None,
-    };
+    let mut info = ArgumentInfo { program: None };
     arguments::process_args(&mut args, &mut info);
 
-    if info.headless {
-        return;
-    }
     info!("Starting up the launcher...");
 
     Launcher::run(Settings {

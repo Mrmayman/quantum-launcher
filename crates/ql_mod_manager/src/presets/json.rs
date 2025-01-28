@@ -121,6 +121,10 @@ impl PresetJson {
 
         let mut entries_modrinth = HashMap::new();
 
+        let version_json = VersionDetails::load(instance_name).await?;
+        let mut sideloads = Vec::new();
+        let mut should_sideload = true;
+
         for i in 0..zip.len() {
             let mut file = zip.by_index(i).map_err(ModError::Zip)?;
             let name = file.name().to_owned();
@@ -131,6 +135,17 @@ impl PresetJson {
                 file.read_to_end(&mut buf)
                     .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
                 let this: Self = serde_json::from_slice(&buf)?;
+
+                // Only sideload mods if the version is the same
+                should_sideload = this.minecraft_version == version_json.id;
+
+                // If sideloaded mods are of an incompatible version, remove them
+                if !should_sideload {
+                    for file in &sideloads {
+                        let path = mods_dir.join(&file);
+                        tokio::fs::remove_file(&path).await.path(&path)?;
+                    }
+                }
                 entries_modrinth = this.entries_modrinth;
             } else if name.starts_with("config/") || name.starts_with("config\\") {
                 pt!("Config file: {name}");
@@ -150,11 +165,15 @@ impl PresetJson {
             } else if name.contains('/') || name.contains('\\') {
                 info!("Feature not implemented: {name}");
             } else {
+                if !should_sideload {
+                    continue;
+                }
                 pt!("Local file: {name}");
                 let path = mods_dir.join(&name);
+                sideloads.push(name.clone());
                 let mut buf = Vec::new();
                 file.read_to_end(&mut buf)
-                    .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
+                    .map_err(|n| ModError::ZipIoError(n, name))?;
                 tokio::fs::write(&path, &buf).await.path(&path)?;
             }
         }

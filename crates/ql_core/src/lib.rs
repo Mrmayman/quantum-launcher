@@ -20,7 +20,7 @@ mod progress;
 use std::path::{Path, PathBuf};
 
 pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
-pub use file_utils::RequestError;
+pub use file_utils::{RequestError, MOCK_DIR_FAILURE};
 use futures::StreamExt;
 pub use java_install::{get_java_binary, JavaInstallError};
 pub use progress::{DownloadProgress, GenericProgress, Progress};

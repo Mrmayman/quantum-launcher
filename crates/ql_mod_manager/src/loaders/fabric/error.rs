@@ -12,6 +12,7 @@ pub enum FabricInstallError {
     ZipError(zip::result::ZipError),
     ZipEntryWriteError(std::io::Error, String),
     ZipEntryReadError(std::io::Error, String),
+    NoParent(PathBuf),
 }
 
 impl From<IoError> for FabricInstallError {
@@ -77,6 +78,9 @@ impl Display for FabricInstallError {
             }
             FabricInstallError::ZipEntryReadError(err, path) => {
                 write!(f, "error reading zip entry {path}: {err}")
+            }
+            FabricInstallError::NoParent(path_buf) => {
+                write!(f, "no parent for pathbuf: {path_buf:?}")
             }
         }
     }

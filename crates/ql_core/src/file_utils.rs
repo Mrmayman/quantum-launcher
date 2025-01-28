@@ -1,8 +1,13 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{fmt::Display, path::PathBuf, sync::atomic::AtomicBool};
 
+use lazy_static::lazy_static;
 use reqwest::Client;
 
 use crate::{error::IoError, InstanceSelection, IntoIoError};
+
+lazy_static! {
+    pub static ref MOCK_DIR_FAILURE: AtomicBool = AtomicBool::new(false);
+}
 
 /// Returns the path to the QuantumLauncher root folder.
 pub async fn get_launcher_dir() -> Result<PathBuf, IoError> {
@@ -21,8 +26,11 @@ pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
     let launcher_directory = config_directory.join("QuantumLauncher");
     std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
 
-    // Ok(launcher_directory)
-    Err(IoError::ConfigDirNotFound)
+    if MOCK_DIR_FAILURE.load(std::sync::atomic::Ordering::SeqCst) == true {
+        Err(IoError::MockError)
+    } else {
+        Ok(launcher_directory)
+    }
 }
 
 /// Returns whether the user is new to QuantumLauncher,

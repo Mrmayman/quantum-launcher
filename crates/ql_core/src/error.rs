@@ -22,6 +22,7 @@ pub enum IoError {
     },
     ConfigDirNotFound,
     InstanceDirEscapeAttack,
+    MockError,
 }
 
 impl Display for IoError {
@@ -33,6 +34,7 @@ impl Display for IoError {
                 f,
                 "instance directory is outside launcher directory. POTENTIAL SECURITY RISK AVOIDED"
             ),
+            IoError::MockError => write!(f, "test error. should not be seen normally"),
         }
     }
 }

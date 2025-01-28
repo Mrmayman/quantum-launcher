@@ -818,8 +818,11 @@ impl MenuEditPresets {
                 widget::row!(
                     button_with_icon(icon_manager::back(), "Back")
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
-                    button_with_icon(icon_manager::folder(), "Import Preset")
-                        .on_press(Message::EditPresets(EditPresetsMessage::Load)),
+                    widget::tooltip(button_with_icon(icon_manager::folder(), "Import Preset")
+                        .on_press(Message::EditPresets(EditPresetsMessage::Load)), widget::column!(
+                            widget::text("Note: Sideloaded mods in imported presets (that anyone sends to you) could be untrusted (might have viruses)").size(12),
+                                widget::text("To get rid of them after installing, remove all the mods in the list ending in \".jar\"").size(12)
+                        ), widget::tooltip::Position::FollowCursor),
                 )
                 .spacing(5),
                 self.get_create_preset_page()
