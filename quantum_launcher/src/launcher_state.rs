@@ -7,11 +7,10 @@ use std::{
 };
 
 use iced::{widget::image::Handle, Command};
-use lazy_static::lazy_static;
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    pt, DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
+    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
     SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
@@ -26,7 +25,7 @@ use tokio::process::{Child, ChildStdin};
 
 use crate::{
     config::LauncherConfig,
-    message_handler::{get_locally_installed_mods, open_file_explorer},
+    message_handler::get_locally_installed_mods,
     stylesheet::styles::{LauncherStyle, LauncherTheme, STYLE},
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
@@ -485,7 +484,15 @@ impl Drop for ServerProcess {
 
 impl Launcher {
     pub fn load_new(message: Option<String>, is_new_user: bool) -> Result<Self, JsonFileError> {
-        let launcher_dir = get_launcher_dir();
+        let launcher_dir = match file_utils::get_launcher_dir_s() {
+            Ok(n) => n,
+            Err(err) => {
+                err!("Could not get launcher dir (This is a bug): {err}");
+                return Ok(Self::with_error(format!(
+                    "Could not get launcher dir: {err}"
+                )));
+            }
+        };
 
         let (mut config, theme, style) = load_config_and_theme(&launcher_dir)?;
 
@@ -534,20 +541,29 @@ impl Launcher {
     }
 
     pub fn with_error(error: impl std::fmt::Display) -> Self {
-        let launcher_dir = get_launcher_dir();
+        let mut error = error.to_string();
+        let launcher_dir = if error.contains("Could not get launcher dir") {
+            None
+        } else {
+            match file_utils::get_launcher_dir_s() {
+                Ok(n) => Some(n),
+                Err(err) => {
+                    err!("Could not get launcher dir! This is a bug! {err}");
+                    error.push_str(&format!("\n\n{err}"));
+                    None
+                }
+            }
+        };
 
-        let (config, theme, style) = load_config_and_theme(&launcher_dir).unwrap_or((
-            None,
-            LauncherTheme::default(),
-            LauncherStyle::default(),
-        ));
+        let (config, theme, style) = launcher_dir
+            .as_ref()
+            .and_then(|n| load_config_and_theme(&n).ok())
+            .unwrap_or((None, LauncherTheme::default(), LauncherStyle::default()));
         *STYLE.lock().unwrap() = style;
 
         Self {
-            dir: launcher_dir,
-            state: State::Error {
-                error: format!("Error: {error}"),
-            },
+            dir: launcher_dir.unwrap_or_default(),
+            state: State::Error { error },
             client_list: None,
             server_list: None,
             config,
@@ -592,57 +608,6 @@ impl Launcher {
             Err(err) => self.set_error(err),
         }
     }
-}
-
-fn get_launcher_dir() -> PathBuf {
-    match file_utils::get_launcher_dir_s() {
-        Ok(dir) => dir,
-        Err(err) => {
-            err!("Could not load launcher dir! This is a bug! Please report!");
-            pt!("{err}\n");
-
-            ERROR_STARTING_LAUNCHER
-                .lock()
-                .unwrap()
-                .push_str(&err.to_string());
-
-            xdialog::XDialogBuilder::new().run(error_starting_launcher);
-            std::process::exit(1);
-        }
-    }
-}
-
-lazy_static! {
-    static ref ERROR_STARTING_LAUNCHER: Mutex<String> = Mutex::new(String::new());
-}
-
-fn error_starting_launcher() -> i32 {
-    let err = ERROR_STARTING_LAUNCHER.lock().unwrap().clone();
-
-    let result = xdialog::show_message(xdialog::XDialogOptions {
-        title: "Error starting launcher!".to_owned(),
-        main_instruction: "Could not start launcher (error loading launcher directory)!".to_owned(),
-        message: format!("This is a bug! Please report (and try starting again)!\n{err}"),
-        icon: xdialog::XDialogIcon::Error,
-        buttons: vec![
-            "Copy".to_owned(),
-            "Join Discord".to_owned(),
-            "Exit".to_owned(),
-        ],
-    })
-    .unwrap();
-
-    if let xdialog::XDialogResult::ButtonPressed(result) = result {
-        if result == 0 {
-            arboard::Clipboard::new().unwrap().set_text(&err).unwrap();
-            return error_starting_launcher();
-        } else if result == 1 {
-            let _ = open_file_explorer("https://discord.gg/bWqRaSXar5");
-            return error_starting_launcher();
-        }
-    }
-
-    1
 }
 
 fn load_config_and_theme(

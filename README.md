@@ -13,18 +13,31 @@ It is designed to be simple and easy to use, with a focus on performance and fea
 
 # Features
 - Lightweight and responsive. No more minute-long loading screens, no more laggy buttons
+
 ![Resource Usage](assets/screenshots/lightweight.png)
+
 - Install fabric, forge or optifine with ease
+
 ![Loader installer screen](assets/screenshots/install_loader.png)
+
 - Build in mod store to download your favorite mods
+
 ![Mod store](assets/screenshots/mod_store.png)
+
 - Isolate your different game versions with instances!
+
 ![Instances](assets/screenshots/new.png)
+
 - Full support for old minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
+
 ![Old Minecraft](assets/screenshots/old_mc.png)
+
 - Neatly package your mods into presets, and share it with your friends!
+
 ![Presets](assets/screenshots/presets.png)
+
 - Built in themes!
+
 ![Themes](assets/screenshots/themes.png)
 
 # Downloads and Building

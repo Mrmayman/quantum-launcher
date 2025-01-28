@@ -45,10 +45,6 @@ rfd = "0.15"
 # For getting terminal width
 terminal_size = "0.4"
 
-# For error dialog
-xdialog = "0.1"
-arboard = "3"
-
 comrak = "0.28" # For markdown parsing (displaying mod pages)
 image = "0.24"
 # We be implementing a full blown HTML renderer in iced with this one

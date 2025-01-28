@@ -144,7 +144,7 @@ fn cmd_print_help(info: &mut ArgumentInfo) {
             ./quantum_launcher --list-servers version type name
 
     --mock-error  -m : Displays an example critical error to test that
-                       error popups work correctly"#,
+                       error popups work correctly. (FOR DEBUGGING)"#,
         get_program_name(info, Some("[FLAGS]/[-hvalsm]")),
     );
     std::process::exit(0);

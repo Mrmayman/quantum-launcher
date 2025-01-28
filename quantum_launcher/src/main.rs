@@ -654,6 +654,9 @@ impl Application for Launcher {
                         clear_selection: true
                     }),
                     widget::button("Copy Error").on_press(Message::CoreErrorCopy),
+                    widget::button("Join Discord for help").on_press(Message::CoreOpenDir(
+                        "https://discord.gg/bWqRaSXar5".to_owned()
+                    ))
                 )
                 .padding(10)
                 .spacing(10),
