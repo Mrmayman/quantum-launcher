@@ -38,7 +38,7 @@ pub async fn get_java_binary(
     name: &str,
     java_install_progress_sender: Option<Sender<GenericProgress>>,
 ) -> Result<PathBuf, JavaInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
 
     let java_dir = launcher_dir.join("java_installs").join(version.to_string());
 
@@ -126,6 +126,7 @@ pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> 
 
         // Ensure parent directories exist
         if let Some(parent) = full_path.parent() {
+            // Not using async due to some weird thread safety error
             std::fs::create_dir_all(parent)?;
         }
 
@@ -141,13 +142,14 @@ async fn install_java(
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<(), JavaInstallError> {
     let client = reqwest::Client::new();
-    let install_dir = get_install_dir(version)?;
+    let install_dir = get_install_dir(version).await?;
 
     let lock_file = install_dir.join("install.lock");
-    std::fs::write(
+    tokio::fs::write(
         &lock_file,
         "If you see this, java hasn't finished installing.",
     )
+    .await
     .path(lock_file.clone())?;
 
     info!("Started installing {}", version.to_string());
@@ -162,7 +164,9 @@ async fn install_java(
         install_normal_java(version, client, java_install_progress_sender, install_dir).await?;
     }
 
-    std::fs::remove_file(&lock_file).path(lock_file.clone())?;
+    tokio::fs::remove_file(&lock_file)
+        .await
+        .path(lock_file.clone())?;
 
     send_progress(java_install_progress_sender, GenericProgress::finished());
 
@@ -235,12 +239,16 @@ async fn install_aarch64_linux_java(
     Ok(())
 }
 
-fn get_install_dir(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+async fn get_install_dir(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let java_installs_dir = launcher_dir.join("java_installs");
-    std::fs::create_dir_all(&java_installs_dir).path(java_installs_dir.clone())?;
+    tokio::fs::create_dir_all(&java_installs_dir)
+        .await
+        .path(java_installs_dir.clone())?;
     let install_dir = java_installs_dir.join(version.to_string());
-    std::fs::create_dir_all(&install_dir).path(java_installs_dir.clone())?;
+    tokio::fs::create_dir_all(&install_dir)
+        .await
+        .path(java_installs_dir.clone())?;
     Ok(install_dir)
 }
 
@@ -272,14 +280,18 @@ async fn java_install_fn(
         } => {
             let file_bytes =
                 file_utils::download_file_to_bytes(client, &downloads.raw.url, false).await?;
-            std::fs::write(&file_path, &file_bytes).path(file_path.clone())?;
+            tokio::fs::write(&file_path, &file_bytes)
+                .await
+                .path(file_path.clone())?;
             if *executable {
                 #[cfg(target_family = "unix")]
-                file_utils::set_executable(&file_path)?;
+                file_utils::set_executable(&file_path).await?;
             }
         }
         JavaFile::directory {} => {
-            std::fs::create_dir_all(&file_path).path(file_path)?;
+            tokio::fs::create_dir_all(&file_path)
+                .await
+                .path(file_path)?;
         }
         JavaFile::link { target } => {
             // TODO: Deal with java install symlink.

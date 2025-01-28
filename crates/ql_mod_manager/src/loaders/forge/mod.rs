@@ -1,5 +1,4 @@
 use std::{
-    io::{Read, Seek},
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc::Sender,
@@ -12,8 +11,9 @@ use ql_core::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
         JavaVersion, VersionDetails,
     },
-    pt, GenericProgress, InstanceSelection, IntoIoError, Progress,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress,
 };
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
@@ -40,9 +40,19 @@ struct ForgeInstaller {
 }
 
 impl ForgeInstaller {
-    fn remove_lock(&self) -> Result<(), ForgeInstallError> {
+    pub async fn delete(&self, path: &str) -> Result<(), IoError> {
+        let delete_path = self.forge_dir.join(path);
+        if delete_path.exists() {
+            tokio::fs::remove_file(&delete_path)
+                .await
+                .path(delete_path)?;
+        }
+        Ok(())
+    }
+
+    async fn remove_lock(&self) -> Result<(), ForgeInstallError> {
         let lock_path = self.instance_dir.join("forge.lock");
-        std::fs::remove_file(&lock_path).path(lock_path)?;
+        tokio::fs::remove_file(&lock_path).await.path(lock_path)?;
         Ok(())
     }
 
@@ -52,17 +62,17 @@ impl ForgeInstaller {
     ) -> Result<Self, ForgeInstallError> {
         let client = reqwest::Client::new();
 
-        let instance_dir = get_instance_dir(&instance_name)?;
+        let instance_dir = file_utils::get_instance_dir(&instance_name).await?;
         let forge_dir = if instance_name.is_server() {
             instance_dir.clone()
         } else {
-            get_forge_dir(&instance_dir)?
+            get_forge_dir(&instance_dir).await?
         };
 
-        let minecraft_version = get_minecraft_version(&instance_dir)?;
+        let minecraft_version = get_minecraft_version(&instance_dir).await?;
 
-        create_mods_dir(&instance_dir)?;
-        create_lock_file(&instance_dir)?;
+        create_mods_dir(&instance_dir).await?;
+        create_lock_file(&instance_dir).await?;
 
         pt!("Downloading JSON");
         if let Some(progress) = &f_progress {
@@ -120,7 +130,9 @@ impl ForgeInstaller {
 
         let installer_name = format!("forge-{}-{file_type}.jar", self.short_version);
         let installer_path = self.forge_dir.join(&installer_name);
-        std::fs::write(&installer_path, &installer_file).path(&installer_path)?;
+        tokio::fs::write(&installer_path, &installer_file)
+            .await
+            .path(&installer_path)?;
         Ok((installer_file, installer_name, installer_path))
     }
 
@@ -156,7 +168,9 @@ impl ForgeInstaller {
         j_progress: Option<Sender<GenericProgress>>,
     ) -> Result<(PathBuf, String), ForgeInstallError> {
         let libraries_dir = self.forge_dir.join("libraries");
-        std::fs::create_dir_all(&libraries_dir).path(&libraries_dir)?;
+        tokio::fs::create_dir_all(&libraries_dir)
+            .await
+            .path(&libraries_dir)?;
 
         let classpath = if self.major_version >= 14 {
             self.run_installer(j_progress, installer_name).await?;
@@ -192,23 +206,28 @@ impl ForgeInstaller {
         let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
         let java_source_file = include_str!("../../../../../assets/installers/ForgeInstaller.java")
             .replace("CLIENT", if self.is_server { "SERVER" } else { "CLIENT" });
-        let source_path = self.forge_dir.join("ClientInstaller.java");
-        std::fs::write(&source_path, java_source_file).path(source_path)?;
+        let source_path = self.forge_dir.join("ForgeInstaller.java");
+        tokio::fs::write(&source_path, java_source_file)
+            .await
+            .path(source_path)?;
 
         if !self.is_server {
             let launcher_profiles_json_path = self.forge_dir.join("launcher_profiles.json");
-            std::fs::write(&launcher_profiles_json_path, "{}").path(launcher_profiles_json_path)?;
+            tokio::fs::write(&launcher_profiles_json_path, "{}")
+                .await
+                .path(launcher_profiles_json_path)?;
             let launcher_profiles_json_microsoft_store_path = self
                 .forge_dir
                 .join("launcher_profiles_microsoft_store.json");
-            std::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
+            tokio::fs::write(&launcher_profiles_json_microsoft_store_path, "{}")
+                .await
                 .path(launcher_profiles_json_microsoft_store_path)?;
         }
 
         pt!("Compiling Installer");
         self.send_progress(ForgeInstallProgress::P4RunningInstaller);
         let output = Command::new(&javac_path)
-            .args(["-cp", installer_name, "ClientInstaller.java", "-d", "."])
+            .args(["-cp", installer_name, "ForgeInstaller.java", "-d", "."])
             .current_dir(&self.forge_dir)
             .output()
             .path(javac_path)?;
@@ -225,7 +244,7 @@ impl ForgeInstaller {
             .args([
                 "-cp",
                 &format!("{installer_name}{CLASSPATH_SEPARATOR}."),
-                "ClientInstaller",
+                "ForgeInstaller",
             ])
             .current_dir(&self.forge_dir)
             .output()
@@ -240,18 +259,22 @@ impl ForgeInstaller {
         Ok(())
     }
 
-    fn get_forge_json(installer_file: &[u8]) -> Result<JsonDetails, ForgeInstallError> {
+    async fn get_forge_json(installer_file: &[u8]) -> Result<JsonDetails, ForgeInstallError> {
         let temp_dir = Self::extract_zip_file(installer_file)?;
         let forge_json_path = temp_dir.path().join("version.json");
         if forge_json_path.exists() {
-            let forge_json = std::fs::read_to_string(&forge_json_path).path(forge_json_path)?;
+            let forge_json = tokio::fs::read_to_string(&forge_json_path)
+                .await
+                .path(forge_json_path)?;
 
             let forge_json: JsonDetails = serde_json::from_str(&forge_json)?;
             Ok(forge_json)
         } else {
             let forge_json_path = temp_dir.path().join("install_profile.json");
             if forge_json_path.exists() {
-                let forge_json = std::fs::read_to_string(&forge_json_path).path(forge_json_path)?;
+                let forge_json = tokio::fs::read_to_string(&forge_json_path)
+                    .await
+                    .path(forge_json_path)?;
 
                 let forge_json: JsonInstallProfile = serde_json::from_str(&forge_json)?;
                 Ok(forge_json.versionInfo)
@@ -299,18 +322,14 @@ impl ForgeInstaller {
         };
 
         let lib_dir_path = libraries_dir.join(&path);
-        std::fs::create_dir_all(&lib_dir_path).path(&lib_dir_path)?;
+        tokio::fs::create_dir_all(&lib_dir_path)
+            .await
+            .path(&lib_dir_path)?;
 
         let dest = lib_dir_path.join(&file);
         let dest_str = dest
             .to_str()
             .ok_or(ForgeInstallError::PathBufToStr(dest.clone()))?;
-
-        info!(
-            "Installing forge: Downloading library ({}/{num_libraries}): {}",
-            library_i + 1,
-            library.name
-        );
 
         self.send_progress(ForgeInstallProgress::P5DownloadingLibrary {
             num: library_i + 1,
@@ -318,11 +337,21 @@ impl ForgeInstaller {
         });
 
         if dest.exists() {
-            info!("Library already exists.");
+            pt!(
+                "Skipping library ({}/{num_libraries}): {} (already exists)",
+                library_i + 1,
+                library.name
+            );
         } else {
+            pt!(
+                "Downloading library ({}/{num_libraries}): {}",
+                library_i + 1,
+                library.name
+            );
+
             match file_utils::download_file_to_bytes(&self.client, &url, false).await {
                 Ok(bytes) => {
-                    std::fs::write(&dest, bytes).path(dest)?;
+                    tokio::fs::write(&dest, bytes).await.path(dest)?;
                 }
                 Err(err) => {
                     err!("Error downloading library: {err}\n        Trying pack.xz version");
@@ -372,34 +401,42 @@ impl ForgeInstaller {
 
         pt!("Reading signature");
         let extracted_pack_path = temp_extract_xz.path().join(format!("{dest_str}.pack"));
-        let mut extracted_pack =
-            std::fs::File::open(&extracted_pack_path).path(&extracted_pack_path)?;
+        let mut extracted_pack = tokio::fs::File::open(&extracted_pack_path)
+            .await
+            .path(&extracted_pack_path)?;
         extracted_pack
             .seek(std::io::SeekFrom::End(-8))
+            .await
             .path(&extracted_pack_path)?;
         let mut sig_len_bytes = [0u8; 4];
         extracted_pack
             .read_exact(&mut sig_len_bytes)
+            .await
             .path(&extracted_pack_path)?;
         let sig_len = u32::from_le_bytes(sig_len_bytes);
 
-        let full_len = std::fs::metadata(&extracted_pack_path)
+        let full_len = tokio::fs::metadata(&extracted_pack_path)
+            .await
             .path(&extracted_pack_path)?
             .len();
         let crop_len = full_len - sig_len as u64 - 8;
 
-        let extracted_pack =
-            std::fs::File::open(&extracted_pack_path).path(&extracted_pack_path)?;
+        let extracted_pack = tokio::fs::File::open(&extracted_pack_path)
+            .await
+            .path(&extracted_pack_path)?;
         let mut pack_crop = Vec::with_capacity(crop_len as usize);
         extracted_pack
             .take(crop_len)
             .read_to_end(&mut pack_crop)
+            .await
             .path(extracted_pack_path)?;
 
         let cropped_pack_path = temp_extract_xz
             .path()
             .join(format!("{dest_str}.pack.crop",));
-        std::fs::write(&cropped_pack_path, &pack_crop).path(cropped_pack_path)?;
+        tokio::fs::write(&cropped_pack_path, &pack_crop)
+            .await
+            .path(cropped_pack_path)?;
 
         pt!("Unpacking extracted file");
         let unpack200_path = get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
@@ -471,36 +508,42 @@ async fn get_forge_version(minecraft_version: &str) -> Result<String, ForgeInsta
     Ok(version)
 }
 
-fn get_instance_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ForgeInstallError> {
-    let instance_dir = file_utils::get_instance_dir(instance_name)?;
-    Ok(instance_dir)
-}
-
-fn get_forge_dir(instance_dir: &Path) -> Result<PathBuf, ForgeInstallError> {
+async fn get_forge_dir(instance_dir: &Path) -> Result<PathBuf, ForgeInstallError> {
     let forge_dir = instance_dir.join("forge");
-    std::fs::create_dir_all(&forge_dir).path(&forge_dir)?;
+    tokio::fs::create_dir_all(&forge_dir)
+        .await
+        .path(&forge_dir)?;
     Ok(forge_dir)
 }
 
-fn create_mods_dir(instance_dir: &Path) -> Result<(), ForgeInstallError> {
+async fn create_mods_dir(instance_dir: &Path) -> Result<(), ForgeInstallError> {
     let mods_dir_path = instance_dir.join(".minecraft/mods");
-    std::fs::create_dir_all(&mods_dir_path).path(mods_dir_path)?;
+    tokio::fs::create_dir_all(&mods_dir_path)
+        .await
+        .path(mods_dir_path)?;
     Ok(())
 }
 
-fn create_lock_file(instance_dir: &Path) -> Result<(), ForgeInstallError> {
+async fn create_lock_file(instance_dir: &Path) -> Result<(), ForgeInstallError> {
     let lock_path = instance_dir.join("forge.lock");
-    std::fs::write(
-        &lock_path,
-        "If you see this, forge was not installed correctly.",
-    )
-    .path(lock_path)?;
+    if lock_path.exists() {
+        err!("Previously incomplete installation of forge found! (not a problem)");
+    } else {
+        tokio::fs::write(
+            &lock_path,
+            "If you see this, forge was not installed correctly.",
+        )
+        .await
+        .path(lock_path)?;
+    }
     Ok(())
 }
 
-fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallError> {
+async fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallError> {
     let version_json_path = instance_dir.join("details.json");
-    let version_json = std::fs::read_to_string(&version_json_path).path(version_json_path)?;
+    let version_json = tokio::fs::read_to_string(&version_json_path)
+        .await
+        .path(version_json_path)?;
     let version_json = serde_json::from_str::<VersionDetails>(&version_json)?;
     let minecraft_version = version_json.id;
     Ok(minecraft_version)
@@ -601,7 +644,7 @@ pub async fn install_client(
 
     let mut clean_classpath = String::new();
 
-    let forge_json = ForgeInstaller::get_forge_json(&installer_file)?;
+    let forge_json = ForgeInstaller::get_forge_json(&installer_file).await?;
 
     let num_libraries = forge_json
         .libraries
@@ -628,17 +671,23 @@ pub async fn install_client(
     }
 
     let classpath_path = installer.forge_dir.join("classpath.txt");
-    std::fs::write(&classpath_path, &classpath).path(classpath_path)?;
+    tokio::fs::write(&classpath_path, &classpath)
+        .await
+        .path(classpath_path)?;
 
     let clean_classpath_path = installer.forge_dir.join("clean_classpath.txt");
-    std::fs::write(&clean_classpath_path, &clean_classpath).path(clean_classpath_path)?;
+    tokio::fs::write(&clean_classpath_path, &clean_classpath)
+        .await
+        .path(clean_classpath_path)?;
 
     let json_path = installer.forge_dir.join("details.json");
-    std::fs::write(&json_path, serde_json::to_string(&forge_json)?).path(json_path)?;
+    tokio::fs::write(&json_path, serde_json::to_string(&forge_json)?)
+        .await
+        .path(json_path)?;
 
     change_instance_type(&installer.instance_dir, "Forge".to_owned()).await?;
 
-    installer.remove_lock()?;
+    installer.remove_lock().await?;
     info!("Finished installing forge");
     Ok(())
 }

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Command};
-use ql_core::{err, file_utils, InstanceSelection, IntoIoError, SelectedMod};
+use ql_core::{err, InstanceSelection, IntoIoError, SelectedMod};
 use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
 
 mod edit_instance;
@@ -17,8 +17,12 @@ impl Launcher {
     pub fn update_install_fabric(&mut self, message: InstallFabricMessage) -> Command<Message> {
         match message {
             InstallFabricMessage::End(result) => match result {
-                Ok(()) => {
-                    return self.go_to_main_menu_with_message("Installed Fabric");
+                Ok(is_quilt) => {
+                    return self.go_to_main_menu_with_message(if is_quilt {
+                        "Installed Quilt"
+                    } else {
+                        "Installed Fabric"
+                    });
                 }
                 Err(err) => self.set_error(err),
             },
@@ -163,10 +167,7 @@ impl Launcher {
                         self.selected_instance.clone().unwrap(),
                         menu,
                     );
-                    let mods_dir =
-                        file_utils::get_dot_minecraft_dir(self.selected_instance.as_ref().unwrap())
-                            .unwrap()
-                            .join("mods");
+                    let mods_dir = self.get_selected_dot_minecraft_dir().unwrap().join("mods");
                     let file_paths = menu
                         .selected_mods
                         .iter()
@@ -378,6 +379,14 @@ impl Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
+            InstallModsMessage::IndexUpdated(result) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    match result {
+                        Ok(idx) => menu.mod_index = idx,
+                        Err(err) => self.set_error(err),
+                    }
+                }
+            }
         }
         Command::none()
     }

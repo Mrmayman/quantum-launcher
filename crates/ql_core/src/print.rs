@@ -14,7 +14,7 @@ pub struct LoggingState {
 
 impl LoggingState {
     pub fn create() -> Option<LoggingState> {
-        let launcher_dir = file_utils::get_launcher_dir().ok()?;
+        let launcher_dir = file_utils::get_launcher_dir_s().ok()?;
 
         let logs_dir = launcher_dir.join("logs");
         std::fs::create_dir_all(&logs_dir).ok()?;

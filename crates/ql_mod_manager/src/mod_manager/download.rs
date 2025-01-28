@@ -26,7 +26,9 @@ pub async fn download_mods_w(
         MOD_DOWNLOAD_LOCK.lock().await
     };
 
-    let mut downloader = ModDownloader::new(&instance_name).map_err(|err| err.to_string())?;
+    let mut downloader = ModDownloader::new(&instance_name)
+        .await
+        .map_err(|err| err.to_string())?;
 
     let len = ids.len();
     for (i, id) in ids.iter().enumerate() {
@@ -45,7 +47,11 @@ pub async fn download_mods_w(
 
     info!("Finished installing {len} mods");
 
-    downloader.index.save().map_err(|err| err.to_string())?;
+    downloader
+        .index
+        .save()
+        .await
+        .map_err(|err| err.to_string())?;
 
     Ok(())
 }
@@ -69,19 +75,19 @@ pub async fn download_mod(id: &str, instance_name: &InstanceSelection) -> Result
         MOD_DOWNLOAD_LOCK.lock().await
     };
 
-    let mut downloader = ModDownloader::new(instance_name)?;
+    let mut downloader = ModDownloader::new(instance_name).await?;
 
     downloader.download_project(id, None, true).await?;
 
-    downloader.index.save()?;
+    downloader.index.save().await?;
 
     pt!("Finished");
 
     Ok(())
 }
 
-pub fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, ModError> {
-    let config_json = get_config_json(instance)?;
+pub async fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, ModError> {
+    let config_json = get_config_json(instance).await?;
 
     Ok(match config_json.mod_type.as_str() {
         "Fabric" => Some("fabric"),
@@ -90,6 +96,7 @@ pub fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, M
         "NeoForge" => Some("neoforge"),
         "LiteLoader" => Some("liteloader"),
         "Rift" => Some("rift"),
+        "OptiFine" => Some("optifine"),
         _ => {
             err!("Unknown loader {}", config_json.mod_type);
             None
@@ -98,9 +105,13 @@ pub fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, M
     .map(str::to_owned))
 }
 
-fn get_config_json(instance: &InstanceSelection) -> Result<InstanceConfigJson, ModError> {
-    let config_file_path = file_utils::get_instance_dir(instance)?.join("config.json");
-    let config_json = std::fs::read_to_string(&config_file_path).path(config_file_path)?;
+async fn get_config_json(instance: &InstanceSelection) -> Result<InstanceConfigJson, ModError> {
+    let config_file_path = file_utils::get_instance_dir(instance)
+        .await?
+        .join("config.json");
+    let config_json = tokio::fs::read_to_string(&config_file_path)
+        .await
+        .path(config_file_path)?;
     let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
     Ok(config_json)
 }
@@ -115,14 +126,14 @@ pub(crate) struct ModDownloader {
 }
 
 impl ModDownloader {
-    pub fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
-        let mods_dir = get_mods_dir(instance_name)?;
+    pub async fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
+        let mods_dir = get_mods_dir(instance_name).await?;
 
-        let version_json = get_version_json(instance_name)?;
+        let version_json = VersionDetails::load(instance_name).await?;
 
-        let index = ModIndex::get(instance_name)?;
+        let index = ModIndex::get(instance_name).await?;
         let client = reqwest::Client::new();
-        let loader = get_loader_type(instance_name)?;
+        let loader = get_loader_type(instance_name).await?;
         let currently_installing_mods = HashSet::new();
         Ok(ModDownloader {
             version: version_json.id,
@@ -253,33 +264,29 @@ impl ModDownloader {
             let file_bytes =
                 file_utils::download_file_to_bytes(&self.client, &primary_file.url, true).await?;
             let file_path = self.mods_dir.join(&primary_file.filename);
-            std::fs::write(&file_path, &file_bytes).path(file_path)?;
+            tokio::fs::write(&file_path, &file_bytes)
+                .await
+                .path(file_path)?;
         } else {
             pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
                 let file_bytes =
                     file_utils::download_file_to_bytes(&self.client, &file.url, true).await?;
                 let file_path = self.mods_dir.join(&file.filename);
-                std::fs::write(&file_path, &file_bytes).path(file_path)?;
+                tokio::fs::write(&file_path, &file_bytes)
+                    .await
+                    .path(file_path)?;
             }
         }
         Ok(())
     }
 }
 
-pub fn get_version_json(instance_name: &InstanceSelection) -> Result<VersionDetails, ModError> {
-    let version_json_path = file_utils::get_instance_dir(instance_name)?.join("details.json");
-    let version_json: String =
-        std::fs::read_to_string(&version_json_path).path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
-    Ok(version_json)
-}
-
-pub fn get_mods_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ModError> {
-    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+pub async fn get_mods_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ModError> {
+    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name).await?;
     let mods_dir = dot_minecraft_dir.join("mods");
     if !mods_dir.exists() {
-        std::fs::create_dir(&mods_dir).path(&mods_dir)?;
+        tokio::fs::create_dir(&mods_dir).await.path(&mods_dir)?;
     }
     Ok(mods_dir)
 }

@@ -39,12 +39,13 @@ impl PresetJson {
         instance_name: &InstanceSelection,
         selected_mods: &HashSet<SelectedMod>,
     ) -> Result<Vec<u8>, ModError> {
-        let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
-        let config_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("config");
+        let dot_minecraft = file_utils::get_dot_minecraft_dir(instance_name).await?;
+        let mods_dir = dot_minecraft.join("mods");
+        let config_dir = dot_minecraft.join("config");
 
         let minecraft_version = get_minecraft_version(instance_name).await?;
 
-        let index = ModIndex::get(instance_name)?;
+        let index = ModIndex::get(instance_name).await?;
 
         let mut entries_modrinth = HashMap::new();
         let mut entries_local: Vec<(String, Vec<u8>)> = Vec::new();
@@ -60,7 +61,7 @@ impl PresetJson {
                     }
 
                     let entry = mods_dir.join(file_name);
-                    let mod_bytes = std::fs::read(&entry).path(&entry)?;
+                    let mod_bytes = tokio::fs::read(&entry).await.path(&entry)?;
                     entries_local.push((file_name.clone(), mod_bytes));
                 }
             }
@@ -113,7 +114,7 @@ impl PresetJson {
     ) -> Result<Vec<String>, ModError> {
         info!("Importing mod preset");
 
-        let main_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+        let main_dir = file_utils::get_dot_minecraft_dir(instance_name).await?;
         let mods_dir = main_dir.join("mods");
 
         let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;
@@ -180,7 +181,9 @@ impl PresetJson {
             MOD_DOWNLOAD_LOCK.lock().await
         };
 
-        let mut downloader = ModDownloader::new(&instance_name).map_err(|err| err.to_string())?;
+        let mut downloader = ModDownloader::new(&instance_name)
+            .await
+            .map_err(|err| err.to_string())?;
 
         for (i, id) in ids.into_iter().enumerate() {
             let _ = sender.send(GenericProgress {
@@ -190,17 +193,23 @@ impl PresetJson {
                 has_finished: false,
             });
 
-            downloader
-                .download_project(&id, None, true)
-                .await
-                .map_err(|err| err.to_string())?;
+            let result = downloader.download_project(&id, None, true).await;
+            if let Err(ModError::NoCompatibleVersionFound) = result {
+                err!("Mod {id} is not compatible with this version. Skipping...");
+                continue;
+            }
+            result.map_err(|err| err.to_string())?;
 
             if let Some(config) = downloader.index.mods.get_mut(&id) {
                 config.manually_installed = true;
             }
         }
 
-        downloader.index.save().map_err(|err| err.to_string())?;
+        downloader
+            .index
+            .save()
+            .await
+            .map_err(|err| err.to_string())?;
 
         let _ = sender.send(GenericProgress::finished());
         Ok(())
@@ -225,11 +234,7 @@ fn add_mod_to_entries_modrinth(
 }
 
 async fn get_minecraft_version(instance_name: &InstanceSelection) -> Result<String, ModError> {
-    let version_json = file_utils::get_instance_dir(instance_name)?.join("details.json");
-    let version_json = tokio::fs::read_to_string(&version_json)
-        .await
-        .path(&version_json)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    let version_json = VersionDetails::load(instance_name).await?;
     let minecraft_version = version_json.id.clone();
     Ok(minecraft_version)
 }

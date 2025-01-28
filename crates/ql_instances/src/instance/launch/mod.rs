@@ -71,15 +71,16 @@ pub async fn launch(
         username,
         java_install_progress_sender,
         asset_redownload_progress,
-    )?;
+    )
+    .await?;
 
     game_launcher.migrate_old_instances().await?;
-    game_launcher.create_mods_dir()?;
+    game_launcher.create_mods_dir().await?;
 
     let mut game_arguments = game_launcher.init_game_arguments().await?;
     let mut java_arguments = game_launcher.init_java_arguments()?;
 
-    let fabric_json = game_launcher.setup_fabric(&mut java_arguments)?;
+    let fabric_json = game_launcher.setup_fabric(&mut java_arguments).await?;
     let forge_json = game_launcher
         .setup_forge(&mut java_arguments, &mut game_arguments)
         .await?;
@@ -87,12 +88,14 @@ pub async fn launch(
 
     game_launcher.fill_java_arguments(&mut java_arguments)?;
     game_launcher.setup_logging(&mut java_arguments)?;
-    game_launcher.setup_classpath_and_mainclass(
-        &mut java_arguments,
-        fabric_json,
-        forge_json,
-        optifine_json.as_ref(),
-    )?;
+    game_launcher
+        .setup_classpath_and_mainclass(
+            &mut java_arguments,
+            fabric_json,
+            forge_json,
+            optifine_json.as_ref(),
+        )
+        .await?;
 
     let mut command = game_launcher.get_java_command().await?;
 
@@ -143,20 +146,22 @@ pub struct GameLauncher {
 }
 
 impl GameLauncher {
-    pub fn new(
+    pub async fn new(
         instance_name: String,
         username: String,
         java_install_progress_sender: Option<Sender<GenericProgress>>,
         asset_redownload_progress: Option<Sender<GenericProgress>>,
     ) -> Result<Self, GameLaunchError> {
-        let instance_dir = get_instance_dir(&instance_name)?;
+        let instance_dir = get_instance_dir(&instance_name).await?;
 
         let minecraft_dir = instance_dir.join(".minecraft");
-        std::fs::create_dir_all(&minecraft_dir).path(&minecraft_dir)?;
+        tokio::fs::create_dir_all(&minecraft_dir)
+            .await
+            .path(&minecraft_dir)?;
 
-        let config_json = get_config(&instance_dir)?;
+        let config_json = get_config(&instance_dir).await?;
 
-        let version_json = read_version_json(&instance_dir)?;
+        let version_json = read_version_json(&instance_dir).await?;
 
         Ok(Self {
             username,
@@ -224,29 +229,36 @@ impl GameLauncher {
     }
 
     async fn set_assets_argument(&self, argument: &mut String) -> Result<(), GameLaunchError> {
-        let old_assets_path_v2 = file_utils::get_launcher_dir()?
+        let old_assets_path_v2 = file_utils::get_launcher_dir()
+            .await?
             .join("assets")
             .join(&self.version_json.assetIndex.id);
 
         let old_assets_path_v1 = self.instance_dir.join("assets");
 
         if self.version_json.assetIndex.id == "legacy" {
-            let assets_path = file_utils::get_launcher_dir()?.join("assets/legacy_assets");
+            let assets_path = file_utils::get_launcher_dir()
+                .await?
+                .join("assets/legacy_assets");
 
             if old_assets_path_v2.exists() {
                 self.redownload_legacy_assets().await?;
-                std::fs::remove_dir_all(&old_assets_path_v2).path(old_assets_path_v2)?;
+                tokio::fs::remove_dir_all(&old_assets_path_v2)
+                    .await
+                    .path(old_assets_path_v2)?;
             }
 
             if old_assets_path_v1.exists() {
                 self.redownload_legacy_assets().await?;
-                std::fs::remove_dir_all(&old_assets_path_v1).path(old_assets_path_v1)?;
+                tokio::fs::remove_dir_all(&old_assets_path_v1)
+                    .await
+                    .path(old_assets_path_v1)?;
             }
 
             let assets_path_fixed = if assets_path.exists() {
                 assets_path
             } else {
-                file_utils::get_launcher_dir()?.join("assets/null")
+                file_utils::get_launcher_dir().await?.join("assets/null")
             };
 
             let Some(assets_path) = assets_path_fixed.to_str() else {
@@ -255,22 +267,24 @@ impl GameLauncher {
             replace_var(argument, "assets_root", assets_path);
             replace_var(argument, "game_assets", assets_path);
         } else {
-            let assets_path = file_utils::get_launcher_dir()?.join("assets/dir");
+            let assets_path = file_utils::get_launcher_dir().await?.join("assets/dir");
 
             if old_assets_path_v2.exists() {
                 info!("Migrating old assets to new path...");
-                copy_dir_recursive(&old_assets_path_v2, &assets_path)?;
-                std::fs::remove_dir_all(&old_assets_path_v2).path(old_assets_path_v2)?;
+                copy_dir_recursive(&old_assets_path_v2, &assets_path).await?;
+                tokio::fs::remove_dir_all(&old_assets_path_v2)
+                    .await
+                    .path(old_assets_path_v2)?;
             }
 
             if old_assets_path_v1.exists() {
-                migrate_to_new_assets_path(&old_assets_path_v1, &assets_path)?;
+                migrate_to_new_assets_path(&old_assets_path_v1, &assets_path).await?;
             }
 
             let assets_path_fixed = if assets_path.exists() {
                 assets_path
             } else {
-                file_utils::get_launcher_dir()?.join("assets/null")
+                file_utils::get_launcher_dir().await?.join("assets/null")
             };
             let Some(assets_path) = assets_path_fixed.to_str() else {
                 return Err(GameLaunchError::PathBufToString(assets_path_fixed));
@@ -281,9 +295,9 @@ impl GameLauncher {
         Ok(())
     }
 
-    fn create_mods_dir(&self) -> Result<(), IoError> {
+    async fn create_mods_dir(&self) -> Result<(), IoError> {
         let mods_dir = self.minecraft_dir.join("mods");
-        std::fs::create_dir_all(&mods_dir).path(mods_dir)?;
+        tokio::fs::create_dir_all(&mods_dir).await.path(mods_dir)?;
         Ok(())
     }
 
@@ -353,7 +367,7 @@ impl GameLauncher {
         Ok(args)
     }
 
-    fn setup_fabric(
+    async fn setup_fabric(
         &self,
         java_arguments: &mut Vec<String>,
     ) -> Result<Option<FabricJSON>, GameLaunchError> {
@@ -361,7 +375,7 @@ impl GameLauncher {
             return Ok(None);
         }
 
-        let fabric_json = self.get_fabric_json()?;
+        let fabric_json = self.get_fabric_json().await?;
         if let Some(jvm) = fabric_json.arguments.as_ref().and_then(|n| n.jvm.as_ref()) {
             java_arguments.extend(jvm.clone());
         }
@@ -378,7 +392,7 @@ impl GameLauncher {
             return Ok(None);
         }
 
-        let json = self.get_forge_json()?;
+        let json = self.get_forge_json().await?;
 
         if let Some(arguments) = &json.arguments {
             if let Some(jvm) = &arguments.jvm {
@@ -392,15 +406,19 @@ impl GameLauncher {
         Ok(Some(json))
     }
 
-    fn get_fabric_json(&self) -> Result<FabricJSON, JsonFileError> {
+    async fn get_fabric_json(&self) -> Result<FabricJSON, JsonFileError> {
         let json_path = self.instance_dir.join("fabric.json");
-        let fabric_json = std::fs::read_to_string(&json_path).path(json_path)?;
+        let fabric_json = tokio::fs::read_to_string(&json_path)
+            .await
+            .path(json_path)?;
         Ok(serde_json::from_str(&fabric_json)?)
     }
 
-    fn get_forge_json(&self) -> Result<forge::JsonDetails, JsonFileError> {
+    async fn get_forge_json(&self) -> Result<forge::JsonDetails, JsonFileError> {
         let json_path = self.instance_dir.join("forge/details.json");
-        let json = std::fs::read_to_string(&json_path).path(json_path)?;
+        let json = tokio::fs::read_to_string(&json_path)
+            .await
+            .path(json_path)?;
         Ok(serde_json::from_str(&json)?)
     }
 
@@ -412,7 +430,7 @@ impl GameLauncher {
             return Ok(None);
         }
 
-        let (optifine_json, jar) = JsonOptifine::read(&self.instance_name)?;
+        let (optifine_json, jar) = JsonOptifine::read(&self.instance_name).await?;
         if let Some(arguments) = &optifine_json.arguments {
             game_arguments.extend(arguments.game.clone());
         } else if let Some(arguments) = &optifine_json.minecraftArguments {
@@ -456,7 +474,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    fn setup_classpath_and_mainclass(
+    async fn setup_classpath_and_mainclass(
         &self,
         java_arguments: &mut Vec<String>,
         fabric_json: Option<FabricJSON>,
@@ -464,11 +482,10 @@ impl GameLauncher {
         optifine_json: Option<&(JsonOptifine, PathBuf)>,
     ) -> Result<(), GameLaunchError> {
         java_arguments.push("-cp".to_owned());
-        java_arguments.push(self.get_class_path(
-            fabric_json.as_ref(),
-            forge_json.as_ref(),
-            optifine_json,
-        )?);
+        java_arguments.push(
+            self.get_class_path(fabric_json.as_ref(), forge_json.as_ref(), optifine_json)
+                .await?,
+        );
         java_arguments.push(if let Some(fabric_json) = fabric_json {
             fabric_json.mainClass
         } else if let Some(forge_json) = forge_json {
@@ -481,7 +498,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    fn get_class_path(
+    async fn get_class_path(
         &self,
         fabric_json: Option<&FabricJSON>,
         forge_json: Option<&forge::JsonDetails>,
@@ -492,12 +509,16 @@ impl GameLauncher {
 
         if forge_json.is_some() {
             let classpath_path = self.instance_dir.join("forge/classpath.txt");
-            let forge_classpath = std::fs::read_to_string(&classpath_path).path(classpath_path)?;
+            let forge_classpath = tokio::fs::read_to_string(&classpath_path)
+                .await
+                .path(classpath_path)?;
 
             class_path.push_str(&forge_classpath);
 
             let classpath_entries_path = self.instance_dir.join("forge/clean_classpath.txt");
-            if let Ok(forge_classpath_entries) = std::fs::read_to_string(&classpath_entries_path) {
+            if let Ok(forge_classpath_entries) =
+                tokio::fs::read_to_string(&classpath_entries_path).await
+            {
                 for entry in forge_classpath_entries.lines() {
                     classpath_entries.insert(entry.to_owned());
                 }
@@ -506,13 +527,14 @@ impl GameLauncher {
                     forge_classpath,
                     &mut classpath_entries,
                     classpath_entries_path,
-                )?;
+                )
+                .await?;
             }
         }
 
         if optifine_json.is_some() {
             let jar_file_location = self.instance_dir.join(".minecraft/libraries");
-            let jar_files = find_jar_files(&jar_file_location)?;
+            let jar_files = find_jar_files(&jar_file_location).await?;
             for jar_file in jar_files {
                 class_path.push_str(
                     jar_file
@@ -629,18 +651,22 @@ impl GameLauncher {
         ))
     }
 
-    pub fn cleanup_junk_files(&self) -> Result<(), GameLaunchError> {
+    pub async fn cleanup_junk_files(&self) -> Result<(), GameLaunchError> {
         let forge_dir = self.instance_dir.join("forge");
 
         if forge_dir.exists() {
-            delete_junk_file(&forge_dir, "ClientInstaller.class")?;
-            delete_junk_file(&forge_dir, "ClientInstaller.java")?;
-            delete_junk_file(&forge_dir, "launcher_profiles.json")?;
-            delete_junk_file(&forge_dir, "launcher_profiles_microsoft_store.json")?;
+            delete_junk_file(&forge_dir, "ClientInstaller.class").await?;
+            delete_junk_file(&forge_dir, "ClientInstaller.java").await?;
+            delete_junk_file(&forge_dir, "ForgeInstaller.class").await?;
+            delete_junk_file(&forge_dir, "ForgeInstaller.java").await?;
+            delete_junk_file(&forge_dir, "launcher_profiles.json").await?;
+            delete_junk_file(&forge_dir, "launcher_profiles_microsoft_store.json").await?;
 
             let versions_dir = forge_dir.join("versions").join(&self.version_json.id);
             if versions_dir.is_dir() {
-                std::fs::remove_dir_all(&versions_dir).path(versions_dir)?;
+                tokio::fs::remove_dir_all(&versions_dir)
+                    .await
+                    .path(versions_dir)?;
             }
         }
 
@@ -648,10 +674,10 @@ impl GameLauncher {
     }
 }
 
-fn delete_junk_file(forge_dir: &Path, path: &str) -> Result<(), GameLaunchError> {
+async fn delete_junk_file(forge_dir: &Path, path: &str) -> Result<(), GameLaunchError> {
     let path = forge_dir.join(path);
     if path.exists() {
-        std::fs::remove_file(&path).path(path)?;
+        tokio::fs::remove_file(&path).await.path(path)?;
     }
     Ok(())
 }
@@ -670,23 +696,25 @@ fn remove_version_from_library(library: &str) -> Option<String> {
     }
 }
 
-fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {
+async fn get_config(instance_dir: &Path) -> Result<InstanceConfigJson, JsonFileError> {
     let config_file_path = instance_dir.join("config.json");
-    let config_json = std::fs::read_to_string(&config_file_path).path(config_file_path)?;
+    let config_json = tokio::fs::read_to_string(&config_file_path)
+        .await
+        .path(config_file_path)?;
     Ok(serde_json::from_str(&config_json)?)
 }
 
-fn find_jar_files(dir_path: &Path) -> Result<Vec<PathBuf>, IoError> {
+async fn find_jar_files(dir_path: &Path) -> Result<Vec<PathBuf>, IoError> {
     let mut jar_files = Vec::new();
 
+    let mut dir = tokio::fs::read_dir(dir_path).await.path(dir_path)?;
     // Recursively traverse the directory
-    for entry in std::fs::read_dir(dir_path).path(dir_path)? {
-        let entry = entry.path(dir_path)?;
+    while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
 
         if path.is_dir() {
             // If the entry is a directory, recursively search it
-            jar_files.extend(find_jar_files(&path)?);
+            jar_files.extend(Box::pin(find_jar_files(&path)).await?);
         } else if let Some(extension) = path.extension() {
             // If the entry is a file, check if it has a .jar extension
             if extension == "jar" {
@@ -712,48 +740,58 @@ fn find_jar_files(dir_path: &Path) -> Result<Vec<PathBuf>, IoError> {
 /// This applies to early development builds of the
 /// launcher (before v0.1), most people won't ever
 /// need to run this aside from the early beta testers.
-fn migrate_to_new_assets_path(old_assets_path: &Path, assets_path: &Path) -> Result<(), IoError> {
+async fn migrate_to_new_assets_path(
+    old_assets_path: &Path,
+    assets_path: &Path,
+) -> Result<(), IoError> {
     info!("Migrating old assets to new path...");
-    copy_dir_recursive(old_assets_path, assets_path)?;
-    std::fs::remove_dir_all(old_assets_path).path(old_assets_path)?;
+    copy_dir_recursive(old_assets_path, assets_path).await?;
+    tokio::fs::remove_dir_all(old_assets_path)
+        .await
+        .path(old_assets_path)?;
     info!("Finished");
     Ok(())
 }
 
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
+async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     // Create the destination directory if it doesn't exist
     if !dst.exists() {
-        std::fs::create_dir_all(dst).path(dst)?;
+        tokio::fs::create_dir_all(dst).await.path(dst)?;
     }
 
+    let mut dir = tokio::fs::read_dir(src).await.path(src)?;
+
     // Iterate over the directory entries
-    for entry in std::fs::read_dir(src).path(src)? {
-        let entry = entry.path(src)?;
+    while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
         let dest_path = dst.join(entry.file_name());
 
         if path.is_dir() {
             // Recursively copy the subdirectory
-            copy_dir_recursive(&path, &dest_path)?;
+            Box::pin(copy_dir_recursive(&path, &dest_path)).await?;
         } else {
             // Copy the file to the destination directory
-            std::fs::copy(&path, &dest_path).path(path)?;
+            tokio::fs::copy(&path, &dest_path).await.path(path)?;
         }
     }
 
     Ok(())
 }
 
-fn get_instance_dir(instance_name: &str) -> Result<PathBuf, GameLaunchError> {
+async fn get_instance_dir(instance_name: &str) -> Result<PathBuf, GameLaunchError> {
     if instance_name.is_empty() {
         return Err(GameLaunchError::InstanceNotFound);
     }
 
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    std::fs::create_dir_all(&launcher_dir).path(&launcher_dir)?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
+    tokio::fs::create_dir_all(&launcher_dir)
+        .await
+        .path(&launcher_dir)?;
 
     let instances_folder_dir = launcher_dir.join("instances");
-    std::fs::create_dir_all(&instances_folder_dir).path(&instances_folder_dir)?;
+    tokio::fs::create_dir_all(&instances_folder_dir)
+        .await
+        .path(&instances_folder_dir)?;
 
     let instance_dir = instances_folder_dir.join(instance_name);
     if !instance_dir.exists() {
@@ -766,10 +804,12 @@ fn replace_var(string: &mut String, var: &str, value: &str) {
     *string = string.replace(&format!("${{{var}}}"), value);
 }
 
-fn read_version_json(instance_dir: &Path) -> Result<VersionDetails, JsonFileError> {
+async fn read_version_json(instance_dir: &Path) -> Result<VersionDetails, JsonFileError> {
     let file_path = instance_dir.join("details.json");
 
-    let version_json: String = std::fs::read_to_string(&file_path).path(file_path)?;
+    let version_json: String = tokio::fs::read_to_string(&file_path)
+        .await
+        .path(file_path)?;
     let version_json = serde_json::from_str(&version_json)?;
     Ok(version_json)
 }

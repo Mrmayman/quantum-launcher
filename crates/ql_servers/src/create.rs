@@ -124,7 +124,7 @@ async fn write_config(
 }
 
 async fn get_server_dir(name: &str) -> Result<std::path::PathBuf, ServerError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let server_dir = launcher_dir.join("servers").join(name);
     if server_dir.exists() {
         return Err(ServerError::ServerAlreadyExists);
@@ -279,7 +279,7 @@ fn progress_json(sender: Option<&Sender<GenericProgress>>) {
 /// - If the server directory could not be deleted.
 /// - If the launcher directory could not be found or created.
 pub fn delete_server(name: &str) -> Result<(), String> {
-    let launcher_dir = file_utils::get_launcher_dir().map_err(|n| n.to_string())?;
+    let launcher_dir = file_utils::get_launcher_dir_s().map_err(|n| n.to_string())?;
     let server_dir = launcher_dir.join("servers").join(name);
     std::fs::remove_dir_all(&server_dir)
         .path(server_dir)

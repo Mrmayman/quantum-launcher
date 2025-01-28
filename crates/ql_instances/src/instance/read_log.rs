@@ -13,7 +13,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use ql_core::{err, file_utils, json::VersionDetails, IntoIoError, IoError};
+use ql_core::{err, json::VersionDetails, IoError, JsonFileError};
 
 /// [`read_logs`] `_w` function
 pub async fn read_logs_w(
@@ -50,7 +50,7 @@ pub async fn read_logs(
     sender: Sender<LogLine>,
     instance_name: &str,
 ) -> Result<ExitStatus, ReadError> {
-    let uses_xml = is_xml(instance_name)?;
+    let uses_xml = is_xml(instance_name).await?;
 
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
@@ -122,12 +122,11 @@ fn read_stdout(
     Ok(())
 }
 
-fn is_xml(instance_name: &str) -> Result<bool, ReadError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
-    let instance_dir = launcher_dir.join("instances").join(instance_name);
-    let json_path = instance_dir.join("details.json");
-    let json = std::fs::read_to_string(&json_path).path(json_path)?;
-    let json: VersionDetails = serde_json::from_str(&json)?;
+async fn is_xml(instance_name: &str) -> Result<bool, ReadError> {
+    let json = VersionDetails::load(&ql_core::InstanceSelection::Instance(
+        instance_name.to_owned(),
+    ))
+    .await?;
 
     Ok(json.logging.is_some())
 }
@@ -163,6 +162,15 @@ impl Display for ReadError {
             ReadError::Xml(err) => write!(f, "error reading instance log: (xml) {err}"),
             ReadError::IoError(err) => write!(f, "error reading instance log: (ioerror) {err}"),
             ReadError::Json(err) => write!(f, "error reading instance log: (json) {err}"),
+        }
+    }
+}
+
+impl From<JsonFileError> for ReadError {
+    fn from(value: JsonFileError) -> Self {
+        match value {
+            JsonFileError::SerdeError(err) => err.into(),
+            JsonFileError::Io(err) => err.into(),
         }
     }
 }

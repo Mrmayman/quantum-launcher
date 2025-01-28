@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    path::{Path, PathBuf},
     sync::{mpsc, Arc},
 };
 
@@ -206,28 +207,14 @@ impl Launcher {
     pub fn delete_selected_instance(&mut self) -> Command<Message> {
         if let State::ConfirmAction { .. } = &self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap();
-            match (
-                file_utils::get_instance_dir(selected_instance),
-                file_utils::get_launcher_dir(),
-            ) {
-                (Ok(deleted_instance_dir), Ok(launcher_dir)) => {
-                    let instances_dir = launcher_dir.join("instances");
-
-                    if !deleted_instance_dir.starts_with(&instances_dir) {
-                        self.set_error("Tried to delete instance folder located outside Launcher. Potential attack avoided.".to_owned());
-                        return Command::none();
-                    }
-
-                    if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
-                        self.set_error(err);
-                        return Command::none();
-                    }
-
-                    self.selected_instance = None;
-                    return self.go_to_launch_screen(Some("Deleted Instance".to_owned()));
-                }
-                (Err(err), Ok(_) | Err(_)) | (Ok(_), Err(err)) => self.set_error(err.to_string()),
+            let deleted_instance_dir = selected_instance.get_instance_path(&self.dir);
+            if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
+                self.set_error(err);
+                return Command::none();
             }
+
+            self.selected_instance = None;
+            return self.go_to_launch_screen(Some("Deleted Instance".to_owned()));
         }
         Command::none()
     }
@@ -236,7 +223,9 @@ impl Launcher {
         &mut self,
         selected_instance: &InstanceSelection,
     ) -> Result<(), JsonFileError> {
-        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
+        let config_path = selected_instance
+            .get_instance_path(&self.dir)
+            .join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -255,12 +244,13 @@ impl Launcher {
     pub fn save_config(
         instance_name: &InstanceSelection,
         config: &InstanceConfigJson,
+        dir: &Path,
     ) -> Result<(), JsonFileError> {
         let mut config = config.clone();
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
         }
-        let config_path = file_utils::get_instance_dir(instance_name)?.join("config.json");
+        let config_path = instance_name.get_instance_path(&dir).join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
         std::fs::write(&config_path, config_json).path(config_path)?;
@@ -271,15 +261,20 @@ impl Launcher {
         &mut self,
     ) -> Result<Command<Message>, JsonFileError> {
         let selected_instance = self.selected_instance.as_ref().unwrap();
-        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
+        let config_path = selected_instance
+            .get_instance_path(&self.dir)
+            .join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
-        match ModIndex::get(selected_instance).map_err(|err| err.to_string()) {
+        match ModIndex::get_s(selected_instance).map_err(|err| err.to_string()) {
             Ok(idx) => {
-                let locally_installed_mods =
-                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance.clone());
+                let locally_installed_mods = MenuEditMods::update_locally_installed_mods(
+                    &idx,
+                    selected_instance.clone(),
+                    &self.dir,
+                );
 
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
@@ -303,17 +298,20 @@ impl Launcher {
 
     pub fn go_to_edit_mods_menu(&mut self) -> Result<Command<Message>, JsonFileError> {
         let selected_instance = self.selected_instance.as_ref().unwrap();
-        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
+        let config_path = file_utils::get_instance_dir_s(selected_instance)?.join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
         let is_vanilla = config_json.mod_type == "Vanilla";
 
-        match ModIndex::get(selected_instance).map_err(|err| err.to_string()) {
+        match ModIndex::get_s(selected_instance).map_err(|err| err.to_string()) {
             Ok(idx) => {
-                let locally_installed_mods =
-                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance.clone());
+                let locally_installed_mods = MenuEditMods::update_locally_installed_mods(
+                    &idx,
+                    selected_instance.clone(),
+                    &self.dir,
+                );
 
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
@@ -381,7 +379,7 @@ impl Launcher {
 
     pub fn update_mod_index(&mut self) {
         if let State::EditMods(menu) = &mut self.state {
-            match ModIndex::get(self.selected_instance.as_ref().unwrap())
+            match ModIndex::get_s(self.selected_instance.as_ref().unwrap())
                 .map_err(|err| err.to_string())
             {
                 Ok(idx) => menu.mods = idx,
@@ -584,7 +582,7 @@ impl Launcher {
             return Command::none();
         }
 
-        let Some(json) = VersionDetails::load(self.selected_instance.as_ref().unwrap()) else {
+        let Some(json) = VersionDetails::load_s(&self.get_selected_instance_dir().unwrap()) else {
             return Command::none();
         };
 
@@ -600,6 +598,22 @@ impl Launcher {
                 sender,
             ),
             |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n)),
+        )
+    }
+
+    pub fn get_selected_instance_dir(&self) -> Option<PathBuf> {
+        Some(
+            self.selected_instance
+                .as_ref()?
+                .get_instance_path(&self.dir),
+        )
+    }
+
+    pub fn get_selected_dot_minecraft_dir(&self) -> Option<PathBuf> {
+        Some(
+            self.selected_instance
+                .as_ref()?
+                .get_dot_minecraft_path(&self.dir),
         )
     }
 
@@ -718,12 +732,10 @@ impl Launcher {
 }
 
 pub async fn get_locally_installed_mods(
-    selected_instance: InstanceSelection,
+    selected_instance: PathBuf,
     blacklist: Vec<String>,
 ) -> HashSet<String> {
-    let mods_dir_path = file_utils::get_dot_minecraft_dir(&selected_instance)
-        .unwrap()
-        .join("mods");
+    let mods_dir_path = selected_instance.join("mods");
 
     let Ok(mut dir) = tokio::fs::read_dir(&mods_dir_path).await else {
         err!("Error reading mods directory");

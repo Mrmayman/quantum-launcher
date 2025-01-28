@@ -27,14 +27,16 @@ impl JsonOptifine {
     /// - If any directory starting with "Opti" is not found in the versions dir
     /// - If the OptiFine directory does not contain a JSON file or JAR file
     /// - If the config directory (`AppData/Roaming` or `~/.config`) does not exist
-    pub fn read(instance_name: &str) -> Result<(Self, PathBuf), JsonFileError> {
-        let dot_minecraft_dir = file_utils::get_launcher_dir()?
+    pub async fn read(instance_name: &str) -> Result<(Self, PathBuf), JsonFileError> {
+        let dot_minecraft_dir = file_utils::get_launcher_dir()
+            .await?
             .join("instances")
             .join(instance_name)
             .join(".minecraft/versions");
 
-        let optifine_version_dir =
-            find_subdirectory_with_name(&dot_minecraft_dir, "Opti")?.ok_or(IoError::Io {
+        let optifine_version_dir = find_subdirectory_with_name(&dot_minecraft_dir, "Opti")
+            .await?
+            .ok_or(IoError::Io {
                 error: std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     "Could not find OptiFine directory",
@@ -42,22 +44,21 @@ impl JsonOptifine {
                 path: dot_minecraft_dir.clone(),
             })?;
 
-        let (json, jar) = find_and_read_json_with_jar(&optifine_version_dir)?;
+        let (json, jar) = find_and_read_json_with_jar(&optifine_version_dir).await?;
 
         Ok((serde_json::from_str::<Self>(&json)?, jar))
     }
 }
 
-fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoError> {
+async fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoError> {
     // Read the directory entries
-    let entries = std::fs::read_dir(dir_path).path(dir_path)?;
+    let mut entries = tokio::fs::read_dir(dir_path).await.path(dir_path)?;
 
     let mut json_content: Option<String> = None;
     let mut jar_path: Option<PathBuf> = None;
 
     // Iterate over the directory entries
-    for entry in entries {
-        let entry = entry.path(dir_path)?; // Handle possible errors
+    while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
 
         // Check if the entry is a file
@@ -67,7 +68,7 @@ fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoE
         if let Some(extension) = path.extension() {
             if extension == "json" {
                 // Read the contents of the JSON file
-                let contents = std::fs::read_to_string(&path).path(path)?;
+                let contents = tokio::fs::read_to_string(&path).await.path(path)?;
                 json_content = Some(contents);
             } else if extension == "jar" {
                 // Record the path to the .jar file
@@ -105,13 +106,13 @@ fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoE
     Ok((json_content, jar_path))
 }
 
-fn find_subdirectory_with_name(
+async fn find_subdirectory_with_name(
     parent_dir: &Path,
     keyword: &str,
 ) -> Result<Option<PathBuf>, IoError> {
     // Read the contents of the directory
-    let entries = std::fs::read_dir(parent_dir).path(parent_dir)?;
-    for entry in entries.into_iter().filter_map(Result::ok) {
+    let mut entries = tokio::fs::read_dir(parent_dir).await.path(parent_dir)?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
         // Check if the entry is a directory and contains the keyword
         if !path.is_dir() {

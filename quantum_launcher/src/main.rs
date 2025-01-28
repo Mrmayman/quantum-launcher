@@ -627,9 +627,10 @@ impl Application for Launcher {
                 &self.client_processes,
                 &self.client_logs,
                 self.selected_instance.as_ref(),
+                &self.dir,
             ),
             State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
-            State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),
             State::Create(menu) => menu.view(),
             State::ConfirmAction {
                 msg1,
@@ -684,6 +685,7 @@ impl Application for Launcher {
                 self.selected_instance.as_ref(),
                 &self.server_logs,
                 &self.server_processes,
+                &self.dir,
             ),
             State::ServerCreate(menu) => menu.view(),
             State::InstallPaper => widget::column!(widget::text("Installing Paper...").size(20))

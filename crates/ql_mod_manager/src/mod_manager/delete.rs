@@ -24,15 +24,17 @@ pub async fn delete_mods(
     instance_name: &InstanceSelection,
 ) -> Result<(), ModError> {
     info!("Deleting mods:");
-    let mut index = ModIndex::get(instance_name)?;
+    let mut index = ModIndex::get(instance_name).await?;
 
-    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)
+        .await?
+        .join("mods");
 
     // let mut downloaded_mods = HashSet::new();
 
     for id in ids {
         pt!("Deleting mod {id}");
-        delete_mod(&mut index, id, &mods_dir)?;
+        delete_mod(&mut index, id, &mods_dir).await?;
         // delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;
     }
 
@@ -78,7 +80,7 @@ pub async fn delete_mods(
 
         for orphan in orphaned_mods {
             has_been_removed = true;
-            delete_mod(&mut index, &orphan, &mods_dir)?;
+            delete_mod(&mut index, &orphan, &mods_dir).await?;
         }
 
         if !has_been_removed {
@@ -86,18 +88,18 @@ pub async fn delete_mods(
         }
     }
 
-    index.save()?;
+    index.save().await?;
     info!("Finished deleting mods");
     Ok(())
 }
 
-fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), ModError> {
+async fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), ModError> {
     if let Some(mod_info) = index.mods.remove(id) {
         for file in &mod_info.files {
             if mod_info.enabled {
-                delete_file(mods_dir, &file.filename)?;
+                delete_file(mods_dir, &file.filename).await?;
             } else {
-                delete_file(mods_dir, &format!("{}.disabled", file.filename))?;
+                delete_file(mods_dir, &format!("{}.disabled", file.filename)).await?;
             }
         }
     } else {
@@ -106,9 +108,9 @@ fn delete_mod(index: &mut ModIndex, id: &String, mods_dir: &Path) -> Result<(), 
     Ok(())
 }
 
-fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModError> {
+async fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModError> {
     let path = mods_dir.join(file);
-    if let Err(err) = std::fs::remove_file(&path) {
+    if let Err(err) = tokio::fs::remove_file(&path).await {
         if let std::io::ErrorKind::NotFound = err.kind() {
             err!("File does not exist, skipping: {path:?}");
         } else {

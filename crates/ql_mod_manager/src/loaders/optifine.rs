@@ -7,11 +7,13 @@ use std::{
 
 use ql_core::{
     file_utils, get_java_binary, info,
-    json::{optifine::JsonOptifine, InstanceConfigJson, JavaVersion, VersionDetails},
+    json::{optifine::JsonOptifine, JavaVersion, VersionDetails},
     GenericProgress, IntoIoError, IoError, JavaInstallError, JsonFileError, Progress, RequestError,
 };
 
 use crate::mod_manager::Loader;
+
+use super::change_instance_type;
 
 const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
@@ -98,11 +100,12 @@ pub async fn install_optifine(
         progress.send(OptifineInstallProgress::P1Start).unwrap();
     }
 
-    let instance_path = file_utils::get_launcher_dir()?
+    let instance_path = file_utils::get_launcher_dir()
+        .await?
         .join("instances")
         .join(instance_name);
 
-    create_details_json(&instance_path)?;
+    create_details_json(&instance_path).await?;
 
     let dot_minecraft_path = instance_path.join(".minecraft");
 
@@ -135,7 +138,7 @@ pub async fn install_optifine(
     run_hook(&new_installer_path, &optifine_path).await?;
 
     download_libraries(instance_name, &dot_minecraft_path, progress_sender.as_ref()).await?;
-    update_instance_config_json(&instance_path, "OptiFine".to_owned())?;
+    change_instance_type(&instance_path, "OptiFine".to_owned()).await?;
     if let Some(progress) = &progress_sender {
         progress.send(OptifineInstallProgress::P5Done).unwrap();
     }
@@ -152,7 +155,8 @@ pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
 }
 
 pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
-    let instance_path = file_utils::get_launcher_dir()?
+    let instance_path = file_utils::get_launcher_dir()
+        .await?
         .join("instances")
         .join(instance_name);
 
@@ -161,7 +165,7 @@ pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
     tokio::fs::remove_dir_all(&optifine_path)
         .await
         .path(optifine_path)?;
-    update_instance_config_json(&instance_path, "Vanilla".to_owned())?;
+    change_instance_type(&instance_path, "Vanilla".to_owned()).await?;
 
     let dot_minecraft_path = instance_path.join(".minecraft");
     let libraries_path = dot_minecraft_path.join("libraries");
@@ -170,8 +174,10 @@ pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
         .path(libraries_path)?;
 
     let versions_path = dot_minecraft_path.join("versions");
-    let entries = std::fs::read_dir(&versions_path).path(versions_path)?;
-    for entry in entries.into_iter().filter_map(Result::ok) {
+    let mut entries = tokio::fs::read_dir(&versions_path)
+        .await
+        .path(versions_path)?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
         // Check if the entry is a directory and contains the keyword
         if !path.is_dir() {
@@ -204,7 +210,7 @@ async fn download_libraries(
     dot_minecraft_path: &Path,
     progress_sender: Option<&Sender<OptifineInstallProgress>>,
 ) -> Result<(), OptifineError> {
-    let (optifine_json, _) = JsonOptifine::read(instance_name)?;
+    let (optifine_json, _) = JsonOptifine::read(instance_name).await?;
     let client = reqwest::Client::new();
     let libraries_path = dot_minecraft_path.join("libraries");
 
@@ -305,23 +311,11 @@ async fn compile_hook(
     Ok(())
 }
 
-fn update_instance_config_json(
-    instance_path: &Path,
-    mod_type: String,
-) -> Result<(), OptifineError> {
-    let config_path = instance_path.join("config.json");
-    let config = std::fs::read_to_string(&config_path).path(&config_path)?;
-    let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
-
-    config.mod_type = mod_type;
-    let config = serde_json::to_string(&config)?;
-    std::fs::write(&config_path, config).path(config_path)?;
-    Ok(())
-}
-
-fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> {
+async fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> {
     let details_path = instance_path.join("details.json");
-    let details = std::fs::read_to_string(&details_path).path(&details_path)?;
+    let details = tokio::fs::read_to_string(&details_path)
+        .await
+        .path(&details_path)?;
     let details: VersionDetails = serde_json::from_str(&details)?;
 
     let new_details_path = instance_path
@@ -329,7 +323,9 @@ fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> {
         .join(&details.id)
         .join(format!("{}.json", details.id));
 
-    std::fs::copy(&details_path, &new_details_path).path(details_path)?;
+    tokio::fs::copy(&details_path, &new_details_path)
+        .await
+        .path(details_path)?;
 
     Ok(())
 }

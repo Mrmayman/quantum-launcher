@@ -23,12 +23,14 @@ pub async fn uninstall_server_w(instance: String) -> Result<Loader, String> {
 }
 
 pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let instance_dir = launcher_dir.join("instances").join(instance);
     change_instance_type(&instance_dir, "Vanilla".to_owned()).await?;
 
     let forge_dir = instance_dir.join("forge");
-    std::fs::remove_dir_all(&forge_dir).path(forge_dir)?;
+    tokio::fs::remove_dir_all(&forge_dir)
+        .await
+        .path(forge_dir)?;
     Ok(())
 }
 
@@ -40,11 +42,11 @@ pub async fn uninstall_client_w(instance: String) -> Result<Loader, String> {
 }
 
 pub async fn uninstall_server(instance: &str) -> Result<(), ForgeInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let instance_dir = launcher_dir.join("servers").join(instance);
     change_instance_type(&instance_dir, "Vanilla".to_owned()).await?;
 
-    if let Some(forge_shim_file) = find_forge_shim_file(&instance_dir) {
+    if let Some(forge_shim_file) = find_forge_shim_file(&instance_dir).await {
         tokio::fs::remove_file(&forge_shim_file)
             .await
             .path(forge_shim_file)?;
@@ -72,12 +74,13 @@ async fn delete_file(run_sh_path: &Path) -> Result<(), ForgeInstallError> {
     Ok(())
 }
 
-fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
+async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
     if !dir.is_dir() {
         return None; // Ensure the path is a directory
     }
 
-    for entry in (std::fs::read_dir(dir).ok()?).flatten() {
+    let mut dir = tokio::fs::read_dir(dir).await.ok()?;
+    while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
 
         if path.is_file() {

@@ -1,9 +1,9 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, path::Path};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{err, file_utils, InstanceSelection};
+use crate::{err, file_utils, InstanceSelection, IntoIoError, JsonFileError};
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -44,17 +44,22 @@ pub struct VersionDetails {
 }
 
 impl VersionDetails {
-    pub fn load(instance: &InstanceSelection) -> Option<Self> {
-        let path = match file_utils::get_instance_dir(instance) {
-            Ok(n) => n,
-            Err(err) => {
-                err!("Couldn't get instance dir: {err}");
-                return None;
-            }
-        };
-        let path = path.join("details.json");
+    pub async fn load(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
+        let path = file_utils::get_instance_dir(instance)
+            .await?
+            .join("details.json");
 
-        let file = match std::fs::read(&path) {
+        let file = tokio::fs::read_to_string(&path).await.path(path)?;
+
+        let details: VersionDetails = serde_json::from_str(&file)?;
+
+        Ok(details)
+    }
+
+    pub fn load_s(instance_dir: &Path) -> Option<Self> {
+        let path = instance_dir.join("details.json");
+
+        let file = match std::fs::read_to_string(&path) {
             Ok(n) => n,
             Err(err) => {
                 err!("Couldn't read details.json: {err}");
@@ -62,7 +67,7 @@ impl VersionDetails {
             }
         };
 
-        let details: VersionDetails = match serde_json::from_slice(&file) {
+        let details: VersionDetails = match serde_json::from_str(&file) {
             Ok(n) => n,
             Err(err) => {
                 err!("Couldn't parse details.json: {err}");

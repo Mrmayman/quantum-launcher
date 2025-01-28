@@ -1,10 +1,11 @@
 use core::panic;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use iced::widget;
-use ql_core::{
-    file_utils, InstanceSelection, Progress, SelectedMod, IS_ARM_LINUX, LAUNCHER_VERSION_NAME,
-};
+use ql_core::{InstanceSelection, Progress, SelectedMod, IS_ARM_LINUX, LAUNCHER_VERSION_NAME};
 
 use crate::{
     config::LauncherConfig,
@@ -43,6 +44,7 @@ impl MenuLaunch {
         processes: &'element HashMap<String, ClientProcess>,
         logs: &'element HashMap<String, InstanceLog>,
         selected_instance: Option<&'element InstanceSelection>,
+        launcher_dir: &'element Path,
     ) -> Element<'element> {
         let selected_instance = match selected_instance {
             Some(InstanceSelection::Instance(n)) => Some(n),
@@ -52,8 +54,14 @@ impl MenuLaunch {
 
         let footer_text = self.get_footer_text();
 
-        let left_elements =
-            get_left_pane(config, selected_instance, processes, footer_text, instances);
+        let left_elements = get_left_pane(
+            config,
+            selected_instance,
+            processes,
+            footer_text,
+            instances,
+            launcher_dir,
+        );
 
         let log = Self::get_log_pane(logs, selected_instance, false);
 
@@ -163,6 +171,7 @@ fn get_left_pane<'a>(
     processes: &'a HashMap<String, ClientProcess>,
     footer_text: Element<'a>,
     instances: Option<&'a [String]>,
+    launcher_dir: &'a Path,
 ) -> Element<'a> {
     let username = &config.as_ref().unwrap().username;
 
@@ -213,7 +222,7 @@ fn get_left_pane<'a>(
                             .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen))
                     )
                     .width(98),
-                get_files_button(selected_instance),
+                get_files_button(selected_instance, launcher_dir),
             ]
             .spacing(5),
         )
@@ -295,10 +304,12 @@ fn get_play_button<'a>(
     play_button
 }
 
-fn get_files_button(selected_instance: Option<&String>) -> widget::Button<Message, LauncherTheme> {
+fn get_files_button<'a>(
+    selected_instance: Option<&'a String>,
+    launcher_dir: &'a Path,
+) -> widget::Button<'a, Message, LauncherTheme> {
     button_with_icon(icon_manager::folder(), "Files")
         .on_press_maybe((selected_instance.is_some()).then(|| {
-            let launcher_dir = file_utils::get_launcher_dir().unwrap();
             Message::CoreOpenDir(
                 launcher_dir
                     .join("instances")

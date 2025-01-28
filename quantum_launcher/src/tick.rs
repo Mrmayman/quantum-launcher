@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
+    path::Path,
 };
 
 use iced::Command;
@@ -52,16 +53,18 @@ impl Launcher {
                 }
             }
             State::EditInstance(menu) => {
-                if let Err(err) =
-                    Launcher::save_config(self.selected_instance.as_ref().unwrap(), &menu.config)
-                {
+                if let Err(err) = Launcher::save_config(
+                    self.selected_instance.as_ref().unwrap(),
+                    &menu.config,
+                    &self.dir,
+                ) {
                     self.set_error(err);
                 }
             }
             State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
                 let instance_selection = self.selected_instance.clone().unwrap();
-                let update_locally_installed_mods = menu.tick(instance_selection);
+                let update_locally_installed_mods = menu.tick(instance_selection, &self.dir);
                 return update_locally_installed_mods;
             }
             State::InstallFabric(menu) => {
@@ -99,13 +102,13 @@ impl Launcher {
                 }
             }
             State::ModsDownload(menu) => {
-                match ModIndex::get(self.selected_instance.as_ref().unwrap()) {
-                    Ok(index) => menu.mod_index = index,
-                    Err(err) => err!("Can't load mod index: {err}"),
-                }
+                let index_cmd = Command::perform(
+                    ModIndex::get_w(self.selected_instance.clone().unwrap()),
+                    |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n)),
+                );
 
                 if let Some(results) = &menu.results {
-                    let mut commands = Vec::new();
+                    let mut commands = vec![index_cmd];
                     for result in &results.hits {
                         if commands.len() > 64 {
                             break;
@@ -122,9 +125,9 @@ impl Launcher {
                         }
                     }
 
-                    if !commands.is_empty() {
-                        return Command::batch(commands);
-                    }
+                    return Command::batch(commands);
+                } else {
+                    return index_cmd;
                 }
             }
             State::LauncherSettings => {
@@ -389,7 +392,7 @@ pub fn sort_dependencies(
 }
 
 impl MenuEditMods {
-    fn tick(&mut self, instance_selection: InstanceSelection) -> Command<Message> {
+    fn tick(&mut self, instance_selection: InstanceSelection, dir: &Path) -> Command<Message> {
         self.sorted_mods_list = sort_dependencies(&self.mods.mods, &self.locally_installed_mods);
 
         if let Some(progress) = &mut self.mod_update_progress {
@@ -399,7 +402,7 @@ impl MenuEditMods {
             }
         }
 
-        MenuEditMods::update_locally_installed_mods(&self.mods, instance_selection)
+        MenuEditMods::update_locally_installed_mods(&self.mods, instance_selection, dir)
     }
 }
 

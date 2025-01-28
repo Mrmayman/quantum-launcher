@@ -1,5 +1,7 @@
+use std::path::Path;
+
 use iced::widget;
-use ql_core::{file_utils, InstanceSelection, SelectedMod};
+use ql_core::{InstanceSelection, SelectedMod};
 
 use crate::{
     icon_manager,
@@ -13,7 +15,11 @@ use crate::{
 use super::{back_to_launch_screen, button_with_icon, Element};
 
 impl MenuEditMods {
-    pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
+    pub fn view<'a>(
+        &'a self,
+        selected_instance: &'a InstanceSelection,
+        launcher_dir: &'a Path,
+    ) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
             return widget::column!(widget::text("Updating mods").size(20), progress.view())
                 .padding(10)
@@ -31,7 +37,7 @@ impl MenuEditMods {
                     )
                     .on_press(back_to_launch_screen(selected_instance, None)),
                     self.get_mod_installer_buttons(selected_instance),
-                    Self::open_mod_folder_button(selected_instance),
+                    Self::open_mod_folder_button(selected_instance, launcher_dir),
                     widget::container(self.get_mod_update_pane()),
                 )
                 .padding(10)
@@ -210,14 +216,15 @@ impl MenuEditMods {
         .spacing(5)
     }
 
-    fn open_mod_folder_button(selected_instance: &InstanceSelection) -> Element {
+    fn open_mod_folder_button<'a>(
+        selected_instance: &'a InstanceSelection,
+        parent: &'a Path,
+    ) -> Element<'a> {
         let path = {
-            if let Ok(dot_minecraft_dir) = file_utils::get_dot_minecraft_dir(selected_instance) {
-                let path = dot_minecraft_dir.join("mods");
-                path.exists().then_some(path.to_str().unwrap().to_owned())
-            } else {
-                None
-            }
+            let path = selected_instance
+                .get_dot_minecraft_path(parent)
+                .join("mods");
+            path.exists().then_some(path.to_str().unwrap().to_owned())
         };
 
         button_with_icon(icon_manager::folder(), "Go to Mods Folder")

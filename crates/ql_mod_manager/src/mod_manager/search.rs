@@ -1,7 +1,7 @@
 use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
-use ql_core::{err, file_utils, IoError, RequestError};
+use ql_core::{err, file_utils, IoError, JsonFileError, RequestError};
 use serde::{Deserialize, Serialize};
 use zip_extract::ZipError;
 
@@ -204,6 +204,15 @@ impl Display for ModError {
                 write!(f, "couldn't add entry {path} to zip: {err}")
             }
             ModError::Zip(err) => write!(f, "(zip) {err}"),
+        }
+    }
+}
+
+impl From<JsonFileError> for ModError {
+    fn from(value: JsonFileError) -> Self {
+        match value {
+            JsonFileError::SerdeError(err) => err.into(),
+            JsonFileError::Io(err) => err.into(),
         }
     }
 }

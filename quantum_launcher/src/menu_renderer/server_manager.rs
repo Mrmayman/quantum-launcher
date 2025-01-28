@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use iced::widget;
-use ql_core::{file_utils, InstanceSelection};
+use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
@@ -20,6 +20,7 @@ impl MenuServerManage {
         selected_server: Option<&'a InstanceSelection>,
         logs: &'a HashMap<String, InstanceLog>,
         processes: &'a HashMap<String, ServerProcess>,
+        launcher_dir: &'a Path,
     ) -> Element<'a> {
         let selected_server = match selected_server {
             Some(InstanceSelection::Server(n)) => Some(n),
@@ -29,7 +30,7 @@ impl MenuServerManage {
         let log_pane = MenuLaunch::get_log_pane(logs, selected_server, true);
 
         let button_play = Self::get_play_button(selected_server, processes);
-        let button_files = Self::get_files_button(selected_server);
+        let button_files = Self::get_files_button(selected_server, launcher_dir);
 
         let no_servers_found = widget::column!(widget::text(
             "No servers found! Create a new server to get started"
@@ -134,13 +135,13 @@ impl MenuServerManage {
         }
     }
 
-    fn get_files_button(
-        selected_server: Option<&String>,
-    ) -> widget::Button<'_, Message, crate::stylesheet::styles::LauncherTheme> {
+    fn get_files_button<'a>(
+        selected_server: Option<&'a String>,
+        launcher_dir: &'a Path,
+    ) -> widget::Button<'a, Message, crate::stylesheet::styles::LauncherTheme> {
         button_with_icon(icon_manager::folder(), "Files")
             .width(97)
             .on_press_maybe((selected_server.is_some()).then(|| {
-                let launcher_dir = file_utils::get_launcher_dir().unwrap();
                 Message::CoreOpenDir(
                     launcher_dir
                         .join("servers")

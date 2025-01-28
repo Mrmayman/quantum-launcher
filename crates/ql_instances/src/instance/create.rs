@@ -42,10 +42,12 @@ pub async fn create_instance(
     info!("Started creating instance.");
 
     // An empty asset directory.
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
 
     let assets_dir = launcher_dir.join("assets/null");
-    std::fs::create_dir_all(&assets_dir).path(assets_dir)?;
+    tokio::fs::create_dir_all(&assets_dir)
+        .await
+        .path(assets_dir)?;
 
     let mut game_downloader = GameDownloader::new(instance_name, &version, progress_sender).await?;
 

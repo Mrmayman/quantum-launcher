@@ -211,7 +211,7 @@ impl GameDownloader {
             GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
                 .await?;
 
-        let launcher_dir = file_utils::get_launcher_dir()?;
+        let launcher_dir = file_utils::get_launcher_dir().await?;
 
         let assets_dir = launcher_dir.join("assets");
         tokio::fs::create_dir_all(&assets_dir)
@@ -502,7 +502,7 @@ impl GameDownloader {
 
     async fn new_get_instance_dir(instance_name: &str) -> Result<Option<PathBuf>, IoError> {
         info!("Initializing instance folder.");
-        let launcher_dir = file_utils::get_launcher_dir()?;
+        let launcher_dir = file_utils::get_launcher_dir().await?;
         let instances_dir = launcher_dir.join("instances");
         tokio::fs::create_dir_all(&instances_dir)
             .await

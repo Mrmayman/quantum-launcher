@@ -16,9 +16,11 @@ pub async fn toggle_mods_w(
 }
 
 async fn toggle_mods(id: &[String], instance_name: &InstanceSelection) -> Result<(), ModError> {
-    let mut index = ModIndex::get(instance_name)?;
+    let mut index = ModIndex::get(instance_name).await?;
 
-    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)?.join("mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)
+        .await?
+        .join("mods");
 
     for id in id {
         if let Some(info) = index.mods.get_mut(id) {
@@ -36,7 +38,7 @@ async fn toggle_mods(id: &[String], instance_name: &InstanceSelection) -> Result
         }
     }
 
-    index.save()?;
+    index.save().await?;
     Ok(())
 }
 

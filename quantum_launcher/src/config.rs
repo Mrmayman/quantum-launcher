@@ -26,8 +26,8 @@ impl Default for LauncherConfig {
 
 impl LauncherConfig {
     /// Load the launcher configuration.
-    pub fn load() -> Result<Self, JsonFileError> {
-        let config_path = file_utils::get_launcher_dir()?.join("config.json");
+    pub fn load(launcher_dir: &Path) -> Result<Self, JsonFileError> {
+        let config_path = launcher_dir.join("config.json");
         if !config_path.exists() {
             return LauncherConfig::create(&config_path);
         }
@@ -45,7 +45,7 @@ impl LauncherConfig {
 
     /// Saves the launcher configuration.
     pub async fn save(&self) -> Result<(), JsonFileError> {
-        let config_path = file_utils::get_launcher_dir()?.join("config.json");
+        let config_path = file_utils::get_launcher_dir().await?.join("config.json");
         let config = serde_json::to_string(&self)?;
 
         tokio::fs::write(&config_path, config.as_bytes())

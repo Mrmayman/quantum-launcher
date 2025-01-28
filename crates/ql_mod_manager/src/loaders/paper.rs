@@ -66,7 +66,8 @@ pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
 }
 
 pub async fn uninstall(instance_name: &str) -> Result<(), PaperInstallerError> {
-    let server_dir = file_utils::get_launcher_dir()?
+    let server_dir = file_utils::get_launcher_dir()
+        .await?
         .join("servers")
         .join(instance_name);
 
@@ -109,14 +110,15 @@ pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
         file_utils::download_file_to_string(&client, PAPER_VERSIONS_URL, false).await?;
     let paper_version: PaperVersions = serde_json::from_str(&paper_versions)?;
 
-    let server_dir = file_utils::get_launcher_dir()?
+    let server_dir = file_utils::get_launcher_dir()
+        .await?
         .join("servers")
         .join(instance_name);
-    let json_path = server_dir.join("details.json");
-    let json = tokio::fs::read_to_string(&json_path)
-        .await
-        .path(json_path)?;
-    let json: VersionDetails = serde_json::from_str(&json)?;
+
+    let json = VersionDetails::load(&ql_core::InstanceSelection::Server(
+        instance_name.to_owned(),
+    ))
+    .await?;
 
     let url = paper_version
         .versions

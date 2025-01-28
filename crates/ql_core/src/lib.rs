@@ -17,6 +17,8 @@ pub mod json;
 pub mod print;
 mod progress;
 
+use std::path::{Path, PathBuf};
+
 pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
 pub use file_utils::RequestError;
 use futures::StreamExt;
@@ -60,6 +62,22 @@ impl InstanceSelection {
             Self::Server(name.to_owned())
         } else {
             Self::Instance(name.to_owned())
+        }
+    }
+
+    pub fn get_instance_path(&self, parent: &Path) -> PathBuf {
+        match self {
+            Self::Instance(name) => parent.join("instances").join(name),
+            Self::Server(name) => parent.join("servers").join(name),
+        }
+    }
+
+    pub fn get_dot_minecraft_path(&self, parent: &Path) -> PathBuf {
+        match self {
+            InstanceSelection::Instance(name) => {
+                parent.join("instances").join(name).join(".minecraft")
+            }
+            InstanceSelection::Server(name) => parent.join("servers").join(name),
         }
     }
 

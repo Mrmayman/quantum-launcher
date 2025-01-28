@@ -7,13 +7,14 @@ pub struct ServerProperties {
 }
 
 impl ServerProperties {
-    pub fn load(server_name: &str) -> Option<Self> {
+    pub async fn load(server_name: &str) -> Option<Self> {
         let server_dir = file_utils::get_launcher_dir()
+            .await
             .ok()?
             .join("servers")
             .join(server_name);
         let properties_file = server_dir.join("server.properties");
-        let entries = std::fs::read_to_string(&properties_file).ok()?;
+        let entries = tokio::fs::read_to_string(&properties_file).await.ok()?;
 
         let entries_map: HashMap<String, String> = entries
             .lines()
@@ -27,8 +28,9 @@ impl ServerProperties {
         })
     }
 
-    pub fn save(&self, server_name: &str) -> Result<(), IoError> {
-        let server_dir = file_utils::get_launcher_dir()?
+    pub async fn save(&self, server_name: &str) -> Result<(), IoError> {
+        let server_dir = file_utils::get_launcher_dir()
+            .await?
             .join("servers")
             .join(server_name);
         let properties_file = server_dir.join("server.properties");
@@ -36,7 +38,9 @@ impl ServerProperties {
         for (key, value) in &self.entries {
             properties_content.push_str(&format!("{key}={value}\n"));
         }
-        std::fs::write(&properties_file, properties_content).path(properties_file)?;
+        tokio::fs::write(&properties_file, properties_content)
+            .await
+            .path(properties_file)?;
         Ok(())
     }
 }

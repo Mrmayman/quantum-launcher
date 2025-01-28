@@ -210,7 +210,7 @@ fn cmd_list_instances(
                     if has_printed {
                         print!("\t");
                     }
-                    let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                    let launcher_dir = file_utils::get_launcher_dir_s().unwrap();
                     let instance_dir = launcher_dir.join(dirname).join(&instance);
 
                     let json = std::fs::read_to_string(instance_dir.join("details.json")).unwrap();
@@ -231,7 +231,7 @@ fn cmd_list_instances(
                     if has_printed {
                         print!("\t");
                     }
-                    let launcher_dir = file_utils::get_launcher_dir().unwrap();
+                    let launcher_dir = file_utils::get_launcher_dir_s().unwrap();
                     let instance_dir = launcher_dir.join(dirname).join(&instance);
                     let config_json =
                         std::fs::read_to_string(instance_dir.join("config.json")).unwrap();

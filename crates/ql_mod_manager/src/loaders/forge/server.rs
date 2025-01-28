@@ -33,17 +33,14 @@ pub async fn install_server(
     tokio::fs::remove_file(&installer_path)
         .await
         .path(installer_path)?;
-    let delete_path = installer.forge_dir.join("ClientInstaller.java");
-    tokio::fs::remove_file(&delete_path)
-        .await
-        .path(delete_path)?;
-    let delete_path = installer.forge_dir.join("ClientInstaller.class");
-    tokio::fs::remove_file(&delete_path)
-        .await
-        .path(delete_path)?;
+
+    installer.delete("ClientInstaller.java").await?;
+    installer.delete("ClientInstaller.class").await?;
+    installer.delete("ForgeInstaller.java").await?;
+    installer.delete("ForgeInstaller.class").await?;
 
     change_instance_type(&installer.instance_dir, "Forge".to_owned()).await?;
-    installer.remove_lock()?;
+    installer.remove_lock().await?;
 
     Ok(())
 }

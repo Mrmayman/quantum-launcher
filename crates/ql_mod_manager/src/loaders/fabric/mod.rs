@@ -4,7 +4,7 @@ use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
     json::{FabricJSON, VersionDetails},
-    GenericProgress, InstanceSelection, IntoIoError, JsonFileError, RequestError,
+    GenericProgress, InstanceSelection, IntoIoError, RequestError,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -36,16 +36,6 @@ async fn download_file_to_string(
     .await
 }
 
-async fn get_version_json(
-    instance_name: &InstanceSelection,
-) -> Result<VersionDetails, JsonFileError> {
-    let version_json_path = file_utils::get_instance_dir(instance_name)?.join("details.json");
-    let version_json = tokio::fs::read_to_string(&version_json_path)
-        .await
-        .path(version_json_path)?;
-    Ok(serde_json::from_str(&version_json)?)
-}
-
 pub async fn get_list_of_versions_w(
     instance_name: InstanceSelection,
     is_quilt: bool,
@@ -61,7 +51,7 @@ pub async fn get_list_of_versions(
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
     let client = Client::new();
 
-    let version_json = get_version_json(instance_name).await?;
+    let version_json = VersionDetails::load(instance_name).await?;
 
     // The first one is the latest version.
     let version_list = download_file_to_string(
@@ -97,7 +87,8 @@ pub async fn install_server(
         progress.send(GenericProgress::default())?;
     }
 
-    let server_dir = file_utils::get_launcher_dir()?
+    let server_dir = file_utils::get_launcher_dir()
+        .await?
         .join("servers")
         .join(server_name);
 
@@ -175,10 +166,10 @@ pub async fn install_client(
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
     let client = Client::new();
 
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
 
-    migrate_index_file(&instance_dir)?;
+    migrate_index_file(&instance_dir).await?;
 
     let lock_path = instance_dir.join("fabric.lock");
     tokio::fs::write(
@@ -242,14 +233,20 @@ pub async fn install_client(
     Ok(())
 }
 
-fn migrate_index_file(instance_dir: &Path) -> Result<(), FabricInstallError> {
+async fn migrate_index_file(instance_dir: &Path) -> Result<(), FabricInstallError> {
     let old_index_dir = instance_dir.join(".minecraft/mods/index.json");
     let new_index_dir = instance_dir.join(".minecraft/mod_index.json");
     if old_index_dir.exists() {
-        let index = std::fs::read_to_string(&old_index_dir).path(&old_index_dir)?;
+        let index = tokio::fs::read_to_string(&old_index_dir)
+            .await
+            .path(&old_index_dir)?;
 
-        std::fs::remove_file(&old_index_dir).path(old_index_dir)?;
-        std::fs::write(&new_index_dir, &index).path(new_index_dir)?;
+        tokio::fs::remove_file(&old_index_dir)
+            .await
+            .path(old_index_dir)?;
+        tokio::fs::write(&new_index_dir, &index)
+            .await
+            .path(new_index_dir)?;
     }
     Ok(())
 }
@@ -287,14 +284,16 @@ fn send_progress(
 /// - `progress` - A channel to send progress updates to.
 /// - `is_quilt` - Whether to install Quilt instead of Fabric.
 ///   As much as people want you to think, Quilt is almost
-///   identical to Fabric installer wise. So it's just a
-///   matter of changing the URL.
+///   identical to Fabric. So it's just a matter of changing the URL.
+///
+/// Returns the `is_quilt` bool (so that the launcher can remember
+/// whether quilt or fabric was installed)
 pub async fn install_w(
     loader_version: String,
     instance_name: InstanceSelection,
     progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     match instance_name {
         InstanceSelection::Instance(n) => {
             install_client_w(loader_version, n, progress, is_quilt).await
@@ -303,6 +302,7 @@ pub async fn install_w(
             install_server_w(loader_version, n, progress, is_quilt).await
         }
     }
+    .map(|()| is_quilt)
 }
 
 pub async fn install_client_w(

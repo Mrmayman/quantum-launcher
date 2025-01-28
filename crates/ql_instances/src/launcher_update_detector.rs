@@ -158,7 +158,9 @@ pub async fn install_launcher_update(
         has_finished: false,
     })?;
     let backup_path = exe_location.join(format!("backup_{backup_idx}_{exe_name}"));
-    std::fs::rename(&exe_path, &backup_path).path(backup_path)?;
+    tokio::fs::rename(&exe_path, &backup_path)
+        .await
+        .path(backup_path)?;
 
     info!("Downloading new version of launcher");
     progress.send(GenericProgress {
@@ -182,11 +184,11 @@ pub async fn install_launcher_update(
     // Should I, though?
     let rm_path = exe_location.join("README.md");
     if rm_path.exists() {
-        std::fs::remove_file(&rm_path).path(rm_path)?;
+        tokio::fs::remove_file(&rm_path).await.path(rm_path)?;
     }
     let rm_path = exe_location.join("LICENSE");
     if rm_path.exists() {
-        std::fs::remove_file(&rm_path).path(rm_path)?;
+        tokio::fs::remove_file(&rm_path).await.path(rm_path)?;
     }
 
     let extract_name = if cfg!(target_os = "windows") {

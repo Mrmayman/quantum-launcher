@@ -11,7 +11,8 @@ pub async fn uninstall_server_w(server_name: String) -> Result<(), String> {
 }
 
 pub async fn uninstall_server(server_name: &str) -> Result<(), FabricInstallError> {
-    let server_dir = file_utils::get_launcher_dir()?
+    let server_dir = file_utils::get_launcher_dir()
+        .await?
         .join("servers")
         .join(server_name);
 
@@ -51,7 +52,7 @@ pub async fn uninstall_server(server_name: &str) -> Result<(), FabricInstallErro
 }
 
 pub async fn uninstall_client(instance_name: &str) -> Result<(), FabricInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
 
     let lock_path = instance_dir.join("fabric_uninstall.lock");

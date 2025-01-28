@@ -1,10 +1,10 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{info, GenericProgress, InstanceSelection};
+use ql_core::{info, json::VersionDetails, GenericProgress, InstanceSelection};
 
 use crate::mod_manager::{
-    download::{get_loader_type, get_version_json, version_sort},
+    download::{get_loader_type, version_sort},
     ModVersion,
 };
 
@@ -49,11 +49,14 @@ async fn apply_updates(
 pub async fn check_for_updates(
     selected_instance: InstanceSelection,
 ) -> Option<Vec<(String, String)>> {
-    let index = ModIndex::get(&selected_instance).ok()?;
+    let index = ModIndex::get(&selected_instance).await.ok()?;
 
-    let version_json = get_version_json(&selected_instance).ok()?;
+    let version_json = VersionDetails::load(&selected_instance).await.ok()?;
 
-    let loader = get_loader_type(&selected_instance).ok()?;
+    let loader = get_loader_type(&selected_instance).await.ok()?;
+    if loader.as_deref() == Some("optifine") {
+        return None;
+    }
 
     let mut updated_mods = Vec::new();
 

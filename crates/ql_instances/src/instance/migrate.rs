@@ -11,13 +11,17 @@ use super::launch::{error::GameLaunchError, GameLauncher, CLASSPATH_SEPARATOR};
 
 impl GameLauncher {
     pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {
-        self.cleanup_junk_files()?;
+        self.cleanup_junk_files().await?;
 
         let launcher_version_path = self.instance_dir.join("launcher_version.txt");
         let mut version = if launcher_version_path.exists() {
-            std::fs::read_to_string(&launcher_version_path).path(&launcher_version_path)?
+            tokio::fs::read_to_string(&launcher_version_path)
+                .await
+                .path(&launcher_version_path)?
         } else {
-            std::fs::write(&launcher_version_path, "0.1").path(&launcher_version_path)?;
+            tokio::fs::write(&launcher_version_path, "0.1")
+                .await
+                .path(&launcher_version_path)?;
             "0.1".to_owned()
         };
         if version.split('.').count() == 2 {
@@ -38,7 +42,8 @@ impl GameLauncher {
 
         if version < allowed_version {
             self.migrate_download_missing_native_libs(&client).await?;
-            std::fs::write(&launcher_version_path, LAUNCHER_VERSION_NAME)
+            tokio::fs::write(&launcher_version_path, LAUNCHER_VERSION_NAME)
+                .await
                 .path(launcher_version_path)?;
         }
 
@@ -62,7 +67,7 @@ impl GameLauncher {
             }) = &library.downloads
             {
                 let library_path = self.instance_dir.join("libraries").join(&artifact.path);
-                let library_file = std::fs::read(&library_path).path(library_path)?;
+                let library_file = tokio::fs::read(&library_path).await.path(library_path)?;
 
                 GameDownloader::extract_native_library(
                     &self.instance_dir,
@@ -79,7 +84,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    pub fn migrate_create_forge_clean_classpath(
+    pub async fn migrate_create_forge_clean_classpath(
         &self,
         forge_classpath: String,
         classpath_entries: &mut HashSet<String>,
@@ -110,7 +115,8 @@ impl GameLauncher {
             temp_forge_classpath_entries.push_str(entry);
             temp_forge_classpath_entries.push('\n');
         }
-        std::fs::write(&classpath_entries_path, temp_forge_classpath_entries)
+        tokio::fs::write(&classpath_entries_path, temp_forge_classpath_entries)
+            .await
             .path(classpath_entries_path)?;
         Ok(())
     }

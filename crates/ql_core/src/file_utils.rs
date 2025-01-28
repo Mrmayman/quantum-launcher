@@ -5,12 +5,24 @@ use reqwest::Client;
 use crate::{error::IoError, InstanceSelection, IntoIoError};
 
 /// Returns the path to the QuantumLauncher root folder.
-pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
+pub async fn get_launcher_dir() -> Result<PathBuf, IoError> {
+    let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
+    let launcher_directory = config_directory.join("QuantumLauncher");
+    tokio::fs::create_dir_all(&launcher_directory)
+        .await
+        .path(&launcher_directory)?;
+
+    Ok(launcher_directory)
+}
+
+/// Returns the path to the QuantumLauncher root folder. Sync version.
+pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
     let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
     let launcher_directory = config_directory.join("QuantumLauncher");
     std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
 
-    Ok(launcher_directory)
+    // Ok(launcher_directory)
+    Err(IoError::ConfigDirNotFound)
 }
 
 /// Returns whether the user is new to QuantumLauncher,
@@ -27,8 +39,8 @@ pub fn is_new_user() -> bool {
 }
 
 /// Returns the path to `.minecraft` folder containing the game files.
-pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = get_launcher_dir()?;
+pub async fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = get_launcher_dir().await?;
     Ok(match selection {
         InstanceSelection::Instance(name) => {
             launcher_dir.join("instances").join(name).join(".minecraft")
@@ -37,14 +49,47 @@ pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, I
     })
 }
 
+/// Returns the path to `.minecraft` folder containing the game files. Sync version.
+pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = get_launcher_dir_s()?;
+    let mc_dir = match selection {
+        InstanceSelection::Instance(name) => {
+            launcher_dir.join("instances").join(name).join(".minecraft")
+        }
+        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
+    };
+    if !mc_dir.starts_with(&launcher_dir) {
+        return Err(IoError::InstanceDirEscapeAttack);
+    }
+    Ok(mc_dir)
+}
+
 /// Returns the path to the instance directory containing
 /// QuantumLauncher-specific files.
-pub fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = get_launcher_dir()?;
-    Ok(match selection {
+pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = get_launcher_dir().await?;
+    let instance_dir = match selection {
         InstanceSelection::Instance(name) => launcher_dir.join("instances").join(name),
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
-    })
+    };
+    if !instance_dir.starts_with(&launcher_dir) {
+        return Err(IoError::InstanceDirEscapeAttack);
+    }
+    Ok(instance_dir)
+}
+
+/// Returns the path to the instance directory containing
+/// QuantumLauncher-specific files. Sync version.
+pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = get_launcher_dir_s()?;
+    let instance_dir = match selection {
+        InstanceSelection::Instance(name) => launcher_dir.join("instances").join(name),
+        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
+    };
+    if !instance_dir.starts_with(&launcher_dir) {
+        return Err(IoError::InstanceDirEscapeAttack);
+    }
+    Ok(instance_dir)
 }
 
 /// Downloads a file from the given URL into a `String`.
@@ -144,11 +189,11 @@ impl Display for RequestError {
 /// - the user doesn't have permission to read the file metadata
 /// - the user doesn't have permission to change the file metadata
 #[cfg(target_family = "unix")]
-pub fn set_executable(path: &std::path::Path) -> Result<(), IoError> {
+pub async fn set_executable(path: &std::path::Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;
-    let mut perms = std::fs::metadata(path).path(path)?.permissions();
+    let mut perms = tokio::fs::metadata(path).await.path(path)?.permissions();
     perms.set_mode(0o755); // rwxr-xr-x
-    std::fs::set_permissions(path, perms).path(path)
+    tokio::fs::set_permissions(path, perms).await.path(path)
 }
 
 // #[cfg(unix)]

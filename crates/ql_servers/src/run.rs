@@ -38,7 +38,7 @@ pub async fn run(
     name: &str,
     java_install_progress: Sender<GenericProgress>,
 ) -> Result<(Child, bool), ServerError> {
-    let launcher_dir = file_utils::get_launcher_dir()?;
+    let launcher_dir = file_utils::get_launcher_dir().await?;
     let server_dir = launcher_dir.join("servers").join(name);
 
     let config_json = get_config_json(&server_dir).await?;
@@ -46,7 +46,9 @@ pub async fn run(
     let server_jar_path = if config_json.mod_type == "Fabric" || config_json.mod_type == "Quilt" {
         server_dir.join("fabric-server-launch.jar")
     } else if config_json.mod_type == "Forge" {
-        find_forge_shim_file(&server_dir).ok_or(ServerError::NoForgeShimFound)?
+        find_forge_shim_file(&server_dir)
+            .await
+            .ok_or(ServerError::NoForgeShimFound)?
     } else if config_json.mod_type == "Paper" {
         server_dir.join("paper_server.jar")
     } else {
@@ -140,12 +142,14 @@ async fn get_java_path(
     Ok(path)
 }
 
-fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
+async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
     if !dir.is_dir() {
         return None; // Ensure the path is a directory
     }
 
-    for entry in (std::fs::read_dir(dir).ok()?).flatten() {
+    let mut dir = tokio::fs::read_dir(dir).await.ok()?;
+
+    while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
 
         if path.is_file() {

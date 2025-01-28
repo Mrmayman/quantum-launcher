@@ -21,6 +21,7 @@ pub enum IoError {
         path: PathBuf,
     },
     ConfigDirNotFound,
+    InstanceDirEscapeAttack,
 }
 
 impl Display for IoError {
@@ -28,6 +29,10 @@ impl Display for IoError {
         match self {
             IoError::Io { error, path } => write!(f, "at path {path:?}, error {error}"),
             IoError::ConfigDirNotFound => write!(f, "config directory not found"),
+            IoError::InstanceDirEscapeAttack => write!(
+                f,
+                "instance directory is outside launcher directory. POTENTIAL SECURITY RISK AVOIDED"
+            ),
         }
     }
 }

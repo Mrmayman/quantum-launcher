@@ -1,15 +1,17 @@
 use std::{
     collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
     process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
     time::Instant,
 };
 
 use iced::{widget::image::Handle, Command};
+use lazy_static::lazy_static;
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
+    pt, DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
     SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
@@ -24,14 +26,14 @@ use tokio::process::{Child, ChildStdin};
 
 use crate::{
     config::LauncherConfig,
-    message_handler::get_locally_installed_mods,
+    message_handler::{get_locally_installed_mods, open_file_explorer},
     stylesheet::styles::{LauncherStyle, LauncherTheme, STYLE},
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
 #[derive(Debug, Clone)]
 pub enum InstallFabricMessage {
-    End(Result<(), String>),
+    End(Result<bool, String>),
     VersionSelected(String),
     VersionsLoaded(Result<Vec<FabricVersionListItem>, String>),
     ButtonClicked,
@@ -95,6 +97,7 @@ pub enum InstallModsMessage {
     LoadData(Result<Box<ProjectInfo>, String>),
     Download(usize),
     DownloadComplete(Result<String, String>),
+    IndexUpdated(Result<ModIndex, String>),
 }
 
 #[derive(Debug, Clone)]
@@ -272,6 +275,7 @@ impl MenuEditMods {
     pub fn update_locally_installed_mods(
         idx: &ModIndex,
         selected_instance: InstanceSelection,
+        dir: &Path,
     ) -> Command<Message> {
         let mut blacklist = Vec::new();
         for mod_info in idx.mods.values() {
@@ -280,7 +284,7 @@ impl MenuEditMods {
             }
         }
         Command::perform(
-            get_locally_installed_mods(selected_instance, blacklist),
+            get_locally_installed_mods(selected_instance.get_dot_minecraft_path(dir), blacklist),
             |n| Message::ManageMods(ManageModsMessage::LocalIndexLoaded(n)),
         )
     }
@@ -435,6 +439,7 @@ pub struct InstanceLog {
 
 pub struct Launcher {
     pub state: State,
+    pub dir: PathBuf,
     pub selected_instance: Option<InstanceSelection>,
     pub client_version_list_cache: Option<Vec<ListEntry>>,
     pub server_version_list_cache: Option<Vec<ListEntry>>,
@@ -480,7 +485,9 @@ impl Drop for ServerProcess {
 
 impl Launcher {
     pub fn load_new(message: Option<String>, is_new_user: bool) -> Result<Self, JsonFileError> {
-        let (mut config, theme, style) = load_config_and_theme()?;
+        let launcher_dir = get_launcher_dir();
+
+        let (mut config, theme, style) = load_config_and_theme(&launcher_dir)?;
 
         let launch = State::Launch(if let Some(message) = message {
             MenuLaunch::with_message(message)
@@ -504,6 +511,7 @@ impl Launcher {
         *STYLE.lock().unwrap() = style;
 
         Ok(Self {
+            dir: launcher_dir,
             client_list: None,
             server_list: None,
             state,
@@ -526,7 +534,9 @@ impl Launcher {
     }
 
     pub fn with_error(error: impl std::fmt::Display) -> Self {
-        let (config, theme, style) = load_config_and_theme().unwrap_or((
+        let launcher_dir = get_launcher_dir();
+
+        let (config, theme, style) = load_config_and_theme(&launcher_dir).unwrap_or((
             None,
             LauncherTheme::default(),
             LauncherStyle::default(),
@@ -534,6 +544,7 @@ impl Launcher {
         *STYLE.lock().unwrap() = style;
 
         Self {
+            dir: launcher_dir,
             state: State::Error {
                 error: format!("Error: {error}"),
             },
@@ -583,9 +594,61 @@ impl Launcher {
     }
 }
 
+fn get_launcher_dir() -> PathBuf {
+    match file_utils::get_launcher_dir_s() {
+        Ok(dir) => dir,
+        Err(err) => {
+            err!("Could not load launcher dir! This is a bug! Please report!");
+            pt!("{err}\n");
+
+            ERROR_STARTING_LAUNCHER
+                .lock()
+                .unwrap()
+                .push_str(&err.to_string());
+
+            xdialog::XDialogBuilder::new().run(error_starting_launcher);
+            std::process::exit(1);
+        }
+    }
+}
+
+lazy_static! {
+    static ref ERROR_STARTING_LAUNCHER: Mutex<String> = Mutex::new(String::new());
+}
+
+fn error_starting_launcher() -> i32 {
+    let err = ERROR_STARTING_LAUNCHER.lock().unwrap().clone();
+
+    let result = xdialog::show_message(xdialog::XDialogOptions {
+        title: "Error starting launcher!".to_owned(),
+        main_instruction: "Could not start launcher (error loading launcher directory)!".to_owned(),
+        message: format!("This is a bug! Please report (and try starting again)!\n{err}"),
+        icon: xdialog::XDialogIcon::Error,
+        buttons: vec![
+            "Copy".to_owned(),
+            "Join Discord".to_owned(),
+            "Exit".to_owned(),
+        ],
+    })
+    .unwrap();
+
+    if let xdialog::XDialogResult::ButtonPressed(result) = result {
+        if result == 0 {
+            arboard::Clipboard::new().unwrap().set_text(&err).unwrap();
+            return error_starting_launcher();
+        } else if result == 1 {
+            let _ = open_file_explorer("https://discord.gg/bWqRaSXar5");
+            return error_starting_launcher();
+        }
+    }
+
+    1
+}
+
 fn load_config_and_theme(
+    launcher_dir: &Path,
 ) -> Result<(Option<LauncherConfig>, LauncherTheme, LauncherStyle), JsonFileError> {
-    let config = LauncherConfig::load()?;
+    let config = LauncherConfig::load(launcher_dir)?;
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherTheme::Dark,
         Some("Light") => LauncherTheme::Light,
@@ -610,6 +673,7 @@ fn load_config_and_theme(
 
 pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {
     let dir_path = file_utils::get_launcher_dir()
+        .await
         .map_err(|n| n.to_string())?
         .join(path);
     if !dir_path.exists() {
