@@ -26,7 +26,7 @@ pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
     let launcher_directory = config_directory.join("QuantumLauncher");
     std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
 
-    if MOCK_DIR_FAILURE.load(std::sync::atomic::Ordering::SeqCst) == true {
+    if MOCK_DIR_FAILURE.load(std::sync::atomic::Ordering::SeqCst) {
         Err(IoError::MockError)
     } else {
         Ok(launcher_directory)
@@ -47,17 +47,31 @@ pub fn is_new_user() -> bool {
 }
 
 /// Returns the path to `.minecraft` folder containing the game files.
+///
+/// # Errors
+/// - if the instance directory is outside the launcher directory (escape attack)
+/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// - if the launcher directory could not be created (permissions issue)
 pub async fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir().await?;
-    Ok(match selection {
+    let dir = match selection {
         InstanceSelection::Instance(name) => {
             launcher_dir.join("instances").join(name).join(".minecraft")
         }
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
-    })
+    };
+    if !dir.starts_with(&launcher_dir) {
+        return Err(IoError::InstanceDirEscapeAttack);
+    }
+    Ok(dir)
 }
 
 /// Returns the path to `.minecraft` folder containing the game files. Sync version.
+///
+/// # Errors
+/// - if the instance directory is outside the launcher directory (escape attack)
+/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// - if the launcher directory could not be created (permissions issue)
 pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir_s()?;
     let mc_dir = match selection {
@@ -74,6 +88,11 @@ pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf,
 
 /// Returns the path to the instance directory containing
 /// QuantumLauncher-specific files.
+///
+/// # Errors
+/// - if the instance directory is outside the launcher directory (escape attack)
+/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// - if the launcher directory could not be created (permissions issue)
 pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir().await?;
     let instance_dir = match selection {
@@ -88,6 +107,11 @@ pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, 
 
 /// Returns the path to the instance directory containing
 /// QuantumLauncher-specific files. Sync version.
+///
+/// # Errors
+/// - if the instance directory is outside the launcher directory (escape attack)
+/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// - if the launcher directory could not be created (permissions issue)
 pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir_s()?;
     let instance_dir = match selection {
@@ -107,6 +131,12 @@ pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoEr
 /// - `url`: the URL to download from
 /// - `user_agent`: whether to use the quantum launcher
 ///   user agent (required for modrinth)
+///
+/// # Errors
+/// Returns an error if:
+/// - Error sending request
+/// - Redirect loop detected
+/// - Redirect limit exhausted.
 pub async fn download_file_to_string(
     client: &Client,
     url: &str,
@@ -137,6 +167,12 @@ pub async fn download_file_to_string(
 /// - `url`: the URL to download from
 /// - `user_agent`: whether to use the quantum launcher
 ///   user agent (required for modrinth)
+///
+/// # Errors
+/// Returns an error if:
+/// - Error sending request
+/// - Redirect loop detected
+/// - Redirect limit exhausted.
 pub async fn download_file_to_bytes(
     client: &Client,
     url: &str,

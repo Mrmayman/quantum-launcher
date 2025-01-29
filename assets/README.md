@@ -15,3 +15,12 @@
 # ARM64 Support
 - `lwjgl_arm64` taken from https://github.com/theofficialgman/piston-meta-arm64
 - `minecraft_arm` taken from https://github.com/Kichura/Minecraft_ARM
+
+# ASCII
+ASCII art for QuantumLauncher, to be shown as an intro message to the terminal.
+
+# FreeDesktop
+Various files for deb packaging
+
+# Screenshots
+Various screenshots for use in README and changelogs.

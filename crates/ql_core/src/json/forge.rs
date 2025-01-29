@@ -26,6 +26,7 @@ impl JsonVersions {
     }
 
     /// Returns the Forge version for the given Minecraft version.
+    #[must_use]
     pub fn get_forge_version(&self, minecraft_version: &str) -> Option<String> {
         self.promos
             .iter()

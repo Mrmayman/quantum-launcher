@@ -40,6 +40,7 @@ impl Display for IoError {
 }
 
 pub trait IntoIoError<T> {
+    #[allow(clippy::missing_errors_doc)]
     fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError>;
 }
 

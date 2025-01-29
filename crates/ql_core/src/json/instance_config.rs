@@ -56,6 +56,7 @@ pub struct OmniarchiveEntry {
 impl InstanceConfigJson {
     /// Returns a String containing the Java argument to
     /// allocate the configured amount of RAM.
+    #[must_use]
     pub fn get_ram_argument(&self) -> String {
         format!("-Xmx{}M", self.ram_in_mb)
     }

@@ -30,6 +30,28 @@ use crate::{
 ///   `std::sync::mpsc::channel::<JavaInstallMessage>()`,
 ///   giving the sender to this function and polling the receiver frequently.
 ///
+/// # Errors
+/// If the Java installation fails, this function returns a [`JavaInstallError`].
+/// There's a lot of possible errors, so I'm not going to list them all here.
+///
+/// # Example
+/// ```no_run
+/// # async fn get() -> Result<(), Box<dyn std::error::Error>> {
+/// use ql_core::get_java_binary;
+///
+/// let java_binary: PathBuf = get_java_binary(JavaVersion::Java16, "java", None).await?;
+///
+/// let command = std::process::Command::new(java_binary).arg("-version").output()?;
+///
+/// let java_compiler_binary: PathBuf = get_java_binary(JavaVersion::Java16, "javac", None).await?;
+///
+/// let command = std::process::Command::new(java_binary)
+///     .args(&["MyApp.java", "-d", "."])
+///     .output()?;
+/// # Ok(())
+/// # }
+/// ```
+///
 /// # Side notes
 /// - On aarch64 linux, this function installs Amazon Corretto Java.
 /// - On all other platforms, this function installs Java from Mojang.
@@ -50,16 +72,15 @@ pub async fn get_java_binary(
         info!("Finished installing Java {version}");
     }
 
-    let java_dir = java_dir.join(if cfg!(windows) {
+    let normal_name = format!("bin/{name}");
+    let java_dir = java_dir.join(if java_dir.join(&normal_name).exists() {
+        normal_name
+    } else if cfg!(target_os = "windows") {
         format!("bin/{name}.exe")
     } else if cfg!(target_os = "macos") {
-        if java_dir.join("bin/{name}").exists() {
-            format!("bin/{name}")
-        } else {
-            format!("jre.bundle/Contents/Home/bin/{name}")
-        }
+        format!("jre.bundle/Contents/Home/bin/{name}")
     } else {
-        format!("bin/{name}")
+        return Err(JavaInstallError::NoJavaBinFound);
     });
 
     Ok(java_dir.canonicalize().path(java_dir)?)
@@ -185,10 +206,13 @@ async fn install_normal_java(
     let java_files_url = java_list_json
         .get_url(version)
         .ok_or(JavaInstallError::NoUrlForJavaFiles)?;
+
     let json = file_utils::download_file_to_string(&client, &java_files_url, false).await?;
     let json: JavaFilesJson = serde_json::from_str(&json)?;
+
     let num_files = json.files.len();
     let file_num = Mutex::new(0);
+
     let results = json.files.iter().map(|(file_name, file)| {
         java_install_fn(
             java_install_progress_sender,
@@ -323,6 +347,7 @@ pub enum JavaInstallError {
     TarGzExtract(std::io::Error),
     Serde(serde_json::Error),
     Io(IoError),
+    NoJavaBinFound,
 }
 
 impl From<JsonDownloadError> for JavaInstallError {
@@ -359,6 +384,7 @@ impl Display for JavaInstallError {
             JavaInstallError::Serde(err) => write!(f, "(json) {err}"),
             JavaInstallError::Io(err) => write!(f, "(io) {err}"),
             JavaInstallError::TarGzExtract(error) => write!(f, "could not extract tar.gz: {error}"),
+            JavaInstallError::NoJavaBinFound => write!(f, "could not find java binary"),
         }
     }
 }

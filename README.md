@@ -1,49 +1,60 @@
-# QuantumLauncher
+<div style="text-align: center;">
+
+# <img src="assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
+## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5)
+
 A minimalistic Minecraft launcher for Windows and Linux (and soon-to-be macOS).
 
-![Preview](quantum_launcher.png)
+<img src="quantum_launcher.png" width="100%" />
 
-- Website (+ Download): https://mrmayman.github.io/quantumlauncher
-
-- Discord: https://discord.gg/bWqRaSXar5
+</div>
 
 QuantumLauncher is written in *Rust* with the *iced* framework,
 offering a lightweight and responsive experience.
 It is designed to be simple and easy to use, with a focus on performance and features.
 
+<div style="text-align: center;">
+
 # Features
-- Lightweight and responsive. No more minute-long loading screens, no more laggy buttons
 
-![Resource Usage](assets/screenshots/lightweight.png)
+## Lightweight and responsive
 
-- Install fabric, forge or optifine with ease
+<img src="assets/screenshots/lightweight.png" width="70%" />
 
-![Loader installer screen](assets/screenshots/install_loader.png)
+## Install fabric, forge or optifine with ease
 
-- Build in mod store to download your favorite mods
+<img src="assets/screenshots/install_loader.png" width="70%" />
 
-![Mod store](assets/screenshots/mod_store.png)
+## Build in mod store to download your favorite mods
 
-- Isolate your different game versions with instances!
+<img src="assets/screenshots/mod_store.png" width="70%" />
 
-![Instances](assets/screenshots/new.png)
+## Isolate your different game versions with instances!
 
-- Full support for old minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
+<img src="assets/screenshots/new.png" width="70%" />
 
-![Old Minecraft](assets/screenshots/old_mc.png)
+## Full support for old minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
 
-- Neatly package your mods into presets, and share it with your friends!
+<img src="assets/screenshots/old_mc.png" width="70%" />
 
-![Presets](assets/screenshots/presets.png)
+## Neatly package your mods into presets, and share it with your friends!
 
-- Built in themes!
+<img src="assets/screenshots/presets.png" width="70%" />
 
-![Themes](assets/screenshots/themes.png)
+## Built in themes!
+
+<img src="assets/screenshots/themes.png" width="70%" />
+<br><br>
 
 # Downloads and Building
-- You can download the stable version from the website linked above, or from the *Releases*
-- Or, you can compile the launcher to get the latest experimental version (with potentially broken and untested features).
-- To compile the launcher:
+
+</div>
+
+You can download the stable version from the website linked above, or from the *Releases* button
+
+Or, you can compile the launcher to get the latest experimental version (with potentially broken and untested features).
+To compile the launcher:
+
 ```
 git clone https://github.com/Mrmayman/quantum-launcher.git
 cd quantum-launcher
@@ -51,7 +62,12 @@ cargo run --release
 ```
 You can omit the `--release` flag for faster compile times, but *slightly* worse performance and MUCH larger build file size.
 
+<div style="text-align: center;">
+
 # File Locations
+
+</div>
+
 - On *Windows*, the launcher files are at `C:/Users/YOUR_USERNAME/AppData/Roaming/QuantumLauncher/`.
 - You probably won't see the `AppData` folder. Press Windows + R and paste this path, and hit enter.
 - On *Linux*, the launcher files are at `~/.config/QuantumLauncher/`. (`~` refers to your home directory).
@@ -59,7 +75,14 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - `.minecraft` located at `YOUR_INSTANCE/.minecraft/`.
 - Launcher logs are located at `QuantumLauncher/logs/`.
 
+<br>
+
+<div style="text-align: center;">
+
 # To-do (in the future)
+
+</div>
+
 ## Core
 - [x] Instance creation
 - [x] Instance launching
@@ -98,14 +121,24 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - [ ] A local server hosting system (without port forwarding, using proxy tunneling).
 - [ ] Plugin system (with WASM)
 
+<div style="text-align: center;">
+
 # Licensing and Credits
+
+</div>
+
 A lot of this launcher's design, including the code for creating and launching the game, and installing forge, is inspired by https://github.com/alexivkin/minecraft-launcher/.
 
 Nearly all of this launcher is licensed under the GNU General Public License v3,
 however there are a few exceptions (such as github actions and assets).
 Visit [the assets README](assets/README.md) for more information.
 
+<div style="text-align: center;">
+
 # Note on Piracy
+
 If you pirate the game, it's at your own risk. I am not responsible for any issues caused.
 I recommend that you buy the game, but if you don't have the means, feel free to use this launcher.
 If anyone has any issues/complaints, just open an issue in the repo.
+
+</div>

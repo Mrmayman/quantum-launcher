@@ -8,3 +8,5 @@ downloaded by the launcher, and their architecture.
 This script is used to list all the `.so` files that *could* be
 extracted and installed. Unlike the other script, this one lists
 all the possible `.so` files, not just the ones that are actually installed.
+## `arm64_build.sh`
+A script to build for Arm 64 using `cross`

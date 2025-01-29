@@ -26,6 +26,8 @@ pub mod mods_manage;
 pub mod mods_store;
 pub mod server_manager;
 
+pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
+
 pub type Element<'a> =
     iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
 
@@ -156,9 +158,8 @@ fn get_no_instance_message<'a>(is_server: bool) -> widget::Column<'a, Message, L
             widget::text(
                 "Note: This version is VERY experimental. If you want to get help join our discord"
             ),
-            button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
-                Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
-            ),
+            button_with_icon(icon_manager::chat(), "Join our Discord")
+                .on_press(Message::CoreOpenDir(DISCORD.to_owned())),
         );
         widget::column!(base_message, arm_message)
     } else {
@@ -763,7 +764,7 @@ impl MenuLauncherSettings {
                             )
                         ),
                         button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
-                            Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
+                            Message::CoreOpenDir(DISCORD.to_owned())
                         ),
                         "QuantumLauncher is free and open source software under the GNU GPL3 license.",
                         "If you like it, consider sharing it with your friends.",

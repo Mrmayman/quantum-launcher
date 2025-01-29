@@ -58,6 +58,7 @@ use launcher_state::{
 use menu_renderer::{
     button_with_icon,
     changelog::{changelog_0_3_1, welcome_msg},
+    DISCORD,
 };
 use message_handler::open_file_explorer;
 use ql_core::{err, file_utils, info, InstanceSelection, SelectedMod};
@@ -654,9 +655,8 @@ impl Application for Launcher {
                         clear_selection: true
                     }),
                     widget::button("Copy Error").on_press(Message::CoreErrorCopy),
-                    widget::button("Join Discord for help").on_press(Message::CoreOpenDir(
-                        "https://discord.gg/bWqRaSXar5".to_owned()
-                    ))
+                    widget::button("Join Discord for help")
+                        .on_press(Message::CoreOpenDir(DISCORD.to_owned()))
                 )
                 .padding(10)
                 .spacing(10),

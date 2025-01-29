@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 
 use crate::{icon_manager, launcher_state::Message};
 
-use super::{button_with_icon, Element};
+use super::{button_with_icon, Element, DISCORD};
 
 lazy_static! {
     pub static ref IMG_NEW: Handle =
@@ -79,7 +79,7 @@ pub fn welcome_msg<'a>() -> Element<'a> {
             widget::column!(
                 "Got any problems? Join the discord!",
                 button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
-                    Message::CoreOpenDir("https://discord.gg/bWqRaSXar5".to_owned())
+                    Message::CoreOpenDir(DISCORD.to_owned())
                 ),
             ).padding(10).spacing(10)
         ),
