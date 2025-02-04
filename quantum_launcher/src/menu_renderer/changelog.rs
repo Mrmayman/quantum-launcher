@@ -25,8 +25,12 @@ pub fn changelog_0_3_1<'a>() -> Element<'a> {
         "Your soon-to-be favorite launcher just got even better!",
         widget::text("Changelog:").size(20),
         "- Quilt support is here!",
+        widget::image(IMG_LOADERS.clone()).width(200),
+        "- Added instance renaming",
         "- Omniarchive integration is here, allowing you to download old, rare versions of Minecraft. Nostalgia incoming!",
+        widget::image(IMG_OLD_MC.clone()),
         "- Added a brand-new style: Sky blue. Try it out in Settings -> Style!",
+        widget::image(IMG_THEMES.clone()),
         "- Added a cool ASCII art intro in the terminal",
         widget::text("Mods:").size(20),
         "- Added mod presets!",
@@ -48,7 +52,7 @@ pub fn changelog_0_3_1<'a>() -> Element<'a> {
         "- Launcher logs no longer have garbled text on windows",
         "- Launcher logs are no longer delayed on windows",
         "- Fixed a crash in some old versions of Minecraft (useLegacyMergeSort)",
-        "- Fixed a bug where OptiFine installer was broken on windows"
+        "- Fixed a really dumb bug where OptiFine installer was broken on windows"
     )
     .spacing(10)
     .into()
