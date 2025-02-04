@@ -1,4 +1,5 @@
 use iced::Command;
+use ql_core::{err, IntoIoError};
 
 use crate::{
     launcher_state::{EditInstanceMessage, Launcher, Message, State},
@@ -55,6 +56,52 @@ impl Launcher {
             }
             EditInstanceMessage::GameArgShiftDown(idx) => {
                 self.e_game_arg_shift_down(idx);
+            }
+            EditInstanceMessage::RenameEdit(n) => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    menu.instance_name = n;
+                }
+            }
+            EditInstanceMessage::RenameApply => {
+                if let State::EditInstance(menu) = &mut self.state {
+                    let mut disallowed = vec![
+                        '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\'', '\0', '\u{7F}',
+                    ];
+
+                    disallowed.extend('\u{1}'..='\u{1F}');
+
+                    // Remove disallowed characters
+
+                    let mut instance_name = menu.instance_name.clone();
+                    instance_name.retain(|c| !disallowed.contains(&c));
+                    let instance_name = instance_name.trim();
+
+                    if instance_name.is_empty() {
+                        err!("New name is empty or invalid");
+                        return Command::none();
+                    }
+
+                    let instances_dir =
+                        self.dir
+                            .join(if self.selected_instance.as_ref().unwrap().is_server() {
+                                "servers"
+                            } else {
+                                "instances"
+                            });
+
+                    let old_path = instances_dir.join(&menu.old_instance_name);
+                    let new_path = instances_dir.join(&menu.instance_name);
+
+                    if menu.old_instance_name != menu.instance_name {
+                        menu.old_instance_name = menu.instance_name.clone();
+                        if let Some(n) = &mut self.selected_instance {
+                            n.set_name(&menu.instance_name);
+                        }
+                        if let Err(err) = std::fs::rename(&old_path, &new_path).path(&old_path) {
+                            self.set_error(err);
+                        }
+                    }
+                }
             }
         }
         Command::none()

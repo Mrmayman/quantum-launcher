@@ -6,8 +6,9 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, info, json::VersionDetails, pt, GenericProgress, InstanceSelection,
-    IntoIoError, SelectedMod, LAUNCHER_VERSION_NAME,
+    err, file_utils, info,
+    json::{InstanceConfigJson, VersionDetails},
+    pt, GenericProgress, InstanceSelection, IntoIoError, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
@@ -21,6 +22,7 @@ use crate::{
 pub struct PresetJson {
     pub launcher_version: String,
     pub minecraft_version: String,
+    pub instance_type: String,
     pub entries_modrinth: HashMap<String, ModConfig>,
     pub entries_local: Vec<String>,
 }
@@ -44,6 +46,7 @@ impl PresetJson {
         let config_dir = dot_minecraft.join("config");
 
         let minecraft_version = get_minecraft_version(instance_name).await?;
+        let instance_type = get_instance_type(instance_name).await?;
 
         let index = ModIndex::get(instance_name).await?;
 
@@ -68,6 +71,7 @@ impl PresetJson {
         }
 
         let this = Self {
+            instance_type,
             launcher_version: LAUNCHER_VERSION_NAME.to_owned(),
             minecraft_version,
             entries_modrinth,
@@ -137,12 +141,15 @@ impl PresetJson {
                 let this: Self = serde_json::from_slice(&buf)?;
 
                 // Only sideload mods if the version is the same
-                should_sideload = this.minecraft_version == version_json.id;
+                let instance_type = get_instance_type(instance_name).await?;
+
+                should_sideload = this.minecraft_version == version_json.id
+                    && this.instance_type == instance_type;
 
                 // If sideloaded mods are of an incompatible version, remove them
                 if !should_sideload {
                     for file in &sideloads {
-                        let path = mods_dir.join(&file);
+                        let path = mods_dir.join(file);
                         tokio::fs::remove_file(&path).await.path(&path)?;
                     }
                 }
@@ -233,6 +240,17 @@ impl PresetJson {
         let _ = sender.send(GenericProgress::finished());
         Ok(())
     }
+}
+
+async fn get_instance_type(instance_name: &InstanceSelection) -> Result<String, ModError> {
+    let config_path = file_utils::get_instance_dir(instance_name)
+        .await?
+        .join("config.json");
+    let config = tokio::fs::read_to_string(&config_path)
+        .await
+        .path(&config_path)?;
+    let config: InstanceConfigJson = serde_json::from_str(&config)?;
+    Ok(config.mod_type)
 }
 
 fn add_mod_to_entries_modrinth(

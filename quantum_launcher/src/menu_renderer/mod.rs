@@ -339,6 +339,10 @@ impl MenuEditInstance {
                     .spacing(10)
                     .padding(5)
                 ).on_press(back_to_launch_screen(selected_instance, None)),
+                widget::row!(
+                    widget::button("Rename").on_press(Message::EditInstance(EditInstanceMessage::RenameApply)),
+                    widget::text_input("Rename Instance", &self.instance_name).on_input(|n| Message::EditInstance(EditInstanceMessage::RenameEdit(n))),
+                ).spacing(5),
                 widget::text(
                     match selected_instance {
                         InstanceSelection::Instance(n) => format!("Editing {} instance: {n}", self.config.mod_type),

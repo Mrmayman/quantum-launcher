@@ -233,11 +233,14 @@ impl Launcher {
         let slider_value = f32::log2(config_json.ram_in_mb as f32);
         let memory_mb = config_json.ram_in_mb;
 
-        self.state = State::EditInstance(MenuEditInstance {
+        let instance_name = selected_instance.get_name();
+        self.state = State::EditInstance(Box::new(MenuEditInstance {
             config: config_json,
             slider_value,
+            instance_name: instance_name.to_owned(),
+            old_instance_name: instance_name.to_owned(),
             slider_text: format_memory(memory_mb),
-        });
+        }));
         Ok(())
     }
 
@@ -250,7 +253,7 @@ impl Launcher {
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
         }
-        let config_path = instance_name.get_instance_path(&dir).join("config.json");
+        let config_path = instance_name.get_instance_path(dir).join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
         std::fs::write(&config_path, config_json).path(config_path)?;

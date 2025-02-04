@@ -66,6 +66,8 @@ pub enum EditInstanceMessage {
     GameArgDelete(usize),
     GameArgShiftUp(usize),
     GameArgShiftDown(usize),
+    RenameEdit(String),
+    RenameApply,
 }
 
 #[derive(Debug, Clone)]
@@ -215,6 +217,8 @@ impl MenuLaunch {
 /// The screen where you can edit an instance/server.
 pub struct MenuEditInstance {
     pub config: InstanceConfigJson,
+    pub instance_name: String,
+    pub old_instance_name: String,
     pub slider_value: f32,
     pub slider_text: String,
 }
@@ -374,7 +378,7 @@ pub enum State {
     Welcome,
     Launch(MenuLaunch),
     ChangeLog,
-    EditInstance(MenuEditInstance),
+    EditInstance(Box<MenuEditInstance>),
     EditMods(MenuEditMods),
     Create(MenuCreateInstance),
     Error {
@@ -557,7 +561,7 @@ impl Launcher {
 
         let (config, theme, style) = launcher_dir
             .as_ref()
-            .and_then(|n| load_config_and_theme(&n).ok())
+            .and_then(|n| load_config_and_theme(n).ok())
             .unwrap_or((None, LauncherTheme::default(), LauncherStyle::default()));
         *STYLE.lock().unwrap() = style;
 

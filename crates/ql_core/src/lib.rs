@@ -90,6 +90,12 @@ impl InstanceSelection {
     pub fn is_server(&self) -> bool {
         matches!(self, Self::Server(_))
     }
+
+    pub fn set_name(&mut self, name: &str) {
+        match self {
+            Self::Instance(ref mut n) | Self::Server(ref mut n) => *n = name.to_owned(),
+        }
+    }
 }
 
 pub const IS_ARM_LINUX: bool = cfg!(target_arch = "aarch64") && cfg!(target_os = "linux");
