@@ -46,9 +46,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           targets: ${{ matrix.target }}
           override: true
-      
-      # Setup action cache    
-      - uses: Swatinem/rust-cache@v2
 
       - name: Build release binary
         uses: clechasseur/rs-cargo@v1
