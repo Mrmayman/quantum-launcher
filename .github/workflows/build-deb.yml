@@ -21,13 +21,13 @@ jobs:
         build: [x86_64-linux, aarch64-linux]
         include:
         - build: x86_64-linux
-          os: ubuntu-latest
+          os: ubuntu-22.04
           rust: nightly
           target: x86_64-unknown-linux-gnu
           cross: false
           arch: x86_64
         - build: aarch64-linux
-          os: ubuntu-latest
+          os: ubuntu-22.04
           rust: nightly
           target: aarch64-unknown-linux-musl
           cross: true
