@@ -647,7 +647,12 @@ impl GameLauncher {
             JavaVersion::Java8
         };
         Ok(Command::new(
-            get_java_binary(version, "java", self.java_install_progress_sender.take()).await?,
+            get_java_binary(
+                version,
+                "java",
+                self.java_install_progress_sender.take().as_ref(),
+            )
+            .await?,
         ))
     }
 

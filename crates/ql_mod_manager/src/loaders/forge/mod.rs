@@ -165,7 +165,7 @@ impl ForgeInstaller {
         &self,
         installer_name: &str,
         installer_path: PathBuf,
-        j_progress: Option<Sender<GenericProgress>>,
+        j_progress: Option<&Sender<GenericProgress>>,
     ) -> Result<(PathBuf, String), ForgeInstallError> {
         let libraries_dir = self.forge_dir.join("libraries");
         tokio::fs::create_dir_all(&libraries_dir)
@@ -200,7 +200,7 @@ impl ForgeInstaller {
 
     async fn run_installer(
         &self,
-        j_progress: Option<Sender<GenericProgress>>,
+        j_progress: Option<&Sender<GenericProgress>>,
         installer_name: &str,
     ) -> Result<(), ForgeInstallError> {
         let javac_path = get_java_binary(JavaVersion::Java21, "javac", j_progress).await?;
@@ -639,7 +639,7 @@ pub async fn install_client(
         installer.download_forge_installer().await?;
 
     let (libraries_dir, mut classpath) = installer
-        .run_installer_and_get_classpath(&installer_name, installer_path, j_progress)
+        .run_installer_and_get_classpath(&installer_name, installer_path, j_progress.as_ref())
         .await?;
 
     let mut clean_classpath = String::new();

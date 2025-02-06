@@ -127,7 +127,12 @@ pub async fn install_optifine(
             .send(OptifineInstallProgress::P2CompilingHook)
             .unwrap();
     }
-    compile_hook(&new_installer_path, &optifine_path, java_progress_sender).await?;
+    compile_hook(
+        &new_installer_path,
+        &optifine_path,
+        java_progress_sender.as_ref(),
+    )
+    .await?;
 
     info!("Running OptifineInstaller.java");
     if let Some(progress) = &progress_sender {
@@ -288,7 +293,7 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
 async fn compile_hook(
     new_installer_path: &Path,
     optifine_path: &Path,
-    java_progress_sender: Option<Sender<GenericProgress>>,
+    java_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<(), OptifineError> {
     let javac_path = get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
     let output = Command::new(&javac_path)

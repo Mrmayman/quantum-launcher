@@ -37,7 +37,8 @@ use crate::{
 /// # Example
 /// ```no_run
 /// # async fn get() -> Result<(), Box<dyn std::error::Error>> {
-/// use ql_core::get_java_binary;
+/// use ql_core::{get_java_binary, json::JavaVersion};
+/// use std::path::PathBuf;
 ///
 /// let java_binary: PathBuf = get_java_binary(JavaVersion::Java16, "java", None).await?;
 ///
@@ -45,7 +46,7 @@ use crate::{
 ///
 /// let java_compiler_binary: PathBuf = get_java_binary(JavaVersion::Java16, "javac", None).await?;
 ///
-/// let command = std::process::Command::new(java_binary)
+/// let command = std::process::Command::new(java_compiler_binary)
 ///     .args(&["MyApp.java", "-d", "."])
 ///     .output()?;
 /// # Ok(())
@@ -58,7 +59,7 @@ use crate::{
 pub async fn get_java_binary(
     version: JavaVersion,
     name: &str,
-    java_install_progress_sender: Option<Sender<GenericProgress>>,
+    java_install_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir().await?;
 
@@ -68,7 +69,7 @@ pub async fn get_java_binary(
 
     if !java_dir.exists() || is_incomplete_install {
         info!("Installing Java: {version}");
-        install_java(version, java_install_progress_sender.as_ref()).await?;
+        install_java(version, java_install_progress_sender).await?;
         info!("Finished installing Java {version}");
     }
 

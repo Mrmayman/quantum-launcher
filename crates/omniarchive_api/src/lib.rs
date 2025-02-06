@@ -11,11 +11,13 @@
 //! - Beta
 //!
 //! ## Example
-//! ```no_run
+//! ```
+//! # async fn get() {
 //! use omniarchive_api::{MinecraftVersionCategory};
 //!
 //! let list_of_version_urls =
 //!     MinecraftVersionCategory::Alpha.download_index(None, false).await.unwrap();
+//! # }
 //! ```
 
 use std::{

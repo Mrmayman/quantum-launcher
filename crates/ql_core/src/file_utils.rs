@@ -193,6 +193,40 @@ pub async fn download_file_to_bytes(
     }
 }
 
+/// Downloads a file from the given URL into a `Vec<u8>`,
+/// with a custom user agent.
+///
+/// # Arguments
+/// - `client`: the reqwest client to use for the request
+/// - `url`: the URL to download from
+/// - `user_agent`: whether to use the quantum launcher
+///   user agent (required for modrinth)
+///
+/// # Errors
+/// Returns an error if:
+/// - Error sending request
+/// - Redirect loop detected
+/// - Redirect limit exhausted.
+pub async fn download_file_to_bytes_with_agent(
+    client: &Client,
+    url: &str,
+    user_agent: &str,
+) -> Result<Vec<u8>, RequestError> {
+    let response = client
+        .get(url)
+        .header("User-Agent", user_agent)
+        .send()
+        .await?;
+    if response.status().is_success() {
+        Ok(response.bytes().await?.to_vec())
+    } else {
+        Err(RequestError::DownloadError {
+            code: response.status(),
+            url: response.url().clone(),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub enum RequestError {
     DownloadError {

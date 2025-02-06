@@ -135,9 +135,26 @@ impl Search {
         }
 
         let client = reqwest::Client::new();
-        let image = file_utils::download_file_to_bytes(&client, &url, true)
-            .await
-            .map_err(|err| format!("{url}: {err}"))?;
+
+        let image = match file_utils::download_file_to_bytes(&client, &url, true).await {
+            Ok(n) => n,
+            Err(_) => {
+                // Some pesky cloud provider might be
+                // blocking the launcher because they think it's a bot.
+
+                // I understand people do this to protect
+                // their servers but what this is doing is clearly
+                // not malicious. We're just downloading some images :)
+
+                file_utils::download_file_to_bytes_with_agent(
+                    &client,
+                    &url,
+                    "Mozilla/5.0 (X11; Linux x86_64; rv:135.0) Gecko/20100101 Firefox/135.0",
+                )
+                .await
+                .map_err(|err| format!("{url} (with fake agent): {err}"))?
+            }
+        };
 
         if url.to_lowercase().ends_with(".svg") {
             return Ok(ImageResult {

@@ -166,7 +166,12 @@ impl Application for Launcher {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
                 }
             }
-            Message::CoreTick => return self.tick(),
+            Message::CoreTick => {
+                let mut commands = self.get_imgs_to_load();
+                let command = self.tick();
+                commands.push(command);
+                return Command::batch(commands);
+            }
             Message::UninstallLoaderForgeStart => {
                 return Command::perform(
                     loaders::forge::uninstall_w(self.selected_instance.clone().unwrap()),

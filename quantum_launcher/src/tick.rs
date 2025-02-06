@@ -213,26 +213,26 @@ impl Launcher {
             | State::InstallPaper => {}
         }
 
+        Command::none()
+    }
+
+    pub fn get_imgs_to_load(&mut self) -> Vec<Command<Message>> {
         let mut commands = Vec::new();
-        {
-            let mut images_to_load = self.images_to_load.lock().unwrap();
-            for url in images_to_load.iter() {
-                if !self.images_downloads_in_progress.contains(url) {
-                    self.images_downloads_in_progress.insert(url.to_owned());
-                    commands.push(Command::perform(
-                        Search::download_image(url.to_owned(), false),
-                        |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
-                    ));
-                }
+
+        let mut images_to_load = self.images_to_load.lock().unwrap();
+
+        for url in images_to_load.iter() {
+            if !self.images_downloads_in_progress.contains(url) {
+                self.images_downloads_in_progress.insert(url.to_owned());
+                commands.push(Command::perform(
+                    Search::download_image(url.to_owned(), false),
+                    |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
+                ));
             }
-            images_to_load.clear();
         }
 
-        if commands.is_empty() {
-            Command::none()
-        } else {
-            Command::batch(commands)
-        }
+        images_to_load.clear();
+        commands
     }
 
     fn tick_processes_and_logs(&mut self) {

@@ -1,0 +1,14 @@
+[package]
+name = "ql_plugins"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ql_core = { path = "../ql_core" }
+colored = { workspace = true }
+
+[target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
+mlua = { version = "0.10", features = ["luau-jit", "async"] }
+
+[target.'cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))'.dependencies]
+mlua = { version = "0.10", features = ["luau", "async"] }
