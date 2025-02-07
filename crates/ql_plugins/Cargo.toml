@@ -6,6 +6,10 @@ edition = "2021"
 [dependencies]
 ql_core = { path = "../ql_core" }
 colored = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+include_dir = "0.7"
 
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
 mlua = { version = "0.10", features = ["luau-jit", "async"] }

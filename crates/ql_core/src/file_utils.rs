@@ -61,7 +61,7 @@ pub async fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<Path
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
     };
     if !dir.starts_with(&launcher_dir) {
-        return Err(IoError::InstanceDirEscapeAttack);
+        return Err(IoError::DirEscapeAttack);
     }
     Ok(dir)
 }
@@ -81,7 +81,7 @@ pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf,
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
     };
     if !mc_dir.starts_with(&launcher_dir) {
-        return Err(IoError::InstanceDirEscapeAttack);
+        return Err(IoError::DirEscapeAttack);
     }
     Ok(mc_dir)
 }
@@ -100,7 +100,7 @@ pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, 
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
     };
     if !instance_dir.starts_with(&launcher_dir) {
-        return Err(IoError::InstanceDirEscapeAttack);
+        return Err(IoError::DirEscapeAttack);
     }
     Ok(instance_dir)
 }
@@ -119,7 +119,7 @@ pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoEr
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
     };
     if !instance_dir.starts_with(&launcher_dir) {
-        return Err(IoError::InstanceDirEscapeAttack);
+        return Err(IoError::DirEscapeAttack);
     }
     Ok(instance_dir)
 }

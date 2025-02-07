@@ -20,8 +20,12 @@ pub enum IoError {
         error: std::io::Error,
         path: PathBuf,
     },
+    ReadDir {
+        error: std::io::Error,
+        parent: PathBuf,
+    },
     ConfigDirNotFound,
-    InstanceDirEscapeAttack,
+    DirEscapeAttack,
     MockError,
 }
 
@@ -30,11 +34,14 @@ impl Display for IoError {
         match self {
             IoError::Io { error, path } => write!(f, "at path {path:?}, error {error}"),
             IoError::ConfigDirNotFound => write!(f, "config directory not found"),
-            IoError::InstanceDirEscapeAttack => write!(
+            IoError::DirEscapeAttack => write!(
                 f,
-                "instance directory is outside launcher directory. POTENTIAL SECURITY RISK AVOIDED"
+                "directory is outside parent directory. POTENTIAL SECURITY RISK AVOIDED"
             ),
             IoError::MockError => write!(f, "test error. should not be seen normally"),
+            IoError::ReadDir { error, parent } => {
+                write!(f, "couldn't read directory {parent:?}, error {error}")
+            }
         }
     }
 }

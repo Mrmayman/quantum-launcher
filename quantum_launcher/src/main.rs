@@ -743,6 +743,23 @@ const WINDOW_HEIGHT: f32 = 400.0;
 const WINDOW_WIDTH: f32 = 600.0;
 
 fn main() {
+    /*let (sender, recv) = std::sync::mpsc::channel();
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(ql_plugins::install_plugins())
+        .unwrap();
+    let handle = std::thread::spawn(|| {
+        let plugin = ql_plugins::Plugin::new("OptiFine Installer", Some("1.0")).unwrap();
+        plugin.set_generic_progress(sender, "javaprog").unwrap();
+        plugin.init().unwrap();
+    });
+
+    while let Ok(msg) = recv.recv() {
+        println!("msg: {msg:?}")
+    }
+    handle.join().unwrap();
+    return;*/
+
     let mut args = std::env::args();
     let mut info = ArgumentInfo { program: None };
     arguments::process_args(&mut args, &mut info);

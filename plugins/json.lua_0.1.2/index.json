@@ -1,0 +1,16 @@
+{
+  "launcher_version": "0.4",
+  "details": {
+    "name": "json.lua",
+    "version": "0.1.2"
+  },
+  "files": [],
+  "main_file": {
+    "filename": "json.lua",
+    "import": "json"
+  },
+  "invoke": {
+    "type": "Library"
+  },
+  "permissions": []
+}
