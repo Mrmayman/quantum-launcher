@@ -1,16 +1,21 @@
 use std::{
     collections::HashMap,
+    path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc},
 };
 
-use mlua::{FromLua, Function, Lua, StdLib, Table, UserData, UserDataMethods, Value, Variadic};
+use mlua::{Function, Lua, StdLib, Value, Variadic};
 use ql_core::{
-    err, file_utils, get_java_binary, info, json::JavaVersion, pt, GenericProgress, IntoIoError,
-    IoError,
+    err, file_utils, get_java_binary, info, json::JavaVersion, pt, GenericProgress,
+    InstanceSelection, IntoIoError, IoError,
 };
 use tokio::runtime::Runtime;
 
-use crate::{json::PluginJson, PluginError};
+use crate::{
+    json::{PluginJson, PluginPermission},
+    passed_types::{LuaGenericProgress, SelectedInstance},
+    PluginError,
+};
 
 pub struct Plugin {
     lua: Lua,
@@ -32,14 +37,7 @@ impl Plugin {
             runtime: Arc::new(Runtime::new().map_err(PluginError::TokioRuntime)?),
         };
 
-        let runtime = plugin.runtime.clone();
-        globals.set(
-            "qlJavaExec",
-            plugin.lua.create_function(move |_, args| {
-                let runtime = runtime.clone();
-                l_install_java(runtime, args)
-            })?,
-        )?;
+        plugin.fn_java(&globals)?;
 
         Ok(plugin)
     }
@@ -70,10 +68,6 @@ impl Plugin {
         }
 
         let Some((name, json)) = plugins_map.iter().find(|(_, j)| {
-            println!(
-                "{name} == {} && {version:?} == {}",
-                j.details.name, j.details.version
-            );
             (j.details.name == name) && (version.map(|v| j.details.version == v).unwrap_or(true))
         }) else {
             return Err(PluginError::PluginNotFound(
@@ -92,24 +86,16 @@ impl Plugin {
             runtime: Arc::new(Runtime::new().map_err(PluginError::TokioRuntime)?),
         };
 
-        let runtime = plugin.runtime.clone();
-        globals.set(
-            "qlJavaExec",
-            plugin.lua.create_function(move |_, args| {
-                let runtime = runtime.clone();
-                l_install_java(runtime, args)
-            })?,
-        )?;
-
-        for file in &json.files {
-            let lua_file = plugin_root_dir.join(&file.filename);
-            let lua_file = std::fs::read_to_string(&lua_file).path(lua_file)?;
-
-            let result: Table = plugin.lua.load(lua_file).eval()?;
-            globals.set(file.import.clone(), result)?;
+        if json.permissions.contains(&PluginPermission::Java) {
+            plugin.fn_java(&globals)?;
         }
 
-        // TODO: deal with dependencies
+        for file in &json.files {
+            file.load(&plugin_root_dir, &globals, &plugin.lua)?;
+        }
+
+        // TODO: semver loose check
+        plugin.resolve_deps(json, &plugins_map, &plugins_top_dir, &globals)?;
 
         Ok(plugin)
     }
@@ -124,6 +110,23 @@ impl Plugin {
         Ok(())
     }
 
+    pub fn set_selected_instance(
+        &self,
+        instance: InstanceSelection,
+        name: &str,
+    ) -> Result<(), PluginError> {
+        let globals = self.lua.globals();
+        globals.set(
+            name,
+            SelectedInstance {
+                instance,
+                path: PathBuf::new(),
+                dot_mc: false,
+            },
+        )?;
+        Ok(())
+    }
+
     pub fn init(&self) -> Result<(), PluginError> {
         self.lua.load(&self.code).exec()?;
         Ok(())
@@ -133,6 +136,104 @@ impl Plugin {
         let globals = self.lua.globals();
         let func: Function = globals.get(name)?;
         func.call::<()>(())?;
+        Ok(())
+    }
+
+    fn fn_java(&self, globals: &mlua::Table) -> Result<(), PluginError> {
+        let runtime = self.runtime.clone();
+
+        let func = self.lua.create_function(
+            move |_,
+                  (name, version, progress, args): (
+                String,
+                i32,
+                Option<LuaGenericProgress>,
+                Vec<Value>,
+            )| {
+                let runtime = runtime.clone();
+                let version = match version {
+                    8 => JavaVersion::Java8,
+                    16 => JavaVersion::Java16,
+                    17 => JavaVersion::Java17Gamma,
+                    170 => JavaVersion::Java17Beta,
+                    171 => JavaVersion::Java17GammaSnapshot,
+                    21 => JavaVersion::Java21,
+                    ver => {
+                        return Err(mlua::Error::ExternalError(Arc::new(StrErr(format!(
+                            "Could not determine valid java version: {ver}. Valid inputs"
+                        )))))
+                    }
+                };
+                let arc = progress.map(|n| n.0.clone());
+                let bin_path = runtime
+                    .block_on(get_java_binary(
+                        version,
+                        &name,
+                        if let Some(sender) = &arc {
+                            Some(&sender)
+                        } else {
+                            None
+                        },
+                    ))
+                    .map_err(|err| mlua::Error::ExternalError(Arc::new(err)))?;
+
+                let args: Result<Vec<String>, mlua::Error> =
+                    args.into_iter().map(|n| n.to_string()).collect();
+
+                let command = match std::process::Command::new(&bin_path).args(&args?).output() {
+                    Ok(n) => n,
+                    Err(err) => {
+                        return Err(mlua::Error::ExternalError(Arc::new(StrErr(format!(
+                            "Could not execute command {bin_path:?}: {err}",
+                        )))));
+                    }
+                };
+
+                if !command.status.success() {
+                    let stdout = std::str::from_utf8(&command.stdout)?;
+                    let stderr = std::str::from_utf8(&command.stderr)?;
+                    return Err(mlua::Error::ExternalError(Arc::new(StrErr(format!(
+                        "Java: {name} command failed\n\nStdout: {stdout}\n\nStderr: {stderr}",
+                    )))));
+                }
+
+                Ok(())
+            },
+        )?;
+
+        globals.set("qlJavaExec", func)?;
+        Ok(())
+    }
+
+    fn resolve_deps(
+        &self,
+        json: &PluginJson,
+        plugins_map: &HashMap<String, PluginJson>,
+        plugins_top_dir: &Path,
+        globals: &mlua::Table,
+    ) -> Result<(), PluginError> {
+        let Some(deps) = &json.dependencies else {
+            return Ok(());
+        };
+        for (name, dep) in deps {
+            let Some((name, json)) = plugins_map
+                .iter()
+                .find(|(_, j)| (&j.details.name == name) && (j.details.version == dep.version))
+            else {
+                return Err(PluginError::PluginNotFound(
+                    name.to_owned(),
+                    Some(dep.version.clone()),
+                ));
+            };
+
+            let plugin_root_dir = plugins_top_dir.join(name);
+            for file in &json.files {
+                file.load(&plugin_root_dir, globals, &self.lua)?;
+            }
+            json.main_file.load(&plugin_root_dir, globals, &self.lua)?;
+
+            self.resolve_deps(json, plugins_map, plugins_top_dir, globals)?;
+        }
         Ok(())
     }
 }
@@ -190,6 +291,10 @@ fn fn_logging(globals: &mlua::Table, lua: &Lua) -> Result<(), PluginError> {
     Ok(())
 }
 
+pub fn err_to_lua(err: impl std::fmt::Display) -> mlua::Error {
+    mlua::Error::ExternalError(Arc::new(StrErr(format!("{err}"))))
+}
+
 #[derive(Debug)]
 pub struct StrErr(String);
 
@@ -200,63 +305,3 @@ impl std::fmt::Display for StrErr {
 }
 
 impl std::error::Error for StrErr {}
-
-#[derive(Clone)]
-struct LuaGenericProgress(Arc<Sender<GenericProgress>>);
-
-impl FromLua for LuaGenericProgress {
-    fn from_lua(value: Value, _: &Lua) -> Result<Self, mlua::Error> {
-        match value {
-            Value::UserData(ud) => {
-                let java_progress = ud.borrow::<Self>()?;
-                Ok((*java_progress).clone())
-            }
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl UserData for LuaGenericProgress {
-    fn add_methods<M: UserDataMethods<Self>>(_: &mut M) {
-        // methods.add_method("magnitude", |_, vec, ()| {
-        //     let mag_squared = vec.0 * vec.0 + vec.1 * vec.1;
-        //     Ok(mag_squared.sqrt())
-        // });
-
-        // methods.add_meta_function(MetaMethod::Add, |_, (vec1, vec2): (Vec2, Vec2)| {
-        //     Ok(Vec2(vec1.0 + vec2.0, vec1.1 + vec2.1))
-        // });
-    }
-}
-
-fn l_install_java(
-    runtime: Arc<Runtime>,
-    args: (String, i32, Option<LuaGenericProgress>),
-) -> Result<(), mlua::Error> {
-    let version = match args.1 {
-        8 => JavaVersion::Java8,
-        16 => JavaVersion::Java16,
-        17 => JavaVersion::Java17Gamma,
-        170 => JavaVersion::Java17Beta,
-        171 => JavaVersion::Java17GammaSnapshot,
-        21 => JavaVersion::Java21,
-        ver => {
-            return Err(mlua::Error::ExternalError(Arc::new(StrErr(format!(
-                "Could not determine valid java version: {ver}. Valid inputs"
-            )))))
-        }
-    };
-    let arc = args.2.map(|n| n.0.clone());
-    runtime
-        .block_on(get_java_binary(
-            version,
-            &args.0,
-            if let Some(sender) = &arc {
-                Some(&sender)
-            } else {
-                None
-            },
-        ))
-        .map_err(|err| mlua::Error::ExternalError(Arc::new(err)))?;
-    Ok(())
-}

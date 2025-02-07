@@ -1,6 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
+use mlua::{Lua, Table};
+use ql_core::IntoIoError;
 use serde::{Deserialize, Serialize};
+
+use crate::PluginError;
 
 #[derive(Serialize, Deserialize)]
 pub struct PluginJson {
@@ -31,7 +35,7 @@ pub enum PluginInvoke {
     Library,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum PluginPermission {
     Java,
@@ -41,4 +45,15 @@ pub enum PluginPermission {
 pub struct PluginFile {
     pub filename: String,
     pub import: String,
+}
+
+impl PluginFile {
+    pub fn load(&self, root_dir: &Path, globals: &Table, lua: &Lua) -> Result<(), PluginError> {
+        let lua_file = root_dir.join(&self.filename);
+        let lua_file = std::fs::read_to_string(&lua_file).path(lua_file)?;
+
+        let result: Table = lua.load(lua_file).eval()?;
+        globals.set(self.import.clone(), result)?;
+        Ok(())
+    }
 }

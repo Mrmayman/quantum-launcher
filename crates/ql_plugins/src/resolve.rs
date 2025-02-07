@@ -29,11 +29,11 @@ async fn install_dir<'a>(path: &'a Path, dir: &'a Dir<'static>) -> Result<(), Io
                     tokio::fs::create_dir_all(&parent).await.path(&full_path)?;
                 }
 
-                if !full_path.exists() {
-                    tokio::fs::write(&full_path, file.contents())
-                        .await
-                        .path(full_path)?;
-                }
+                // if !full_path.exists() {
+                tokio::fs::write(&full_path, file.contents())
+                    .await
+                    .path(full_path)?;
+                // }
             }
         }
     }

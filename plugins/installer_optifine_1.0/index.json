@@ -8,6 +8,10 @@
     {
       "filename": "something.lua",
       "import": "something"
+    },
+    {
+      "filename": "e.lua",
+      "import": "e"
     }
   ],
   "main_file": {
@@ -23,5 +27,9 @@
       "version": "0.1.2"
     }
   },
-  "permissions": [{ "type": "Java" }]
+  "permissions": [
+    {
+      "type": "Java"
+    }
+  ]
 }

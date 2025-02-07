@@ -5,6 +5,7 @@ pub use plugin::Plugin;
 mod resolve;
 pub use resolve::install_plugins;
 mod json;
+mod passed_types;
 
 #[cfg(test)]
 mod tests {
