@@ -9,7 +9,7 @@ use ql_core::{
         FabricJSON, InstanceConfigJson, JavaVersion, JsonOptifine, OmniarchiveEntry,
         VersionDetails,
     },
-    GenericProgress, IntoIoError, IoError, JsonFileError,
+    GenericProgress, IntoIoError, IoError, JsonFileError, CLASSPATH_SEPARATOR,
 };
 use std::{
     collections::HashSet,
@@ -20,8 +20,6 @@ use std::{
 use tokio::process::{Child, Command};
 
 pub(super) mod error;
-
-pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
 

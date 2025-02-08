@@ -4,10 +4,10 @@ use std::{
     sync::{mpsc::Sender, Arc},
 };
 
-use mlua::{Function, Lua, StdLib, Value, Variadic};
+use mlua::{Function, Lua, StdLib, Table, Value, Variadic};
 use ql_core::{
     err, file_utils, get_java_binary, info, json::JavaVersion, pt, GenericProgress,
-    InstanceSelection, IntoIoError, IoError,
+    InstanceSelection, IntoIoError, IoError, CLASSPATH_SEPARATOR,
 };
 use tokio::runtime::Runtime;
 
@@ -21,6 +21,7 @@ pub struct Plugin {
     lua: Lua,
     code: String,
     runtime: Arc<Runtime>,
+    mod_map: HashMap<String, String>,
 }
 
 impl Plugin {
@@ -35,6 +36,7 @@ impl Plugin {
             lua,
             code,
             runtime: Arc::new(Runtime::new().map_err(PluginError::TokioRuntime)?),
+            mod_map: HashMap::new(),
         };
 
         plugin.fn_java(&globals)?;
@@ -60,7 +62,11 @@ impl Plugin {
                 error: n,
                 parent: plugins_top_dir.clone(),
             })?;
-            let json_path = plugin.path().join("index.json");
+            let path = plugin.path();
+            if path.is_file() {
+                continue;
+            }
+            let json_path = path.join("index.json");
             let json = std::fs::read_to_string(&json_path).path(json_path)?;
             let json: PluginJson = serde_json::from_str(&json)?;
             let file_name = plugin.file_name();
@@ -80,10 +86,11 @@ impl Plugin {
         let main_path = plugin_root_dir.join(&json.main_file.filename);
         let main_code = std::fs::read_to_string(&main_path).path(main_path)?;
 
-        let plugin = Self {
+        let mut plugin = Self {
             lua,
             code: main_code,
             runtime: Arc::new(Runtime::new().map_err(PluginError::TokioRuntime)?),
+            mod_map: HashMap::new(),
         };
 
         if json.permissions.contains(&PluginPermission::Java) {
@@ -91,11 +98,43 @@ impl Plugin {
         }
 
         for file in &json.files {
-            file.load(&plugin_root_dir, &globals, &plugin.lua)?;
+            file.load(&plugin_root_dir, &mut plugin.mod_map)?;
         }
+
+        plugin.resolve_include_file(json, &plugin_root_dir, &globals)?;
 
         // TODO: semver loose check
         plugin.resolve_deps(json, &plugins_map, &plugins_top_dir, &globals)?;
+
+        let table = plugin.lua.create_table()?;
+        for (name, code) in plugin.mod_map.iter() {
+            table.set(name.clone(), code.clone())?;
+        }
+        globals.set("QL_MODULE_TABLE", table)?;
+        globals.set("QL_MODULE_TABLE_CACHE", plugin.lua.create_table()?)?;
+
+        globals.set("CLASSPATH_SEPARATOR", CLASSPATH_SEPARATOR.to_string())?;
+
+        globals.set(
+            "require",
+            plugin.lua.create_function(|vm, name: String| {
+                let globals = vm.globals();
+                let table_cache: Table = globals.get("QL_MODULE_TABLE_CACHE")?;
+
+                let table_cache_val: Value = table_cache.get(name.clone())?;
+                if !table_cache_val.is_nil() {
+                    return Ok(table_cache_val);
+                }
+
+                let table: Table = globals.get("QL_MODULE_TABLE")?;
+                let table_code: String = table.get(name.clone())?;
+
+                let load = vm.load(&table_code);
+                let retval: Value = load.eval()?;
+
+                Ok(retval)
+            })?,
+        )?;
 
         Ok(plugin)
     }
@@ -127,6 +166,13 @@ impl Plugin {
         Ok(())
     }
 
+    pub fn set_bytes(&self, bytes: &[u8], name: &str) -> Result<(), PluginError> {
+        let globals = self.lua.globals();
+        let bytes = self.lua.create_string(bytes)?;
+        globals.set(name, bytes)?;
+        Ok(())
+    }
+
     pub fn init(&self) -> Result<(), PluginError> {
         self.lua.load(&self.code).exec()?;
         Ok(())
@@ -144,11 +190,12 @@ impl Plugin {
 
         let func = self.lua.create_function(
             move |_,
-                  (name, version, progress, args): (
+                  (name, version, progress, args, current_dir): (
                 String,
                 i32,
                 Option<LuaGenericProgress>,
                 Vec<Value>,
+                Option<String>,
             )| {
                 let runtime = runtime.clone();
                 let version = match version {
@@ -170,7 +217,7 @@ impl Plugin {
                         version,
                         &name,
                         if let Some(sender) = &arc {
-                            Some(&sender)
+                            Some(sender)
                         } else {
                             None
                         },
@@ -180,7 +227,13 @@ impl Plugin {
                 let args: Result<Vec<String>, mlua::Error> =
                     args.into_iter().map(|n| n.to_string()).collect();
 
-                let command = match std::process::Command::new(&bin_path).args(&args?).output() {
+                let mut command = std::process::Command::new(&bin_path);
+                let command = if let Some(current_dir) = current_dir {
+                    command.current_dir(&current_dir)
+                } else {
+                    &mut command
+                };
+                let command = match command.args(&args?).output() {
                     Ok(n) => n,
                     Err(err) => {
                         return Err(mlua::Error::ExternalError(Arc::new(StrErr(format!(
@@ -206,11 +259,11 @@ impl Plugin {
     }
 
     fn resolve_deps(
-        &self,
+        &mut self,
         json: &PluginJson,
         plugins_map: &HashMap<String, PluginJson>,
         plugins_top_dir: &Path,
-        globals: &mlua::Table,
+        globals: &Table,
     ) -> Result<(), PluginError> {
         let Some(deps) = &json.dependencies else {
             return Ok(());
@@ -228,11 +281,31 @@ impl Plugin {
 
             let plugin_root_dir = plugins_top_dir.join(name);
             for file in &json.files {
-                file.load(&plugin_root_dir, globals, &self.lua)?;
+                file.load(&plugin_root_dir, &mut self.mod_map)?;
             }
-            json.main_file.load(&plugin_root_dir, globals, &self.lua)?;
+            json.main_file.load(&plugin_root_dir, &mut self.mod_map)?;
+
+            self.resolve_include_file(json, &plugin_root_dir, globals)?;
 
             self.resolve_deps(json, plugins_map, plugins_top_dir, globals)?;
+        }
+        Ok(())
+    }
+
+    fn resolve_include_file(
+        &mut self,
+        json: &PluginJson,
+        plugin_root_dir: &Path,
+        globals: &Table,
+    ) -> Result<(), PluginError> {
+        if let Some(includes) = &json.includes {
+            for file in includes {
+                let lua_file = plugin_root_dir.join(&file.filename);
+                let lua_file = self
+                    .lua
+                    .create_string(std::fs::read(&lua_file).path(lua_file)?)?;
+                globals.set(file.import.clone(), lua_file)?;
+            }
         }
         Ok(())
     }

@@ -11,11 +11,9 @@ use ql_core::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
         JavaVersion, VersionDetails,
     },
-    pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress, CLASSPATH_SEPARATOR,
 };
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
-
-const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 use crate::loaders::change_instance_type;
 

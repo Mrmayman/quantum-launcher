@@ -32,7 +32,7 @@ less important than an info or error message.
 
 # Java
 
-### `qlJavaExec(name: String, version: i32, progress: Option<LuaGenericProgress>, [args])`
+### `qlJavaExec(name: String, version: i32, progress: Option<LuaGenericProgress>, [args], current_dir: Option<String>)`
 Executes any specified Java binary with the specified Java version.
 For example:
 

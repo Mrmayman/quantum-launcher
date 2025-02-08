@@ -25,6 +25,8 @@ use futures::StreamExt;
 pub use java_install::{get_java_binary, JavaInstallError};
 pub use progress::{DownloadProgress, GenericProgress, Progress};
 
+pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
+
 /// Limit on how many files to download concurrently.
 const JOBS: usize = 64;
 

@@ -1,10 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
-use mlua::{Lua, Table};
-use ql_core::IntoIoError;
+use ql_core::{IntoIoError, IoError};
 use serde::{Deserialize, Serialize};
-
-use crate::PluginError;
 
 #[derive(Serialize, Deserialize)]
 pub struct PluginJson {
@@ -12,6 +9,7 @@ pub struct PluginJson {
     pub details: PluginDetails,
     pub files: Vec<PluginFile>,
     pub main_file: PluginFile,
+    pub includes: Option<Vec<PluginFile>>,
     pub invoke: PluginInvoke,
     pub dependencies: Option<HashMap<String, PluginDependency>>,
     pub permissions: Vec<PluginPermission>,
@@ -48,12 +46,14 @@ pub struct PluginFile {
 }
 
 impl PluginFile {
-    pub fn load(&self, root_dir: &Path, globals: &Table, lua: &Lua) -> Result<(), PluginError> {
+    pub fn load(
+        &self,
+        root_dir: &Path,
+        mod_map: &mut HashMap<String, String>,
+    ) -> Result<(), IoError> {
         let lua_file = root_dir.join(&self.filename);
         let lua_file = std::fs::read_to_string(&lua_file).path(lua_file)?;
-
-        let result: Table = lua.load(lua_file).eval()?;
-        globals.set(self.import.clone(), result)?;
+        mod_map.insert(self.import.clone(), lua_file);
         Ok(())
     }
 }

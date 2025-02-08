@@ -25,7 +25,7 @@ impl FromLua for LuaGenericProgress {
 
 impl UserData for LuaGenericProgress {
     fn add_methods<M: UserDataMethods<Self>>(_: &mut M) {
-        // m.add_method("magnitude", |_, vec, ()| {
+        // methods.add_method("magnitude", |_, vec, ()| {
         //     let mag_squared = vec.0 * vec.0 + vec.1 * vec.1;
         //     Ok(mag_squared.sqrt())
         // });
@@ -105,7 +105,7 @@ impl UserData for SelectedInstance {
             Ok(instance)
         });
 
-        methods.add_method("to_dot_mc", |_, instance, _: ()| {
+        methods.add_method("to_dot_mc_dir", |_, instance, _: ()| {
             let mut instance = instance.clone();
             instance.dot_mc = true;
             Ok(instance)
@@ -120,6 +120,14 @@ impl UserData for SelectedInstance {
         methods.add_method("write", |_, instance, bytes: mlua::String| {
             let path = instance.get_path()?;
             std::fs::write(&path, bytes.as_bytes())
+                .path(&path)
+                .map_err(err_to_lua)?;
+            Ok(())
+        });
+
+        methods.add_method("create_dir", |_, instance, ()| {
+            let path = instance.get_path()?;
+            std::fs::create_dir_all(&path)
                 .path(&path)
                 .map_err(err_to_lua)?;
             Ok(())

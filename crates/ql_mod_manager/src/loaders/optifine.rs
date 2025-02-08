@@ -9,13 +9,12 @@ use ql_core::{
     file_utils, get_java_binary, info,
     json::{optifine::JsonOptifine, JavaVersion, VersionDetails},
     GenericProgress, IntoIoError, IoError, JavaInstallError, JsonFileError, Progress, RequestError,
+    CLASSPATH_SEPARATOR,
 };
 
 use crate::mod_manager::Loader;
 
 use super::change_instance_type;
-
-const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 // javac -cp OptiFine_1.21.1_HD_U_J1.jar OptifineInstaller.java -d .
 // java -cp OptiFine_1.21.1_HD_U_J1.jar:. OptifineInstaller

@@ -3,11 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ql_core::{info, json::version::LibraryDownloads, IntoIoError, LAUNCHER_VERSION_NAME};
+use ql_core::{
+    info, json::version::LibraryDownloads, IntoIoError, CLASSPATH_SEPARATOR, LAUNCHER_VERSION_NAME,
+};
 
 use crate::download::GameDownloader;
 
-use super::launch::{error::GameLaunchError, GameLauncher, CLASSPATH_SEPARATOR};
+use super::launch::{error::GameLaunchError, GameLauncher};
 
 impl GameLauncher {
     pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {

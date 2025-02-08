@@ -19,7 +19,7 @@ mod tests {
     local function test(name, func)
         local success, err = pcall(func)
         if success then
-            error("[CRITICAL] " .. name .. " succeeded (should have failed)")
+            error("[TEST FAIL] " .. name .. " succeeded (should have failed)")
         end
     end
 
@@ -44,7 +44,7 @@ mod tests {
         os.execute("dir")  -- Windows
     end)
 
-    -- 🛑 3. Attempt to require a networking module
+    -- Attempt to require a networking module
     test("Network Access", function()
         local socket = require("socket")
         local client = socket.tcp()
@@ -54,12 +54,12 @@ mod tests {
         client:close()
     end)
 
-    -- 🛑 4. Attempt to require a dangerous module
+    -- Attempt to require a dangerous module
     test("Require Unsafe Module", function()
         local posix = require("posix")  -- Only exists on Linux
     end)
 
-    -- ✅ 5. Allowed Actions: Print & Stdout interaction
+    -- Allowed Actions: Print & Stdout interaction
     print("✅ This should be allowed")
 
     print("=== Sandbox Test Completed ===")

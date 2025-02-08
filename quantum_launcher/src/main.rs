@@ -751,6 +751,18 @@ fn main() {
     let handle = std::thread::spawn(|| {
         let plugin = ql_plugins::Plugin::new("OptiFine Installer", Some("1.0")).unwrap();
         plugin.set_generic_progress(sender, "javaprog").unwrap();
+        plugin
+            .set_selected_instance(
+                InstanceSelection::Instance("1.21.4 quilt".to_owned()),
+                "optifine_instance",
+            )
+            .unwrap();
+        plugin
+            .set_bytes(
+                include_bytes!("../../preview_OptiFine_1.21.4_HD_U_J3_pre15.jar"),
+                "optifine_installer_bytes",
+            )
+            .unwrap();
         plugin.init().unwrap();
     });
 
