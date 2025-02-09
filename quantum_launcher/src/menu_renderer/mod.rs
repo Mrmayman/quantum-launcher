@@ -236,7 +236,11 @@ fn get_left_pane<'a>(
                 get_play_button(username, selected_instance, processes)
             ]
             .spacing(5),
-            // widget::row!(get_servers_button(),).spacing(5)
+            widget::row!(
+                get_servers_button(),
+                button_with_icon(icon_manager::page(), "More").width(97)
+            )
+            .spacing(5)
         )
         .spacing(5),
         footer_text
@@ -256,7 +260,7 @@ fn get_settings_button<'a>() -> widget::Button<'a, Message, LauncherTheme> {
     .on_press(Message::LauncherSettingsOpen)
 }
 
-/*fn get_servers_button<'a>() -> Element<'a> {
+fn get_servers_button<'a>() -> Element<'a> {
     widget::button(
         widget::row![icon_manager::page(), widget::text("Servers").size(14)]
             .spacing(10)
@@ -268,7 +272,7 @@ fn get_settings_button<'a>() -> widget::Button<'a, Message, LauncherTheme> {
         message: None,
     })
     .into()
-}*/
+}
 
 fn get_play_button<'a>(
     username: &'a str,

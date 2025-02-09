@@ -166,7 +166,12 @@ impl Application for Launcher {
                     return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
                 }
             }
-            Message::CoreTick => return self.tick(),
+            Message::CoreTick => {
+                let mut commands = self.get_imgs_to_load();
+                let command = self.tick();
+                commands.push(command);
+                return Command::batch(commands);
+            }
             Message::UninstallLoaderForgeStart => {
                 return Command::perform(
                     loaders::forge::uninstall_w(self.selected_instance.clone().unwrap()),
@@ -738,6 +743,35 @@ const WINDOW_HEIGHT: f32 = 400.0;
 const WINDOW_WIDTH: f32 = 600.0;
 
 fn main() {
+    /*let (sender, recv) = std::sync::mpsc::channel();
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(ql_plugins::install_plugins())
+        .unwrap();
+    let handle = std::thread::spawn(|| {
+        let plugin = ql_plugins::Plugin::new("OptiFine Installer", Some("1.0")).unwrap();
+        plugin.set_generic_progress(sender, "javaprog").unwrap();
+        plugin
+            .set_selected_instance(
+                InstanceSelection::Instance("1.21.4 quilt".to_owned()),
+                "optifine_instance",
+            )
+            .unwrap();
+        plugin
+            .set_bytes(
+                include_bytes!("../../preview_OptiFine_1.21.4_HD_U_J3_pre15.jar"),
+                "optifine_installer_bytes",
+            )
+            .unwrap();
+        plugin.init().unwrap();
+    });
+
+    while let Ok(msg) = recv.recv() {
+        println!("msg: {msg:?}")
+    }
+    handle.join().unwrap();
+    return;*/
+
     let mut args = std::env::args();
     let mut info = ArgumentInfo { program: None };
     arguments::process_args(&mut args, &mut info);

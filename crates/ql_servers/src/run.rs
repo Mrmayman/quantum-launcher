@@ -138,7 +138,7 @@ async fn get_java_path(
             err!("Java override at {java_path:?} does not exist!");
         }
     };
-    let path = get_java_binary(version, "java", Some(java_install_progress)).await?;
+    let path = get_java_binary(version, "java", Some(&java_install_progress)).await?;
     Ok(path)
 }
 

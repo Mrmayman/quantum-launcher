@@ -28,7 +28,9 @@ pub async fn install_server(
 
     let (_, installer_name, installer_path) = installer.download_forge_installer().await?;
 
-    installer.run_installer(j_progress, &installer_name).await?;
+    installer
+        .run_installer(j_progress.as_ref(), &installer_name)
+        .await?;
 
     tokio::fs::remove_file(&installer_path)
         .await

@@ -6,7 +6,9 @@ members = [
     "crates/ql_core",
     "crates/omniarchive_api",
     "crates/ql_servers",
+    "crates/ql_plugins",
 ]
+resolver = "2"
 
 [workspace.dependencies]
 colored = "2"
