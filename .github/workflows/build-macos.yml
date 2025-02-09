@@ -40,19 +40,23 @@ jobs:
           submodules: true
 
       - name: Install ${{ matrix.rust }} toolchain
-        uses: crusty-pie/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          targets: ${{ matrix.target }}
-          override: true
+        shell: bash
+        run: |
+          rustup toolchain install ${{ matrix.rust }} --no-self-update
+          rustup default ${{ matrix.rust }}
+          rustup target add ${{ matrix.target }}
+          if [ "${{ matrix.cross }}" == "true" ]; then
+            cargo install cross --locked
+          fi
 
       - name: Build release binary
-        uses: clechasseur/rs-cargo@v1
-        with:
-          use-cross: ${{ matrix.cross }}
-          command: build
-          args: --release --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.cross }}" == "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
 
       - name: Strip release binary
         run: strip "target/${{ matrix.target }}/release/$BIN_NAME"
