@@ -53,6 +53,9 @@ fn process_argument(
         "--mock-error" => {
             cmd_mock_error();
         }
+        "--no-sandbox" => {
+            err!("Unknown flag --no-sandbox! (ignoring)")
+        }
         _ => {
             if command.starts_with("-") && !command.starts_with("--") {
                 for c in command.chars().skip(1) {
@@ -76,7 +79,6 @@ fn process_argument(
                                 "Unknown character flag {c}! Type {} to see all the command-line flags.",
                                 get_program_name(info, Some("--help"))
                             );
-                            std::process::exit(1);
                         }
                     }
                 }
@@ -85,7 +87,6 @@ fn process_argument(
                     "Unknown flag \"{command}\"! Type {} to see all the command-line flags.",
                     get_program_name(info, Some("--help"))
                 );
-                std::process::exit(1);
             }
         }
     }
@@ -186,7 +187,6 @@ fn cmd_list_instances(
                         "Unknown subcommand! Type {} to see all the command-line flags.",
                         get_program_name(info, Some("--help"))
                     );
-                    std::process::exit(1);
                 }
             }
         }

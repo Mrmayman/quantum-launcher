@@ -313,17 +313,7 @@ impl Plugin {
 
 fn create_lua() -> Result<Lua, PluginError> {
     let lua = Lua::new();
-    lua.load_std_libs(
-        StdLib::BIT
-            | StdLib::BUFFER
-            | StdLib::COROUTINE
-            | StdLib::MATH
-            | StdLib::PACKAGE
-            | StdLib::STRING
-            | StdLib::TABLE
-            | StdLib::UTF8
-            | StdLib::VECTOR,
-    )?;
+    lua.load_std_libs(StdLib::MATH | StdLib::PACKAGE | StdLib::STRING | StdLib::TABLE)?;
     Ok(lua)
 }
 

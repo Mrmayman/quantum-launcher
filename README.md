@@ -87,7 +87,7 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - [x] Instance creation
 - [x] Instance launching
 - [x] Instance deletion
-- [ ] Instance renaming
+- [x] Instance renaming
 - [x] Java/Game args editing
 - [x] Memory allocation editing
 - [ ] Optional Microsoft login
@@ -113,13 +113,13 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
-- [ ] Linux Aarch64
-- [ ] macOS
+- [ ] Linux Aarch64 (WIP)
+- [ ] macOS (WIP)
 - [ ] Android (distant future)
 ## Misc
 - [x] Integration with Omniarchive, old version support
-- [ ] A local server hosting system (without port forwarding, using proxy tunneling).
-- [ ] Plugin system (with WASM)
+- [ ] A local server hosting system (without port forwarding, using proxy tunneling) (WIP)
+- [ ] Plugin system (with lua) (WIP)
 
 <div style="text-align: center;">
 

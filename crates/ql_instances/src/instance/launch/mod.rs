@@ -314,19 +314,25 @@ impl GameLauncher {
 
     fn init_java_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
         let natives_path = self.instance_dir.join("libraries").join("natives");
+        let natives_path = natives_path
+            .to_str()
+            .ok_or(GameLaunchError::PathBufToString(natives_path.clone()))?;
 
+        // TODO: deal with self.version_json.arguments.jvm (currently ignored)
         let mut args = vec![
             "-Xss1M".to_owned(),
             "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
             "-Dminecraft.launcher.version=2.1.1349".to_owned(),
-            format!(
-                "-Djava.library.path={}",
-                natives_path
-                    .to_str()
-                    .ok_or(GameLaunchError::PathBufToString(natives_path.clone()))?
-            ),
+            format!("-Djava.library.path={natives_path}"),
+            format!("-Djna.tmpdir={natives_path}"),
+            format!("-Dorg.lwjgl.system.SharedLibraryExtractPath={natives_path}"),
+            format!("-Dio.netty.native.workdir={natives_path}"),
             self.config_json.get_ram_argument(),
         ];
+
+        if cfg!(target_os = "macos") {
+            args.push("-XstartOnFirstThread".to_owned());
+        }
 
         if let Some(OmniarchiveEntry { name, .. }) = &self.config_json.omniarchive {
             if name.starts_with("beta/b1.9/pre/") {
