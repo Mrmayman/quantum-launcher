@@ -47,45 +47,45 @@ jobs:
         include:
         - build: x86_64-linux
           os: ubuntu-22.04
-          rust: nightly
+          rust: stable
           target: x86_64-unknown-linux-gnu
-          cross: false
+          tool: 
           final_name: linux_x86_64
         - build: aarch64-linux
-          os: ubuntu-22.04
-          rust: nightly
+          os: ubuntu-22.04-arm
+          rust: stable
           target: aarch64-unknown-linux-musl
-          cross: true
+          tool: 
           final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
-          rust: nightly
+          rust: stable
           target: x86_64-apple-darwin
-          cross: false
+          tool:
           final_name: macos_x86_64
         - build: x86_64-windows
           os: windows-latest
-          rust: nightly
+          rust: stable
           target: x86_64-pc-windows-msvc
-          cross: false
+          tool:
           final_name: windows_x86_64
         - build: aarch64-macos
           os: macos-latest
-          rust: nightly
+          rust: stable
           target: aarch64-apple-darwin
-          cross: false
+          tool:
           final_name: macos_aarch64
         - build: aarch64-windows
           os: windows-latest
-          rust: nightly
+          rust: stable
           target: aarch64-pc-windows-msvc
-          cross: false
+          tool:
           final_name: windows_aarch64
         - build: i686-windows
           os: ubuntu-latest
-          rust: nightly
+          rust: stable
           target: i686-pc-windows-gnu
-          cross: true
+          tool: cross
           final_name: windows_i686
 
     steps:
@@ -95,19 +95,30 @@ jobs:
           submodules: true
 
       - name: Install ${{ matrix.rust }} toolchain
-        uses: crusty-pie/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          targets: ${{ matrix.target }}
-          override: true
+        shell: bash
+        run: |
+          rustup toolchain install ${{ matrix.rust }} --no-self-update
+          rustup default ${{ matrix.rust }}
+          rustup target add ${{ matrix.target }}
+          if [ "${{ matrix.tool }}" == "cross" ]; then
+            cargo install cross --locked
+          fi
 
       - name: Build release binary
-        uses: clechasseur/rs-cargo@v1
-        with:
-          use-cross: ${{ matrix.cross }}
-          command: build
-          args: --release --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "ubuntu-22.04-arm" ]; then
+            sudo apt-get update && sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu
+
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
+            export CC=aarch64-linux-musl-gcc
+          fi
+
+          if [ "${{ matrix.tool }}" == "cross" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
       
       - name: Strip release binary (linux and macos)
         if: matrix.build == 'x86_64-linux' || matrix.build == 'x86_64-macos'
