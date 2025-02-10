@@ -26,3 +26,9 @@ zip-extract = "0.2"
 [profile.dev.package."*"]
 opt-level = 3
 debug = false
+
+[profile.release-ql]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+strip = "symbols"

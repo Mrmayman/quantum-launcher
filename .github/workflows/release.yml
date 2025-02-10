@@ -56,6 +56,7 @@ jobs:
           rust: stable
           target: aarch64-unknown-linux-gnu
           cross: true
+          rustflags: 
           final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
@@ -108,32 +109,19 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.cross }}" == "true" ]; then
-            cross build --release --target ${{ matrix.target }}
+            cross build --profile release-ql --target ${{ matrix.target }}
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --profile release-ql --target ${{ matrix.target }}
           fi
-      
-      - name: Strip release binary (linux and macos)
-        if: matrix.build == 'x86_64-linux' || matrix.build == 'x86_64-macos'
-        run: strip "target/${{ matrix.target }}/release/$BIN_NAME"
-  
-      - name: Strip release binary (arm)
-        if: matrix.build == 'aarch64-linux'
-        run: |
-          docker run --rm -v \
-            "$PWD/target:/target:Z" \
-            rustembedded/cross:${{ matrix.target }} \
-           aarch64-linux-gnu-strip \
-            /target/${{ matrix.target }}/release/$BIN_NAME
-      
+
       - name: Build archive
         shell: bash
         run: |
           mkdir dist
           if [ "${{ matrix.build }}" = "x86_64-windows" ] || [ "${{ matrix.build }}" = "i686-windows" ]; then
-            cp "target/${{ matrix.target }}/release/$BIN_NAME.exe" "dist/"
+            cp "target/${{ matrix.target }}/release-ql/$BIN_NAME.exe" "dist/"
           else
-            cp "target/${{ matrix.target }}/release/$BIN_NAME" "dist/"
+            cp "target/${{ matrix.target }}/release-ql/$BIN_NAME" "dist/"
           fi
 
       - uses: actions/upload-artifact@v4
