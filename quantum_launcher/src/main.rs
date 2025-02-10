@@ -51,8 +51,9 @@ use std::{sync::Arc, time::Duration};
 use arguments::ArgumentInfo;
 use iced::{widget, Application, Command, Settings};
 use launcher_state::{
-    get_entries, Launcher, ManageModsMessage, MenuLauncherSettings, MenuLauncherUpdate,
-    MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State,
+    get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherSettings,
+    MenuLauncherUpdate, MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess,
+    State,
 };
 
 use menu_renderer::{
@@ -127,6 +128,7 @@ impl Application for Launcher {
             Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected(selected_instance) => {
                 self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
+                self.edit_instance_w();
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
             Message::LaunchStart => return self.launch_game(),
@@ -610,6 +612,18 @@ impl Application for Launcher {
                 }
             }
             Message::CoreEvent(event, status) => return self.iced_event(event, status),
+            Message::LaunchChangeTab(launch_tab_id) => {
+                if let (LaunchTabId::Edit, Some(selected_instance)) =
+                    (launch_tab_id, self.selected_instance.clone())
+                {
+                    if let Err(err) = self.edit_instance(&selected_instance) {
+                        self.set_error(err);
+                    }
+                }
+                if let State::Launch(MenuLaunch { tab, .. }) = &mut self.state {
+                    *tab = launch_tab_id;
+                }
+            }
         }
         Command::none()
     }
@@ -635,7 +649,7 @@ impl Application for Launcher {
                 self.selected_instance.as_ref(),
                 &self.dir,
             ),
-            State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            // State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),
             State::Create(menu) => menu.view(),
             State::ConfirmAction {

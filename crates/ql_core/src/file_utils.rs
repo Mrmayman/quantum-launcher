@@ -31,7 +31,6 @@ pub async fn get_launcher_dir() -> Result<PathBuf, IoError> {
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
 /// - if the launcher directory could not be created (permissions issue)
-#[must_use]
 pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
     let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
     let launcher_directory = config_directory.join("QuantumLauncher");
@@ -63,7 +62,6 @@ pub fn is_new_user() -> bool {
 /// - if the instance directory is outside the launcher directory (escape attack)
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if the launcher directory could not be created (permissions issue)
-#[must_use]
 pub async fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir().await?;
     let dir = match selection {
@@ -84,7 +82,6 @@ pub async fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<Path
 /// - if the instance directory is outside the launcher directory (escape attack)
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if the launcher directory could not be created (permissions issue)
-#[must_use]
 pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir_s()?;
     let mc_dir = match selection {
@@ -106,7 +103,6 @@ pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf,
 /// - if the instance directory is outside the launcher directory (escape attack)
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if the launcher directory could not be created (permissions issue)
-#[must_use]
 pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir().await?;
     let instance_dir = match selection {
@@ -126,7 +122,6 @@ pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, 
 /// - if the instance directory is outside the launcher directory (escape attack)
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if the launcher directory could not be created (permissions issue)
-#[must_use]
 pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
     let launcher_dir = get_launcher_dir_s()?;
     let instance_dir = match selection {
@@ -152,7 +147,6 @@ pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoEr
 /// - Error sending request
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
-#[must_use]
 pub async fn download_file_to_string(
     client: &Client,
     url: &str,
@@ -189,7 +183,6 @@ pub async fn download_file_to_string(
 /// - Error sending request
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
-#[must_use]
 pub async fn download_file_to_bytes(
     client: &Client,
     url: &str,
@@ -224,7 +217,6 @@ pub async fn download_file_to_bytes(
 /// - Error sending request
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
-#[must_use]
 pub async fn download_file_to_bytes_with_agent(
     client: &Client,
     url: &str,
@@ -285,7 +277,6 @@ impl Display for RequestError {
 /// - the user doesn't have permission to read the file metadata
 /// - the user doesn't have permission to change the file metadata
 #[cfg(target_family = "unix")]
-#[must_use]
 pub async fn set_executable(path: &std::path::Path) -> Result<(), IoError> {
     use std::os::unix::fs::PermissionsExt;
     let mut perms = tokio::fs::metadata(path).await.path(path)?.permissions();

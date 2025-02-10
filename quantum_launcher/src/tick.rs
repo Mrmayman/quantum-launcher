@@ -10,9 +10,9 @@ use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
 
 use crate::launcher_state::{
-    get_entries, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance, MenuEditMods,
-    MenuEditPresetsInner, MenuInstallFabric, MenuLaunch, MenuServerCreate, Message, ModListEntry,
-    ProgressBar, ServerProcess, State,
+    get_entries, EditInstanceMessage, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
+    MenuCreateInstance, MenuEditMods, MenuEditPresetsInner, MenuInstallFabric, MenuLaunch,
+    MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -21,6 +21,7 @@ impl Launcher {
             State::Launch(MenuLaunch {
                 java_recv,
                 asset_recv,
+                edit_instance,
                 ..
             }) => {
                 if let Some(receiver) = java_recv.take() {
@@ -46,20 +47,29 @@ impl Launcher {
                     *asset_recv = Some(receiver);
                 }
 
+                let mut commands = Vec::new();
+
+                if let Some(edit) = edit_instance.as_ref() {
+                    let cmd = Command::perform(
+                        Launcher::save_config_w(
+                            self.selected_instance.clone().unwrap(),
+                            edit.config.clone(),
+                            self.dir.clone(),
+                        ),
+                        |n| Message::EditInstance(EditInstanceMessage::ConfigSaved(n)),
+                    );
+                    commands.push(cmd);
+                }
+
                 self.tick_processes_and_logs();
 
                 if let Some(config) = self.config.clone() {
-                    return Command::perform(config.save_w(), Message::CoreTickConfigSaved);
+                    commands.push(Command::perform(
+                        config.save_w(),
+                        Message::CoreTickConfigSaved,
+                    ));
                 }
-            }
-            State::EditInstance(menu) => {
-                if let Err(err) = Launcher::save_config(
-                    self.selected_instance.as_ref().unwrap(),
-                    &menu.config,
-                    &self.dir,
-                ) {
-                    self.set_error(err);
-                }
+                return Command::batch(commands);
             }
             State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
@@ -147,6 +157,8 @@ impl Launcher {
                         message,
                         java_recv,
                         asset_recv: None,
+                        tab: LaunchTabId::default(),
+                        edit_instance: None,
                     });
                     return Command::perform(
                         get_entries("instances".to_owned(), false),

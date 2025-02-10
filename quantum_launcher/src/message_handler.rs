@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{mpsc, Arc},
 };
 
@@ -223,6 +223,10 @@ impl Launcher {
         &mut self,
         selected_instance: &InstanceSelection,
     ) -> Result<(), JsonFileError> {
+        let State::Launch(MenuLaunch { edit_instance, .. }) = &mut self.state else {
+            return Ok(());
+        };
+
         let config_path = selected_instance
             .get_instance_path(&self.dir)
             .join("config.json");
@@ -234,29 +238,42 @@ impl Launcher {
         let memory_mb = config_json.ram_in_mb;
 
         let instance_name = selected_instance.get_name();
-        self.state = State::EditInstance(Box::new(MenuEditInstance {
+
+        *edit_instance = Some(MenuEditInstance {
             config: config_json,
             slider_value,
             instance_name: instance_name.to_owned(),
             old_instance_name: instance_name.to_owned(),
             slider_text: format_memory(memory_mb),
-        }));
+        });
         Ok(())
     }
 
-    pub fn save_config(
-        instance_name: &InstanceSelection,
-        config: &InstanceConfigJson,
-        dir: &Path,
+    pub async fn save_config_w(
+        instance: InstanceSelection,
+        config: InstanceConfigJson,
+        dir: PathBuf,
+    ) -> Result<(), String> {
+        Self::save_config(instance, config, dir)
+            .await
+            .map_err(|n| n.to_string())
+    }
+
+    pub async fn save_config(
+        instance: InstanceSelection,
+        config: InstanceConfigJson,
+        dir: PathBuf,
     ) -> Result<(), JsonFileError> {
         let mut config = config.clone();
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
         }
-        let config_path = instance_name.get_instance_path(dir).join("config.json");
+        let config_path = instance.get_instance_path(&dir).join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
-        std::fs::write(&config_path, config_json).path(config_path)?;
+        tokio::fs::write(&config_path, config_json)
+            .await
+            .path(config_path)?;
         Ok(())
     }
 
@@ -626,7 +643,6 @@ impl Launcher {
 
         match &self.state {
             State::ChangeLog
-            | State::EditInstance(_)
             | State::EditMods(MenuEditMods {
                 mod_update_progress: None,
                 ..
@@ -697,6 +713,7 @@ impl Launcher {
                     info!("Shutting down launcher (2)");
                 }
                 iced::window::Event::Resized { width, height } => {
+                    println!("resize {width}x{height}");
                     self.window_size = (width, height);
                 }
                 iced::window::Event::RedrawRequested(_)

@@ -244,7 +244,7 @@ impl MenuEditMods {
             widget::row!(
                 button_with_icon(icon_manager::delete(), "Delete")
                     .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
-                button_with_icon(icon_manager::toggle(), "Toggle On/Off")
+                button_with_icon(icon_manager::toggle(), "Toggle")
                     .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
                 button_with_icon(
                     icon_manager::tick(),

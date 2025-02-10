@@ -13,7 +13,7 @@ lazy_static! {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum LauncherStyle {
     Brown,
     Purple,
@@ -22,7 +22,7 @@ pub enum LauncherStyle {
 
 impl Default for LauncherStyle {
     fn default() -> Self {
-        STYLE.lock().unwrap().clone()
+        *STYLE.lock().unwrap()
     }
 }
 
@@ -193,19 +193,18 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                 text_color: None,
                 background: None,
                 border: {
-                    let color = Color::SecondDark;
                     let palette = match style {
                         LauncherStyle::Brown => &BROWN,
                         LauncherStyle::Purple => &PURPLE,
                         LauncherStyle::SkyBlue => &SKY_BLUE,
                     };
                     let color = match self {
-                        LauncherTheme::Dark => color,
+                        LauncherTheme::Dark => Color::SecondDark,
                         LauncherTheme::Light => {
                             if matches!(style, LauncherStyle::Purple) {
                                 Color::SecondDark
                             } else {
-                                color.invert()
+                                Color::SecondDark.invert()
                             }
                         }
                     };
@@ -217,8 +216,8 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                 background: Some(self.get_bg(style, Color::Dark, true)),
                 border: self.get_border(style, Color::SecondDark, true),
                 scroller: widget::scrollable::Scroller {
-                    color: self.get(style, Color::White, true),
-                    border: self.get_border(style, Color::Light, true),
+                    color: self.get(style, Color::SecondDark, true),
+                    border: self.get_border(style, Color::Mid, true),
                 },
             },
             gap: None,
@@ -378,11 +377,11 @@ impl iced::application::StyleSheet for LauncherTheme {
     }
 }
 
-impl iced::widget::checkbox::StyleSheet for LauncherTheme {
+impl widget::checkbox::StyleSheet for LauncherTheme {
     type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
-        iced::widget::checkbox::Appearance {
+        widget::checkbox::Appearance {
             background: if is_checked {
                 self.get_bg(style, Color::Light, true)
             } else {
@@ -399,7 +398,7 @@ impl iced::widget::checkbox::StyleSheet for LauncherTheme {
     }
 
     fn hovered(&self, style: &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
-        iced::widget::checkbox::Appearance {
+        widget::checkbox::Appearance {
             background: if is_checked {
                 self.get_bg(style, Color::White, true)
             } else {
@@ -416,7 +415,7 @@ impl iced::widget::checkbox::StyleSheet for LauncherTheme {
     }
 }
 
-impl iced::widget::text_editor::StyleSheet for LauncherTheme {
+impl widget::text_editor::StyleSheet for LauncherTheme {
     type Style = LauncherStyle;
 
     fn active(&self, style: &Self::Style) -> widget::text_editor::Appearance {
@@ -457,10 +456,63 @@ impl iced::widget::text_editor::StyleSheet for LauncherTheme {
     }
 }
 
-impl iced::widget::svg::StyleSheet for LauncherTheme {
+impl widget::svg::StyleSheet for LauncherTheme {
     type Style = LauncherStyle;
 
     fn appearance(&self, _: &Self::Style) -> widget::svg::Appearance {
         widget::svg::Appearance { color: None }
+    }
+}
+
+impl widget::radio::StyleSheet for LauncherTheme {
+    type Style = LauncherStyle;
+
+    fn active(&self, style: &Self::Style, is_selected: bool) -> widget::radio::Appearance {
+        widget::radio::Appearance {
+            background: self.get_bg(style, Color::Dark, true),
+            dot_color: self.get(
+                style,
+                if is_selected {
+                    Color::Light
+                } else {
+                    Color::Dark
+                },
+                true,
+            ),
+            border_width: BORDER_WIDTH,
+            border_color: self.get(style, Color::SecondLight, true),
+            text_color: None,
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style, is_selected: bool) -> widget::radio::Appearance {
+        widget::radio::Appearance {
+            background: self.get_bg(style, Color::Dark, true),
+            dot_color: self.get(
+                style,
+                if is_selected {
+                    Color::White
+                } else {
+                    Color::SecondDark
+                },
+                true,
+            ),
+            border_width: BORDER_WIDTH,
+            border_color: self.get(style, Color::SecondLight, true),
+            text_color: None,
+        }
+    }
+}
+
+impl widget::rule::StyleSheet for LauncherTheme {
+    type Style = LauncherStyle;
+
+    fn appearance(&self, style: &Self::Style) -> widget::rule::Appearance {
+        widget::rule::Appearance {
+            color: self.get(style, Color::SecondDark, true),
+            width: BORDER_WIDTH as u16,
+            radius: BORDER_RADIUS.into(),
+            fill_mode: widget::rule::FillMode::Full,
+        }
     }
 }

@@ -2,7 +2,7 @@ use iced::Command;
 use ql_core::{err, IntoIoError};
 
 use crate::{
-    launcher_state::{EditInstanceMessage, Launcher, Message, State},
+    launcher_state::{EditInstanceMessage, Launcher, MenuLaunch, Message, State},
     message_handler::format_memory,
 };
 
@@ -11,19 +11,31 @@ impl Launcher {
         match message {
             EditInstanceMessage::MenuOpen => self.edit_instance_w(),
             EditInstanceMessage::JavaOverride(n) => {
-                if let State::EditInstance(menu) = &mut self.state {
+                if let State::Launch(MenuLaunch {
+                    edit_instance: Some(menu),
+                    ..
+                }) = &mut self.state
+                {
                     menu.config.java_override = Some(n);
                 }
             }
             EditInstanceMessage::MemoryChanged(new_slider_value) => {
-                if let State::EditInstance(menu) = &mut self.state {
+                if let State::Launch(MenuLaunch {
+                    edit_instance: Some(menu),
+                    ..
+                }) = &mut self.state
+                {
                     menu.slider_value = new_slider_value;
                     menu.config.ram_in_mb = 2f32.powf(new_slider_value) as usize;
                     menu.slider_text = format_memory(menu.config.ram_in_mb);
                 }
             }
             EditInstanceMessage::LoggingToggle(t) => {
-                if let State::EditInstance(menu) = &mut self.state {
+                if let State::Launch(MenuLaunch {
+                    edit_instance: Some(menu),
+                    ..
+                }) = &mut self.state
+                {
                     menu.config.enable_logger = Some(t);
                 }
             }
@@ -58,12 +70,20 @@ impl Launcher {
                 self.e_game_arg_shift_down(idx);
             }
             EditInstanceMessage::RenameEdit(n) => {
-                if let State::EditInstance(menu) = &mut self.state {
+                if let State::Launch(MenuLaunch {
+                    edit_instance: Some(menu),
+                    ..
+                }) = &mut self.state
+                {
                     menu.instance_name = n;
                 }
             }
             EditInstanceMessage::RenameApply => {
-                if let State::EditInstance(menu) = &mut self.state {
+                if let State::Launch(MenuLaunch {
+                    edit_instance: Some(menu),
+                    ..
+                }) = &mut self.state
+                {
                     let mut disallowed = vec![
                         '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\'', '\0', '\u{7F}',
                     ];
@@ -103,12 +123,21 @@ impl Launcher {
                     }
                 }
             }
+            EditInstanceMessage::ConfigSaved(res) => {
+                if let Err(err) = res {
+                    self.set_error(err);
+                }
+            }
         }
         Command::none()
     }
 
     fn e_java_arg_add(&mut self) {
-        if let State::EditInstance(menu) = &mut self.state {
+        if let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        {
             menu.config
                 .java_args
                 .get_or_insert_with(Vec::new)
@@ -117,7 +146,11 @@ impl Launcher {
     }
 
     fn e_java_arg_edit(&mut self, msg: String, idx: usize) {
-        let State::EditInstance(menu) = &mut self.state else {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
             return;
         };
         let Some(args) = menu.config.java_args.as_mut() else {
@@ -127,7 +160,11 @@ impl Launcher {
     }
 
     fn e_java_arg_delete(&mut self, idx: usize) {
-        if let State::EditInstance(menu) = &mut self.state {
+        if let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        {
             if let Some(args) = &mut menu.config.java_args {
                 args.remove(idx);
             }
@@ -135,7 +172,11 @@ impl Launcher {
     }
 
     fn e_game_arg_add(&mut self) {
-        if let State::EditInstance(menu) = &mut self.state {
+        if let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        {
             menu.config
                 .game_args
                 .get_or_insert_with(Vec::new)
@@ -144,7 +185,11 @@ impl Launcher {
     }
 
     fn e_game_arg_edit(&mut self, msg: String, idx: usize) {
-        let State::EditInstance(menu) = &mut self.state else {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
             return;
         };
         let Some(args) = &mut menu.config.game_args else {
@@ -154,7 +199,11 @@ impl Launcher {
     }
 
     fn e_game_arg_delete(&mut self, idx: usize) {
-        if let State::EditInstance(menu) = &mut self.state {
+        if let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        {
             if let Some(args) = &mut menu.config.game_args {
                 args.remove(idx);
             }
@@ -162,7 +211,11 @@ impl Launcher {
     }
 
     fn e_java_arg_shift_up(&mut self, idx: usize) {
-        let State::EditInstance(menu) = &mut self.state else {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
             return;
         };
         let Some(args) = &mut menu.config.java_args else {
@@ -174,7 +227,11 @@ impl Launcher {
     }
 
     fn e_java_arg_shift_down(&mut self, idx: usize) {
-        let State::EditInstance(menu) = &mut self.state else {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
             return;
         };
         let Some(args) = &mut menu.config.java_args else {
@@ -186,7 +243,11 @@ impl Launcher {
     }
 
     fn e_game_arg_shift_up(&mut self, idx: usize) {
-        let State::EditInstance(menu) = &mut self.state else {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
             return;
         };
         let Some(args) = &mut menu.config.game_args else {
@@ -198,7 +259,11 @@ impl Launcher {
     }
 
     fn e_game_arg_shift_down(&mut self, idx: usize) {
-        let State::EditInstance(menu) = &mut self.state else {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
             return;
         };
         let Some(args) = &mut menu.config.game_args else {

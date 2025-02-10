@@ -26,7 +26,6 @@ ql_plugins = { path = "../crates/ql_plugins" }
 
 # For the GUI
 iced = { version = "0.12", features = ["tokio", "image", "svg"] }
-# iced_aw = { version = "0.9", features = ["tab_bar", "tabs"] }
 
 # For parsing JSON
 serde = { workspace = true }

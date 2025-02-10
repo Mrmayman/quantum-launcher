@@ -12,10 +12,11 @@ use crate::{
     icon_manager,
     launcher_state::{
         ClientProcess, CreateInstanceMessage, EditInstanceMessage, EditPresetsMessage,
-        InstallFabricMessage, InstallOptifineMessage, InstanceLog, Launcher, ManageModsMessage,
-        MenuCreateInstance, MenuEditInstance, MenuEditPresets, MenuEditPresetsInner,
-        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings,
-        MenuLauncherUpdate, Message, ModListEntry, ProgressBar, SelectedState,
+        InstallFabricMessage, InstallOptifineMessage, InstanceLog, LaunchTabId, Launcher,
+        ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuEditPresets,
+        MenuEditPresetsInner, MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch,
+        MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry, ProgressBar,
+        SelectedState,
     },
     stylesheet::styles::LauncherTheme,
 };
@@ -48,44 +49,148 @@ impl MenuLaunch {
         selected_instance: Option<&'element InstanceSelection>,
         launcher_dir: &'element Path,
     ) -> Element<'element> {
-        let selected_instance = match selected_instance {
+        let selected_instance_s = match selected_instance {
             Some(InstanceSelection::Instance(n)) => Some(n),
             Some(InstanceSelection::Server(_)) => panic!("selected server in main instances menu"),
             None => None,
         };
 
-        let footer_text = self.get_footer_text();
+        let username = &config.as_ref().unwrap().username;
 
-        let left_elements = get_left_pane(
-            config,
-            selected_instance,
-            processes,
-            footer_text,
-            instances,
-            launcher_dir,
-        );
+        widget::row!(
+            get_sidebar(instances, selected_instance_s),
+            self.get_tab(
+                username,
+                selected_instance_s,
+                processes,
+                launcher_dir,
+                selected_instance,
+                logs,
+            )
+        )
+        .padding(10)
+        .spacing(10)
+        .into()
+    }
 
-        let log = Self::get_log_pane(logs, selected_instance, false);
+    fn get_tab<'a>(
+        &'a self,
+        username: &'a str,
+        selected_instance_s: Option<&'a String>,
+        processes: &'a HashMap<String, ClientProcess>,
+        launcher_dir: &'a Path,
+        selected_instance: Option<&'a InstanceSelection>,
+        logs: &'a HashMap<String, InstanceLog>,
+    ) -> Element<'a> {
+        let tab_selector: Element = {
+            let n = widget::row(
+                [LaunchTabId::Buttons, LaunchTabId::Edit, LaunchTabId::Log]
+                    .into_iter()
+                    .map(|n| {
+                        let txt = widget::row!(
+                            widget::horizontal_space(),
+                            widget::text(n.to_string()),
+                            widget::horizontal_space(),
+                        );
+                        if self.tab == n {
+                            widget::container(txt).padding(5).width(60).into()
+                        } else {
+                            widget::button(txt)
+                                .on_press(Message::LaunchChangeTab(n))
+                                .width(60)
+                                .into()
+                        }
+                    }),
+            )
+            .padding(5)
+            .spacing(5)
+            .push(widget::horizontal_space());
+            let n = if let Some(select) = selected_instance_s {
+                n.push(widget::column!(
+                    widget::vertical_space(),
+                    widget::text(format!("{select}  ")),
+                    widget::vertical_space()
+                ))
+            } else {
+                n
+            }
+            .height(41);
+            widget::container(n).into()
+        };
 
-        widget::row!(widget::scrollable(left_elements), log)
-            .padding(10)
-            .spacing(20)
-            .into()
+        let tab_body = if let Some(selected) = selected_instance {
+            match self.tab {
+                LaunchTabId::Buttons => widget::column!(
+                    widget::row![
+                        get_play_button(username, selected_instance_s, processes),
+                        button_with_icon(icon_manager::download(), "Mods")
+                            .on_press_maybe(
+                                (selected_instance_s.is_some())
+                                    .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen))
+                            )
+                            .width(98),
+                        get_files_button(selected_instance_s, launcher_dir),
+                    ]
+                    .spacing(5),
+                    widget::horizontal_rule(10),
+                    widget::column![
+                        "Username:",
+                        widget::text_input("Enter username...", username)
+                            .on_input(Message::LaunchUsernameSet)
+                            .width(200),
+                    ]
+                    .spacing(5),
+                    widget::column!(
+                        widget::row![get_settings_button(), get_servers_button(),].spacing(5),
+                    )
+                    .spacing(5),
+                    widget::horizontal_space(),
+                    widget::vertical_space(),
+                    self.get_footer_text(),
+                )
+                .spacing(5)
+                .into(),
+                LaunchTabId::Log => Self::get_log_pane(logs, selected_instance_s, false).into(),
+                LaunchTabId::Edit => {
+                    if let Some(menu) = &self.edit_instance {
+                        menu.view(selected)
+                    } else {
+                        widget::column!("Loading...").padding(10).spacing(10).into()
+                    }
+                }
+            }
+        } else {
+            widget::column!("Select an instance")
+                .padding(10)
+                .spacing(10)
+                .into()
+        };
+
+        widget::column!(tab_selector, tab_body).spacing(5).into()
     }
 
     fn get_footer_text(&self) -> Element {
-        let version_message = widget::text(format!(
-            "QuantumLauncher v{LAUNCHER_VERSION_NAME}\nA Minecraft Launcher by Mrmayman"
-        ))
-        .size(12);
+        let version_message = widget::column!(
+            widget::row!(
+                widget::horizontal_space(),
+                widget::text(format!("QuantumLauncher v{LAUNCHER_VERSION_NAME}")).size(12)
+            ),
+            widget::row!(
+                widget::horizontal_space(),
+                widget::text("A Minecraft Launcher by Mrmayman").size(10)
+            ),
+        );
 
         if self.message.is_empty() {
             widget::column!(version_message)
         } else {
             widget::column!(
-                widget::container(widget::text(&self.message).size(14))
-                    .width(200)
-                    .padding(10),
+                widget::row!(
+                    widget::horizontal_space(),
+                    widget::container(widget::text(&self.message).size(14))
+                        .width(190)
+                        .padding(10)
+                ),
                 version_message
             )
         }
@@ -131,7 +236,7 @@ impl MenuLaunch {
                         widget::text_input("Enter command...", command)
                             .on_input(move |n| Message::ServerManageEditCommand(selected_instance.unwrap().clone(), n))
                             .on_submit(Message::ServerManageSubmitCommand(selected_instance.unwrap().clone()))
-                            .width(200),
+                            .width(190),
                         log
                     )
                 } else {
@@ -144,6 +249,40 @@ impl MenuLaunch {
             get_no_instance_message(is_server)
         }
         .spacing(10)
+    }
+}
+
+fn get_sidebar<'a>(
+    instances: Option<&'a [String]>,
+    selected_instance_s: Option<&'a String>,
+) -> Element<'a> {
+    if let Some(instances) = instances {
+        widget::scrollable(
+            widget::column!(
+                button_with_icon(icon_manager::create(), "New")
+                    .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
+                    .width(190),
+                widget::column(instances.iter().map(|name| {
+                    if selected_instance_s == Some(name) {
+                        widget::container(widget::text(name))
+                            .width(190)
+                            .padding(5)
+                            .into()
+                    } else {
+                        widget::button(widget::text(name).size(16))
+                            .on_press(Message::LaunchInstanceSelected(name.clone()))
+                            .width(190)
+                            .into()
+                    }
+                }))
+                .spacing(2)
+            )
+            .padding(5)
+            .spacing(5),
+        )
+        .into()
+    } else {
+        widget::column!().into()
     }
 }
 
@@ -166,88 +305,6 @@ fn get_no_instance_message<'a>(is_server: bool) -> widget::Column<'a, Message, L
         widget::column!(base_message)
     }
     .spacing(10)
-}
-
-fn get_left_pane<'a>(
-    config: Option<&'a LauncherConfig>,
-    selected_instance: Option<&'a String>,
-    processes: &'a HashMap<String, ClientProcess>,
-    footer_text: Element<'a>,
-    instances: Option<&'a [String]>,
-    launcher_dir: &'a Path,
-) -> Element<'a> {
-    let username = &config.as_ref().unwrap().username;
-
-    let pick_list: Element = {
-        if let Some(instances) = instances {
-            widget::column![
-                "Instances:",
-                widget::pick_list(
-                    instances,
-                    selected_instance,
-                    Message::LaunchInstanceSelected,
-                )
-                .width(200),
-            ]
-        } else {
-            widget::column!["Loading instances..."]
-        }
-        .spacing(5)
-        .into()
-    };
-
-    widget::column![
-        widget::column![
-            "Username:",
-            widget::text_input("Enter username...", username)
-                .on_input(Message::LaunchUsernameSet)
-                .width(200),
-        ]
-        .spacing(5),
-        pick_list,
-        widget::column!(
-            widget::row![
-                button_with_icon(icon_manager::create(), "New")
-                    .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
-                    .width(97),
-                button_with_icon(icon_manager::settings(), "Edit")
-                    .on_press_maybe(selected_instance.and_then(|n| {
-                        (!processes.contains_key(n))
-                            .then_some(Message::EditInstance(EditInstanceMessage::MenuOpen))
-                    }))
-                    .width(98),
-            ]
-            .spacing(5),
-            widget::row![
-                button_with_icon(icon_manager::download(), "Mods")
-                    .on_press_maybe(
-                        (selected_instance.is_some())
-                            .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen))
-                    )
-                    .width(98),
-                get_files_button(selected_instance, launcher_dir),
-            ]
-            .spacing(5),
-        )
-        .spacing(5),
-        widget::column!(
-            widget::row![
-                get_settings_button(),
-                get_play_button(username, selected_instance, processes)
-            ]
-            .spacing(5),
-            widget::row!(
-                get_servers_button(),
-                button_with_icon(icon_manager::page(), "More").width(97)
-            )
-            .spacing(5)
-        )
-        .spacing(5),
-        footer_text
-    ]
-    .padding(10)
-    .spacing(20)
-    .into()
 }
 
 fn get_settings_button<'a>() -> widget::Button<'a, Message, LauncherTheme> {
@@ -339,10 +396,6 @@ impl MenuEditInstance {
 
         widget::scrollable(
             widget::column![
-                widget::button(widget::row![icon_manager::back(), "Back"]
-                    .spacing(10)
-                    .padding(5)
-                ).on_press(back_to_launch_screen(selected_instance, None)),
                 widget::row!(
                     widget::button("Rename").on_press(Message::EditInstance(EditInstanceMessage::RenameApply)),
                     widget::text_input("Rename Instance", &self.instance_name).on_input(|n| Message::EditInstance(EditInstanceMessage::RenameEdit(n))),
@@ -427,7 +480,7 @@ impl MenuEditInstance {
                     )
             ]
             .padding(10)
-            .spacing(20)
+            .spacing(10)
         ).into()
     }
 

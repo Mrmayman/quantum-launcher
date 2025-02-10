@@ -52,6 +52,7 @@ pub enum CreateInstanceMessage {
 
 #[derive(Debug, Clone)]
 pub enum EditInstanceMessage {
+    ConfigSaved(Result<(), String>),
     MenuOpen,
     JavaOverride(String),
     MemoryChanged(f32),
@@ -166,6 +167,7 @@ pub enum Message {
     CoreEvent(iced::Event, iced::event::Status),
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
+    LaunchChangeTab(LaunchTabId),
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
@@ -196,12 +198,36 @@ pub enum Message {
     ServerEditModsOpen,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Default, Copy)]
+pub enum LaunchTabId {
+    #[default]
+    Buttons,
+    Log,
+    Edit,
+}
+
+impl std::fmt::Display for LaunchTabId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                LaunchTabId::Buttons => "Main",
+                LaunchTabId::Log => "Log",
+                LaunchTabId::Edit => "Edit",
+            }
+        )
+    }
+}
+
 /// The home screen of the launcher.
 #[derive(Default)]
 pub struct MenuLaunch {
     pub message: String,
     pub java_recv: Option<Receiver<GenericProgress>>,
     pub asset_recv: Option<Receiver<GenericProgress>>,
+    pub tab: LaunchTabId,
+    pub edit_instance: Option<MenuEditInstance>,
 }
 
 impl MenuLaunch {
@@ -210,6 +236,8 @@ impl MenuLaunch {
             message,
             java_recv: None,
             asset_recv: None,
+            tab: LaunchTabId::default(),
+            edit_instance: None,
         }
     }
 }
@@ -378,7 +406,6 @@ pub enum State {
     Welcome,
     Launch(MenuLaunch),
     ChangeLog,
-    EditInstance(Box<MenuEditInstance>),
     EditMods(MenuEditMods),
     Create(MenuCreateInstance),
     Error {
