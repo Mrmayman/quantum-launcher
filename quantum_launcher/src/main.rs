@@ -65,7 +65,7 @@ use message_handler::open_file_explorer;
 use ql_core::{err, file_utils, info, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{loaders, mod_manager::Loader};
-use stylesheet::styles::{LauncherStyle, LauncherTheme};
+use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
 use tokio::io::AsyncWriteExt;
 
 mod arguments;
@@ -293,6 +293,7 @@ impl Application for Launcher {
                 if let Err(err) = err {
                     self.set_error(err);
                 } else {
+                    // Yeah... no one is gonna see this.
                     return self.go_to_launch_screen(Some(
                         "Updated launcher! Close and reopen the launcher to see the new update"
                             .to_owned(),
@@ -300,29 +301,29 @@ impl Application for Launcher {
                 }
             }
             Message::LauncherSettingsThemePicked(theme) => {
-                info!("Setting theme {theme}");
+                info!("Setting color mode {theme}");
                 if let Some(config) = self.config.as_mut() {
                     config.theme = Some(theme.clone());
                 }
                 match theme.as_str() {
-                    "Light" => self.theme = LauncherTheme::Light,
-                    "Dark" => self.theme = LauncherTheme::Dark,
-                    _ => err!("Invalid theme {theme}"),
+                    "Light" => self.theme.lightness = LauncherThemeLightness::Light,
+                    "Dark" => self.theme.lightness = LauncherThemeLightness::Dark,
+                    _ => err!("Invalid color mode {theme}"),
                 }
             }
             Message::LauncherSettingsOpen => {
                 self.state = State::LauncherSettings;
             }
             Message::LauncherSettingsStylePicked(style) => {
-                info!("Setting style {style}");
+                info!("Setting color scheme {style}");
                 if let Some(config) = self.config.as_mut() {
                     config.style = Some(style.clone());
                 }
                 match style.as_str() {
-                    "Purple" => *self.style.lock().unwrap() = LauncherStyle::Purple,
-                    "Brown" => *self.style.lock().unwrap() = LauncherStyle::Brown,
-                    "Sky Blue" => *self.style.lock().unwrap() = LauncherStyle::SkyBlue,
-                    _ => err!("Invalid style {style}"),
+                    "Purple" => self.theme.color = LauncherThemeColor::Purple,
+                    "Brown" => self.theme.color = LauncherThemeColor::Brown,
+                    "Sky Blue" => self.theme.color = LauncherThemeColor::SkyBlue,
+                    _ => err!("Invalid color scheme {style}"),
                 }
             }
             Message::ManageModsSelectAll => {
@@ -648,6 +649,7 @@ impl Application for Launcher {
                 &self.client_logs,
                 self.selected_instance.as_ref(),
                 &self.dir,
+                self.window_size,
             ),
             // State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),

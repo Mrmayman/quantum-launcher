@@ -26,7 +26,7 @@ use tokio::process::{Child, ChildStdin};
 use crate::{
     config::LauncherConfig,
     message_handler::get_locally_installed_mods,
-    stylesheet::styles::{LauncherStyle, LauncherTheme, STYLE},
+    stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness},
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
@@ -485,7 +485,6 @@ pub struct Launcher {
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
     pub theme: LauncherTheme,
-    pub style: Arc<Mutex<LauncherStyle>>,
     pub window_size: (u32, u32),
 }
 
@@ -525,7 +524,7 @@ impl Launcher {
             }
         };
 
-        let (mut config, theme, style) = load_config_and_theme(&launcher_dir)?;
+        let (mut config, theme) = load_config_and_theme(&launcher_dir)?;
 
         let launch = State::Launch(if let Some(message) = message {
             MenuLaunch::with_message(message)
@@ -546,7 +545,6 @@ impl Launcher {
         } else {
             launch
         };
-        *STYLE.lock().unwrap() = style;
 
         Ok(Self {
             dir: launcher_dir,
@@ -562,7 +560,6 @@ impl Launcher {
             images_downloads_in_progress: HashSet::new(),
             images_to_load: Mutex::new(HashSet::new()),
             theme,
-            style: STYLE.clone(),
             client_version_list_cache: None,
             server_version_list_cache: None,
             server_processes: HashMap::new(),
@@ -586,11 +583,10 @@ impl Launcher {
             }
         };
 
-        let (config, theme, style) = launcher_dir
+        let (config, theme) = launcher_dir
             .as_ref()
             .and_then(|n| load_config_and_theme(n).ok())
-            .unwrap_or((None, LauncherTheme::default(), LauncherStyle::default()));
-        *STYLE.lock().unwrap() = style;
+            .unwrap_or((None, LauncherTheme::default()));
 
         Self {
             dir: launcher_dir.unwrap_or_default(),
@@ -606,7 +602,6 @@ impl Launcher {
             images_downloads_in_progress: HashSet::new(),
             images_to_load: Mutex::new(HashSet::new()),
             theme,
-            style: STYLE.clone(),
             client_version_list_cache: None,
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
@@ -643,28 +638,29 @@ impl Launcher {
 
 fn load_config_and_theme(
     launcher_dir: &Path,
-) -> Result<(Option<LauncherConfig>, LauncherTheme, LauncherStyle), JsonFileError> {
+) -> Result<(Option<LauncherConfig>, LauncherTheme), JsonFileError> {
     let config = LauncherConfig::load(launcher_dir)?;
     let theme = match config.theme.as_deref() {
-        Some("Dark") => LauncherTheme::Dark,
-        Some("Light") => LauncherTheme::Light,
-        None => LauncherTheme::default(),
+        Some("Dark") => LauncherThemeLightness::Dark,
+        Some("Light") => LauncherThemeLightness::Light,
+        None => LauncherThemeLightness::default(),
         _ => {
             err!("Unknown style: {:?}", config.theme);
-            LauncherTheme::default()
+            LauncherThemeLightness::default()
         }
     };
     let style = match config.style.as_deref() {
-        Some("Brown") => LauncherStyle::Brown,
-        Some("Purple") => LauncherStyle::Purple,
-        Some("Sky Blue") => LauncherStyle::SkyBlue,
-        None => LauncherStyle::default(),
+        Some("Brown") => LauncherThemeColor::Brown,
+        Some("Purple") => LauncherThemeColor::Purple,
+        Some("Sky Blue") => LauncherThemeColor::SkyBlue,
+        None => LauncherThemeColor::default(),
         _ => {
             err!("Unknown style: {:?}", config.style);
-            LauncherStyle::default()
+            LauncherThemeColor::default()
         }
     };
-    Ok((Some(config), theme, style))
+    let theme = LauncherTheme::from_vals(style, theme);
+    Ok((Some(config), theme))
 }
 
 pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {
