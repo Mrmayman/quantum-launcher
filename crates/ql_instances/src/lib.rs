@@ -51,6 +51,7 @@ mod instance;
 mod json_natives;
 mod json_profiles;
 mod launcher_update_detector;
+mod mc_auth;
 
 pub use download::constants::OS_NAME;
 pub use instance::create::{create_instance, create_instance_w};
@@ -60,6 +61,10 @@ pub use instance::read_log::{read_logs, read_logs_w, LogEvent, LogLine, LogMessa
 pub use launcher_update_detector::{
     check_for_launcher_updates, check_for_launcher_updates_w, install_launcher_update,
     install_launcher_update_w, UpdateCheckInfo, UpdateError,
+};
+pub use mc_auth::{
+    login_1_link, login_1_link_w, login_2_wait, login_2_wait_w, login_3_xbox, login_3_xbox_w,
+    AccountData, AuthCodeResponse, AuthError, AuthTokenResponse,
 };
 pub use omniarchive_api::ListEntry;
 

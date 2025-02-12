@@ -13,7 +13,7 @@ use ql_core::{
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
     SelectedMod, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
+use ql_instances::{AccountData, GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
 use ql_mod_manager::{
     loaders::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
@@ -221,13 +221,21 @@ impl std::fmt::Display for LaunchTabId {
 }
 
 /// The home screen of the launcher.
-#[derive(Default)]
 pub struct MenuLaunch {
     pub message: String,
     pub java_recv: Option<Receiver<GenericProgress>>,
     pub asset_recv: Option<Receiver<GenericProgress>>,
+    pub login_progress: Option<ProgressBar<GenericProgress>>,
     pub tab: LaunchTabId,
     pub edit_instance: Option<MenuEditInstance>,
+    pub sidebar_width: u16,
+    pub sidebar_dragging: bool,
+}
+
+impl Default for MenuLaunch {
+    fn default() -> Self {
+        Self::with_message(String::new())
+    }
 }
 
 impl MenuLaunch {
@@ -238,6 +246,9 @@ impl MenuLaunch {
             asset_recv: None,
             tab: LaunchTabId::default(),
             edit_instance: None,
+            login_progress: None,
+            sidebar_width: 200,
+            sidebar_dragging: false,
         }
     }
 }
@@ -417,6 +428,10 @@ pub enum State {
         yes: Message,
         no: Message,
     },
+    AccountLogin {
+        url: String,
+        code: String,
+    },
     InstallPaper,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
@@ -486,6 +501,8 @@ pub struct Launcher {
     pub images_to_load: Mutex<HashSet<String>>,
     pub theme: LauncherTheme,
     pub window_size: (u32, u32),
+    pub mouse_pos: (f32, f32),
+    pub accounts: HashMap<String, Option<AccountData>>,
 }
 
 pub struct ClientProcess {
@@ -526,11 +543,21 @@ impl Launcher {
 
         let (mut config, theme) = load_config_and_theme(&launcher_dir)?;
 
-        let launch = State::Launch(if let Some(message) = message {
+        let mut launch = if let Some(message) = message {
             MenuLaunch::with_message(message)
         } else {
             MenuLaunch::default()
-        });
+        };
+
+        if let Some(LauncherConfig {
+            sidebar_width: Some(sidebar_width),
+            ..
+        }) = &config
+        {
+            launch.sidebar_width = *sidebar_width as u16
+        }
+
+        let launch = State::Launch(launch);
 
         let state = if is_new_user {
             State::Welcome
@@ -564,7 +591,9 @@ impl Launcher {
             server_version_list_cache: None,
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
+            mouse_pos: (0.0, 0.0),
             window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
+            accounts: HashMap::new(),
         })
     }
 
@@ -606,7 +635,9 @@ impl Launcher {
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
             server_version_list_cache: None,
+            mouse_pos: (0.0, 0.0),
             window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
+            accounts: HashMap::new(),
         }
     }
 
@@ -617,10 +648,14 @@ impl Launcher {
     }
 
     pub fn go_to_launch_screen(&mut self, message: Option<String>) -> Command<Message> {
-        self.state = State::Launch(match message {
+        let mut menu_launch = match message {
             Some(message) => MenuLaunch::with_message(message),
             None => MenuLaunch::default(),
-        });
+        };
+        if let Some(width) = self.config.as_ref().unwrap().sidebar_width {
+            menu_launch.sidebar_width = width as u16;
+        }
+        self.state = State::Launch(menu_launch);
         Command::perform(
             get_entries("instances".to_owned(), false),
             Message::CoreListLoaded,

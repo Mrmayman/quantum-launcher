@@ -2,6 +2,8 @@ use std::{fmt::Display, path::PathBuf};
 
 use ql_core::{json::VersionDetails, DownloadError, IoError, JavaInstallError, JsonFileError};
 
+use crate::mc_auth::AuthError;
+
 pub enum GameLaunchError {
     Io(IoError),
     DownloadError(DownloadError),
@@ -15,6 +17,7 @@ pub enum GameLaunchError {
     CommandError(std::io::Error),
     ForgeInstallUpgradeTransformPathError,
     ForgeInstallUpgradeStripPrefixError,
+    MsAuth(AuthError),
 }
 
 const FORGE_UPGRADE_MESSAGE: &str = r"outdated forge install. Please uninstall and reinstall.
@@ -50,7 +53,14 @@ impl Display for GameLaunchError {
                 f,
                 "error upgrading forge install (removing prefix)\n{FORGE_UPGRADE_MESSAGE}"
             ),
+            Self::MsAuth(err) => write!(f, "{err}"),
         }
+    }
+}
+
+impl From<AuthError> for GameLaunchError {
+    fn from(err: AuthError) -> Self {
+        GameLaunchError::MsAuth(err)
     }
 }
 

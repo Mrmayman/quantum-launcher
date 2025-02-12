@@ -11,7 +11,7 @@ use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, JsonFileError,
 };
-use ql_instances::{GameLaunchResult, ListEntry};
+use ql_instances::{AccountData, GameLaunchResult, ListEntry};
 use ql_mod_manager::{
     loaders,
     mod_manager::{Loader, ModIndex, ModVersion, RECOMMENDED_MODS},
@@ -28,12 +28,15 @@ use crate::{
     Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
 
+pub const SIDEBAR_DRAG_LEEWAY: f32 = 10.0;
+pub const SIDEBAR_SQUISH_LIMIT: u16 = 300;
+
 impl Launcher {
     pub fn set_username(&mut self, username: String) {
         self.config.as_mut().unwrap().username = username;
     }
 
-    pub fn launch_game(&mut self) -> Command<Message> {
+    pub fn launch_game(&mut self, account_data: Option<AccountData>) -> Command<Message> {
         if let State::Launch(ref mut menu_launch) = self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
             let username = self.config.as_ref().unwrap().username.clone();
@@ -54,6 +57,7 @@ impl Launcher {
                     username,
                     Some(sender),
                     Some(asset_sender),
+                    account_data,
                 ),
                 Message::LaunchEnd,
             );
@@ -683,6 +687,7 @@ impl Launcher {
             | State::ModsDownload(_)
             | State::ServerManage(_)
             | State::ServerCreate(_)
+            | State::AccountLogin { .. }
             | State::Launch(_) => {}
         }
 
@@ -704,6 +709,22 @@ impl Launcher {
         event: iced::Event,
         status: iced::event::Status,
     ) -> Command<Message> {
+        if let State::Launch(MenuLaunch { sidebar_width, .. }) = &mut self.state {
+            if let Some(config) = &mut self.config {
+                config.sidebar_width = Some(*sidebar_width as u32);
+            }
+
+            if self.window_size.0 > SIDEBAR_SQUISH_LIMIT as u32
+                && *sidebar_width > self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT
+            {
+                *sidebar_width = self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT;
+            }
+
+            if self.window_size.0 > 100 && *sidebar_width < 100 {
+                *sidebar_width = 100;
+            }
+        }
+
         match event {
             iced::Event::Window(_, event) => match event {
                 iced::window::Event::CloseRequested => {
@@ -713,7 +734,6 @@ impl Launcher {
                     info!("Shutting down launcher (2)");
                 }
                 iced::window::Event::Resized { width, height } => {
-                    println!("resize {width}x{height}");
                     self.window_size = (width, height);
                 }
                 iced::window::Event::RedrawRequested(_)
@@ -745,7 +765,51 @@ impl Launcher {
                 iced::keyboard::Event::KeyReleased { .. }
                 | iced::keyboard::Event::ModifiersChanged(_) => {}
             },
-            iced::Event::Touch(_) | iced::Event::Mouse(_) => {}
+            iced::Event::Mouse(mouse) => match mouse {
+                iced::mouse::Event::CursorMoved { position } => {
+                    self.mouse_pos.0 = position.x;
+                    self.mouse_pos.1 = position.y;
+
+                    if let State::Launch(MenuLaunch {
+                        sidebar_width,
+                        sidebar_dragging: true,
+                        ..
+                    }) = &mut self.state
+                    {
+                        if self.mouse_pos.0 < 100.0 {
+                            *sidebar_width = 100;
+                        } else if (self.mouse_pos.0 as u32 + SIDEBAR_SQUISH_LIMIT as u32
+                            > self.window_size.0)
+                            && self.window_size.0 as u16 > SIDEBAR_SQUISH_LIMIT
+                        {
+                            *sidebar_width = self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT;
+                        } else {
+                            *sidebar_width = self.mouse_pos.0 as u16;
+                        }
+                    }
+                }
+                iced::mouse::Event::ButtonPressed(button) => {
+                    if let (State::Launch(menu), iced::mouse::Button::Left) =
+                        (&mut self.state, button)
+                    {
+                        let difference = self.mouse_pos.0 - menu.sidebar_width as f32;
+                        if difference > 0.0 && difference < SIDEBAR_DRAG_LEEWAY {
+                            menu.sidebar_dragging = true;
+                        }
+                    }
+                }
+                iced::mouse::Event::ButtonReleased(button) => {
+                    if let (State::Launch(menu), iced::mouse::Button::Left) =
+                        (&mut self.state, button)
+                    {
+                        menu.sidebar_dragging = false;
+                    }
+                }
+                iced::mouse::Event::WheelScrolled { .. }
+                | iced::mouse::Event::CursorEntered
+                | iced::mouse::Event::CursorLeft => {}
+            },
+            iced::Event::Touch(_) => {}
         }
         Command::none()
     }
@@ -788,27 +852,4 @@ pub fn format_memory(memory_bytes: usize) -> String {
     } else {
         format!("{memory_bytes} MB")
     }
-}
-
-#[allow(clippy::zombie_processes)]
-pub fn open_file_explorer(path: &str) {
-    use std::process::Command;
-
-    #[cfg(target_os = "linux")]
-    {
-        let _ = Command::new("xdg-open").arg(path).spawn().unwrap();
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let _ = Command::new("explorer").arg(path).spawn().unwrap();
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        let _ = Command::new("open").arg(path).spawn().unwrap();
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    panic!("Opening file explorer not supported on this platform.")
 }

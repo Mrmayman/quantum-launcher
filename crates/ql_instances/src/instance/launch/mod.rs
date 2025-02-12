@@ -1,4 +1,7 @@
-use crate::download::GameDownloader;
+use crate::{
+    download::GameDownloader,
+    mc_auth::{AccountData, CLIENT_ID},
+};
 use chrono::DateTime;
 use error::GameLaunchError;
 use ql_core::{
@@ -29,12 +32,14 @@ pub async fn launch_w(
     username: String,
     java_install_progress_sender: Option<Sender<GenericProgress>>,
     asset_redownload_progress: Option<Sender<GenericProgress>>,
+    auth: Option<AccountData>,
 ) -> GameLaunchResult {
     match launch(
         instance_name,
         username,
         java_install_progress_sender,
         asset_redownload_progress,
+        auth,
     )
     .await
     {
@@ -59,6 +64,7 @@ pub async fn launch(
     username: String,
     java_install_progress_sender: Option<Sender<GenericProgress>>,
     asset_redownload_progress: Option<Sender<GenericProgress>>,
+    auth: Option<AccountData>,
 ) -> Result<Child, GameLaunchError> {
     if username.contains(' ') || username.is_empty() {
         return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
@@ -75,14 +81,16 @@ pub async fn launch(
     game_launcher.migrate_old_instances().await?;
     game_launcher.create_mods_dir().await?;
 
-    let mut game_arguments = game_launcher.init_game_arguments().await?;
+    let mut game_arguments = game_launcher.init_game_arguments(auth.as_ref()).await?;
     let mut java_arguments = game_launcher.init_java_arguments()?;
 
     let fabric_json = game_launcher.setup_fabric(&mut java_arguments).await?;
     let forge_json = game_launcher
-        .setup_forge(&mut java_arguments, &mut game_arguments)
+        .setup_forge(&mut java_arguments, &mut game_arguments, auth.as_ref())
         .await?;
-    let optifine_json = game_launcher.setup_optifine(&mut game_arguments).await?;
+    let optifine_json = game_launcher
+        .setup_optifine(&mut game_arguments, auth.as_ref())
+        .await?;
 
     game_launcher.fill_java_arguments(&mut java_arguments)?;
     game_launcher.setup_logging(&mut java_arguments)?;
@@ -173,7 +181,10 @@ impl GameLauncher {
         })
     }
 
-    async fn init_game_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
+    async fn init_game_arguments(
+        &self,
+        account_details: Option<&AccountData>,
+    ) -> Result<Vec<String>, GameLaunchError> {
         let mut game_arguments: Vec<String> =
             if let Some(arguments) = &self.version_json.minecraftArguments {
                 arguments.split(' ').map(ToOwned::to_owned).collect()
@@ -189,13 +200,15 @@ impl GameLauncher {
                     self.version_json.clone(),
                 )));
             };
-        self.fill_game_arguments(&mut game_arguments).await?;
+        self.fill_game_arguments(&mut game_arguments, account_details)
+            .await?;
         Ok(game_arguments)
     }
 
     async fn fill_game_arguments(
         &self,
         game_arguments: &mut [String],
+        account_details: Option<&AccountData>,
     ) -> Result<(), GameLaunchError> {
         for argument in game_arguments.iter_mut() {
             replace_var(argument, "auth_player_name", &self.username);
@@ -207,14 +220,34 @@ impl GameLauncher {
 
             self.set_assets_argument(argument).await?;
             replace_var(argument, "auth_xuid", "0");
+
+            let uuid = if let Some(account_details) = account_details {
+                &account_details.uuid
+            } else {
+                "00000000-0000-0000-0000-000000000000"
+            };
+            replace_var(argument, "auth_uuid", uuid);
+            replace_var(argument, "uuid", uuid);
+
+            let access_token = if let Some(account_details) = account_details {
+                &account_details.access_token
+            } else {
+                "0"
+            };
+            replace_var(argument, "auth_access_token", access_token);
+            replace_var(argument, "auth_session", access_token);
+            replace_var(argument, "accessToken", access_token);
+
+            replace_var(argument, "clientid", CLIENT_ID);
             replace_var(
                 argument,
-                "auth_uuid",
-                "00000000-0000-0000-0000-000000000000",
+                "user_type",
+                if account_details.is_some() {
+                    "msa"
+                } else {
+                    "legacy"
+                },
             );
-            replace_var(argument, "auth_access_token", "0");
-            replace_var(argument, "clientid", "0");
-            replace_var(argument, "user_type", "legacy");
             replace_var(argument, "version_type", "release");
             replace_var(
                 argument,
@@ -391,6 +424,7 @@ impl GameLauncher {
         &self,
         java_arguments: &mut Vec<String>,
         game_arguments: &mut Vec<String>,
+        account_details: Option<&AccountData>,
     ) -> Result<Option<forge::JsonDetails>, GameLaunchError> {
         if self.config_json.mod_type != "Forge" {
             return Ok(None);
@@ -405,7 +439,8 @@ impl GameLauncher {
             game_arguments.extend(arguments.game.clone());
         } else if let Some(arguments) = &json.minecraftArguments {
             *game_arguments = arguments.split(' ').map(str::to_owned).collect();
-            self.fill_game_arguments(game_arguments).await?;
+            self.fill_game_arguments(game_arguments, account_details)
+                .await?;
         }
         Ok(Some(json))
     }
@@ -429,6 +464,7 @@ impl GameLauncher {
     async fn setup_optifine(
         &self,
         game_arguments: &mut Vec<String>,
+        account_details: Option<&AccountData>,
     ) -> Result<Option<(JsonOptifine, PathBuf)>, GameLaunchError> {
         if self.config_json.mod_type != "OptiFine" {
             return Ok(None);
@@ -439,7 +475,8 @@ impl GameLauncher {
             game_arguments.extend(arguments.game.clone());
         } else if let Some(arguments) = &optifine_json.minecraftArguments {
             *game_arguments = arguments.split(' ').map(str::to_owned).collect();
-            self.fill_game_arguments(game_arguments).await?;
+            self.fill_game_arguments(game_arguments, account_details)
+                .await?;
         }
 
         Ok(Some((optifine_json, jar)))

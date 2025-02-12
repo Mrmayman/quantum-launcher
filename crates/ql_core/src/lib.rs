@@ -110,3 +110,26 @@ pub enum SelectedMod {
     Downloaded { name: String, id: String },
     Local { file_name: String },
 }
+
+#[allow(clippy::zombie_processes)]
+pub fn open_file_explorer(path: &str) {
+    use std::process::Command;
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("xdg-open").arg(path).spawn().unwrap();
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("explorer").arg(path).spawn().unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("open").arg(path).spawn().unwrap();
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    panic!("Opening file explorer not supported on this platform.")
+}

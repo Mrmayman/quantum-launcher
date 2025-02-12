@@ -18,6 +18,7 @@ use crate::{
         MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry, ProgressBar,
         SelectedState,
     },
+    message_handler::SIDEBAR_DRAG_LEEWAY,
     stylesheet::styles::{LauncherTheme, StyleButton, StyleContainer, StyleFlatness},
 };
 
@@ -40,6 +41,7 @@ pub fn button_with_icon<'element>(
 }
 
 impl MenuLaunch {
+    #[allow(clippy::too_many_arguments)]
     pub fn view<'element>(
         &'element self,
         config: Option<&'element LauncherConfig>,
@@ -49,6 +51,7 @@ impl MenuLaunch {
         selected_instance: Option<&'element InstanceSelection>,
         launcher_dir: &'element Path,
         window_size: (u32, u32),
+        mouse_pos: (f32, f32),
     ) -> Element<'element> {
         let selected_instance_s = match selected_instance {
             Some(InstanceSelection::Instance(n)) => Some(n),
@@ -59,7 +62,7 @@ impl MenuLaunch {
         let username = &config.as_ref().unwrap().username;
 
         widget::row!(
-            get_sidebar(instances, selected_instance_s),
+            self.get_sidebar(instances, selected_instance_s, mouse_pos),
             self.get_tab(
                 username,
                 selected_instance_s,
@@ -70,9 +73,11 @@ impl MenuLaunch {
                 window_size,
             )
         )
+        .spacing(2)
         .into()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn get_tab<'a>(
         &'a self,
         username: &'a str,
@@ -148,7 +153,7 @@ impl MenuLaunch {
         let tab_body = if let Some(selected) = selected_instance {
             match self.tab {
                 LaunchTabId::Buttons => {
-                    let main_buttons: Element = if window_size.0 < 420 {
+                    let main_buttons: Element = if window_size.0 < 220 + self.sidebar_width as u32 {
                         widget::column!(
                             get_play_button(username, selected_instance_s, processes),
                             mods_button,
@@ -156,7 +161,7 @@ impl MenuLaunch {
                         )
                         .spacing(5)
                         .into()
-                    } else if window_size.0 < 512 {
+                    } else if window_size.0 < 320 + self.sidebar_width as u32 {
                         widget::column!(
                             widget::row!(
                                 get_play_button(username, selected_instance_s, processes),
@@ -297,45 +302,60 @@ impl MenuLaunch {
         .padding(10)
         .spacing(10)
     }
-}
 
-fn get_sidebar<'a>(
-    instances: Option<&'a [String]>,
-    selected_instance_s: Option<&'a String>,
-) -> Element<'a> {
-    if let Some(instances) = instances {
-        widget::container(widget::column!(
-            widget::scrollable(
+    fn get_sidebar<'a>(
+        &self,
+        instances: Option<&'a [String]>,
+        selected_instance_s: Option<&'a String>,
+        mouse_pos: (f32, f32),
+    ) -> Element<'a> {
+        let difference = mouse_pos.0 - self.sidebar_width as f32;
+
+        widget::container(widget::row!(
+            if let Some(instances) = instances {
                 widget::column!(
-                    button_with_icon(icon_manager::create(), "New")
-                        .style(StyleButton::Flat)
-                        .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
-                        .width(190),
-                    widget::column(instances.iter().map(|name| {
-                        if selected_instance_s == Some(name) {
-                            widget::container(widget::text(name))
-                                .style(StyleContainer::SelectedFlatButton)
-                                .width(190)
-                                .padding(5)
-                                .into()
-                        } else {
-                            widget::button(widget::text(name).size(16))
+                    widget::scrollable(
+                        widget::column!(
+                            button_with_icon(icon_manager::create(), "New")
                                 .style(StyleButton::Flat)
-                                .on_press(Message::LaunchInstanceSelected(name.clone()))
-                                .width(190)
-                                .into()
-                        }
-                    })),
+                                .on_press(Message::CreateInstance(
+                                    CreateInstanceMessage::ScreenOpen
+                                ))
+                                .width(self.sidebar_width),
+                            widget::column(instances.iter().map(|name| {
+                                if selected_instance_s == Some(name) {
+                                    widget::container(widget::text(name))
+                                        .style(StyleContainer::SelectedFlatButton)
+                                        .width(self.sidebar_width)
+                                        .padding(5)
+                                        .into()
+                                } else {
+                                    widget::button(widget::text(name).size(16))
+                                        .style(StyleButton::Flat)
+                                        .on_press(Message::LaunchInstanceSelected(name.clone()))
+                                        .width(self.sidebar_width)
+                                        .into()
+                                }
+                            })),
+                        )
+                        .spacing(5),
+                    )
+                    .style(StyleFlatness::Flat),
+                    widget::vertical_space()
                 )
-                .spacing(5),
+            } else {
+                widget::column!("Loading...")
+            },
+            widget::vertical_rule(0).style(
+                if difference < SIDEBAR_DRAG_LEEWAY && difference > 0.0 {
+                    4
+                } else {
+                    2
+                } as u16
             )
-            .style(StyleFlatness::Flat),
-            widget::vertical_space()
         ))
         .style(StyleContainer::SharpBox(0.0))
         .into()
-    } else {
-        widget::column!().into()
     }
 }
 

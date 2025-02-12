@@ -690,13 +690,13 @@ impl widget::radio::StyleSheet for LauncherTheme {
 }
 
 impl widget::rule::StyleSheet for LauncherTheme {
-    type Style = ();
+    type Style = u16;
 
-    fn appearance(&self, (): &Self::Style) -> widget::rule::Appearance {
+    fn appearance(&self, width: &Self::Style) -> widget::rule::Appearance {
         widget::rule::Appearance {
-            color: self.get(Color::SecondDark, true),
-            width: BORDER_WIDTH as u16,
-            radius: BORDER_RADIUS.into(),
+            color: self.get(Color::Mid, true),
+            width: *width,
+            radius: 0.into(),
             fill_mode: widget::rule::FillMode::Full,
         }
     }

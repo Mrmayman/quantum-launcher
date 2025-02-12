@@ -159,6 +159,9 @@ impl Launcher {
                         asset_recv: None,
                         tab: LaunchTabId::default(),
                         edit_instance: None,
+                        login_progress: None,
+                        sidebar_width: 200,
+                        sidebar_dragging: false,
                     });
                     return Command::perform(
                         get_entries("instances".to_owned(), false),
@@ -222,6 +225,7 @@ impl Launcher {
             | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::Welcome
+            | State::AccountLogin { .. }
             | State::InstallPaper => {}
         }
 

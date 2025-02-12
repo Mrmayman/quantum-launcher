@@ -61,8 +61,7 @@ use menu_renderer::{
     changelog::{changelog_0_3_1, welcome_msg},
     DISCORD,
 };
-use message_handler::open_file_explorer;
-use ql_core::{err, file_utils, info, InstanceSelection, SelectedMod};
+use ql_core::{err, file_utils, info, open_file_explorer, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{loaders, mod_manager::Loader};
 use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
@@ -131,7 +130,7 @@ impl Application for Launcher {
                 self.edit_instance_w();
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
-            Message::LaunchStart => return self.launch_game(),
+            Message::LaunchStart => return self.launch_game(None),
             Message::LaunchEnd(result) => {
                 return self.finish_launching(result);
             }
@@ -650,8 +649,20 @@ impl Application for Launcher {
                 self.selected_instance.as_ref(),
                 &self.dir,
                 self.window_size,
+                self.mouse_pos,
             ),
-            // State::EditInstance(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::AccountLogin { url, code } => widget::column!(
+                widget::text("Login to Microsoft").size(20),
+                "Open this link and enter the code:",
+                widget::text(url),
+                widget::button("Open").on_press(Message::CoreOpenDir(url.to_owned())),
+                widget::text(code),
+                widget::button("Copy").on_press(Message::CoreCopyText(code.to_owned()))
+            )
+            .padding(10)
+            .spacing(10)
+            .align_items(iced::Alignment::Center)
+            .into(),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),
             State::Create(menu) => menu.view(),
             State::ConfirmAction {

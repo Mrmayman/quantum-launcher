@@ -79,6 +79,12 @@ impl Display for JsonDownloadError {
     }
 }
 
+impl From<reqwest::Error> for JsonDownloadError {
+    fn from(value: reqwest::Error) -> Self {
+        Self::RequestError(RequestError::ReqwestError(value))
+    }
+}
+
 impl From<RequestError> for JsonDownloadError {
     fn from(value: RequestError) -> Self {
         Self::RequestError(value)

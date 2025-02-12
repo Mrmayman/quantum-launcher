@@ -11,6 +11,7 @@ pub struct LauncherConfig {
     pub theme: Option<String>,
     pub style: Option<String>,
     pub version: Option<String>,
+    pub sidebar_width: Option<u32>,
 }
 
 impl Default for LauncherConfig {
@@ -20,6 +21,7 @@ impl Default for LauncherConfig {
             theme: None,
             style: None,
             version: Some(LAUNCHER_VERSION_NAME.to_owned()),
+            sidebar_width: Some(200),
         }
     }
 }
