@@ -200,9 +200,9 @@ impl Launcher {
                 } => {
                     while let Ok(()) = progress_receiver.try_recv() {
                         *progress_number += 1.0;
-                        if *progress_number > 15.0 {
-                            err!("More than 15 indexes scraped: {progress_number}");
-                            *progress_number = 15.0;
+                        if *progress_number > 16.0 {
+                            err!("More than 16 indexes scraped: {progress_number}");
+                            *progress_number = 16.0;
                         }
                     }
                 }

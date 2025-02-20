@@ -13,7 +13,7 @@ use ql_core::{
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
     SelectedMod, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{AccountData, GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
+use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
 use ql_mod_manager::{
     loaders::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
@@ -29,6 +29,9 @@ use crate::{
     stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness},
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
+
+pub const OFFLINE_ACCOUNT_NAME: &str = "(Offline)";
+pub const NEW_ACCOUNT_NAME: &str = "+ Add Account";
 
 #[derive(Debug, Clone)]
 pub enum InstallFabricMessage {
@@ -128,6 +131,7 @@ pub enum EditPresetsMessage {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    HomeAccountSelected(String),
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
     ManageMods(ManageModsMessage),
@@ -482,27 +486,38 @@ pub struct InstanceLog {
     pub command: String,
 }
 
+pub struct AccountEntry {
+    pub refresh_token: String,
+    pub username: String,
+}
+
 pub struct Launcher {
     pub state: State,
     pub dir: PathBuf,
     pub selected_instance: Option<InstanceSelection>,
+    pub config: Option<LauncherConfig>,
+    pub theme: LauncherTheme,
+
+    pub accounts: HashMap<String, AccountEntry>,
+    pub accounts_dropdown: Vec<String>,
+    pub accounts_selected: Option<String>,
+
     pub client_version_list_cache: Option<Vec<ListEntry>>,
     pub server_version_list_cache: Option<Vec<ListEntry>>,
     pub client_list: Option<Vec<String>>,
     pub server_list: Option<Vec<String>>,
-    pub config: Option<LauncherConfig>,
     pub client_processes: HashMap<String, ClientProcess>,
     pub server_processes: HashMap<String, ServerProcess>,
     pub client_logs: HashMap<String, InstanceLog>,
     pub server_logs: HashMap<String, InstanceLog>,
+
     pub images_bitmap: HashMap<String, Handle>,
     pub images_svg: HashMap<String, iced::widget::svg::Handle>,
     pub images_downloads_in_progress: HashSet<String>,
     pub images_to_load: Mutex<HashSet<String>>,
-    pub theme: LauncherTheme,
+
     pub window_size: (u32, u32),
     pub mouse_pos: (f32, f32),
-    pub accounts: HashMap<String, Option<AccountData>>,
 }
 
 pub struct ClientProcess {
@@ -594,6 +609,8 @@ impl Launcher {
             mouse_pos: (0.0, 0.0),
             window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
             accounts: HashMap::new(),
+            accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
+            accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
         })
     }
 
@@ -638,6 +655,8 @@ impl Launcher {
             mouse_pos: (0.0, 0.0),
             window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
             accounts: HashMap::new(),
+            accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
+            accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
         }
     }
 

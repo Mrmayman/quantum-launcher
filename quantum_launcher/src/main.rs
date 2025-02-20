@@ -124,6 +124,7 @@ impl Application for Launcher {
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
+            Message::HomeAccountSelected(account) => self.accounts_selected = Some(account),
             Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected(selected_instance) => {
                 self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
@@ -641,16 +642,7 @@ impl Application for Launcher {
 
     fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
         match &self.state {
-            State::Launch(menu) => menu.view(
-                self.config.as_ref(),
-                self.client_list.as_deref(),
-                &self.client_processes,
-                &self.client_logs,
-                self.selected_instance.as_ref(),
-                &self.dir,
-                self.window_size,
-                self.mouse_pos,
-            ),
+            State::Launch(menu) => self.view_main_menu(menu),
             State::AccountLogin { url, code } => widget::column!(
                 widget::text("Login to Microsoft").size(20),
                 "Open this link and enter the code:",

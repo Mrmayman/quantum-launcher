@@ -108,7 +108,7 @@ pub enum StyleContainer {
     #[default]
     Box,
     SelectedFlatButton,
-    SharpBox(f32),
+    SharpBox(Color, f32),
 }
 
 trait IsFlat {
@@ -148,16 +148,16 @@ impl widget::container::StyleSheet for LauncherTheme {
                 text_color: Some(self.get(Color::Dark, true)),
                 ..Default::default()
             },
-            StyleContainer::SharpBox(radius) => widget::container::Appearance {
+            StyleContainer::SharpBox(color, width) => widget::container::Appearance {
                 border: {
                     let (palette, color) = self.get_base(true, Color::Mid);
                     iced::Border {
                         color: palette.get(color),
-                        width: *radius,
+                        width: *width,
                         radius: 0.0.into(),
                     }
                 },
-                background: Some(self.get_bg(Color::Dark, true)),
+                background: Some(self.get_bg(*color, true)),
                 ..Default::default()
             },
         }
@@ -689,13 +689,27 @@ impl widget::radio::StyleSheet for LauncherTheme {
     }
 }
 
-impl widget::rule::StyleSheet for LauncherTheme {
-    type Style = u16;
+pub struct StyleRule {
+    pub thickness: u16,
+    pub color: Color,
+}
 
-    fn appearance(&self, width: &Self::Style) -> widget::rule::Appearance {
+impl Default for StyleRule {
+    fn default() -> Self {
+        Self {
+            thickness: 2,
+            color: Color::Mid,
+        }
+    }
+}
+
+impl widget::rule::StyleSheet for LauncherTheme {
+    type Style = StyleRule;
+
+    fn appearance(&self, style: &Self::Style) -> widget::rule::Appearance {
         widget::rule::Appearance {
-            color: self.get(Color::Mid, true),
-            width: *width,
+            color: self.get(style.color, true),
+            width: style.thickness,
             radius: 0.into(),
             fill_mode: widget::rule::FillMode::Full,
         }

@@ -6,7 +6,7 @@ use ql_core::InstanceSelection;
 use crate::{
     icon_manager,
     launcher_state::{
-        EditInstanceMessage, InstanceLog, MenuLaunch, MenuServerCreate, MenuServerManage, Message,
+        EditInstanceMessage, InstanceLog, Launcher, MenuServerCreate, MenuServerManage, Message,
         ServerProcess,
     },
 };
@@ -27,7 +27,7 @@ impl MenuServerManage {
             Some(InstanceSelection::Instance(_)) => panic!("selected instance in main server menu"),
             None => None,
         };
-        let log_pane = MenuLaunch::get_log_pane(logs, selected_server, true);
+        let log_pane = Launcher::get_log_pane(logs, selected_server, true);
 
         let button_play = Self::get_play_button(selected_server, processes);
         let button_files = Self::get_files_button(selected_server, launcher_dir);

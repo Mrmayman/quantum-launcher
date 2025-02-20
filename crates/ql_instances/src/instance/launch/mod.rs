@@ -135,6 +135,21 @@ pub async fn launch(
     }
     .current_dir(&game_launcher.minecraft_dir);
 
+    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+    match (
+        DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
+        DateTime::parse_from_rfc3339("2023-06-02T08:36:17+00:00"), // Minecraft 1.20 release date
+    ) {
+        (Ok(dt), Ok(v1_20)) => {
+            if dt >= v1_20 {
+                command = command.env("MESA_GL_VERSION_OVERRIDE", "3.3")
+            }
+        }
+        (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
+            err!("Could not parse instance date/time: {e}")
+        }
+    }
+
     let child = command.spawn().map_err(GameLaunchError::CommandError)?;
 
     Ok(child)
