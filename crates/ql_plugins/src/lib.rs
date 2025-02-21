@@ -1,5 +1,20 @@
-mod error;
-pub use error::PluginError;
+use ql_core::IoError;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum PluginError {
+    #[error(transparent)]
+    Mlua(#[from] mlua::Error),
+    #[error("tokio runtime error: {0}")]
+    TokioRuntime(std::io::Error),
+    #[error(transparent)]
+    Io(#[from] IoError),
+    #[error("json error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("plugin not found: name = {0}, version = {1:?}")]
+    PluginNotFound(String, Option<String>),
+}
+
 mod plugin;
 pub use plugin::Plugin;
 mod resolve;

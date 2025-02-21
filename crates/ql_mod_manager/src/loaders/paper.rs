@@ -1,9 +1,10 @@
-use std::{collections::HashMap, fmt::Display, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use ql_core::{
     file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, RequestError,
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 
@@ -138,25 +139,16 @@ pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
     Ok(())
 }
 
+#[derive(Debug, Error)]
 pub enum PaperInstallerError {
-    Request(RequestError),
-    Io(IoError),
-    Serde(serde_json::Error),
+    #[error("could not install paper: {0}")]
+    Request(#[from] RequestError),
+    #[error("could not install paper: {0}")]
+    Io(#[from] IoError),
+    #[error("could not install paper: json error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("no matching paper version found for {0}")]
     NoMatchingVersionFound(String),
-}
-
-impl Display for PaperInstallerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not install paper: ")?;
-        match self {
-            PaperInstallerError::Request(err) => write!(f, "{err}"),
-            PaperInstallerError::Io(err) => write!(f, "{err}"),
-            PaperInstallerError::Serde(err) => write!(f, "(json) {err}"),
-            PaperInstallerError::NoMatchingVersionFound(version) => {
-                write!(f, "no compatible paper version found for version {version}")
-            }
-        }
-    }
 }
 
 impl From<JsonFileError> for PaperInstallerError {
@@ -165,23 +157,5 @@ impl From<JsonFileError> for PaperInstallerError {
             JsonFileError::SerdeError(err) => Self::Serde(err),
             JsonFileError::Io(err) => Self::Io(err),
         }
-    }
-}
-
-impl From<RequestError> for PaperInstallerError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
-}
-
-impl From<IoError> for PaperInstallerError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<serde_json::Error> for PaperInstallerError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
     }
 }

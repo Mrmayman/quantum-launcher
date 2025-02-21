@@ -245,7 +245,7 @@ impl Launcher {
                             widget::pick_list(
                                 self.accounts_dropdown.clone(),
                                 self.accounts_selected.clone(),
-                                |n| Message::HomeAccountSelected(n)
+                                Message::HomeAccountSelected
                             )
                             .width(menu.sidebar_width - 10)
                         )

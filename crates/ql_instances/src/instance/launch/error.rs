@@ -1,95 +1,41 @@
-use std::{fmt::Display, path::PathBuf};
+use std::path::PathBuf;
+use thiserror::Error;
 
 use ql_core::{json::VersionDetails, DownloadError, IoError, JavaInstallError, JsonFileError};
 
 use crate::mc_auth::AuthError;
 
+#[derive(Debug, Error)]
 pub enum GameLaunchError {
-    Io(IoError),
-    DownloadError(DownloadError),
-    UsernameIsInvalid(String),
-    JsonFile(JsonFileError),
+    #[error(transparent)]
+    Io(#[from] IoError),
+    #[error(transparent)]
+    DownloadError(#[from] DownloadError),
+    #[error("username contains spaces")]
+    UsernameHasSpaces,
+    #[error("username is empty")]
+    UsernameIsEmpty,
+    #[error(transparent)]
+    JsonFile(#[from] JsonFileError),
+    #[error("instance not found")]
     InstanceNotFound,
-    Semver(semver::Error),
+    #[error("semver error: {0}")]
+    Semver(#[from] semver::Error),
+    #[error("no arguments field in details.json")]
     VersionJsonNoArgumentsField(Box<VersionDetails>),
+    #[error("couldn't convert PathBuf to string: {0:?}")]
     PathBufToString(PathBuf),
-    JavaInstall(JavaInstallError),
+    #[error(transparent)]
+    JavaInstall(#[from] JavaInstallError),
+    #[error("couldn't run java command: {0}")]
     CommandError(std::io::Error),
+    #[error("error upgrading forge install (transforming path)\n{FORGE_UPGRADE_MESSAGE}")]
     ForgeInstallUpgradeTransformPathError,
+    #[error("error upgrading forge install (removing prefix)\n{FORGE_UPGRADE_MESSAGE}")]
     ForgeInstallUpgradeStripPrefixError,
-    MsAuth(AuthError),
+    #[error(transparent)]
+    MsAuth(#[from] AuthError),
 }
 
 const FORGE_UPGRADE_MESSAGE: &str = r"outdated forge install. Please uninstall and reinstall.
 Select your instance, go to Mods -> Uninstall Forge, then Install Forge.";
-
-impl Display for GameLaunchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error launching game: ")?;
-        match self {
-            Self::Io(err) => write!(f, "(io) {err}"),
-            Self::DownloadError(err) => write!(f, "(download) {err}"),
-            Self::UsernameIsInvalid(err) => {
-                if err.is_empty() {
-                    write!(f, "username is empty")
-                } else {
-                    write!(f, "username contains spaces: {err}")
-                }
-            }
-            Self::JsonFile(err) => write!(f, "(json file) {err}"),
-            Self::InstanceNotFound => write!(f, "instance not found"),
-            Self::Semver(err) => write!(f, "(semver) {err}"),
-            Self::VersionJsonNoArgumentsField(_) => {
-                write!(f, "version json has no arguments field")
-            }
-            Self::PathBufToString(err) => write!(f, "couldn't convert pathbuf to string: {err:?}"),
-            Self::JavaInstall(err) => write!(f, "(java install) {err}"),
-            Self::CommandError(err) => write!(f, "(command) {err}"),
-            Self::ForgeInstallUpgradeTransformPathError => write!(
-                f,
-                "error upgrading forge install (transforming path)\n{FORGE_UPGRADE_MESSAGE}"
-            ),
-            Self::ForgeInstallUpgradeStripPrefixError => write!(
-                f,
-                "error upgrading forge install (removing prefix)\n{FORGE_UPGRADE_MESSAGE}"
-            ),
-            Self::MsAuth(err) => write!(f, "{err}"),
-        }
-    }
-}
-
-impl From<AuthError> for GameLaunchError {
-    fn from(err: AuthError) -> Self {
-        GameLaunchError::MsAuth(err)
-    }
-}
-
-impl From<IoError> for GameLaunchError {
-    fn from(err: IoError) -> Self {
-        GameLaunchError::Io(err)
-    }
-}
-
-impl From<JsonFileError> for GameLaunchError {
-    fn from(err: JsonFileError) -> Self {
-        GameLaunchError::JsonFile(err)
-    }
-}
-
-impl From<semver::Error> for GameLaunchError {
-    fn from(err: semver::Error) -> Self {
-        GameLaunchError::Semver(err)
-    }
-}
-
-impl From<DownloadError> for GameLaunchError {
-    fn from(err: DownloadError) -> Self {
-        GameLaunchError::DownloadError(err)
-    }
-}
-
-impl From<JavaInstallError> for GameLaunchError {
-    fn from(err: JavaInstallError) -> Self {
-        GameLaunchError::JavaInstall(err)
-    }
-}

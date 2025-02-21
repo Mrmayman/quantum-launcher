@@ -6,6 +6,7 @@ use std::{
     },
 };
 
+use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, ChildStderr, ChildStdout},
@@ -64,29 +65,10 @@ pub async fn read_logs(
     }
 }
 
+#[derive(Debug, Error)]
 pub enum ReadError {
-    Io(std::io::Error),
-    Send(SendError<String>),
-}
-
-impl std::fmt::Display for ReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error reading server logs: ")?;
-        match self {
-            ReadError::Io(err) => write!(f, "(io) {err}"),
-            ReadError::Send(err) => write!(f, "(send) {err}"),
-        }
-    }
-}
-
-impl From<std::io::Error> for ReadError {
-    fn from(err: std::io::Error) -> Self {
-        ReadError::Io(err)
-    }
-}
-
-impl From<SendError<String>> for ReadError {
-    fn from(err: SendError<String>) -> Self {
-        ReadError::Send(err)
-    }
+    #[error("error reading server logs: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("error reading server logs: {0}")]
+    Send(#[from] SendError<String>),
 }

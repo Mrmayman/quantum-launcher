@@ -123,7 +123,7 @@ pub async fn install_server(
 
         let library_parent_dir = library_path
             .parent()
-            .ok_or(FabricInstallError::NoParent(library_path.clone()))?;
+            .ok_or(FabricInstallError::PathBufParentError(library_path.clone()))?;
         library_files.push(library_path.clone());
         tokio::fs::create_dir_all(&library_parent_dir)
             .await

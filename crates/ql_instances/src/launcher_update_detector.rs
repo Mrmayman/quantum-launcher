@@ -1,6 +1,5 @@
 use std::{
     ffi::OsStr,
-    fmt::Display,
     process::Command,
     sync::{
         mpsc::{SendError, Sender},
@@ -11,6 +10,7 @@ use std::{
 use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::LAUNCHER_VERSION;
 
@@ -203,80 +203,39 @@ pub async fn install_launcher_update(
     std::process::exit(0);
 }
 
+#[derive(Debug, Error)]
 pub enum UpdateError {
-    Request(RequestError),
-    Serde(serde_json::Error),
+    #[error("launcher update error: {0}")]
+    Request(#[from] RequestError),
+    #[error("launcher update error: json error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("no launcher update releases found")]
     NoReleases,
-    SemverError(semver::Error),
+    #[error("launcher update error: semver error: {0}")]
+    SemverError(#[from] semver::Error),
+    #[error("unsupported OS for launcher update")]
     UnsupportedOS,
+    #[error("unsupported architecture for launcher update")]
     UnsupportedArchitecture,
+    #[error("no matching launcher update download found for your platform")]
     NoMatchingDownloadFound,
+    #[error("current launcher version is ahead of latest version! dev build?")]
     AheadOfLatestVersion,
+    #[error("launcher update error: could not get current exe path: {0}")]
     CurrentExeError(std::io::Error),
+    #[error("launcher update error: could not get current exe parent path")]
     ExeParentPathError,
+    #[error("launcher update error: could not get current exe file name")]
     ExeFileNameError,
+    #[error("launcher update error: could not convert OsStr to str: {0:?}")]
     OsStrToStr(Arc<OsStr>),
-    Io(IoError),
-    Zip(zip_extract::ZipExtractError),
-    Send(SendError<GenericProgress>),
+    #[error("launcher update error: {0}")]
+    Io(#[from] IoError),
+    #[error("launcher update error: zip extract error: {0}")]
+    Zip(#[from] zip_extract::ZipExtractError),
+    #[error("launcher update error: send error: {0}")]
+    Send(#[from] SendError<GenericProgress>),
 }
-
-impl Display for UpdateError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "update check error: ")?;
-        match self {
-            UpdateError::Request(error) => write!(f, "{error}"),
-            UpdateError::Serde(error) => write!(f, "json: {error}"),
-            UpdateError::NoReleases => write!(f, "no releases found"),
-            UpdateError::SemverError(error) => write!(f, "semver: {error}"),
-            UpdateError::UnsupportedOS => write!(f, "unsupported os"),
-            UpdateError::UnsupportedArchitecture => write!(f, "unsupported architecture"),
-            UpdateError::NoMatchingDownloadFound => {
-                write!(f, "no matching download found for your platform")
-            }
-            UpdateError::AheadOfLatestVersion => {
-                write!(f, "current version is ahead of latest version! dev build?")
-            }
-            UpdateError::CurrentExeError(error) => {
-                write!(f, "could not get current executable path: {error}")
-            }
-            UpdateError::ExeParentPathError => {
-                write!(f, "could not get parent dir of current executable")
-            }
-            UpdateError::ExeFileNameError => {
-                write!(f, "could not get file name of current executable")
-            }
-            UpdateError::OsStrToStr(arc) => write!(f, "could not convert OsStr to str: {arc:?}"),
-            UpdateError::Io(io_error) => write!(f, "io error: {io_error}"),
-            UpdateError::Zip(zip_extract_error) => {
-                write!(f, "zip extract error: {zip_extract_error}")
-            }
-            UpdateError::Send(send_error) => write!(f, "progress send error: {send_error}"),
-        }
-    }
-}
-
-type SerdeError = serde_json::Error;
-type SemverError = semver::Error;
-type ZipError = zip_extract::ZipExtractError;
-type SendErr = SendError<GenericProgress>;
-
-macro_rules! impl_error {
-    ($from:ident, $to:ident) => {
-        impl From<$from> for UpdateError {
-            fn from(value: $from) -> Self {
-                UpdateError::$to(value)
-            }
-        }
-    };
-}
-
-impl_error!(RequestError, Request);
-impl_error!(SerdeError, Serde);
-impl_error!(SemverError, SemverError);
-impl_error!(IoError, Io);
-impl_error!(ZipError, Zip);
-impl_error!(SendErr, Send);
 
 #[derive(Serialize, Deserialize)]
 struct GithubRelease {

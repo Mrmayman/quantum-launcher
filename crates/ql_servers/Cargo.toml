@@ -13,3 +13,4 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 colored = { workspace = true }
 zip-extract = { workspace = true }
+thiserror = { workspace = true }

@@ -15,6 +15,7 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
+use thiserror::Error;
 
 // Please don't steal :)
 pub const CLIENT_ID: &str = "43431a16-38f5-4b42-91f9-4bf70c3bee1e";
@@ -75,41 +76,25 @@ struct MinecraftFinalDetails {
     name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AuthError {
-    RequestError(RequestError),
+    #[error("microsoft account error: {0}")]
+    RequestError(#[from] RequestError),
+    #[error("microsoft account error: json error: {0}\njson: {1}")]
     SerdeError(serde_json::Error, String),
+    #[error("microsoft account error: invalid access token")]
     InvalidAccessToken,
+    #[error("microsoft account error: unknown error")]
     UnknownError,
+    #[error("microsoft account error: missing json field: {0}")]
     MissingField(String),
+    #[error("microsoft account error: no uuid found")]
     NoUuid,
-}
-
-impl std::error::Error for AuthError {}
-
-impl std::fmt::Display for AuthError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error authenticating with microsoft: ")?;
-        match self {
-            AuthError::RequestError(err) => write!(f, "{err}"),
-            AuthError::SerdeError(err, json) => write!(f, "(json) {err}\njson: {json}"),
-            AuthError::InvalidAccessToken => write!(f, "invalid access token"),
-            AuthError::UnknownError => write!(f, "unknown error"),
-            AuthError::MissingField(err) => write!(f, "missing field: {err}"),
-            AuthError::NoUuid => write!(f, "no uuid found"),
-        }
-    }
 }
 
 impl From<reqwest::Error> for AuthError {
     fn from(value: reqwest::Error) -> Self {
         Self::RequestError(RequestError::ReqwestError(value))
-    }
-}
-
-impl From<RequestError> for AuthError {
-    fn from(value: RequestError) -> Self {
-        Self::RequestError(value)
     }
 }
 

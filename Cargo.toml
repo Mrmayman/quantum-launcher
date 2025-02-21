@@ -19,6 +19,7 @@ tokio = { version = "1", features = ["fs", "macros", "process"] }
 lazy_static = "1"
 chrono = "0.4"
 zip-extract = "0.2"
+thiserror = "2"
 
 # [profile.dev]
 # opt-level = 1

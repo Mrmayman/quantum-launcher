@@ -1,7 +1,8 @@
-use std::{fmt::Display, path::PathBuf, sync::atomic::AtomicBool};
+use std::{path::PathBuf, sync::atomic::AtomicBool};
 
 use lazy_static::lazy_static;
 use reqwest::Client;
+use thiserror::Error;
 
 use crate::{error::IoError, InstanceSelection, IntoIoError};
 
@@ -237,33 +238,15 @@ pub async fn download_file_to_bytes_with_agent(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RequestError {
+    #[error("download error with code {code}, url {url}")]
     DownloadError {
         code: reqwest::StatusCode,
         url: reqwest::Url,
     },
-    ReqwestError(reqwest::Error),
-}
-
-impl From<reqwest::Error> for RequestError {
-    fn from(value: reqwest::Error) -> Self {
-        Self::ReqwestError(value)
-    }
-}
-
-impl Display for RequestError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not send request: ")?;
-        match self {
-            RequestError::DownloadError { code, url } => {
-                write!(f, "download error with code {code}, url {url}")
-            }
-            RequestError::ReqwestError(err) => {
-                write!(f, "reqwest library error: {err}")
-            }
-        }
-    }
+    #[error("reqwest error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
 }
 
 /// Sets the executable bit on a file.

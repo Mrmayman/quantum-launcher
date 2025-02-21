@@ -1,70 +1,41 @@
-use std::{fmt::Display, num::ParseIntError, path::PathBuf, string::FromUtf8Error};
+use std::{num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
 use ql_core::{IoError, JavaInstallError, JsonDownloadError, JsonFileError, RequestError};
+use thiserror::Error;
 use zip_extract::ZipExtractError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ForgeInstallError {
-    Io(IoError),
-    Request(RequestError),
-    Serde(serde_json::Error),
+    #[error("error installing forge: {0}")]
+    Io(#[from] IoError),
+    #[error("error installing forge: {0}")]
+    Request(#[from] RequestError),
+    #[error("error installing forge: json error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("no matching forge version found")]
     NoForgeVersionFound,
-    ParseIntError(ParseIntError),
+    #[error("error installing forge: parse int error: {0}")]
+    ParseIntError(#[from] ParseIntError),
+    #[error("error installing forge: tempfile: {0}")]
     TempFile(std::io::Error),
-    JavaInstallError(JavaInstallError),
+    #[error("error installing forge: {0}")]
+    JavaInstallError(#[from] JavaInstallError),
+    #[error("error installing forge: could not convert path to string: {0:?}")]
     PathBufToStr(PathBuf),
+    #[error("error compiling forge installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     CompileError(String, String),
+    #[error("error running forge installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     InstallerError(String, String),
+    #[error("error installing forge: unpack200 error\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     Unpack200Error(String, String),
-    FromUtf8Error(FromUtf8Error),
+    #[error("error installing forge: could not convert bytes to string: {0}")]
+    FromUtf8Error(#[from] FromUtf8Error),
+    #[error("error installing forge: could not find parent directory of library")]
     LibraryParentError,
+    #[error("error installing forge: no install json found")]
     NoInstallJson,
-    ZipExtract(ZipExtractError),
-}
-
-impl Display for ForgeInstallError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error installing forge: ")?;
-        match self {
-            ForgeInstallError::Io(err) => write!(f, "{err}"),
-            ForgeInstallError::Request(err) => write!(f, "{err}"),
-            ForgeInstallError::Serde(err) => write!(f, "{err}"),
-            ForgeInstallError::NoForgeVersionFound => {
-                write!(f, "no matching forge version found")
-            }
-            ForgeInstallError::ParseIntError(err) => write!(f, "{err}"),
-            ForgeInstallError::TempFile(err) => {
-                write!(f, "(tempfile): {err}")
-            }
-            ForgeInstallError::JavaInstallError(err) => {
-                write!(f, "(java install): {err}")
-            }
-            ForgeInstallError::PathBufToStr(err) => {
-                write!(f, "(pathbuf to str): {err:?}")
-            }
-            ForgeInstallError::CompileError(stdout, stderr) => {
-                write!(f, "(compile error)\nSTDOUT = {stdout}\nSTDERR = {stderr}")
-            }
-            ForgeInstallError::InstallerError(stdout, stderr) => {
-                write!(f, "(installer error)\nSTDOUT = {stdout}\nSTDERR = {stderr}")
-            }
-            ForgeInstallError::Unpack200Error(stdout, stderr) => {
-                write!(f, "(unpack200 error)\nSTDOUT = {stdout}\nSTDERR = {stderr}")
-            }
-            ForgeInstallError::FromUtf8Error(err) => {
-                write!(f, "(from utf8 error): {err}")
-            }
-            ForgeInstallError::LibraryParentError => {
-                write!(f, "could not find parent directory of library")
-            }
-            ForgeInstallError::NoInstallJson => {
-                write!(f, "no install json found")
-            }
-            ForgeInstallError::ZipExtract(err) => {
-                write!(f, "(zip extract): {err}")
-            }
-        }
-    }
+    #[error("error installing forge: zip extract: {0}")]
+    ZipExtract(#[from] ZipExtractError),
 }
 
 impl From<JsonFileError> for ForgeInstallError {
@@ -73,48 +44,6 @@ impl From<JsonFileError> for ForgeInstallError {
             JsonFileError::Io(err) => Self::Io(err),
             JsonFileError::SerdeError(err) => Self::Serde(err),
         }
-    }
-}
-
-impl From<IoError> for ForgeInstallError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<RequestError> for ForgeInstallError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
-}
-
-impl From<serde_json::Error> for ForgeInstallError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
-    }
-}
-
-impl From<ParseIntError> for ForgeInstallError {
-    fn from(value: ParseIntError) -> Self {
-        Self::ParseIntError(value)
-    }
-}
-
-impl From<JavaInstallError> for ForgeInstallError {
-    fn from(value: JavaInstallError) -> Self {
-        Self::JavaInstallError(value)
-    }
-}
-
-impl From<FromUtf8Error> for ForgeInstallError {
-    fn from(value: FromUtf8Error) -> Self {
-        Self::FromUtf8Error(value)
-    }
-}
-
-impl From<ZipExtractError> for ForgeInstallError {
-    fn from(value: ZipExtractError) -> Self {
-        Self::ZipExtract(value)
     }
 }
 

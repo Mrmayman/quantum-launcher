@@ -5,7 +5,6 @@ use super::color::{Color, BROWN, PURPLE, SKY_BLUE};
 pub const BORDER_WIDTH: f32 = 2.0;
 pub const BORDER_RADIUS: f32 = 8.0;
 
-#[allow(dead_code)]
 #[derive(Clone, Debug, Copy, Default)]
 pub enum LauncherThemeColor {
     Brown,
@@ -103,7 +102,6 @@ pub enum StyleButton {
 }
 
 #[derive(Default)]
-#[allow(unused)]
 pub enum StyleContainer {
     #[default]
     Box,

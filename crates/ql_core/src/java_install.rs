@@ -1,6 +1,4 @@
 use std::{
-    error::Error,
-    fmt::Display,
     io::Cursor,
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Mutex},
@@ -8,6 +6,7 @@ use std::{
 
 use flate2::read::GzDecoder;
 use tar::Archive;
+use thiserror::Error;
 
 use crate::{
     do_jobs, err, file_utils, info,
@@ -340,54 +339,20 @@ async fn java_install_fn(
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum JavaInstallError {
-    JsonDownload(JsonDownloadError),
-    Request(RequestError),
+    #[error("couldn't install java: {0}")]
+    JsonDownload(#[from] JsonDownloadError),
+    #[error("couldn't install java: {0}")]
+    Request(#[from] RequestError),
+    #[error("could not find url to download java")]
     NoUrlForJavaFiles,
+    #[error("could not extract java tar.gz: {0}")]
     TarGzExtract(std::io::Error),
-    Serde(serde_json::Error),
-    Io(IoError),
+    #[error("couldn't install java: json error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error("couldn't install java: {0}")]
+    Io(#[from] IoError),
+    #[error("could not find java binary")]
     NoJavaBinFound,
 }
-
-impl From<JsonDownloadError> for JavaInstallError {
-    fn from(value: JsonDownloadError) -> Self {
-        Self::JsonDownload(value)
-    }
-}
-
-impl From<RequestError> for JavaInstallError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
-}
-
-impl From<serde_json::Error> for JavaInstallError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
-    }
-}
-
-impl From<IoError> for JavaInstallError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl Display for JavaInstallError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not install java: ")?;
-        match self {
-            JavaInstallError::JsonDownload(err) => write!(f, "{err}"),
-            JavaInstallError::NoUrlForJavaFiles => write!(f, "could not find url to download java"),
-            JavaInstallError::Request(err) => write!(f, "{err}"),
-            JavaInstallError::Serde(err) => write!(f, "(json) {err}"),
-            JavaInstallError::Io(err) => write!(f, "(io) {err}"),
-            JavaInstallError::TarGzExtract(error) => write!(f, "could not extract tar.gz: {error}"),
-            JavaInstallError::NoJavaBinFound => write!(f, "could not find java binary"),
-        }
-    }
-}
-
-impl Error for JavaInstallError {}

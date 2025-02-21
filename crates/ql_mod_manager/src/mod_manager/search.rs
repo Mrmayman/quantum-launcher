@@ -3,6 +3,7 @@ use std::{fmt::Display, time::Instant};
 use image::ImageReader;
 use ql_core::{err, file_utils, IoError, JsonFileError, RequestError};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use zip_extract::ZipError;
 
 use crate::rate_limiter::RATE_LIMITER;
@@ -196,33 +197,22 @@ impl Search {
     }
 }
 
+#[derive(Debug, Error)]
 pub enum ModError {
-    RequestError(RequestError),
-    Serde(serde_json::Error),
-    Io(IoError),
+    #[error(transparent)]
+    RequestError(#[from] RequestError),
+    #[error("json error: {0}")]
+    Serde(#[from] serde_json::Error),
+    #[error(transparent)]
+    Io(#[from] IoError),
+    #[error("no compatible version found for mod")]
     NoCompatibleVersionFound,
+    #[error("no files found for mod")]
     NoFilesFound,
+    #[error("couldn't add entry {1} to zip: {0}")]
     ZipIoError(std::io::Error, String),
-    Zip(ZipError),
-}
-
-impl Display for ModError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not perform mod action: ")?;
-        match self {
-            ModError::RequestError(err) => write!(f, "(request) {err}"),
-            ModError::Serde(err) => write!(f, "(json) {err}"),
-            ModError::Io(err) => write!(f, "(io) {err}"),
-            ModError::NoCompatibleVersionFound => {
-                write!(f, "no compatible version found when downloading mod")
-            }
-            ModError::NoFilesFound => write!(f, "no files found for mod"),
-            ModError::ZipIoError(err, path) => {
-                write!(f, "couldn't add entry {path} to zip: {err}")
-            }
-            ModError::Zip(err) => write!(f, "(zip) {err}"),
-        }
-    }
+    #[error("zip error: {0}")]
+    Zip(#[from] ZipError),
 }
 
 impl From<JsonFileError> for ModError {
@@ -231,30 +221,6 @@ impl From<JsonFileError> for ModError {
             JsonFileError::SerdeError(err) => err.into(),
             JsonFileError::Io(err) => err.into(),
         }
-    }
-}
-
-impl From<RequestError> for ModError {
-    fn from(value: RequestError) -> Self {
-        Self::RequestError(value)
-    }
-}
-
-impl From<ZipError> for ModError {
-    fn from(value: ZipError) -> Self {
-        Self::Zip(value)
-    }
-}
-
-impl From<serde_json::Error> for ModError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
-    }
-}
-
-impl From<IoError> for ModError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
     }
 }
 

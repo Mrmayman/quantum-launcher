@@ -72,6 +72,9 @@ pub async fn make_launch_jar(
         let mut services = HashMap::<String, HashSet<String>>::new();
 
         let library_files_len = library_files.len();
+
+        let regex = regex::Regex::new(r"META-INF/[^/]+\.(SF|DSA|RSA|EC)").unwrap();
+
         for (i, library_path) in library_files.iter().enumerate() {
             info!("({i}/{library_files_len}) {library_path:?}");
             let library_file = File::open(library_path).path(library_path)?;
@@ -93,10 +96,7 @@ pub async fn make_launch_jar(
                         .read_to_string(&mut data)
                         .map_err(|n| FabricInstallError::ZipEntryReadError(n, name.clone()))?;
                     parse_service_definition(&name, &data, &mut services);
-                } else if regex::Regex::new(r"META-INF/[^/]+\.(SF|DSA|RSA|EC)")
-                    .unwrap()
-                    .is_match(&name)
-                {
+                } else if regex.is_match(&name) {
                     // Ignore signature files
                 } else if !added_entries.insert(name.clone()) {
                     // Duplicate entry, ignore

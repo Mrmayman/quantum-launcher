@@ -34,7 +34,7 @@ use ql_core::file_utils;
 mod entry;
 mod error;
 pub use entry::ListEntry;
-pub use error::WebScrapeError;
+pub use error::{ListError, WebScrapeError};
 
 /// Represents a category of Minecraft versions.
 #[derive(Clone, Debug, Copy)]

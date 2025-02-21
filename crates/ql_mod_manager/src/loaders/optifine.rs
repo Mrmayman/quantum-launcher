@@ -11,6 +11,7 @@ use ql_core::{
     GenericProgress, IntoIoError, IoError, JavaInstallError, JsonFileError, Progress, RequestError,
     CLASSPATH_SEPARATOR,
 };
+use thiserror::Error;
 
 use crate::mod_manager::Loader;
 
@@ -334,57 +335,22 @@ async fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> 
     Ok(())
 }
 
+#[derive(Debug, Error)]
 pub enum OptifineError {
-    Io(IoError),
-    JavaInstall(JavaInstallError),
+    #[error("could not install optifine: {0}")]
+    Io(#[from] IoError),
+    #[error("could not install optifine: {0}")]
+    JavaInstall(#[from] JavaInstallError),
+    #[error("optifine installer file does not exist")]
     InstallerDoesNotExist,
+    #[error("could not compile optifine installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     JavacFail(String, String),
+    #[error("could not run optifine installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     JavaFail(String, String),
-    Request(RequestError),
-    Serde(serde_json::Error),
-}
-
-impl Display for OptifineError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "optifine install error: ")?;
-        match self {
-            OptifineError::Io(err) => write!(f, "(io) {err}"),
-            OptifineError::JavaInstall(err) => write!(f, "(java install) {err}"),
-            OptifineError::InstallerDoesNotExist => write!(f, "installer file does not exist."),
-            OptifineError::JavacFail(out, err) => {
-                write!(f, "java compiler error.\nSTDOUT: {out}\nSTDERR: {err}")
-            }
-            OptifineError::JavaFail(out, err) => {
-                write!(f, "java runtime error.\nSTDOUT: {out}\nSTDERR: {err}")
-            }
-            OptifineError::Serde(err) => write!(f, "(json) {err}"),
-            OptifineError::Request(err) => write!(f, "(request) {err}"),
-        }
-    }
-}
-
-impl From<IoError> for OptifineError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<JavaInstallError> for OptifineError {
-    fn from(value: JavaInstallError) -> Self {
-        Self::JavaInstall(value)
-    }
-}
-
-impl From<serde_json::Error> for OptifineError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
-    }
-}
-
-impl From<RequestError> for OptifineError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
+    #[error("could not install optifine: {0}")]
+    Request(#[from] RequestError),
+    #[error("could not install optifine: json error: {0}")]
+    Serde(#[from] serde_json::Error),
 }
 
 impl From<JsonFileError> for OptifineError {

@@ -40,7 +40,6 @@ pub const SKY_BLUE: Pallete = Pallete {
     white: [0xff, 0xff, 0xff],
 };
 
-#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub enum Color {
     Black,

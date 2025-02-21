@@ -22,3 +22,4 @@ serde-xml-rs = "0.6"
 
 colored = { workspace = true }
 indicatif = "0.17"
+thiserror = { workspace = true }

@@ -66,8 +66,11 @@ pub async fn launch(
     asset_redownload_progress: Option<Sender<GenericProgress>>,
     auth: Option<AccountData>,
 ) -> Result<Child, GameLaunchError> {
-    if username.contains(' ') || username.is_empty() {
-        return Err(GameLaunchError::UsernameIsInvalid(username.clone()));
+    if username.is_empty() {
+        return Err(GameLaunchError::UsernameIsEmpty);
+    }
+    if username.contains(' ') {
+        return Err(GameLaunchError::UsernameHasSpaces);
     }
 
     let mut game_launcher = GameLauncher::new(

@@ -8,6 +8,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, ChildStderr, ChildStdout},
@@ -146,24 +147,18 @@ pub enum LogLine {
     Error(String),
 }
 
+#[derive(Debug, Error)]
 pub enum ReadError {
-    Io(std::io::Error),
-    IoError(IoError),
-    Send(SendError<LogLine>),
-    Xml(serde_xml_rs::Error),
-    Json(serde_json::Error),
-}
-
-impl Display for ReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ReadError::Io(err) => write!(f, "error reading instance log: (io) {err}"),
-            ReadError::Send(err) => write!(f, "error reading instance log: (send) {err}"),
-            ReadError::Xml(err) => write!(f, "error reading instance log: (xml) {err}"),
-            ReadError::IoError(err) => write!(f, "error reading instance log: (ioerror) {err}"),
-            ReadError::Json(err) => write!(f, "error reading instance log: (json) {err}"),
-        }
-    }
+    #[error("error reading log: (io): {0}")]
+    Io(#[from] std::io::Error),
+    #[error("error reading log: {0}")]
+    IoError(#[from] IoError),
+    #[error("error reading log: send error: {0}")]
+    Send(#[from] SendError<LogLine>),
+    #[error("error reading log: xml error: {0}")]
+    Xml(#[from] serde_xml_rs::Error),
+    #[error("error reading log: json error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 impl From<JsonFileError> for ReadError {
@@ -172,36 +167,6 @@ impl From<JsonFileError> for ReadError {
             JsonFileError::SerdeError(err) => err.into(),
             JsonFileError::Io(err) => err.into(),
         }
-    }
-}
-
-impl From<std::io::Error> for ReadError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<serde_xml_rs::Error> for ReadError {
-    fn from(value: serde_xml_rs::Error) -> Self {
-        Self::Xml(value)
-    }
-}
-
-impl From<SendError<LogLine>> for ReadError {
-    fn from(value: SendError<LogLine>) -> Self {
-        Self::Send(value)
-    }
-}
-
-impl From<IoError> for ReadError {
-    fn from(value: IoError) -> Self {
-        Self::IoError(value)
-    }
-}
-
-impl From<serde_json::Error> for ReadError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Json(value)
     }
 }
 

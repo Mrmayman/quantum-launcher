@@ -1,37 +1,7 @@
-use std::{
-    fmt::Display,
-    sync::{mpsc::Sender, Arc},
-};
+use std::sync::{mpsc::Sender, Arc};
 
-use omniarchive_api::{ListEntry, MinecraftVersionCategory, WebScrapeError};
-use ql_core::{err, json::Manifest, JsonDownloadError};
-
-enum ListError {
-    JsonDownloadError(JsonDownloadError),
-    WebScrapeError(WebScrapeError),
-}
-
-impl From<JsonDownloadError> for ListError {
-    fn from(error: JsonDownloadError) -> Self {
-        ListError::JsonDownloadError(error)
-    }
-}
-
-impl From<WebScrapeError> for ListError {
-    fn from(error: WebScrapeError) -> Self {
-        ListError::WebScrapeError(error)
-    }
-}
-
-impl Display for ListError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not list versions: ")?;
-        match self {
-            ListError::JsonDownloadError(err) => write!(f, "{err}"),
-            ListError::WebScrapeError(err) => write!(f, "{err}"),
-        }
-    }
-}
+use omniarchive_api::{ListEntry, ListError, MinecraftVersionCategory};
+use ql_core::{err, json::Manifest};
 
 async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, ListError> {
     let manifest = Manifest::download().await?;

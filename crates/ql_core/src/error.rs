@@ -1,4 +1,6 @@
-use std::{fmt::Display, path::PathBuf, sync::mpsc::SendError};
+use std::{path::PathBuf, sync::mpsc::SendError};
+
+use thiserror::Error;
 
 use crate::{DownloadProgress, RequestError};
 
@@ -14,36 +16,24 @@ use crate::{DownloadProgress, RequestError};
 
 // impl_error!(JsonDownloadError, JsonDownloadError);
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum IoError {
+    #[error("at path {path:?}, error: {error}")]
     Io {
         error: std::io::Error,
         path: PathBuf,
     },
+    #[error("couldn't read directory {parent:?}, error {error}")]
     ReadDir {
         error: std::io::Error,
         parent: PathBuf,
     },
+    #[error("config or AppData directory not found")]
     ConfigDirNotFound,
+    #[error("directory is outside parent directory. POTENTIAL SECURITY RISK AVOIDED")]
     DirEscapeAttack,
+    #[error("test error. should not be seen normally")]
     MockError,
-}
-
-impl Display for IoError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            IoError::Io { error, path } => write!(f, "at path {path:?}, error {error}"),
-            IoError::ConfigDirNotFound => write!(f, "config directory not found"),
-            IoError::DirEscapeAttack => write!(
-                f,
-                "directory is outside parent directory. POTENTIAL SECURITY RISK AVOIDED"
-            ),
-            IoError::MockError => write!(f, "test error. should not be seen normally"),
-            IoError::ReadDir { error, parent } => {
-                write!(f, "couldn't read directory {parent:?}, error {error}")
-            }
-        }
-    }
 }
 
 pub trait IntoIoError<T> {
@@ -60,23 +50,12 @@ impl<T> IntoIoError<T> for std::io::Result<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum JsonDownloadError {
-    RequestError(RequestError),
-    SerdeError(serde_json::Error),
-}
-
-impl Display for JsonDownloadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            JsonDownloadError::RequestError(err) => {
-                write!(f, "error downloading JSON: {err}")
-            }
-            JsonDownloadError::SerdeError(err) => {
-                write!(f, "error downloading JSON: could not parse JSON: {err}")
-            }
-        }
-    }
+    #[error(transparent)]
+    RequestError(#[from] RequestError),
+    #[error("json error: {0}")]
+    SerdeError(#[from] serde_json::Error),
 }
 
 impl From<reqwest::Error> for JsonDownloadError {
@@ -85,81 +64,36 @@ impl From<reqwest::Error> for JsonDownloadError {
     }
 }
 
-impl From<RequestError> for JsonDownloadError {
-    fn from(value: RequestError) -> Self {
-        Self::RequestError(value)
-    }
-}
-
-impl From<serde_json::Error> for JsonDownloadError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::SerdeError(value)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum JsonFileError {
-    SerdeError(serde_json::Error),
-    Io(IoError),
+    #[error("json error: {0}")]
+    SerdeError(#[from] serde_json::Error),
+    #[error(transparent)]
+    Io(#[from] IoError),
 }
 
-impl Display for JsonFileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            JsonFileError::SerdeError(err) => write!(f, "error parsing json: {err}"),
-            JsonFileError::Io(err) => write!(f, "error reading/writing json from file: {err}"),
-        }
-    }
-}
-
-impl From<serde_json::Error> for JsonFileError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::SerdeError(value)
-    }
-}
-
-impl From<IoError> for JsonFileError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DownloadError {
-    Json(serde_json::Error),
-    Request(RequestError),
-    Io(IoError),
+    #[error("json error {0}")]
+    Json(#[from] serde_json::Error),
+    #[error(transparent)]
+    Request(#[from] RequestError),
+    #[error(transparent)]
+    Io(#[from] IoError),
+    #[error("instance already exists!")]
     InstanceAlreadyExists,
-    SendProgress(SendError<DownloadProgress>),
+    #[error("send error: {0}")]
+    SendProgress(#[from] SendError<DownloadProgress>),
+    #[error("version not found in manifest.json: {0}")]
     VersionNotFoundInManifest(String),
+    #[error("json field not found \"{0}\"")]
     SerdeFieldNotFound(String),
-    NativesExtractError(zip_extract::ZipExtractError),
+    #[error("could not extract native libraries: {0}")]
+    NativesExtractError(#[from] zip_extract::ZipExtractError),
+    #[error("tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED")]
     NativesOutsideDirRemove,
+    #[error("tried to download Minecraft classic server as a client!")]
     DownloadClassicZip,
-}
-
-impl From<serde_json::Error> for DownloadError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Json(value)
-    }
-}
-
-impl From<RequestError> for DownloadError {
-    fn from(value: RequestError) -> Self {
-        Self::Request(value)
-    }
-}
-
-impl From<IoError> for DownloadError {
-    fn from(value: IoError) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<SendError<DownloadProgress>> for DownloadError {
-    fn from(value: SendError<DownloadProgress>) -> Self {
-        Self::SendProgress(value)
-    }
 }
 
 impl From<JsonDownloadError> for DownloadError {
@@ -167,35 +101,6 @@ impl From<JsonDownloadError> for DownloadError {
         match value {
             JsonDownloadError::RequestError(err) => DownloadError::from(err),
             JsonDownloadError::SerdeError(err) => DownloadError::from(err),
-        }
-    }
-}
-
-impl Display for DownloadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "download error: ")?;
-        match self {
-            DownloadError::Json(err) => write!(f, "json error {err}"),
-            DownloadError::Request(err) => write!(f, "{err}"),
-            DownloadError::Io(err) => write!(f, "{err}"),
-            DownloadError::InstanceAlreadyExists => {
-                write!(f, "instance already exists")
-            }
-            DownloadError::SendProgress(err) => write!(f, "send error: {err}"),
-            DownloadError::VersionNotFoundInManifest(err) => {
-                write!(f, "version not found in manifest {err}")
-            }
-            DownloadError::SerdeFieldNotFound(err) => write!(f, "serde field not found \"{err}\""),
-            DownloadError::NativesExtractError(err) => {
-                write!(f, "could not extract native libraries: {err}")
-            }
-            DownloadError::NativesOutsideDirRemove => write!(
-                f,
-                "tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED"
-            ),
-            DownloadError::DownloadClassicZip => {
-                write!(f, "tried to download Minecraft classic server as a client!")
-            }
         }
     }
 }

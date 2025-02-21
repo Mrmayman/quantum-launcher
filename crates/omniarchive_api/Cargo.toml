@@ -8,6 +8,7 @@ ql_core = { path = "../ql_core" }
 
 reqwest = { workspace = true }
 colored = { workspace = true }
+thiserror = { workspace = true }
 
 # HTML Parsing
 html5ever = "0.27"

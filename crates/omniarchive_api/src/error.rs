@@ -1,25 +1,18 @@
-use std::fmt::Display;
+use ql_core::{JsonDownloadError, RequestError};
+use thiserror::Error;
 
-use ql_core::RequestError;
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum WebScrapeError {
-    RequestError(RequestError),
+    #[error("could not scrape omniarchive: {0}")]
+    RequestError(#[from] RequestError),
+    #[error("could not scrape omniarchive: element not found: {0}")]
     ElementNotFound(String),
 }
 
-impl From<RequestError> for WebScrapeError {
-    fn from(error: RequestError) -> Self {
-        WebScrapeError::RequestError(error)
-    }
-}
-
-impl Display for WebScrapeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "web scrape error: ")?;
-        match self {
-            WebScrapeError::RequestError(err) => write!(f, "{err}"),
-            WebScrapeError::ElementNotFound(name) => write!(f, "element not found: {name}"),
-        }
-    }
+#[derive(Debug, Error)]
+pub enum ListError {
+    #[error("error listing versions: {0}")]
+    JsonDownloadError(#[from] JsonDownloadError),
+    #[error(transparent)]
+    WebScrapeError(#[from] WebScrapeError),
 }
