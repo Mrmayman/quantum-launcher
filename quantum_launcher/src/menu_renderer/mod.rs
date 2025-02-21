@@ -13,15 +13,21 @@ use crate::{
         MenuInstallOptifine, MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry,
         ProgressBar, SelectedState,
     },
-    stylesheet::styles::LauncherTheme,
+    stylesheet::{
+        color::Color,
+        styles::{LauncherTheme, StyleContainer, StyleFlatness},
+    },
 };
 
 pub mod changelog;
+mod dynamic_box;
 mod html;
 pub mod launch;
 pub mod mods_manage;
 pub mod mods_store;
 pub mod server_manager;
+
+pub use dynamic_box::dynamic_box;
 
 pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
 
@@ -44,16 +50,18 @@ impl MenuEditInstance {
 
         widget::scrollable(
             widget::column![
-                widget::row!(
-                    widget::button("Rename").on_press(Message::EditInstance(EditInstanceMessage::RenameApply)),
-                    widget::text_input("Rename Instance", &self.instance_name).on_input(|n| Message::EditInstance(EditInstanceMessage::RenameEdit(n))),
-                ).spacing(5),
-                widget::text(
-                    match selected_instance {
-                        InstanceSelection::Instance(n) => format!("Editing {} instance: {n}", self.config.mod_type),
-                        InstanceSelection::Server(n) => format!("Editing {} server: {n}", self.config.mod_type),
-                    }
-                ),
+                widget::container(widget::column!(
+                    widget::row!(
+                        widget::button("Rename").on_press(Message::EditInstance(EditInstanceMessage::RenameApply)),
+                        widget::text_input("Rename Instance", &self.instance_name).on_input(|n| Message::EditInstance(EditInstanceMessage::RenameEdit(n))),
+                    ).spacing(5),
+                    widget::text(
+                        match selected_instance {
+                            InstanceSelection::Instance(n) => format!("Editing {} instance: {n}", self.config.mod_type),
+                            InstanceSelection::Server(n) => format!("Editing {} server: {n}", self.config.mod_type),
+                        }
+                    ),
+                ).padding(10).spacing(10)).style(StyleContainer::SharpBox(Color::Black, 0.0)),
                 widget::container(
                     widget::column![
                         "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
@@ -68,7 +76,7 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(10)
-                ),
+                ).style(StyleContainer::SharpBox(Color::Dark, 0.0)),
                 widget::container(
                     widget::column![
                         "Allocated memory",
@@ -80,7 +88,7 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(5),
-                ),
+                ).style(StyleContainer::SharpBox(Color::Black, 0.0)),
                 widget::container(
                     widget::column![
                         widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
@@ -89,7 +97,7 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(10)
-                ),
+                ).style(StyleContainer::SharpBox(Color::Dark, 0.0)),
                 widget::container(
                     widget::column!(
                         "Java arguments:",
@@ -103,9 +111,10 @@ impl MenuEditInstance {
                             ),
                             button_with_icon(icon_manager::create(), "Add")
                                 .on_press(Message::EditInstance(EditInstanceMessage::JavaArgsAdd))
-                        )
+                        ),
+                        widget::horizontal_space(),
                     ).padding(10).spacing(10)
-                ),
+                ).style(StyleContainer::SharpBox(Color::Black, 0.0)),
                 widget::container(
                     widget::column!(
                         "Game arguments:",
@@ -121,15 +130,16 @@ impl MenuEditInstance {
                                 .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
                         )
                     ).padding(10).spacing(10)
-                ),
-                button_with_icon(icon_manager::delete(), "Delete Instance")
-                    .on_press(
-                        Message::DeleteInstanceMenu
-                    )
+                ).style(StyleContainer::SharpBox(Color::Dark, 0.0)),
+                widget::container(widget::row!(
+                    button_with_icon(icon_manager::delete(), "Delete Instance")
+                        .on_press(
+                            Message::DeleteInstanceMenu
+                        ),
+                    widget::horizontal_space(),
+                )).padding(10).style(StyleContainer::SharpBox(Color::Black, 0.0)),
             ]
-            .padding(10)
-            .spacing(10)
-        ).into()
+        ).style(StyleFlatness::Flat).into()
     }
 
     fn get_java_args_list<'a>(
@@ -269,7 +279,7 @@ impl MenuCreateInstance {
                         widget::tooltip(
                             widget::checkbox("Download assets?", *download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
                             widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
-                            widget::tooltip::Position::FollowCursor),
+                            widget::tooltip::Position::FollowCursor).style(StyleContainer::SharpBox(Color::Black, 0.0)),
                         widget::button(widget::row![icon_manager::create(), "Create Instance"]
                                 .spacing(10)
                                 .padding(5)
@@ -534,7 +544,7 @@ impl MenuEditPresets {
                         .on_press(Message::EditPresets(EditPresetsMessage::Load)), widget::column!(
                             widget::text("Note: Sideloaded mods in imported presets (that anyone sends to you) could be untrusted (might have viruses)").size(12),
                                 widget::text("To get rid of them after installing, remove all the mods in the list ending in \".jar\"").size(12)
-                        ), widget::tooltip::Position::FollowCursor),
+                        ), widget::tooltip::Position::FollowCursor).style(StyleContainer::SharpBox(Color::Black, 0.0)),
                 )
                 .spacing(5),
                 "Presets are small bundles of mods and their configuration that you can share with anyone. You can import presets, create them or download recommended mods (if you haven't installed any yet.",

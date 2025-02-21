@@ -419,7 +419,7 @@ impl widget::scrollable::StyleSheet for LauncherTheme {
                 text_color: None,
                 background: match style {
                     StyleFlatness::Round => None,
-                    StyleFlatness::Flat => Some(self.get_bg(Color::Black, true)),
+                    StyleFlatness::Flat => Some(self.get_bg(Color::Dark, true)),
                 },
                 border,
                 shadow: iced::Shadow::default(),

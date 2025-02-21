@@ -9,6 +9,7 @@ use crate::{
         EditInstanceMessage, InstanceLog, Launcher, MenuServerCreate, MenuServerManage, Message,
         ServerProcess,
     },
+    stylesheet::{color::Color, styles::StyleContainer},
 };
 
 use super::{button_with_icon, Element};
@@ -131,6 +132,7 @@ impl MenuServerManage {
                 "By starting the server, you agree to the EULA",
                 widget::tooltip::Position::FollowCursor,
             )
+            .style(StyleContainer::SharpBox(Color::Black, 0.0))
             .into()
         }
     }

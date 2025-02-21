@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-use super::{button_with_icon, Element};
+use super::{button_with_icon, dynamic_box, Element};
 
 impl Launcher {
     pub fn view_main_menu<'element>(
@@ -47,6 +47,17 @@ impl Launcher {
         menu: &'a MenuLaunch,
     ) -> Element<'a> {
         let tab_selector: Element = {
+            let (tab_bar, height) = dynamic_box(
+                [LaunchTabId::Buttons, LaunchTabId::Edit, LaunchTabId::Log]
+                    .into_iter()
+                    .map(|n| render_tab(n, menu)),
+                60.0,
+                31.0,
+                self.window_size.0 as f32 - menu.sidebar_width as f32,
+                0.0,
+                0.0,
+            );
+
             let n = widget::row!(
                 widget::button(
                     widget::row![
@@ -60,32 +71,10 @@ impl Launcher {
                 .width(31.0)
                 .style(StyleButton::FlatDark)
                 .on_press(Message::LauncherSettingsOpen),
-                widget::row(
-                    [LaunchTabId::Buttons, LaunchTabId::Edit, LaunchTabId::Log]
-                        .into_iter()
-                        .map(|n| {
-                            let txt = widget::row!(
-                                widget::horizontal_space(),
-                                widget::text(n.to_string()),
-                                widget::horizontal_space(),
-                            );
-                            if menu.tab == n {
-                                widget::container(txt)
-                                    .style(StyleContainer::SelectedFlatButton)
-                                    .padding(5)
-                                    .width(60)
-                                    .into()
-                            } else {
-                                widget::button(txt)
-                                    .style(StyleButton::Flat)
-                                    .on_press(Message::LaunchChangeTab(n))
-                                    .width(60)
-                                    .into()
-                            }
-                        }),
-                ),
+                tab_bar,
                 widget::horizontal_space()
             );
+
             let n = if let Some(select) = selected_instance_s {
                 n.push(widget::column!(
                     widget::vertical_space(),
@@ -95,7 +84,7 @@ impl Launcher {
             } else {
                 n
             }
-            .height(31);
+            .height(height);
             widget::container(n)
                 .style(StyleContainer::SharpBox(Color::Dark, 0.0))
                 .into()
@@ -111,35 +100,18 @@ impl Launcher {
         let tab_body = if let Some(selected) = &self.selected_instance {
             match menu.tab {
                 LaunchTabId::Buttons => {
-                    let main_buttons: Element =
-                        if self.window_size.0 < 220 + menu.sidebar_width as u32 {
-                            widget::column!(
-                                self.get_play_button(username, selected_instance_s),
-                                mods_button,
-                                self.get_files_button(selected_instance_s),
-                            )
-                            .spacing(5)
-                            .into()
-                        } else if self.window_size.0 < 320 + menu.sidebar_width as u32 {
-                            widget::column!(
-                                widget::row!(
-                                    self.get_play_button(username, selected_instance_s,),
-                                    mods_button,
-                                )
-                                .spacing(5),
-                                self.get_files_button(selected_instance_s),
-                            )
-                            .spacing(5)
-                            .into()
-                        } else {
-                            widget::row![
-                                self.get_play_button(username, selected_instance_s),
-                                mods_button,
-                                self.get_files_button(selected_instance_s),
-                            ]
-                            .spacing(5)
-                            .into()
-                        };
+                    let (main_buttons, _) = dynamic_box(
+                        [
+                            self.get_play_button(username, selected_instance_s).into(),
+                            mods_button.into(),
+                            self.get_files_button(selected_instance_s).into(),
+                        ],
+                        98.0,
+                        0.0,
+                        self.window_size.0 as f32 - menu.sidebar_width as f32,
+                        0.0,
+                        5.0,
+                    );
 
                     widget::column!(
                         main_buttons,
@@ -229,7 +201,7 @@ impl Launcher {
     }
 
     fn get_sidebar<'a>(
-        &self,
+        &'a self,
         username: &'a str,
         selected_instance_s: Option<&'a String>,
         menu: &'a MenuLaunch,
@@ -240,26 +212,7 @@ impl Launcher {
             widget::row!(if let Some(instances) = self.client_list.as_deref() {
                 widget::column!(widget::scrollable(
                     widget::column!(
-                        widget::column!(
-                            "Accounts",
-                            widget::pick_list(
-                                self.accounts_dropdown.clone(),
-                                self.accounts_selected.clone(),
-                                Message::HomeAccountSelected
-                            )
-                            .width(menu.sidebar_width - 10)
-                        )
-                        .push_maybe(
-                            (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME))
-                                .then_some(
-                                    widget::text_input("Enter username...", username)
-                                        .on_input(Message::LaunchUsernameSet)
-                                        .width(menu.sidebar_width - 10)
-                                )
-                        )
-                        .height(110)
-                        .padding(5)
-                        .spacing(5),
+                        self.get_accounts_bar(menu, username),
                         button_with_icon(icon_manager::create(), "New")
                             .style(StyleButton::Flat)
                             .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
@@ -300,6 +253,29 @@ impl Launcher {
         .into()
     }
 
+    fn get_accounts_bar(&self, menu: &MenuLaunch, username: &str) -> Element {
+        widget::column!(
+            "Accounts",
+            widget::pick_list(
+                self.accounts_dropdown.clone(),
+                self.accounts_selected.clone(),
+                Message::HomeAccountSelected
+            )
+            .width(menu.sidebar_width - 10)
+        )
+        .push_maybe(
+            (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME)).then_some(
+                widget::text_input("Enter username...", username)
+                    .on_input(Message::LaunchUsernameSet)
+                    .width(menu.sidebar_width - 10),
+            ),
+        )
+        .height(110)
+        .padding(5)
+        .spacing(5)
+        .into()
+    }
+
     fn get_play_button<'a>(
         &self,
         username: &'a str,
@@ -312,13 +288,15 @@ impl Launcher {
                 play_button,
                 "Username is empty!",
                 widget::tooltip::Position::FollowCursor,
-            ))
+            )
+            .style(StyleContainer::SharpBox(Color::Black, 0.0)))
         } else if username.contains(' ') {
             widget::column!(widget::tooltip(
                 play_button,
                 "Username contains spaces!",
                 widget::tooltip::Position::FollowCursor,
-            ))
+            )
+            .style(StyleContainer::SharpBox(Color::Black, 0.0)))
         } else if let Some(selected_instance) = selected_instance {
             widget::column!(if self.client_processes.contains_key(selected_instance) {
                 button_with_icon(icon_manager::play(), "Kill")
@@ -332,7 +310,8 @@ impl Launcher {
                 play_button,
                 "Select an instance first!",
                 widget::tooltip::Position::FollowCursor,
-            ))
+            )
+            .style(StyleContainer::SharpBox(Color::Black, 0.0)))
         };
         play_button
     }
@@ -354,6 +333,27 @@ impl Launcher {
                 )
             }))
             .width(97)
+    }
+}
+
+fn render_tab(n: LaunchTabId, menu: &MenuLaunch) -> Element {
+    let txt = widget::row!(
+        widget::horizontal_space(),
+        widget::text(n.to_string()),
+        widget::horizontal_space(),
+    );
+    if menu.tab == n {
+        widget::container(txt)
+            .style(StyleContainer::SelectedFlatButton)
+            .padding(5)
+            .width(60)
+            .into()
+    } else {
+        widget::button(txt)
+            .style(StyleButton::Flat)
+            .on_press(Message::LaunchChangeTab(n))
+            .width(60)
+            .into()
     }
 }
 
