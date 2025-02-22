@@ -20,7 +20,7 @@ pub async fn install_server(
     f_progress: Option<std::sync::mpsc::Sender<ForgeInstallProgress>>,
 ) -> Result<(), ForgeInstallError> {
     if let Some(progress) = &f_progress {
-        let _ = progress.send(ForgeInstallProgress::P1Start);
+        _ = progress.send(ForgeInstallProgress::P1Start);
     }
 
     let installer =

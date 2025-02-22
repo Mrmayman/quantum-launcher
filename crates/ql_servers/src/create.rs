@@ -9,7 +9,12 @@ use ql_core::{
 
 use crate::ServerError;
 
-/// [`create_server_w`] `_w` function
+/// [`create_server`] `_w` function
+///
+/// # Errors
+/// See the [`create_server`] function
+///
+/// (aah clippy is being annoying)
 pub async fn create_server_w(
     name: String,
     version: ListEntry,
@@ -28,6 +33,34 @@ pub async fn create_server_w(
 /// - `version` - The version of the server.
 /// - `sender` - A sender to send progress updates to
 ///   (optional).
+///
+/// # Errors
+///
+/// TLDR; there's a lot of errors. I only wrote this because
+/// clippy was bothering me (WTF: )
+///
+/// If:
+/// - server already exists
+/// - EULA and `config.json` file couldn't be saved
+/// ## Server Jar...
+/// - ...couldn't be downloaded from
+///   mojang/omniarchive (internet/server issue)
+/// - ...couldn't be saved to a file
+/// - classic server zip file couldn't be extracted
+/// - classic server zip file doesn't have a `minecraft-server.jar`
+/// ## Manifest...
+/// - ...couldn't be downloaded
+/// - ...couldn't be parsed into JSON
+/// - ...doesn't have server version
+/// ## Launcher Dir
+/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
+/// - if the launcher directory couldn't be created (permissions issue)
+/// ## Version JSON...
+/// - ...couldn't be downloaded
+/// - ...couldn't be parsed into JSON
+/// - ...couldn't be saved to `details.json`
+/// - ...doesn't have `downloads` field
 pub async fn create_server(
     name: &str,
     version: ListEntry,
@@ -276,8 +309,8 @@ fn progress_json(sender: Option<&Sender<GenericProgress>>) {
 ///
 /// # Errors
 /// - If the server does not exist.
-/// - If the server directory could not be deleted.
-/// - If the launcher directory could not be found or created.
+/// - If the server directory couldn't be deleted.
+/// - If the launcher directory couldn't be found or created.
 pub fn delete_server(name: &str) -> Result<(), String> {
     let launcher_dir = file_utils::get_launcher_dir_s().map_err(|n| n.to_string())?;
     let server_dir = launcher_dir.join("servers").join(name);

@@ -62,6 +62,15 @@ cargo run --release
 ```
 You can omit the `--release` flag for faster compile times, but *slightly* worse performance and MUCH larger build file size.
 
+# Why QuantumLauncher?
+- The official Minecraft launcher is slow, unstable, buggy and frustrating to use,
+  with barely any modding features.
+- PrismLauncher is a great launcher overall, but it does not support
+  offline accounts (if ykyk)
+- MultiMC is rather outdated compared to PrismLauncher, also same issues
+- Legacy Launcher isn't as feature rich as this
+- TLauncher is *suspected* to be malware
+
 <div style="text-align: center;">
 
 # File Locations
@@ -90,7 +99,7 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - [x] Instance renaming
 - [x] Java/Game args editing
 - [x] Memory allocation editing
-- [ ] Optional Microsoft login
+- [ ] Optional Microsoft login (in progress)
 ## Mods
 ### Loaders
 - [x] Fabric
@@ -113,7 +122,7 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
-- [ ] Linux Aarch64 (WIP)
+- [x] Linux Aarch64 (WIP)
 - [ ] macOS (WIP)
 - [ ] Android (distant future)
 ## Misc
@@ -123,13 +132,41 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 
 <div style="text-align: center;">
 
+# Contributing
+
+</div>
+
+There are many ways you can help me out! I'm open to any contribution:
+
+## If you don't know how to code, you can:
+- Find and report bugs or issues
+- Give feedback about how this launcher could be improved
+- Fix any typos or mistakes in anything (english isn't my first language)
+- Most importantly, share this launcher with your friends!
+
+## If you know how to code, you can:
+- Well... write code. Add stuff. Don't worry about "quality"
+  or fancy terms like that. This ain't the linux kernel, I'm here with you!
+- Write documentation. See a public function, module, struct, enum, whatever
+  that could help with some `///` doc comment? Go ahead!
+- Contribute to the website (repo: <https://github.com/Mrmayman/Mrmayman.github.io>)
+- Work on CI (github actions)
+
+## Contributors
+- [Mrmayman](https://github.com/Mrmayman) (lead developer)
+- [apicalshark](https://github.com/apicalshark) (github CI, packaging, distribution)
+- Aurlt (@exsclt_35289 on Discord) (icon design)
+
+<div style="text-align: center;">
+
 # Licensing and Credits
 
 </div>
 
-A lot of this launcher's design, including the code for creating and launching the game, and installing forge, is inspired by https://github.com/alexivkin/minecraft-launcher/.
+A lot of this launcher's design, including the code for creating and launching the game,
+and installing forge, is inspired by https://github.com/alexivkin/minecraft-launcher/.
 
-Nearly all of this launcher is licensed under the GNU General Public License v3,
+Nearly all of this launcher is licensed under the **GNU General Public License v3**,
 however there are a few exceptions (such as github actions and assets).
 Visit [the assets README](assets/README.md) for more information.
 

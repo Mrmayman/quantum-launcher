@@ -414,7 +414,7 @@ impl GameLauncher {
                     }
                 }
                 (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
-                    err!("Could not parse instance date/time: {e}")
+                    err!("Could not parse instance date/time: {e}");
                 }
             }
         }

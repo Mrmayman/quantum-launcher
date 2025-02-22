@@ -23,7 +23,7 @@ async fn install_dir<'a>(path: &'a Path, dir: &'a Dir<'static>) -> Result<(), Io
                 tokio::fs::create_dir_all(&full_path)
                     .await
                     .path(full_path)?;
-                Box::pin(install_dir(path, dir)).await?
+                Box::pin(install_dir(path, dir)).await?;
             }
             include_dir::DirEntry::File(file) => {
                 if let Some(parent) = full_path.parent() {

@@ -17,6 +17,11 @@ use tokio::{
 use ql_core::{err, json::VersionDetails, IoError, JsonFileError};
 
 /// [`read_logs`] `_w` function
+///
+/// # Errors
+/// See the [`read_logs`] function
+///
+/// (aah clippy is being annoying)
 pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -44,6 +49,15 @@ pub async fn read_logs_w(
 /// - `child`: The instance process.
 /// - `sender`: The sender to send [`LogLine`]s to.
 /// - `instance_name`: The name of the instance.
+///
+/// # Errors
+/// If:
+/// - `details.json` couldn't be read or parsed into JSON
+///   (for checking if XML logs are used)
+/// - the `Receiver<LogLine>` was dropped,
+///   disconnecting the channel
+/// - Tokio *somehow* fails to read the `stdout` or `stderr`
+#[allow(clippy::missing_panics_doc)]
 pub async fn read_logs(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -60,6 +74,12 @@ pub async fn read_logs(
 
     loop {
         let status = {
+            // If the child has failed to lock
+            // (because the `Mutex` was poisoned)
+            // then we know something else has panicked,
+            // so might as well panic too.
+            //
+            // (this is a methaphor for real life lol)
             let mut child = child.lock().unwrap();
             child.try_wait()
         };
@@ -155,8 +175,6 @@ pub enum ReadError {
     IoError(#[from] IoError),
     #[error("error reading log: send error: {0}")]
     Send(#[from] SendError<LogLine>),
-    #[error("error reading log: xml error: {0}")]
-    Xml(#[from] serde_xml_rs::Error),
     #[error("error reading log: json error: {0}")]
     Json(#[from] serde_json::Error),
 }
@@ -186,6 +204,7 @@ pub struct LogEvent {
 
 impl LogEvent {
     /// Returns the time of the log event, formatted as `HH:MM:SS`.
+    #[must_use]
     pub fn get_time(&self) -> Option<String> {
         let time: i64 = self.timestamp.parse().ok()?;
         let seconds = time / 1000;

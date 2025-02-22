@@ -57,8 +57,8 @@ fn shrunk_box<'a>(
         out_h += item_height + spacing;
     }
     out_h += padding;
-    return (
+    (
         current_column.padding(padding).spacing(spacing).into(),
         out_h,
-    );
+    )
 }

@@ -59,6 +59,7 @@ pub enum InstanceSelection {
 }
 
 impl InstanceSelection {
+    #[must_use]
     pub fn new(name: &str, is_server: bool) -> Self {
         if is_server {
             Self::Server(name.to_owned())
@@ -67,6 +68,7 @@ impl InstanceSelection {
         }
     }
 
+    #[must_use]
     pub fn get_instance_path(&self, parent: &Path) -> PathBuf {
         match self {
             Self::Instance(name) => parent.join("instances").join(name),
@@ -74,6 +76,7 @@ impl InstanceSelection {
         }
     }
 
+    #[must_use]
     pub fn get_dot_minecraft_path(&self, parent: &Path) -> PathBuf {
         match self {
             InstanceSelection::Instance(name) => {
@@ -83,12 +86,14 @@ impl InstanceSelection {
         }
     }
 
+    #[must_use]
     pub fn get_name(&self) -> &str {
         match self {
             Self::Instance(name) | Self::Server(name) => name,
         }
     }
 
+    #[must_use]
     pub fn is_server(&self) -> bool {
         matches!(self, Self::Server(_))
     }
@@ -117,17 +122,17 @@ pub fn open_file_explorer(path: &str) {
 
     #[cfg(target_os = "linux")]
     {
-        let _ = Command::new("xdg-open").arg(path).spawn().unwrap();
+        _ = Command::new("xdg-open").arg(path).spawn().unwrap();
     }
 
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("explorer").arg(path).spawn().unwrap();
+        _ = Command::new("explorer").arg(path).spawn().unwrap();
     }
 
     #[cfg(target_os = "macos")]
     {
-        let _ = Command::new("open").arg(path).spawn().unwrap();
+        _ = Command::new("open").arg(path).spawn().unwrap();
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]

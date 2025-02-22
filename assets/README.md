@@ -1,7 +1,9 @@
 # Fonts
 - JetBrains Mono font (monospace) taken from [JetBrains](https://www.jetbrains.com/lp/mono/)
 - Inter font (default) taken from [Inter](https://rsms.me/inter/)
-- Launcher icons taken from [fontello](https://fontello.com/) (you can see the raw zip file for yourself at `fontello-*.zip`)
+- Both of these above two are under SIL Open Font License 1.1 (see `OFL.txt`)
+- Launcher icons taken from [fontello](https://fontello.com/)
+  (you can see the raw zip file for yourself at `fontello-*.zip`)
 
 # Icon
 - QuantumLauncher logo made by Aurlt (@exsclt_35289 on Discord)
@@ -13,14 +15,14 @@
 - `OptifineInstaller.java` made by Mrmayman (me) for connecting to OptiFine installer.
 
 # ARM64 Support
-- `lwjgl_arm64` taken from https://github.com/theofficialgman/piston-meta-arm64
-- `minecraft_arm` taken from https://github.com/Kichura/Minecraft_ARM
+- `lwjgl_arm64` taken from <https://github.com/theofficialgman/piston-meta-arm64>
+- `minecraft_arm` taken from <https://github.com/Kichura/Minecraft_ARM>, licensed under MIT (no attribution)
 
 # ASCII
-ASCII art for QuantumLauncher, to be shown as an intro message to the terminal.
+ASCII art for QuantumLauncher, to be shown as an intro message to the terminal. Licensed under public domain.
 
 # FreeDesktop
 Various files for deb packaging
 
 # Screenshots
-Various screenshots for use in README and changelogs.
+Various screenshots for use in README and changelogs. These are licensed under public domain.

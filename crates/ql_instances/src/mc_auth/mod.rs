@@ -175,13 +175,7 @@ async fn wait_for_login(
                 let error: AuthServiceErrorMessage =
                     serde_json::from_str(&txt).map_err(|n| AuthError::SerdeError(n, txt))?;
                 match &error.error as &str {
-                    "authorization_declined" => {
-                        return Err(AuthError::InvalidAccessToken);
-                    }
-                    "expired_token" => {
-                        return Err(AuthError::InvalidAccessToken);
-                    }
-                    "invalid_grant" => {
+                    "authorization_declined" | "expired_token" | "invalid_grant" => {
                         return Err(AuthError::InvalidAccessToken);
                     }
                     _ => {

@@ -140,7 +140,7 @@ impl Search {
         let image = match file_utils::download_file_to_bytes(&client, &url, true).await {
             Ok(n) => n,
             Err(_) => {
-                // Some pesky cloud provider might be
+                // WTF: Some pesky cloud provider might be
                 // blocking the launcher because they think it's a bot.
 
                 // I understand people do this to protect

@@ -97,10 +97,9 @@ pub async fn get_java_binary(
 /// # Returns
 /// - `Result<()>` on success, or an error otherwise.
 pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> {
-    // Create a GzDecoder to handle the .gz decompression
+    // For extracting the `.gz`
     let decoder = GzDecoder::new(Cursor::new(archive));
-
-    // Create a TAR archive to handle the .tar extraction
+    // For extracting the `.tar`
     let mut tar = Archive::new(decoder);
 
     // Get the first entry path to determine the top-level directory

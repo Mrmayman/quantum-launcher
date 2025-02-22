@@ -294,11 +294,8 @@ impl Launcher {
 
         match ModIndex::get_s(selected_instance).map_err(|err| err.to_string()) {
             Ok(idx) => {
-                let locally_installed_mods = MenuEditMods::update_locally_installed_mods(
-                    &idx,
-                    selected_instance.clone(),
-                    &self.dir,
-                );
+                let locally_installed_mods =
+                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance, &self.dir);
 
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
@@ -331,11 +328,8 @@ impl Launcher {
 
         match ModIndex::get_s(selected_instance).map_err(|err| err.to_string()) {
             Ok(idx) => {
-                let locally_installed_mods = MenuEditMods::update_locally_installed_mods(
-                    &idx,
-                    selected_instance.clone(),
-                    &self.dir,
-                );
+                let locally_installed_mods =
+                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance, &self.dir);
 
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,

@@ -73,7 +73,7 @@ impl Launcher {
             }
             State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
-                let instance_selection = self.selected_instance.clone().unwrap();
+                let instance_selection = self.selected_instance.as_ref().unwrap();
                 let update_locally_installed_mods = menu.tick(instance_selection, &self.dir);
                 return update_locally_installed_mods;
             }
@@ -136,9 +136,8 @@ impl Launcher {
                     }
 
                     return Command::batch(commands);
-                } else {
-                    return index_cmd;
                 }
+                return index_cmd;
             }
             State::LauncherSettings => {
                 if let Some(config) = self.config.clone() {
@@ -408,7 +407,7 @@ pub fn sort_dependencies(
 }
 
 impl MenuEditMods {
-    fn tick(&mut self, instance_selection: InstanceSelection, dir: &Path) -> Command<Message> {
+    fn tick(&mut self, instance_selection: &InstanceSelection, dir: &Path) -> Command<Message> {
         self.sorted_mods_list = sort_dependencies(&self.mods.mods, &self.locally_installed_mods);
 
         if let Some(progress) = &mut self.mod_update_progress {

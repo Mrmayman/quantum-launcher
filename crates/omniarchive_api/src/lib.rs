@@ -66,6 +66,7 @@ impl Display for MinecraftVersionCategory {
 
 impl MinecraftVersionCategory {
     /// Returns a list of all client versions.
+    #[must_use]
     pub fn all_client() -> Vec<MinecraftVersionCategory> {
         vec![
             MinecraftVersionCategory::PreClassic,
@@ -80,6 +81,7 @@ impl MinecraftVersionCategory {
     /// Returns a list of all server versions.
     ///
     /// Note: PreClassic, Indev, and Infdev do not have server versions.
+    #[must_use]
     pub fn all_server() -> Vec<MinecraftVersionCategory> {
         vec![
             MinecraftVersionCategory::Classic,
@@ -93,6 +95,7 @@ impl MinecraftVersionCategory {
     /// # Arguments
     /// - `server`: Whether to get the server download.
     ///   `false` for client, `true` for server.
+    #[must_use]
     pub fn get_index_url(&self, server: bool) -> String {
         format!(
             "https://vault.omniarchive.uk/archive/java/{}-{}/index.html",
@@ -115,6 +118,12 @@ impl MinecraftVersionCategory {
     /// - `progress`: An optional progress sender.
     /// - `download_server`: Whether to download server versions.
     ///   `false` for client, `true` for server.
+    ///
+    /// # Errors
+    /// If:
+    /// - an `index.html` file was unable to be downloaded
+    ///   (internet or server issue)
+    /// - a required html element was not found in the data
     pub async fn download_index(
         &self,
         progress: Option<Arc<Sender<()>>>,
@@ -129,7 +138,7 @@ impl MinecraftVersionCategory {
         let mut visited = HashSet::new();
 
         if let Some(progress) = &progress {
-            progress.send(()).unwrap();
+            _ = progress.send(());
         }
 
         let mut i = 1;
@@ -180,7 +189,7 @@ impl MinecraftVersionCategory {
             deeper_buffer.clear();
         }
         if let Some(progress) = &progress {
-            progress.send(()).unwrap();
+            _ = progress.send(());
         }
         Ok(links)
     }
@@ -213,7 +222,9 @@ impl MinecraftVersionCategory {
         )
         .from_utf8()
         .read_from(&mut file.as_bytes())
+        // Will not panic as `file` is in-memory and fully readable
         .unwrap();
+
         let e_html = find_elem(&dom.document, "html")?;
         let e_body = find_elem(&e_html, "body")?;
         let e_code = find_elem(&e_body, "code")?;
@@ -245,6 +256,22 @@ impl MinecraftVersionCategory {
     }
 }
 
+/// Batch-downloads the version list for all versions.
+///
+/// If you want fine grained control over which category
+/// of versions to download, check out
+/// `MinecraftVersionCategory::download_index`
+///
+/// # Arguments
+/// - `progress`: An optional progress sender.
+/// - `download_server`: Whether to download server versions.
+///   `false` for client, `true` for server.
+///
+/// # Errors
+/// If:
+/// - an `index.html` file was unable to be downloaded
+///   (internet or server issue)
+/// - a required html element was not found in the data
 pub async fn download_all(
     progress: Option<Arc<Sender<()>>>,
     download_server: bool,

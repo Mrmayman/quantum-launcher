@@ -54,10 +54,10 @@ fn process_argument(
             cmd_mock_error();
         }
         "--no-sandbox" => {
-            err!("Unknown flag --no-sandbox! (ignoring)")
+            err!("Unknown flag --no-sandbox! (ignoring)");
         }
         _ => {
-            if command.starts_with("-") && !command.starts_with("--") {
+            if command.starts_with('-') && !command.starts_with("--") {
                 for c in command.chars().skip(1) {
                     match c {
                         'h' => cmd_print_help(info),
@@ -267,63 +267,82 @@ fn get_program_name(info: &mut ArgumentInfo, argument: Option<&str>) -> String {
     }
 }
 
+/// Prints the "intro" to the screen
+/// consisting of the **ASCII art logo**, as well as
+/// **stylised text saying "QuantumLauncher"**
+///
+/// The actual data is `include_str!()`ed from
+/// - `assets/ascii/icon.txt` for the ASCII art
+/// - `assets/ascii/text.txt` for the text logo
+/// The other files in `assets/ascii` are unused.
 pub fn print_intro() {
     const TEXT_WIDTH: u16 = 39;
-    let (text, text_len_old) = get_side_text();
 
+    const LOGO: &str = include_str!("../../assets/ascii/icon.txt");
     const LOGO_WIDTH: u16 = 30;
-    let logo = include_str!("../../assets/ascii/icon.txt");
-    let logo_len: usize = logo.lines().count();
-
-    let Some((terminal_size::Width(width), _)) = terminal_size::terminal_size() else {
-        return;
-    };
 
     // Helper function to pad lines to a fixed width
     fn pad_line(line: Option<&str>, width: usize) -> String {
         let line = line.unwrap_or_default();
         if line.len() < width {
-            format!("{:<width$}", line, width = width)
+            format!("{line:<width$}")
         } else {
             line.to_owned()
         }
     }
 
+    let (text, text_len_old) = get_side_text();
+
+    let logo_len: usize = LOGO.lines().count();
+
+    let Some((terminal_size::Width(width), _)) = terminal_size::terminal_size() else {
+        return;
+    };
+
     let mut stdout = std::io::stdout().lock();
 
+    // Ok, this code is uncomfortably ugly but bear with me...
     if width > TEXT_WIDTH + LOGO_WIDTH {
-        let lines_len = std::cmp::max(text.lines().count(), logo.lines().count());
+        // Screen large enough for Text and Logo
+        // to fit side-by-side
+        let lines_len = std::cmp::max(text.lines().count(), LOGO.lines().count());
         for i in 0..lines_len {
             let text_line = pad_line(text.lines().nth(i), TEXT_WIDTH as usize);
-            let logo_line = pad_line(logo.lines().nth(i), LOGO_WIDTH as usize);
+            let logo_line = pad_line(LOGO.lines().nth(i), LOGO_WIDTH as usize);
             if cfg!(target_os = "windows") || i >= logo_len {
-                let _ = write!(stdout, "{logo_line} ");
+                _ = write!(stdout, "{logo_line} ");
             } else {
-                let _ = write!(stdout, "{} ", logo_line.purple().bold());
+                _ = write!(stdout, "{} ", logo_line.purple().bold());
             }
             if cfg!(target_os = "windows") || i >= text_len_old {
-                let _ = write!(stdout, "{text_line}");
+                _ = write!(stdout, "{text_line}");
             } else {
-                let _ = write!(stdout, "{}", text_line.bold());
+                _ = write!(stdout, "{}", text_line.bold());
             }
-            let _ = writeln!(stdout);
+            _ = writeln!(stdout);
         }
     } else if width >= TEXT_WIDTH {
+        // Screen only large enough for
+        // Text and Logo to fit one after another
+        // vertically
         if cfg!(target_os = "windows") {
-            let _ = writeln!(stdout, "{logo}\n{text}");
+            _ = writeln!(stdout, "{LOGO}\n{text}");
         } else {
-            let _ = writeln!(stdout, "{}\n{}", logo.purple().bold(), text.bold());
+            _ = writeln!(stdout, "{}\n{}", LOGO.purple().bold(), text.bold());
         }
     } else if width >= LOGO_WIDTH {
+        // Screen only large enough for Logo,
+        // not text
         if cfg!(target_os = "windows") {
-            let _ = writeln!(stdout, "{logo}");
+            _ = writeln!(stdout, "{LOGO}");
         } else {
-            let _ = writeln!(stdout, "{}", logo.purple().bold());
+            _ = writeln!(stdout, "{}", LOGO.purple().bold());
         }
     } else {
-        let _ = writeln!(stdout, "Quantum Launcher {LAUNCHER_VERSION_NAME}");
+        // Screen is too tiny
+        _ = writeln!(stdout, "Quantum Launcher {LAUNCHER_VERSION_NAME}");
     }
-    let _ = writeln!(stdout);
+    _ = writeln!(stdout);
 }
 
 fn get_side_text() -> (String, usize) {

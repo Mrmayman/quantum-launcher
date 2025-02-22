@@ -53,12 +53,12 @@ impl SelectedInstance {
         };
         let new_path = path.join(&self.path);
 
-        if !new_path.starts_with(&path) {
+        if new_path.starts_with(&path) {
+            Ok(new_path)
+        } else {
             Err(err_to_lua(format!(
                 "Attempted to escape from fs sandbox: {new_path:?}"
             )))
-        } else {
-            Ok(new_path)
         }
     }
 }
@@ -105,13 +105,13 @@ impl UserData for SelectedInstance {
             Ok(instance)
         });
 
-        methods.add_method("to_dot_mc_dir", |_, instance, _: ()| {
+        methods.add_method("to_dot_mc_dir", |_, instance, ()| {
             let mut instance = instance.clone();
             instance.dot_mc = true;
             Ok(instance)
         });
 
-        methods.add_method("to_instance_dir", |_, instance, _: ()| {
+        methods.add_method("to_instance_dir", |_, instance, ()| {
             let mut instance = instance.clone();
             instance.dot_mc = false;
             Ok(instance)

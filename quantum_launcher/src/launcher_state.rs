@@ -320,7 +320,7 @@ pub struct MenuEditMods {
 impl MenuEditMods {
     pub fn update_locally_installed_mods(
         idx: &ModIndex,
-        selected_instance: InstanceSelection,
+        selected_instance: &InstanceSelection,
         dir: &Path,
     ) -> Command<Message> {
         let mut blacklist = Vec::new();
@@ -539,7 +539,7 @@ impl Drop for ServerProcess {
         if !self.has_issued_stop_command {
             info!("Force-Killing server {}\n       You should be a bit more careful before closing the launcher window", self.name);
             let mut lock = self.child.lock().unwrap();
-            let _ = lock.start_kill();
+            _ = lock.start_kill();
         }
     }
 }
@@ -569,7 +569,7 @@ impl Launcher {
             ..
         }) = &config
         {
-            launch.sidebar_width = *sidebar_width as u16
+            launch.sidebar_width = *sidebar_width as u16;
         }
 
         let launch = State::Launch(launch);

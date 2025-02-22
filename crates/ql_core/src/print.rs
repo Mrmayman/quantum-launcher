@@ -44,8 +44,8 @@ impl LoggingState {
             let mut writer = BufWriter::new(file);
 
             while let Ok(msg) = receiver.recv() {
-                let _ = writer.write_all(msg.as_bytes());
-                let _ = writer.flush();
+                _ = writer.write_all(msg.as_bytes());
+                _ = writer.flush();
             }
         });
 
@@ -61,6 +61,7 @@ impl LoggingState {
 }
 
 lazy_static::lazy_static! {
+    #[allow(clippy::ref_option)]
     pub static ref LOGGER: Option<LoggingState> =
         LoggingState::create();
 }

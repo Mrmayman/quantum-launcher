@@ -32,7 +32,8 @@ pub async fn create_instance_w(
 ///   No sounds or music will play*
 ///
 /// # Errors
-/// Check the [`DownloadError`] documentation (if there is, lol). This is crap code and you must have standards.
+/// Check the [`DownloadError`] documentation (if there is, lol).
+/// This is crap code and you must have standards. (WTF: )
 pub async fn create_instance(
     instance_name: &str,
     version: ListEntry,

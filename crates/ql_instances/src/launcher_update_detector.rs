@@ -198,7 +198,7 @@ pub async fn install_launcher_update(
     };
 
     let new_path = exe_location.join(extract_name);
-    let _ = Command::new(&new_path).spawn().path(new_path)?;
+    _ = Command::new(&new_path).spawn().path(new_path)?;
 
     std::process::exit(0);
 }

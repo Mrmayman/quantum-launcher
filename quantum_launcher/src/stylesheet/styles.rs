@@ -277,8 +277,7 @@ impl widget::button::StyleSheet for LauncherTheme {
 
     fn hovered(&self, style: &Self::Style) -> widget::button::Appearance {
         let color = match style {
-            StyleButton::Round | StyleButton::Flat => Color::Mid,
-            StyleButton::FlatDark => Color::Mid,
+            StyleButton::Round | StyleButton::Flat | StyleButton::FlatDark => Color::Mid,
             StyleButton::FlatExtraDark => Color::SecondDark,
         };
         widget::button::Appearance {
@@ -644,7 +643,7 @@ impl widget::text_editor::StyleSheet for LauncherTheme {
 impl widget::svg::StyleSheet for LauncherTheme {
     type Style = ();
 
-    fn appearance(&self, _: &Self::Style) -> widget::svg::Appearance {
+    fn appearance(&self, (): &Self::Style) -> widget::svg::Appearance {
         widget::svg::Appearance { color: None }
     }
 }

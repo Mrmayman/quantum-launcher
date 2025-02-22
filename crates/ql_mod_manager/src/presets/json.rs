@@ -212,7 +212,7 @@ impl PresetJson {
             .map_err(|err| err.to_string())?;
 
         for (i, id) in ids.into_iter().enumerate() {
-            let _ = sender.send(GenericProgress {
+            _ = sender.send(GenericProgress {
                 done: i,
                 total: len,
                 message: None,
@@ -237,7 +237,7 @@ impl PresetJson {
             .await
             .map_err(|err| err.to_string())?;
 
-        let _ = sender.send(GenericProgress::finished());
+        _ = sender.send(GenericProgress::finished());
         Ok(())
     }
 }

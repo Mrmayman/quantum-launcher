@@ -2,7 +2,7 @@ use iced::Command;
 use ql_core::{err, IntoIoError};
 
 use crate::{
-    launcher_state::{EditInstanceMessage, Launcher, MenuLaunch, Message, State},
+    launcher_state::{get_entries, EditInstanceMessage, Launcher, MenuLaunch, Message, State},
     message_handler::format_memory,
 };
 
@@ -101,18 +101,18 @@ impl Launcher {
                         return Command::none();
                     }
 
-                    let instances_dir =
-                        self.dir
-                            .join(if self.selected_instance.as_ref().unwrap().is_server() {
+                    if menu.old_instance_name != menu.instance_name {
+                        let instances_dir = self.dir.join(
+                            if self.selected_instance.as_ref().unwrap().is_server() {
                                 "servers"
                             } else {
                                 "instances"
-                            });
+                            },
+                        );
 
-                    let old_path = instances_dir.join(&menu.old_instance_name);
-                    let new_path = instances_dir.join(&menu.instance_name);
+                        let old_path = instances_dir.join(&menu.old_instance_name);
+                        let new_path = instances_dir.join(&menu.instance_name);
 
-                    if menu.old_instance_name != menu.instance_name {
                         menu.old_instance_name = menu.instance_name.clone();
                         if let Some(n) = &mut self.selected_instance {
                             n.set_name(&menu.instance_name);
@@ -120,6 +120,18 @@ impl Launcher {
                         if let Err(err) = std::fs::rename(&old_path, &new_path).path(&old_path) {
                             self.set_error(err);
                         }
+
+                        return Command::perform(
+                            get_entries(
+                                match self.selected_instance.as_ref().unwrap() {
+                                    ql_core::InstanceSelection::Instance(_) => "instances",
+                                    ql_core::InstanceSelection::Server(_) => "servers",
+                                }
+                                .to_owned(),
+                                false,
+                            ),
+                            Message::CoreListLoaded,
+                        );
                     }
                 }
             }

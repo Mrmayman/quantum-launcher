@@ -32,7 +32,7 @@ pub async fn download_mods_w(
 
     let len = ids.len();
     for (i, id) in ids.iter().enumerate() {
-        let _ = progress.send(GenericProgress {
+        _ = progress.send(GenericProgress {
             done: i,
             total: len,
             message: None,

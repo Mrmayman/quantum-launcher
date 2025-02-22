@@ -384,6 +384,11 @@ impl ForgeInstaller {
         Ok(())
     }
 
+    /// WTF: This is a set of unholy rituals that
+    /// apparently are needed in the forge installer?
+    ///
+    /// Idk, I saw it on
+    /// <https://github.com/alexivkin/minecraft-launcher/>
     async fn unpack_augmented_library(
         &self,
         dest_str: &str,
@@ -395,6 +400,10 @@ impl ForgeInstaller {
             file_utils::download_file_to_bytes(&self.client, &format!("{url}.pack.xz"), false)
                 .await?;
         pt!("Extracting pack.xz");
+        // WTF: HOLY SHIT
+        // looking back why am I extracting a `.xz` file
+        // as a `.zip`?
+        // Lucky not one of my users has ever run this.
         let temp_extract_xz = Self::extract_zip_file(&bytes)?;
 
         pt!("Reading signature");
@@ -624,7 +633,7 @@ pub async fn install_client(
     info!("Started installing forge");
 
     if let Some(progress) = &f_progress {
-        let _ = progress.send(ForgeInstallProgress::P1Start);
+        _ = progress.send(ForgeInstallProgress::P1Start);
     }
 
     let installer = ForgeInstaller::new(

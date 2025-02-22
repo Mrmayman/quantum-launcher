@@ -293,7 +293,7 @@ impl Application for Launcher {
                 if let Err(err) = err {
                     self.set_error(err);
                 } else {
-                    // Yeah... no one is gonna see this.
+                    // WTF: Yeah... no one is gonna see this.
                     return self.go_to_launch_screen(Some(
                         "Updated launcher! Close and reopen the launcher to see the new update"
                             .to_owned(),

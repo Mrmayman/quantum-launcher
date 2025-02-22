@@ -9,6 +9,7 @@ pub struct JsonNatives {
     pub libraries: Vec<NativeLibrary>,
 }
 
+#[derive(Clone, Copy)]
 pub enum NativesEntry {
     Lwjgl,
     Log4J,

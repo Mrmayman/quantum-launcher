@@ -169,7 +169,7 @@ pub struct JavaInstallListing {
     pub version: JavaInstallListingVersion,
 }
 
-// Yes this is approaching Java levels of name length.
+// WTF: Yes this is approaching Java levels of name length.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct JavaInstallListingAvailability {
     pub group: i64,

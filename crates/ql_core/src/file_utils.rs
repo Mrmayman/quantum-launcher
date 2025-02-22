@@ -6,6 +6,8 @@ use thiserror::Error;
 
 use crate::{error::IoError, InstanceSelection, IntoIoError};
 
+const REQUEST_TRY_LIMIT: usize = 5;
+
 lazy_static! {
     pub static ref MOCK_DIR_FAILURE: AtomicBool = AtomicBool::new(false);
 }
@@ -153,22 +155,35 @@ pub async fn download_file_to_string(
     url: &str,
     user_agent: bool,
 ) -> Result<String, RequestError> {
-    let mut get = client.get(url);
-    if user_agent {
-        get = get.header(
-            "User-Agent",
-            "Mrmayman/quantumlauncher (mrmayman.github.io/quantumlauncher)",
-        );
+    async fn inner(client: &Client, url: &str, user_agent: bool) -> Result<String, RequestError> {
+        let mut get = client.get(url);
+        if user_agent {
+            get = get.header(
+                "User-Agent",
+                "Mrmayman/quantumlauncher (mrmayman.github.io/quantumlauncher)",
+            );
+        }
+        let response = get.send().await?;
+        if response.status().is_success() {
+            Ok(response.text().await?)
+        } else {
+            Err(RequestError::DownloadError {
+                code: response.status(),
+                url: response.url().clone(),
+            })
+        }
     }
-    let response = get.send().await?;
-    if response.status().is_success() {
-        Ok(response.text().await?)
-    } else {
-        Err(RequestError::DownloadError {
-            code: response.status(),
-            url: response.url().clone(),
-        })
+
+    let mut result = inner(client, url, user_agent).await;
+
+    for _ in 0..REQUEST_TRY_LIMIT {
+        if let Ok(n) = result {
+            return Ok(n);
+        }
+        result = inner(client, url, user_agent).await;
     }
+
+    result
 }
 
 /// Downloads a file from the given URL into a `Vec<u8>`.
@@ -189,19 +204,32 @@ pub async fn download_file_to_bytes(
     url: &str,
     user_agent: bool,
 ) -> Result<Vec<u8>, RequestError> {
-    let mut get = client.get(url);
-    if user_agent {
-        get = get.header("User-Agent", "quantumlauncher");
+    async fn inner(client: &Client, url: &str, user_agent: bool) -> Result<Vec<u8>, RequestError> {
+        let mut get = client.get(url);
+        if user_agent {
+            get = get.header("User-Agent", "quantumlauncher");
+        }
+        let response = get.send().await?;
+        if response.status().is_success() {
+            Ok(response.bytes().await?.to_vec())
+        } else {
+            Err(RequestError::DownloadError {
+                code: response.status(),
+                url: response.url().clone(),
+            })
+        }
     }
-    let response = get.send().await?;
-    if response.status().is_success() {
-        Ok(response.bytes().await?.to_vec())
-    } else {
-        Err(RequestError::DownloadError {
-            code: response.status(),
-            url: response.url().clone(),
-        })
+
+    let mut result = inner(client, url, user_agent).await;
+
+    for _ in 0..REQUEST_TRY_LIMIT {
+        if let Ok(n) = result {
+            return Ok(n);
+        }
+        result = inner(client, url, user_agent).await;
     }
+
+    result
 }
 
 /// Downloads a file from the given URL into a `Vec<u8>`,
@@ -223,19 +251,32 @@ pub async fn download_file_to_bytes_with_agent(
     url: &str,
     user_agent: &str,
 ) -> Result<Vec<u8>, RequestError> {
-    let response = client
-        .get(url)
-        .header("User-Agent", user_agent)
-        .send()
-        .await?;
-    if response.status().is_success() {
-        Ok(response.bytes().await?.to_vec())
-    } else {
-        Err(RequestError::DownloadError {
-            code: response.status(),
-            url: response.url().clone(),
-        })
+    async fn inner(client: &Client, url: &str, user_agent: &str) -> Result<Vec<u8>, RequestError> {
+        let response = client
+            .get(url)
+            .header("User-Agent", user_agent)
+            .send()
+            .await?;
+        if response.status().is_success() {
+            Ok(response.bytes().await?.to_vec())
+        } else {
+            Err(RequestError::DownloadError {
+                code: response.status(),
+                url: response.url().clone(),
+            })
+        }
     }
+
+    let mut result = inner(client, url, user_agent).await;
+
+    for _ in 0..REQUEST_TRY_LIMIT {
+        if let Ok(n) = result {
+            return Ok(n);
+        }
+        result = inner(client, url, user_agent).await;
+    }
+
+    result
 }
 
 #[derive(Debug, Error)]

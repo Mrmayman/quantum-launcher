@@ -74,11 +74,11 @@ impl Plugin {
         }
 
         let Some((name, json)) = plugins_map.iter().find(|(_, j)| {
-            (j.details.name == name) && (version.map(|v| j.details.version == v).unwrap_or(true))
+            (j.details.name == name) && (version.map_or(true, |v| j.details.version == v))
         }) else {
             return Err(PluginError::PluginNotFound(
                 name.to_owned(),
-                version.map(|n| n.to_owned()),
+                version.map(std::borrow::ToOwned::to_owned),
             ));
         };
 
@@ -107,7 +107,7 @@ impl Plugin {
         plugin.resolve_deps(json, &plugins_map, &plugins_top_dir, &globals)?;
 
         let table = plugin.lua.create_table()?;
-        for (name, code) in plugin.mod_map.iter() {
+        for (name, code) in &plugin.mod_map {
             table.set(name.clone(), code.clone())?;
         }
         globals.set("QL_MODULE_TABLE", table)?;
