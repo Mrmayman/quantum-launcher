@@ -20,10 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //!
 //! For more information see the `../../README.md` file.
 //!
+//! This section will mainly focus on what the
+//! codebase is like for any potential contributors.
+//!
 //! # Crate Structure
 //! - `quantum_launcher` - The GUI frontend
 //! - `ql_instances` - Instance management, updating and launching
 //! - `ql_mod_manager` - Mod management and installation
+//! - `ql_plugins` - A lua-based plugin system (incomplete)
+//! - `ql_servers` - A self-hosted server management system (incomplete)
 //! - `ql_core` - Core utilities and shared code
 //!
 //! # Brief Overview of the codebase
@@ -43,12 +48,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! of `&[T]`
 //!
 //! They also return errors as `String` instead of the actual error type.
-//!
 //! This is done to make use with `iced::Command` easier.
+//!
+//! # Comments
+//! I tend to be loose, for better or for worse,
+//! when it comes to using comments.
+//!
+//! Have something complicated-looking that could
+//! be better explained? Add comments. Clippy bugging you
+//! about not documenting something? Add doc comments.
+//!
+//! **The only rule of thumb is: Do it well or don't do it**.
+//! Half-baked useless comments are worse than no comments
+//! (yes I'm guilty of this sometimes).
+//!
+//! Heck, feel free to make it informal if that seems better.
+//! (maybe add a `WTF: ` tag so people can search for it for fun).
+//!
+//! Btw, if you have any questions, feel free to ask me on discord!
+
+#![deny(unsafe_code)]
 
 use std::{sync::Arc, time::Duration};
 
-use arguments::ArgumentInfo;
+use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use iced::{widget, Application, Command, Settings};
 use launcher_state::{
     get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherSettings,
@@ -695,9 +718,7 @@ impl Application for Launcher {
                     .spacing(10)
                     .into()
             }
-            State::ModsDownload(menu) => {
-                menu.view(&self.images_bitmap, &self.images_svg, &self.images_to_load)
-            }
+            State::ModsDownload(menu) => menu.view(&self.images),
             State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
             State::RedownloadAssets { progress, .. } => widget::column!(
                 widget::text("Redownloading Assets").size(20),
@@ -791,9 +812,32 @@ fn main() {
     handle.join().unwrap();
     return;*/
 
-    let mut args = std::env::args();
-    let mut info = ArgumentInfo { program: None };
-    arguments::process_args(&mut args, &mut info);
+    let command = arguments::command();
+    let matches = command.clone().get_matches();
+    if let Some(subcommand) = matches.subcommand() {
+        match subcommand.0 {
+            "list-instances" => {
+                let command = get_list_instance_subcommand(subcommand);
+                cmd_list_instances(command, "instances");
+                return;
+            }
+            "list-servers" => {
+                let command = get_list_instance_subcommand(subcommand);
+                cmd_list_instances(command, "servers");
+                return;
+            }
+            "list-available-versions" => {
+                cmd_list_available_versions();
+                return;
+            }
+            "--no-sandbox" => {
+                err!("Unknown command --no-sandbox, ignoring...");
+            }
+            err => panic!("Unimplemented command! {err}"),
+        }
+    } else {
+        arguments::print_intro();
+    }
 
     info!("Starting up the launcher...");
 
@@ -821,4 +865,24 @@ fn main() {
         ..Default::default()
     })
     .unwrap();
+}
+
+fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<PrintCmd> {
+    if let Some((cmd, _)) = subcommand.1.subcommand() {
+        let mut cmds = Vec::new();
+        for cmd in cmd.split('-') {
+            match cmd {
+                "name" => cmds.push(PrintCmd::Name),
+                "version" => cmds.push(PrintCmd::Version),
+                "loader" => cmds.push(PrintCmd::Loader),
+                invalid => {
+                    err!("Invalid subcommand {invalid}! Use any combination of name, version and loader separated by hyphen '-'");
+                    std::process::exit(1);
+                }
+            }
+        }
+        cmds
+    } else {
+        vec![PrintCmd::Name]
+    }
 }

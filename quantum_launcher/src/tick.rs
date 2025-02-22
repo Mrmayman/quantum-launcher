@@ -123,10 +123,11 @@ impl Launcher {
                         if commands.len() > 64 {
                             break;
                         }
-                        if !self.images_downloads_in_progress.contains(&result.title)
+                        if !self.images.downloads_in_progress.contains(&result.title)
                             && !result.icon_url.is_empty()
                         {
-                            self.images_downloads_in_progress
+                            self.images
+                                .downloads_in_progress
                                 .insert(result.title.clone());
                             commands.push(Command::perform(
                                 Search::download_image(result.icon_url.clone(), true),
@@ -234,11 +235,11 @@ impl Launcher {
     pub fn get_imgs_to_load(&mut self) -> Vec<Command<Message>> {
         let mut commands = Vec::new();
 
-        let mut images_to_load = self.images_to_load.lock().unwrap();
+        let mut images_to_load = self.images.to_load.lock().unwrap();
 
         for url in images_to_load.iter() {
-            if !self.images_downloads_in_progress.contains(url) {
-                self.images_downloads_in_progress.insert(url.to_owned());
+            if !self.images.downloads_in_progress.contains(url) {
+                self.images.downloads_in_progress.insert(url.to_owned());
                 commands.push(Command::perform(
                     Search::download_image(url.to_owned(), false),
                     |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),

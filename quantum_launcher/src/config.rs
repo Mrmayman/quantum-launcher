@@ -56,7 +56,7 @@ impl LauncherConfig {
         Ok(())
     }
 
-    /// [`save`] `_w` function
+    /// [`LauncherConfig::save`] `_w` function
     pub async fn save_w(self) -> Result<(), String> {
         self.save().await.map_err(|err| err.to_string())
     }

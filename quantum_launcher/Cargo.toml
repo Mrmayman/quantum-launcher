@@ -33,8 +33,6 @@ serde_json = { workspace = true }
 
 # For managing async tasks
 tokio = { workspace = true }
-# For colored text output
-colored = { workspace = true }
 # For managing the logging time/date
 chrono = { workspace = true }
 # For the icon widget macro
@@ -43,8 +41,11 @@ paste = "1"
 lazy_static = { workspace = true }
 # For the file picker
 rfd = "0.15"
-# For getting terminal width
+
+# Terminal
 terminal_size = "0.4"
+colored = { workspace = true }
+clap = { version = "4", features = ["help"] }
 
 comrak = "0.28" # For markdown parsing (displaying mod pages)
 image = "0.24"

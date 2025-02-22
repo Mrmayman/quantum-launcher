@@ -497,6 +497,7 @@ pub struct Launcher {
     pub selected_instance: Option<InstanceSelection>,
     pub config: Option<LauncherConfig>,
     pub theme: LauncherTheme,
+    pub images: ImageState,
 
     pub accounts: HashMap<String, AccountEntry>,
     pub accounts_dropdown: Vec<String>,
@@ -511,13 +512,16 @@ pub struct Launcher {
     pub client_logs: HashMap<String, InstanceLog>,
     pub server_logs: HashMap<String, InstanceLog>,
 
-    pub images_bitmap: HashMap<String, Handle>,
-    pub images_svg: HashMap<String, iced::widget::svg::Handle>,
-    pub images_downloads_in_progress: HashSet<String>,
-    pub images_to_load: Mutex<HashSet<String>>,
-
     pub window_size: (u32, u32),
     pub mouse_pos: (f32, f32),
+}
+
+#[derive(Default)]
+pub struct ImageState {
+    pub bitmap: HashMap<String, Handle>,
+    pub svg: HashMap<String, iced::widget::svg::Handle>,
+    pub downloads_in_progress: HashSet<String>,
+    pub to_load: Mutex<HashSet<String>>,
 }
 
 pub struct ClientProcess {
@@ -597,10 +601,7 @@ impl Launcher {
             config,
             client_logs: HashMap::new(),
             selected_instance: None,
-            images_bitmap: HashMap::new(),
-            images_svg: HashMap::new(),
-            images_downloads_in_progress: HashSet::new(),
-            images_to_load: Mutex::new(HashSet::new()),
+            images: ImageState::default(),
             theme,
             client_version_list_cache: None,
             server_version_list_cache: None,
@@ -643,10 +644,7 @@ impl Launcher {
             client_processes: HashMap::new(),
             client_logs: HashMap::new(),
             selected_instance: None,
-            images_bitmap: HashMap::new(),
-            images_svg: HashMap::new(),
-            images_downloads_in_progress: HashSet::new(),
-            images_to_load: Mutex::new(HashSet::new()),
+            images: ImageState::default(),
             theme,
             client_version_list_cache: None,
             server_processes: HashMap::new(),

@@ -328,9 +328,10 @@ impl Launcher {
                 Ok(image) => {
                     if image.is_svg {
                         let handle = iced::widget::svg::Handle::from_memory(image.image);
-                        self.images_svg.insert(image.url, handle);
+                        self.images.svg.insert(image.url, handle);
                     } else {
-                        self.images_bitmap
+                        self.images
+                            .bitmap
                             .insert(image.url, Handle::from_memory(image.image));
                     }
                 }

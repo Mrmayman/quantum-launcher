@@ -2,10 +2,11 @@
 //!
 //! # Contains
 //! - Java auto-installer
-//! - File utilities
+//! - File and download utilities
 //! - Error types
 //! - JSON structs for version, instance config, Fabric, Forge, OptiFine, etc
 //! - Logging macros
+//! - And much more
 
 mod error;
 /// Common utilities for working with files.

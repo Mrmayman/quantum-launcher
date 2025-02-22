@@ -1,103 +1,61 @@
+use clap::Command;
 use colored::Colorize;
 use ql_core::{
     err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     LAUNCHER_VERSION_NAME,
 };
-use std::io::{stdout, Write};
+use std::io::Write;
 
-use crate::launcher_state::get_entries;
+use crate::{launcher_state::get_entries, menu_renderer::DISCORD};
 
-pub struct ArgumentInfo {
-    pub program: Option<String>,
+pub fn command() -> Command {
+    Command::new(if cfg!(target_os = "windows") {
+        ".\\quantum_launcher.exe"
+    } else {
+        "./quantum_launcher"
+    })
+    .arg_required_else_help(false)
+    .author("Mrmayman")
+    .version(LAUNCHER_VERSION_NAME)
+    .long_about(long_about())
+    .subcommand(
+        get_list_instance_subcommands("list-instances".to_owned())
+            .short_flag('l')
+            .about("Lists all installed Minecraft instances")
+            .long_about("Lists all installed Minecraft instances. Can be paired with hyphen-separated-flags like name-loader, name-version, loader-name-version"),
+    )
+    .subcommand(
+        get_list_instance_subcommands("list-servers".to_owned())
+            .short_flag('s')
+            .about("Lists all installed Minecraft servers")
+            .long_about("Lists all installed Minecraft servers. Can be paired with hyphen-separated-flags like name-loader, name-version, loader-name-version"),
+    )
+    .subcommand(Command::new("list-available-versions").short_flag('a').about("Lists all downloadable versions, downloading a list from Mojang/Omniarchive"))
+    .subcommand(Command::new("--no-sandbox").hide(true)) // This one doesn't do anything, but on Windows i686 it's automatically passed?
 }
 
-pub fn process_args(
-    args: &mut impl Iterator<Item = String>,
-    info: &mut ArgumentInfo,
-) -> Option<()> {
-    let mut command = args.next()?;
-    if info.program.is_none() {
-        info.program = Some(command.clone());
-        if let Some(arg) = args.next() {
-            command = arg;
-        } else {
-            print_intro();
-            return None;
-        }
-    }
-
-    process_argument(args, &command, info);
-
-    None
+fn get_list_instance_subcommands(name: String) -> Command {
+    Command::new(name)
+        // May god forgive me for what I'm about to do
+        .subcommand(Command::new("name"))
+        .subcommand(Command::new("version"))
+        .subcommand(Command::new("loader"))
+        .subcommand(Command::new("name-version"))
+        .subcommand(Command::new("name-loader"))
+        .subcommand(Command::new("version-name"))
+        .subcommand(Command::new("version-loader"))
+        .subcommand(Command::new("loader-name"))
+        .subcommand(Command::new("loader-version"))
+        .subcommand(Command::new("name-version-loader"))
+        .subcommand(Command::new("name-loader-version"))
+        .subcommand(Command::new("version-name-loader"))
+        .subcommand(Command::new("version-loader-name"))
+        .subcommand(Command::new("loader-name-version"))
+        .subcommand(Command::new("loader-version-name"))
 }
 
-fn process_argument(
-    args: &mut impl Iterator<Item = String>,
-    command: &str,
-    info: &mut ArgumentInfo,
-) {
-    match command {
-        // To further process arguments call process_args()
-        "--help" => cmd_print_help(info),
-        "--version" => cmd_print_version(),
-        "--list-instances" => {
-            cmd_list_instances(args, info, "instances");
-        }
-        "--list-servers" => {
-            cmd_list_instances(args, info, "servers");
-        }
-        "--list-available-versions" => {
-            cmd_list_available_versions();
-        }
-        "--mock-error" => {
-            cmd_mock_error();
-        }
-        "--no-sandbox" => {
-            err!("Unknown flag --no-sandbox! (ignoring)");
-        }
-        _ => {
-            if command.starts_with('-') && !command.starts_with("--") {
-                for c in command.chars().skip(1) {
-                    match c {
-                        'h' => cmd_print_help(info),
-                        'v' => cmd_print_version(),
-                        'l' => {
-                            cmd_list_instances(args, info, "instances");
-                        }
-                        's' => {
-                            cmd_list_instances(args, info, "servers");
-                        }
-                        'a' => {
-                            cmd_list_available_versions();
-                        }
-                        'm' => {
-                            cmd_mock_error();
-                        }
-                        _ => {
-                            err!(
-                                "Unknown character flag {c}! Type {} to see all the command-line flags.",
-                                get_program_name(info, Some("--help"))
-                            );
-                        }
-                    }
-                }
-            } else {
-                err!(
-                    "Unknown flag \"{command}\"! Type {} to see all the command-line flags.",
-                    get_program_name(info, Some("--help"))
-                );
-            }
-        }
-    }
-}
-
-fn cmd_mock_error() {
-    file_utils::MOCK_DIR_FAILURE.store(true, std::sync::atomic::Ordering::SeqCst);
-    println!("A test critical error will be displayed shortly...");
-}
-
-fn cmd_list_available_versions() {
+pub fn cmd_list_available_versions() {
     eprintln!("Listing downloadable versions...");
     let versions = match tokio::runtime::Runtime::new()
         .unwrap()
@@ -111,57 +69,31 @@ fn cmd_list_available_versions() {
         }
     };
 
-    let mut stdout = stdout().lock();
+    let mut stdout = std::io::stdout().lock();
     for version in versions {
         writeln!(stdout, "{version}").unwrap();
     }
-    std::process::exit(0);
 }
 
-fn cmd_print_version() {
-    println!(
-        "{}",
-        format!("QuantumLauncher v{LAUNCHER_VERSION_NAME} - made by Mrmayman").bold()
-    );
-    std::process::exit(0);
+pub fn long_about() -> String {
+    format!(
+        r"
+QuantumLauncher: A simple, powerful Minecraft launcher by Mrmayman
+
+Website: https://mrmayman.github.io/quantumlauncher
+Github : https://github.com/Mrmayman/quantum-launcher
+Discord: {DISCORD}
+"
+    )
 }
 
-fn cmd_print_help(info: &mut ArgumentInfo) {
-    println!(
-        r#"Usage: {}
-    --help        -h : Prints a list of valid command line flags
-    --version     -v : Prints the launcher version
-
-    --list-available-versions : Prints a list of available versions
-        -a                      that can be used to create instances
-
-    --list-instances  -l : Prints a list of instances
-    --list-servers    -s : Prints a list of servers
-        Subcommands: "name", "version", "type" (Vanilla/Fabric/Forge/...)
-        For example:
-            ./quantum_launcher --list-instances
-            ./quantum_launcher --list-servers name
-            ./quantum_launcher --list-instances name version
-            ./quantum_launcher --list-servers version type name
-
-    --mock-error  -m : Displays an example critical error to test that
-                       error popups work correctly. (FOR DEBUGGING)"#,
-        get_program_name(info, Some("[FLAGS]/[-hvalsm]")),
-    );
-    std::process::exit(0);
+pub enum PrintCmd {
+    Name,
+    Version,
+    Loader,
 }
 
-fn cmd_list_instances(
-    args: &mut impl Iterator<Item = String>,
-    info: &mut ArgumentInfo,
-    dirname: &str,
-) {
-    enum PrintCmd {
-        Name,
-        Version,
-        Type,
-    }
-
+pub fn cmd_list_instances(cmds: Vec<PrintCmd>, dirname: &str) {
     let instances = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(get_entries(dirname.to_owned(), false))
@@ -173,28 +105,6 @@ fn cmd_list_instances(
             std::process::exit(1);
         }
     };
-
-    let mut cmds: Vec<PrintCmd> = Vec::new();
-
-    for _ in 0..3 {
-        if let Some(subcommand) = args.next() {
-            match subcommand.as_str() {
-                "name" => cmds.push(PrintCmd::Name),
-                "version" => cmds.push(PrintCmd::Version),
-                "type" => cmds.push(PrintCmd::Type),
-                _ => {
-                    err!(
-                        "Unknown subcommand! Type {} to see all the command-line flags.",
-                        get_program_name(info, Some("--help"))
-                    );
-                }
-            }
-        }
-    }
-
-    if cmds.is_empty() {
-        cmds.push(PrintCmd::Name);
-    }
 
     for instance in instances {
         let mut has_printed = false;
@@ -227,7 +137,7 @@ fn cmd_list_instances(
                         print!("{}", json.id);
                     }
                 }
-                PrintCmd::Type => {
+                PrintCmd::Loader => {
                     if has_printed {
                         print!("\t");
                     }
@@ -246,24 +156,6 @@ fn cmd_list_instances(
         if has_printed {
             println!();
         }
-    }
-    std::process::exit(0);
-}
-
-fn get_program_name(info: &mut ArgumentInfo, argument: Option<&str>) -> String {
-    let mut program = info
-        .program
-        .as_deref()
-        .unwrap_or("quantum_launcher")
-        .to_owned();
-    if let Some(arg) = argument {
-        program.push(' ');
-        program.push_str(arg);
-    }
-    if cfg!(target_os = "windows") {
-        program.clone()
-    } else {
-        program.yellow().to_string()
     }
 }
 

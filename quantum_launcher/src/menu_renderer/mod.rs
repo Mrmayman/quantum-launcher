@@ -21,7 +21,6 @@ use crate::{
 
 pub mod changelog;
 mod dynamic_box;
-mod html;
 pub mod launch;
 pub mod mods_manage;
 pub mod mods_store;
