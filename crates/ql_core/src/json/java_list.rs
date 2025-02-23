@@ -80,8 +80,7 @@ pub struct JavaListJson {
 
 impl JavaListJson {
     pub async fn download() -> Result<Self, JsonDownloadError> {
-        let client = reqwest::Client::new();
-        let json = file_utils::download_file_to_string(&client, JAVA_LIST_URL, false).await?;
+        let json = file_utils::download_file_to_string(JAVA_LIST_URL, false).await?;
         Ok(serde_json::from_str(&json)?)
     }
 

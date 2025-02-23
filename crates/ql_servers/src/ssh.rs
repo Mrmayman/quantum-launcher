@@ -35,7 +35,7 @@ async fn get_ssh_path() -> Result<(PathBuf, Command), ServerError> {
             return Err(ServerError::UnsupportedSSHArchitecture);
         };
 
-        let archive = file_utils::download_file_to_bytes(&client, url, false).await?;
+        let archive = file_utils::download_file_to_bytes(url, false).await?;
 
         zip_extract::extract(std::io::Cursor::new(&archive), &ssh_dir, true)?;
 

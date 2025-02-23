@@ -216,7 +216,6 @@ async fn download_libraries(
     progress_sender: Option<&Sender<OptifineInstallProgress>>,
 ) -> Result<(), OptifineError> {
     let (optifine_json, _) = JsonOptifine::read(instance_name).await?;
-    let client = reqwest::Client::new();
     let libraries_path = dot_minecraft_path.join("libraries");
 
     let len = optifine_json.libraries.len();
@@ -259,7 +258,7 @@ async fn download_libraries(
         if jar_path.exists() {
             continue;
         }
-        let jar_bytes = file_utils::download_file_to_bytes(&client, &url, false).await?;
+        let jar_bytes = file_utils::download_file_to_bytes(&url, false).await?;
         tokio::fs::write(&jar_path, jar_bytes)
             .await
             .path(jar_path)?;

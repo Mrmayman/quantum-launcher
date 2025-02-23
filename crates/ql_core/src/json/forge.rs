@@ -20,8 +20,7 @@ impl JsonVersions {
         const VERSIONS_JSON: &str =
             "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json";
 
-        let client = reqwest::Client::new();
-        let manifest = file_utils::download_file_to_string(&client, VERSIONS_JSON, false).await?;
+        let manifest = file_utils::download_file_to_string(VERSIONS_JSON, false).await?;
         Ok(serde_json::from_str(&manifest)?)
     }
 

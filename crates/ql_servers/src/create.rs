@@ -66,8 +66,6 @@ pub async fn create_server(
     version: ListEntry,
     sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), ServerError> {
-    let client = reqwest::Client::new();
-
     info!("Creating server: Downloading Manifest");
     progress_manifest(sender.as_ref());
     let manifest = Manifest::download().await?;
@@ -79,8 +77,7 @@ pub async fn create_server(
 
     let version_json = match &version {
         ListEntry::Normal(version) => {
-            let (jar, json) =
-                download_from_mojang(&manifest, version, sender.as_ref(), &client).await?;
+            let (jar, json) = download_from_mojang(&manifest, version, sender.as_ref()).await?;
             tokio::fs::write(&server_jar_path, jar)
                 .await
                 .path(server_jar_path)?;
@@ -92,8 +89,7 @@ pub async fn create_server(
             url,
         } => {
             let (jar, json) =
-                download_from_omniarchive(category, &manifest, name, sender.as_ref(), &client, url)
-                    .await?;
+                download_from_omniarchive(category, &manifest, name, sender.as_ref(), url).await?;
             tokio::fs::write(&server_jar_path, jar)
                 .await
                 .path(server_jar_path)?;
@@ -107,12 +103,11 @@ pub async fn create_server(
                 &manifest,
                 name,
                 sender.as_ref(),
-                &client,
             )
             .await?;
 
             progress_server_jar(sender.as_ref());
-            let archive = file_utils::download_file_to_bytes(&client, url, true).await?;
+            let archive = file_utils::download_file_to_bytes(url, true).await?;
             zip_extract::extract(std::io::Cursor::new(archive), &server_dir, true)?;
 
             let old_path = server_dir.join("minecraft-server.jar");
@@ -222,14 +217,12 @@ async fn download_from_omniarchive(
     manifest: &Manifest,
     name: &str,
     sender: Option<&Sender<GenericProgress>>,
-    client: &reqwest::Client,
     url: &str,
 ) -> Result<(Vec<u8>, VersionDetails), ServerError> {
-    let version_json =
-        download_omniarchive_version(category, manifest, name, sender, client).await?;
+    let version_json = download_omniarchive_version(category, manifest, name, sender).await?;
     info!("Downloading server jar");
     progress_server_jar(sender);
-    let server_jar = file_utils::download_file_to_bytes(client, url, false).await?;
+    let server_jar = file_utils::download_file_to_bytes(url, false).await?;
     Ok((server_jar, version_json))
 }
 
@@ -250,14 +243,13 @@ async fn download_from_mojang(
     manifest: &Manifest,
     version: &str,
     sender: Option<&Sender<GenericProgress>>,
-    client: &reqwest::Client,
 ) -> Result<(Vec<u8>, VersionDetails), ServerError> {
     let version = manifest
         .find_name(version)
         .ok_or(ServerError::VersionNotFoundInManifest(version.to_owned()))?;
     info!("Downloading version JSON");
     progress_json(sender);
-    let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
+    let version_json = file_utils::download_file_to_string(&version.url, false).await?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
     let Some(server) = &version_json.downloads.server else {
         return Err(ServerError::NoServerDownload);
@@ -265,7 +257,7 @@ async fn download_from_mojang(
 
     info!("Downloading server jar");
     progress_server_jar(sender);
-    let server_jar = file_utils::download_file_to_bytes(client, &server.url, false).await?;
+    let server_jar = file_utils::download_file_to_bytes(&server.url, false).await?;
     Ok((server_jar, version_json))
 }
 
@@ -274,7 +266,6 @@ async fn download_omniarchive_version(
     manifest: &Manifest,
     name: &str,
     sender: Option<&Sender<GenericProgress>>,
-    client: &reqwest::Client,
 ) -> Result<VersionDetails, ServerError> {
     let version = match category {
         MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-"),
@@ -287,7 +278,7 @@ async fn download_omniarchive_version(
     .ok_or(ServerError::VersionNotFoundInManifest(name.to_owned()))?;
     info!("Downloading version JSON");
     progress_json(sender);
-    let version_json = file_utils::download_file_to_string(client, &version.url, false).await?;
+    let version_json = file_utils::download_file_to_string(&version.url, false).await?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
     Ok(version_json)
 }

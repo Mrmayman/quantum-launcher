@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use reqwest::Client;
 use thiserror::Error;
 
-use crate::{error::IoError, InstanceSelection, IntoIoError};
+use crate::{error::IoError, InstanceSelection, IntoIoError, CLIENT};
 
 const REQUEST_TRY_LIMIT: usize = 5;
 
@@ -140,7 +140,6 @@ pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoEr
 /// Downloads a file from the given URL into a `String`.
 ///
 /// # Arguments
-/// - `client`: the reqwest client to use for the request
 /// - `url`: the URL to download from
 /// - `user_agent`: whether to use the quantum launcher
 ///   user agent (required for modrinth)
@@ -150,11 +149,7 @@ pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoEr
 /// - Error sending request
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
-pub async fn download_file_to_string(
-    client: &Client,
-    url: &str,
-    user_agent: bool,
-) -> Result<String, RequestError> {
+pub async fn download_file_to_string(url: &str, user_agent: bool) -> Result<String, RequestError> {
     async fn inner(client: &Client, url: &str, user_agent: bool) -> Result<String, RequestError> {
         let mut get = client.get(url);
         if user_agent {
@@ -174,13 +169,13 @@ pub async fn download_file_to_string(
         }
     }
 
-    let mut result = inner(client, url, user_agent).await;
+    let mut result = inner(&CLIENT, url, user_agent).await;
 
     for _ in 0..REQUEST_TRY_LIMIT {
         if let Ok(n) = result {
             return Ok(n);
         }
-        result = inner(client, url, user_agent).await;
+        result = inner(&CLIENT, url, user_agent).await;
     }
 
     result
@@ -189,7 +184,6 @@ pub async fn download_file_to_string(
 /// Downloads a file from the given URL into a `Vec<u8>`.
 ///
 /// # Arguments
-/// - `client`: the reqwest client to use for the request
 /// - `url`: the URL to download from
 /// - `user_agent`: whether to use the quantum launcher
 ///   user agent (required for modrinth)
@@ -199,11 +193,7 @@ pub async fn download_file_to_string(
 /// - Error sending request
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
-pub async fn download_file_to_bytes(
-    client: &Client,
-    url: &str,
-    user_agent: bool,
-) -> Result<Vec<u8>, RequestError> {
+pub async fn download_file_to_bytes(url: &str, user_agent: bool) -> Result<Vec<u8>, RequestError> {
     async fn inner(client: &Client, url: &str, user_agent: bool) -> Result<Vec<u8>, RequestError> {
         let mut get = client.get(url);
         if user_agent {
@@ -220,13 +210,13 @@ pub async fn download_file_to_bytes(
         }
     }
 
-    let mut result = inner(client, url, user_agent).await;
+    let mut result = inner(&CLIENT, url, user_agent).await;
 
     for _ in 0..REQUEST_TRY_LIMIT {
         if let Ok(n) = result {
             return Ok(n);
         }
-        result = inner(client, url, user_agent).await;
+        result = inner(&CLIENT, url, user_agent).await;
     }
 
     result
@@ -236,7 +226,6 @@ pub async fn download_file_to_bytes(
 /// with a custom user agent.
 ///
 /// # Arguments
-/// - `client`: the reqwest client to use for the request
 /// - `url`: the URL to download from
 /// - `user_agent`: whether to use the quantum launcher
 ///   user agent (required for modrinth)
@@ -247,7 +236,6 @@ pub async fn download_file_to_bytes(
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
 pub async fn download_file_to_bytes_with_agent(
-    client: &Client,
     url: &str,
     user_agent: &str,
 ) -> Result<Vec<u8>, RequestError> {
@@ -267,13 +255,13 @@ pub async fn download_file_to_bytes_with_agent(
         }
     }
 
-    let mut result = inner(client, url, user_agent).await;
+    let mut result = inner(&CLIENT, url, user_agent).await;
 
     for _ in 0..REQUEST_TRY_LIMIT {
         if let Ok(n) = result {
             return Ok(n);
         }
-        result = inner(client, url, user_agent).await;
+        result = inner(&CLIENT, url, user_agent).await;
     }
 
     result

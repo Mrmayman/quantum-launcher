@@ -33,7 +33,6 @@ struct ForgeInstaller {
     major_version: usize,
     instance_dir: PathBuf,
     forge_dir: PathBuf,
-    client: reqwest::Client,
     is_server: bool,
 }
 
@@ -58,8 +57,6 @@ impl ForgeInstaller {
         f_progress: Option<Sender<ForgeInstallProgress>>,
         instance_name: InstanceSelection,
     ) -> Result<Self, ForgeInstallError> {
-        let client = reqwest::Client::new();
-
         let instance_dir = file_utils::get_instance_dir(&instance_name).await?;
         let forge_dir = if instance_name.is_server() {
             instance_dir.clone()
@@ -102,7 +99,6 @@ impl ForgeInstaller {
             major_version,
             instance_dir,
             forge_dir,
-            client,
             is_server: instance_name.is_server(),
         })
     }
@@ -143,7 +139,7 @@ impl ForgeInstaller {
     async fn try_downloading_from_urls(&self, urls: &[&str]) -> Result<Vec<u8>, ForgeInstallError> {
         let num_urls = urls.len();
         for (i, url) in urls.iter().enumerate() {
-            let result = file_utils::download_file_to_bytes(&self.client, url, false).await;
+            let result = file_utils::download_file_to_bytes(url, false).await;
 
             match result {
                 Ok(file) => return Ok(file),
@@ -347,7 +343,7 @@ impl ForgeInstaller {
                 library.name
             );
 
-            match file_utils::download_file_to_bytes(&self.client, &url, false).await {
+            match file_utils::download_file_to_bytes(&url, false).await {
                 Ok(bytes) => {
                     tokio::fs::write(&dest, bytes).await.path(dest)?;
                 }
@@ -396,9 +392,7 @@ impl ForgeInstaller {
     ) -> Result<(), ForgeInstallError> {
         pt!("Unpacking augmented library");
         pt!("Downloading File");
-        let bytes =
-            file_utils::download_file_to_bytes(&self.client, &format!("{url}.pack.xz"), false)
-                .await?;
+        let bytes = file_utils::download_file_to_bytes(&format!("{url}.pack.xz"), false).await?;
         pt!("Extracting pack.xz");
         // WTF: HOLY SHIT
         // looking back why am I extracting a `.xz` file

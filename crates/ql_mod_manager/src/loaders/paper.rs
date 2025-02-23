@@ -105,10 +105,8 @@ pub async fn install_w(instance_name: String) -> Result<(), String> {
 
 pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
     info!("Installing Paper");
-    let client = reqwest::Client::new();
     pt!("Getting version list");
-    let paper_versions =
-        file_utils::download_file_to_string(&client, PAPER_VERSIONS_URL, false).await?;
+    let paper_versions = file_utils::download_file_to_string(PAPER_VERSIONS_URL, false).await?;
     let paper_version: PaperVersions = serde_json::from_str(&paper_versions)?;
 
     let server_dir = file_utils::get_launcher_dir()
@@ -127,7 +125,7 @@ pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
         .ok_or(PaperInstallerError::NoMatchingVersionFound(json.id.clone()))?;
 
     pt!("Downloading jar");
-    let jar_file = file_utils::download_file_to_bytes(&client, url, true).await?;
+    let jar_file = file_utils::download_file_to_bytes(url, true).await?;
     let jar_path = server_dir.join("paper_server.jar");
     tokio::fs::write(&jar_path, &jar_file)
         .await

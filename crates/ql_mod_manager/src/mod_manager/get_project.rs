@@ -45,8 +45,7 @@ impl ProjectInfo {
     pub async fn download(id: String) -> Result<Self, ModError> {
         let _lock = RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{id}");
-        let client = reqwest::Client::new();
-        let file = file_utils::download_file_to_string(&client, &url, true).await?;
+        let file = file_utils::download_file_to_string(&url, true).await?;
         let file: Self = match serde_json::from_str(&file) {
             Ok(file) => file,
             Err(err) => {

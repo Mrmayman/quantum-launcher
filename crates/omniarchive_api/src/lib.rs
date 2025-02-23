@@ -131,8 +131,6 @@ impl MinecraftVersionCategory {
     ) -> Result<Vec<String>, WebScrapeError> {
         let url = self.get_index_url(download_server);
 
-        let client = reqwest::Client::new();
-
         let mut buffer = Vec::new();
         let mut deeper_buffer = Vec::new();
         let mut visited = HashSet::new();
@@ -145,7 +143,6 @@ impl MinecraftVersionCategory {
 
         let links = self
             .get_links(
-                &client,
                 url,
                 &mut buffer,
                 &mut visited,
@@ -158,10 +155,8 @@ impl MinecraftVersionCategory {
         Ok(links.into_iter().map(|n| n.1).collect())
     }
 
-    #[allow(clippy::too_many_arguments)]
     async fn get_links(
         &self,
-        client: &reqwest::Client,
         url: String,
         buffer: &mut Vec<String>,
         visited: &mut HashSet<String>,
@@ -170,19 +165,19 @@ impl MinecraftVersionCategory {
         i: &mut usize,
     ) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
         let mut links = self
-            .scrape_links(client, &url, buffer, visited, progress, i)
+            .scrape_links(&url, buffer, visited, progress, i)
             .await?;
         while !buffer.is_empty() || !deeper_buffer.is_empty() {
             for link in buffer.iter() {
                 let scraped_links = self
-                    .scrape_links(client, link, deeper_buffer, visited, progress, i)
+                    .scrape_links(link, deeper_buffer, visited, progress, i)
                     .await?;
                 links.extend_from_slice(&scraped_links);
             }
             buffer.clear();
             for link in deeper_buffer.iter() {
                 let scraped_links = self
-                    .scrape_links(client, link, buffer, visited, progress, i)
+                    .scrape_links(link, buffer, visited, progress, i)
                     .await?;
                 links.extend_from_slice(&scraped_links);
             }
@@ -196,7 +191,6 @@ impl MinecraftVersionCategory {
 
     async fn scrape_links(
         &self,
-        client: &reqwest::Client,
         url: &str,
         deeper_buffer: &mut Vec<String>,
         visited: &mut HashSet<String>,
@@ -207,7 +201,7 @@ impl MinecraftVersionCategory {
             return Ok(Vec::new());
         }
 
-        let file = file_utils::download_file_to_string(client, url, true).await?;
+        let file = file_utils::download_file_to_string(url, true).await?;
 
         if let Some(progress) = progress {
             progress.send(()).unwrap();
@@ -277,7 +271,6 @@ pub async fn download_all(
     download_server: bool,
 ) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
     let mut links = Vec::new();
-    let client = reqwest::Client::new();
     let mut visited = HashSet::new();
 
     let mut buffer = Vec::new();
@@ -290,7 +283,6 @@ pub async fn download_all(
 
         let versions = category
             .get_links(
-                &client,
                 url,
                 &mut buffer,
                 &mut visited,

@@ -7,7 +7,6 @@ edition = "2021"
 ql_core = { path = "../ql_core" }
 omniarchive_api = { path = "../omniarchive_api" }
 
-reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

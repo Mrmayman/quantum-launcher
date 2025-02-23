@@ -161,7 +161,6 @@ async fn install_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<(), JavaInstallError> {
-    let client = reqwest::Client::new();
     let install_dir = get_install_dir(version).await?;
 
     let lock_file = install_dir.join("install.lock");
@@ -178,10 +177,9 @@ async fn install_java(
 
     // Special case for linux aarch64
     if IS_ARM_LINUX {
-        install_aarch64_linux_java(version, java_install_progress_sender, &client, &install_dir)
-            .await?;
+        install_aarch64_linux_java(version, java_install_progress_sender, &install_dir).await?;
     } else {
-        install_normal_java(version, client, java_install_progress_sender, install_dir).await?;
+        install_normal_java(version, java_install_progress_sender, install_dir).await?;
     }
 
     tokio::fs::remove_file(&lock_file)
@@ -197,7 +195,6 @@ async fn install_java(
 
 async fn install_normal_java(
     version: JavaVersion,
-    client: reqwest::Client,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: PathBuf,
 ) -> Result<(), JavaInstallError> {
@@ -206,7 +203,7 @@ async fn install_normal_java(
         .get_url(version)
         .ok_or(JavaInstallError::NoUrlForJavaFiles)?;
 
-    let json = file_utils::download_file_to_string(&client, &java_files_url, false).await?;
+    let json = file_utils::download_file_to_string(&java_files_url, false).await?;
     let json: JavaFilesJson = serde_json::from_str(&json)?;
 
     let num_files = json.files.len();
@@ -220,7 +217,6 @@ async fn install_normal_java(
             file_name,
             &install_dir,
             file,
-            &client,
         )
     });
     let outputs = do_jobs(results).await;
@@ -235,7 +231,6 @@ async fn install_normal_java(
 async fn install_aarch64_linux_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
-    client: &reqwest::Client,
     install_dir: &Path,
 ) -> Result<(), JavaInstallError> {
     let url = version.get_amazon_corretto_aarch64_url();
@@ -248,7 +243,7 @@ async fn install_aarch64_linux_java(
             has_finished: false,
         },
     );
-    let file_bytes = file_utils::download_file_to_bytes(client, url, false).await?;
+    let file_bytes = file_utils::download_file_to_bytes(url, false).await?;
     send_progress(
         java_install_progress_sender,
         GenericProgress {
@@ -293,7 +288,6 @@ async fn java_install_fn(
     file_name: &str,
     install_dir: &Path,
     file: &JavaFile,
-    client: &reqwest::Client,
 ) -> Result<(), JavaInstallError> {
     let file_path = install_dir.join(file_name);
     match file {
@@ -301,8 +295,7 @@ async fn java_install_fn(
             downloads,
             executable,
         } => {
-            let file_bytes =
-                file_utils::download_file_to_bytes(client, &downloads.raw.url, false).await?;
+            let file_bytes = file_utils::download_file_to_bytes(&downloads.raw.url, false).await?;
             tokio::fs::write(&file_path, &file_bytes)
                 .await
                 .path(file_path.clone())?;

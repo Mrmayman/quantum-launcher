@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 ql_core = { path = "../ql_core" }
 
-reqwest = { workspace = true }
 colored = { workspace = true }
 thiserror = { workspace = true }
 

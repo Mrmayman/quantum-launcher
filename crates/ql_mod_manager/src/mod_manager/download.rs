@@ -6,7 +6,6 @@ use ql_core::{
     json::{InstanceConfigJson, VersionDetails},
     pt, GenericProgress, InstanceSelection, IntoIoError,
 };
-use reqwest::Client;
 
 use crate::rate_limiter::MOD_DOWNLOAD_LOCK;
 
@@ -121,7 +120,6 @@ pub(crate) struct ModDownloader {
     pub index: ModIndex,
     loader: Option<String>,
     currently_installing_mods: HashSet<String>,
-    client: Client,
     mods_dir: PathBuf,
 }
 
@@ -132,7 +130,6 @@ impl ModDownloader {
         let version_json = VersionDetails::load(instance_name).await?;
 
         let index = ModIndex::get(instance_name).await?;
-        let client = reqwest::Client::new();
         let loader = get_loader_type(instance_name).await?;
         let currently_installing_mods = HashSet::new();
         Ok(ModDownloader {
@@ -140,7 +137,6 @@ impl ModDownloader {
             index,
             loader,
             currently_installing_mods,
-            client,
             mods_dir,
         })
     }
@@ -261,8 +257,7 @@ impl ModDownloader {
 
     async fn download_file(&self, download_version: &ModVersion) -> Result<(), ModError> {
         if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
-            let file_bytes =
-                file_utils::download_file_to_bytes(&self.client, &primary_file.url, true).await?;
+            let file_bytes = file_utils::download_file_to_bytes(&primary_file.url, true).await?;
             let file_path = self.mods_dir.join(&primary_file.filename);
             tokio::fs::write(&file_path, &file_bytes)
                 .await
@@ -270,8 +265,7 @@ impl ModDownloader {
         } else {
             pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
-                let file_bytes =
-                    file_utils::download_file_to_bytes(&self.client, &file.url, true).await?;
+                let file_bytes = file_utils::download_file_to_bytes(&file.url, true).await?;
                 let file_path = self.mods_dir.join(&file.filename);
                 tokio::fs::write(&file_path, &file_bytes)
                     .await

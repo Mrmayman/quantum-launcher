@@ -18,3 +18,7 @@ logs/
 .lapce
 .vscode
 .luarc.json
+
+perf.data
+flamegraph.svg
+perf.data.old

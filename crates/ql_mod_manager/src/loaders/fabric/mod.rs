@@ -6,7 +6,6 @@ use ql_core::{
     json::{FabricJSON, VersionDetails},
     GenericProgress, InstanceSelection, IntoIoError, RequestError,
 };
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use version_compare::compare_versions;
 
@@ -23,13 +22,8 @@ mod version_compare;
 const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
 const QUILT_URL: &str = "https://meta.quiltmc.org/v3";
 
-async fn download_file_to_string(
-    client: &Client,
-    url: &str,
-    is_quilt: bool,
-) -> Result<String, RequestError> {
+async fn download_file_to_string(url: &str, is_quilt: bool) -> Result<String, RequestError> {
     file_utils::download_file_to_string(
-        client,
         &format!("{}/{url}", if is_quilt { QUILT_URL } else { FABRIC_URL }),
         false,
     )
@@ -49,17 +43,11 @@ pub async fn get_list_of_versions(
     instance_name: &InstanceSelection,
     is_quilt: bool,
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
-    let client = Client::new();
-
     let version_json = VersionDetails::load(instance_name).await?;
 
     // The first one is the latest version.
-    let version_list = download_file_to_string(
-        &client,
-        &format!("/versions/loader/{}", version_json.id),
-        is_quilt,
-    )
-    .await?;
+    let version_list =
+        download_file_to_string(&format!("/versions/loader/{}", version_json.id), is_quilt).await?;
 
     Ok(serde_json::from_str(&version_list)?)
 }
@@ -104,10 +92,9 @@ pub async fn install_server(
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
 
     let game_version = version_json.id;
-    let client = Client::new();
 
     let json_url = format!("/versions/loader/{game_version}/{loader_version}/server/json");
-    let json = download_file_to_string(&client, &json_url, is_quilt).await?;
+    let json = download_file_to_string(&json_url, is_quilt).await?;
 
     let json_path = server_dir.join("fabric.json");
     tokio::fs::write(&json_path, &json).await.path(json_path)?;
@@ -130,7 +117,7 @@ pub async fn install_server(
             .path(library_parent_dir)?;
 
         let url = library.get_url();
-        let file = file_utils::download_file_to_bytes(&client, &url, false).await?;
+        let file = file_utils::download_file_to_bytes(&url, false).await?;
         tokio::fs::write(&library_path, &file)
             .await
             .path(library_path)?;
@@ -166,7 +153,6 @@ pub async fn install_client(
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
-    let client = Client::new();
 
     let launcher_dir = file_utils::get_launcher_dir().await?;
     let instance_dir = launcher_dir.join("instances").join(instance_name);
@@ -193,7 +179,7 @@ pub async fn install_client(
 
     let json_path = instance_dir.join("fabric.json");
     let json_url = format!("/versions/loader/{game_version}/{loader_version}/profile/json");
-    let json = download_file_to_string(&client, &json_url, is_quilt).await?;
+    let json = download_file_to_string(&json_url, is_quilt).await?;
     tokio::fs::write(&json_path, &json).await.path(json_path)?;
 
     let json: FabricJSON = serde_json::from_str(&json)?;
@@ -211,7 +197,7 @@ pub async fn install_client(
         let path = libraries_dir.join(library.get_path());
         let url = library.get_url();
 
-        let bytes = file_utils::download_file_to_bytes(&client, &url, false).await?;
+        let bytes = file_utils::download_file_to_bytes(&url, false).await?;
 
         let parent_dir = path
             .parent()

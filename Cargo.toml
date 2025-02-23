@@ -28,6 +28,10 @@ thiserror = "2"
 opt-level = 3
 debug = false
 
+[profile.release-dbg]
+inherits = "release"
+debug = true
+
 [profile.release-ql]
 inherits = "release"
 opt-level = "s"

@@ -8,7 +8,6 @@ use std::{
 };
 
 use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -27,25 +26,6 @@ pub async fn check_for_launcher_updates_w() -> Result<UpdateCheckInfo, String> {
         .map_err(|err| err.to_string())
 }
 
-async fn download_release_info() -> Result<String, RequestError> {
-    const URL: &str = "https://api.github.com/repos/Mrmayman/quantum-launcher/releases";
-
-    let client = Client::new();
-    let response = client
-        .get(URL)
-        .header("User-Agent", "quantumlauncher")
-        .send()
-        .await?;
-    if response.status().is_success() {
-        Ok(response.text().await?)
-    } else {
-        Err(RequestError::DownloadError {
-            code: response.status(),
-            url: response.url().clone(),
-        })
-    }
-}
-
 /// Checks for any launcher updates to be installed.
 ///
 /// Returns `Ok(UpdateCheckInfo::UpToDate)` if the launcher is up to date.
@@ -53,7 +33,9 @@ async fn download_release_info() -> Result<String, RequestError> {
 /// Returns `Ok(UpdateCheckInfo::NewVersion { url })` if there is a new version available.
 /// (url pointing to zip file containing new version executable).
 pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError> {
-    let json = download_release_info().await?;
+    const URL: &str = "https://api.github.com/repos/Mrmayman/quantum-launcher/releases";
+
+    let json = file_utils::download_file_to_string(URL, true).await?;
     let json: Vec<GithubRelease> = serde_json::from_str(&json)?;
 
     let latest = json.first().ok_or(UpdateError::NoReleases)?;
@@ -169,8 +151,7 @@ pub async fn install_launcher_update(
         message: Some("Downloading new launcher".to_owned()),
         has_finished: false,
     })?;
-    let client = reqwest::Client::new();
-    let download_zip = file_utils::download_file_to_bytes(&client, &url, false).await?;
+    let download_zip = file_utils::download_file_to_bytes(&url, false).await?;
 
     info!("Extracting launcher");
     progress.send(GenericProgress {

@@ -32,8 +32,6 @@ impl GameLauncher {
 
         let version = semver::Version::parse(&version)?;
 
-        let client = reqwest::Client::new();
-
         let allowed_version = semver::Version {
             major: 0,
             minor: 3,
@@ -43,7 +41,7 @@ impl GameLauncher {
         };
 
         if version < allowed_version {
-            self.migrate_download_missing_native_libs(&client).await?;
+            self.migrate_download_missing_native_libs().await?;
             tokio::fs::write(&launcher_version_path, LAUNCHER_VERSION_NAME)
                 .await
                 .path(launcher_version_path)?;
@@ -52,10 +50,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    async fn migrate_download_missing_native_libs(
-        &self,
-        client: &reqwest::Client,
-    ) -> Result<(), GameLaunchError> {
+    async fn migrate_download_missing_native_libs(&self) -> Result<(), GameLaunchError> {
         info!("Downloading missing native libraries");
 
         for library in &self.version_json.libraries {
@@ -73,7 +68,6 @@ impl GameLauncher {
 
                 GameDownloader::extract_native_library(
                     &self.instance_dir,
-                    client,
                     library,
                     &library_file,
                     artifact,

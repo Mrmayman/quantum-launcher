@@ -113,8 +113,7 @@ impl Search {
         let url = Search::get_search_url(&query);
         // println!("searching: {url}");
 
-        let client = reqwest::Client::new();
-        let json = file_utils::download_file_to_string(&client, &url, true).await?;
+        let json = file_utils::download_file_to_string(&url, true).await?;
         let json: Self = serde_json::from_str(&json)?;
 
         Ok((json, instant))
@@ -135,9 +134,7 @@ impl Search {
             return Err("url is empty".to_owned());
         }
 
-        let client = reqwest::Client::new();
-
-        let image = match file_utils::download_file_to_bytes(&client, &url, true).await {
+        let image = match file_utils::download_file_to_bytes(&url, true).await {
             Ok(n) => n,
             Err(_) => {
                 // WTF: Some pesky cloud provider might be
@@ -148,7 +145,6 @@ impl Search {
                 // not malicious. We're just downloading some images :)
 
                 file_utils::download_file_to_bytes_with_agent(
-                    &client,
                     &url,
                     "Mozilla/5.0 (X11; Linux x86_64; rv:135.0) Gecko/20100101 Firefox/135.0",
                 )

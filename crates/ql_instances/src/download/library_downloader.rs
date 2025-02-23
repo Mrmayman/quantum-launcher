@@ -11,7 +11,6 @@ use ql_core::{
     },
     pt, DownloadError, DownloadProgress, IntoIoError, IoError, RequestError, IS_ARM_LINUX,
 };
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use zip_extract::ZipExtractError;
 
@@ -167,11 +166,9 @@ impl GameDownloader {
                     &jar_file,
                     &natives_path,
                     artifact,
-                    &self.network_client,
                 )
                 .await?;
-                extractlib_name_natives(library, &self.network_client, artifact, natives_path)
-                    .await?;
+                extractlib_name_natives(library, artifact, natives_path).await?;
             }
             if let Some(classifiers) = classifiers {
                 self.download_library_native(classifiers, &libraries_dir, library.extract.as_ref())
@@ -185,7 +182,6 @@ impl GameDownloader {
     /// (which uses a different format).
     pub async fn extract_native_library(
         instance_dir: &Path,
-        client: &Client,
         library: &Library,
         jar_file: &[u8],
         artifact: &LibraryDownloadArtifact,
@@ -196,17 +192,9 @@ impl GameDownloader {
         // Why 2 functions? Because there are multiple formats
         // natives can come in, and we need to support all of them.
 
-        extractlib_natives_field(
-            library,
-            replaced_libs,
-            jar_file,
-            &natives_path,
-            artifact,
-            client,
-        )
-        .await?;
+        extractlib_natives_field(library, replaced_libs, jar_file, &natives_path, artifact).await?;
 
-        extractlib_name_natives(library, client, artifact, natives_path).await?;
+        extractlib_name_natives(library, artifact, natives_path).await?;
 
         Ok(())
     }
@@ -228,8 +216,7 @@ impl GameDownloader {
         tokio::fs::create_dir_all(&lib_dir_path)
             .await
             .path(lib_dir_path)?;
-        let library_downloaded =
-            file_utils::download_file_to_bytes(&self.network_client, &artifact.url, false).await?;
+        let library_downloaded = file_utils::download_file_to_bytes(&artifact.url, false).await?;
 
         tokio::fs::write(&lib_file_path, &library_downloaded)
             .await
@@ -254,9 +241,7 @@ impl GameDownloader {
                 continue;
             }
 
-            let library =
-                file_utils::download_file_to_bytes(&self.network_client, &download.url, false)
-                    .await?;
+            let library = file_utils::download_file_to_bytes(&download.url, false).await?;
 
             zip_extract::extract(Cursor::new(&library), &natives_dir, true)
                 .map_err(DownloadError::NativesExtractError)?;
@@ -326,7 +311,6 @@ impl GameDownloader {
 
 async fn extractlib_name_natives(
     library: &Library,
-    client: &Client,
     artifact: &LibraryDownloadArtifact,
     natives_path: PathBuf,
 ) -> Result<(), DownloadError> {
@@ -355,12 +339,12 @@ async fn extractlib_name_natives(
 
     if is_compatible {
         info!("Downloading native (2): {name}");
-        let jar_file = file_utils::download_file_to_bytes(client, &artifact.url, false).await?;
+        let jar_file = file_utils::download_file_to_bytes(&artifact.url, false).await?;
         pt!("Extracting native: {name}");
         extract_zip_file(&jar_file, &natives_path).map_err(DownloadError::NativesExtractError)?;
     } else {
         info!("Downloading native (minecraft_arm): {name}");
-        download_other_platform_natives(name, client, natives_path).await?;
+        download_other_platform_natives(name, natives_path).await?;
     }
 
     Ok(())
@@ -372,7 +356,6 @@ async fn extractlib_natives_field(
     jar_file: &[u8],
     natives_path: &Path,
     artifact: &LibraryDownloadArtifact,
-    client: &Client,
 ) -> Result<(), DownloadError> {
     let name = library.name.as_deref().unwrap_or_default();
 
@@ -439,12 +422,11 @@ async fn extractlib_natives_field(
         );
     }
     pt!("Downloading native jar: {name}");
-    let native_jar = match file_utils::download_file_to_bytes(client, &natives_url, false).await {
+    let native_jar = match file_utils::download_file_to_bytes(&natives_url, false).await {
         Ok(n) => n,
         Err(RequestError::DownloadError { code, url }) => {
             if code.as_u16() == 404 && cfg!(target_arch = "aarch64") && cfg!(target_os = "linux") {
                 file_utils::download_file_to_bytes(
-                    client,
                     &natives_url.replace("linux.jar", "linux-arm64.jar"),
                     false,
                 )
@@ -464,7 +446,6 @@ async fn extractlib_natives_field(
 
 async fn download_other_platform_natives(
     name: &String,
-    client: &Client,
     natives_path: PathBuf,
 ) -> Result<(), DownloadError> {
     let Some(entry) = NativesEntry::get(name) else {
@@ -485,8 +466,7 @@ async fn download_other_platform_natives(
         .filter(|n| custom_natives_is_allowed(n))
     {
         let jar_file =
-            file_utils::download_file_to_bytes(client, &library.downloads.artifact.url, false)
-                .await?;
+            file_utils::download_file_to_bytes(&library.downloads.artifact.url, false).await?;
 
         extract_zip_file(&jar_file, &natives_path).map_err(DownloadError::NativesExtractError)?;
     }

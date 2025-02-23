@@ -13,7 +13,6 @@ use ql_core::{
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
     DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError, JsonDownloadError,
 };
-use reqwest::Client;
 use serde_json::Value;
 use tokio::sync::Mutex;
 
@@ -31,7 +30,6 @@ pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
     pub version: ListEntry,
-    network_client: Client,
     sender: Option<Sender<DownloadProgress>>,
 }
 
@@ -53,15 +51,12 @@ impl GameDownloader {
         let Some(instance_dir) = GameDownloader::new_get_instance_dir(instance_name).await? else {
             return Err(DownloadError::InstanceAlreadyExists);
         };
-        let network_client = Client::new();
         let version_json =
-            GameDownloader::new_download_version_json(&network_client, version, sender.as_ref())
-                .await?;
+            GameDownloader::new_download_version_json(version, sender.as_ref()).await?;
 
         Ok(Self {
             instance_dir,
             version_json,
-            network_client,
             version: version.clone(),
             sender,
         })
@@ -72,13 +67,11 @@ impl GameDownloader {
         instance_dir: PathBuf,
         sender: Option<Sender<DownloadProgress>>,
     ) -> Self {
-        let network_client = Client::new();
         let version = ListEntry::Normal(version_json.id.clone());
         Self {
             instance_dir,
             version_json,
             version,
-            network_client,
             sender,
         }
     }
@@ -94,8 +87,7 @@ impl GameDownloader {
                 return Err(DownloadError::DownloadClassicZip)
             }
         };
-        let jar_bytes =
-            file_utils::download_file_to_bytes(&self.network_client, url, false).await?;
+        let jar_bytes = file_utils::download_file_to_bytes(url, false).await?;
 
         let version_dir = self
             .instance_dir
@@ -121,12 +113,8 @@ impl GameDownloader {
 
             let log_config_name = format!("logging-{}", logging.client.file.id);
 
-            let log_config = file_utils::download_file_to_string(
-                &self.network_client,
-                &logging.client.file.url,
-                false,
-            )
-            .await?;
+            let log_config =
+                file_utils::download_file_to_string(&logging.client.file.url, false).await?;
 
             let config_path = self.instance_dir.join(log_config_name);
             tokio::fs::write(&config_path, log_config.as_bytes())
@@ -175,7 +163,6 @@ impl GameDownloader {
         }
 
         let obj_data = file_utils::download_file_to_bytes(
-            &self.network_client,
             &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
             false,
         )
@@ -207,9 +194,7 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(GenericProgress::default()).unwrap();
         }
-        let asset_index =
-            GameDownloader::download_json(&self.network_client, &self.version_json.assetIndex.url)
-                .await?;
+        let asset_index = GameDownloader::download_json(&self.version_json.assetIndex.url).await?;
 
         let launcher_dir = file_utils::get_launcher_dir().await?;
 
@@ -344,7 +329,7 @@ impl GameDownloader {
             ))?;
         let obj_hash_sliced = &obj_hash[0..2];
         let obj_data = file_utils::download_file_to_bytes(
-            &self.network_client,
+
             &format!("{OBJECTS_URL}/{obj_hash_sliced}/{obj_hash}"),
             false,
         )
@@ -402,11 +387,8 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn download_json(
-        network_client: &Client,
-        url: &str,
-    ) -> Result<Value, JsonDownloadError> {
-        let json = file_utils::download_file_to_string(network_client, url, false).await?;
+    pub async fn download_json(url: &str) -> Result<Value, JsonDownloadError> {
+        let json = file_utils::download_file_to_string(url, false).await?;
         Ok(serde_json::from_str::<serde_json::Value>(&json)?)
     }
 
@@ -462,7 +444,6 @@ impl GameDownloader {
     }
 
     async fn new_download_version_json(
-        network_client: &Client,
         version: &ListEntry,
         sender: Option<&Sender<DownloadProgress>>,
     ) -> Result<VersionDetails, DownloadError> {
@@ -494,8 +475,7 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingVersionJson)?;
         }
-        let version_json =
-            file_utils::download_file_to_string(network_client, &version.url, false).await?;
+        let version_json = file_utils::download_file_to_string(&version.url, false).await?;
         let version_json = serde_json::from_str(&version_json)?;
         Ok(version_json)
     }
