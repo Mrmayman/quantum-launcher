@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-use iced::{widget::image::Handle, Command};
+use iced::{widget::image::Handle, Task};
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
@@ -322,14 +322,14 @@ impl MenuEditMods {
         idx: &ModIndex,
         selected_instance: &InstanceSelection,
         dir: &Path,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         let mut blacklist = Vec::new();
         for mod_info in idx.mods.values() {
             for file in &mod_info.files {
                 blacklist.push(file.filename.clone());
             }
         }
-        Command::perform(
+        Task::perform(
             get_locally_installed_mods(selected_instance.get_dot_minecraft_path(dir), blacklist),
             |n| Message::ManageMods(ManageModsMessage::LocalIndexLoaded(n)),
         )
@@ -512,7 +512,7 @@ pub struct Launcher {
     pub client_logs: HashMap<String, InstanceLog>,
     pub server_logs: HashMap<String, InstanceLog>,
 
-    pub window_size: (u32, u32),
+    pub window_size: (f32, f32),
     pub mouse_pos: (f32, f32),
 }
 
@@ -608,7 +608,7 @@ impl Launcher {
             server_processes: HashMap::new(),
             server_logs: HashMap::new(),
             mouse_pos: (0.0, 0.0),
-            window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
+            window_size: (WINDOW_WIDTH, WINDOW_HEIGHT),
             accounts: HashMap::new(),
             accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
             accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
@@ -651,7 +651,7 @@ impl Launcher {
             server_logs: HashMap::new(),
             server_version_list_cache: None,
             mouse_pos: (0.0, 0.0),
-            window_size: (WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32),
+            window_size: (WINDOW_WIDTH, WINDOW_HEIGHT),
             accounts: HashMap::new(),
             accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
             accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
@@ -664,7 +664,7 @@ impl Launcher {
         }
     }
 
-    pub fn go_to_launch_screen(&mut self, message: Option<String>) -> Command<Message> {
+    pub fn go_to_launch_screen(&mut self, message: Option<String>) -> Task<Message> {
         let mut menu_launch = match message {
             Some(message) => MenuLaunch::with_message(message),
             None => MenuLaunch::default(),
@@ -673,7 +673,7 @@ impl Launcher {
             menu_launch.sidebar_width = width as u16;
         }
         self.state = State::Launch(menu_launch);
-        Command::perform(
+        Task::perform(
             get_entries("instances".to_owned(), false),
             Message::CoreListLoaded,
         )

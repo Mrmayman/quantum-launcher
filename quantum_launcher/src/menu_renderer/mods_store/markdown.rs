@@ -62,7 +62,7 @@ impl MenuModsDownload {
                 let heading_size = node_heading.level as usize;
                 render_children(md, heading_size, images).into()
             }
-            NodeValue::Text(text) => widget::text(text)
+            NodeValue::Text(text) => widget::text(text.clone())
                 .size(if heading_size > 0 {
                     36 - (heading_size * 4)
                 } else {
@@ -80,14 +80,19 @@ impl MenuModsDownload {
             NodeValue::DescriptionTerm => todoh!("description term"),
             NodeValue::DescriptionDetails => todoh!("description details"),
             NodeValue::CodeBlock(block) => widget::container(
-                widget::text(&block.literal).font(iced::Font::with_name("JetBrains Mono")),
+                widget::column!(
+                    widget::button("Copy").on_press(Message::CoreCopyText(block.literal.clone())),
+                    widget::text(block.literal.clone())
+                        .font(iced::Font::with_name("JetBrains Mono")),
+                )
+                .spacing(5),
             )
             .into(),
             NodeValue::HtmlBlock(node_html_block) => {
                 Self::render_html(&node_html_block.literal, images)
             }
             NodeValue::ThematicBreak => widget::row!(widget::text("_____").size(20))
-                .align_items(iced::Alignment::Center)
+                .align_y(iced::Alignment::Center)
                 .into(),
             NodeValue::FootnoteDefinition(_) => todoh!("footnote definition"),
             NodeValue::Table(_) => todoh!("table"),
@@ -95,9 +100,12 @@ impl MenuModsDownload {
             NodeValue::TableCell => todoh!("table cell"),
             NodeValue::TaskItem(_) => todoh!("task item"),
             NodeValue::SoftBreak | NodeValue::LineBreak => widget::column!().into(),
-            NodeValue::Code(code) => widget::text(&code.literal)
-                .font(iced::Font::with_name("JetBrains Mono"))
-                .into(),
+            NodeValue::Code(code) => widget::column![
+                widget::button("Copy").on_press(Message::CoreCopyText(code.literal.clone())),
+                widget::text(code.literal.clone()).font(iced::Font::with_name("JetBrains Mono"))
+            ]
+            .spacing(5)
+            .into(),
             NodeValue::HtmlInline(html) => Self::render_html(html, images),
             NodeValue::Strong | NodeValue::Emph => widget::column(md.children().map(|n| {
                 let mut element = widget::column!().into();

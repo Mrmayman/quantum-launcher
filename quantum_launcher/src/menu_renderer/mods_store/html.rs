@@ -102,10 +102,10 @@ fn render_html(
                     element
                 }));
                 if children_nodes.is_empty() {
-                    children = widget::column!(widget::text(&url));
+                    children = widget::column!(widget::text(url.clone()));
                 }
                 *element = widget::button(children)
-                    .on_press(Message::CoreOpenDir(url.clone()))
+                    .on_press(Message::CoreOpenDir(url))
                     .into();
             } else {
                 *element = widget::text("[HTML error: malformed link]]").into();

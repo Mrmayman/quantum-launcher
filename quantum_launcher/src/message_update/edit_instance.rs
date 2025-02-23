@@ -1,4 +1,4 @@
-use iced::Command;
+use iced::Task;
 use ql_core::{err, IntoIoError};
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
 };
 
 impl Launcher {
-    pub fn update_edit_instance(&mut self, message: EditInstanceMessage) -> Command<Message> {
+    pub fn update_edit_instance(&mut self, message: EditInstanceMessage) -> Task<Message> {
         match message {
             EditInstanceMessage::MenuOpen => self.edit_instance_w(),
             EditInstanceMessage::JavaOverride(n) => {
@@ -98,7 +98,7 @@ impl Launcher {
 
                     if instance_name.is_empty() {
                         err!("New name is empty or invalid");
-                        return Command::none();
+                        return Task::none();
                     }
 
                     if menu.old_instance_name != menu.instance_name {
@@ -121,7 +121,7 @@ impl Launcher {
                             self.set_error(err);
                         }
 
-                        return Command::perform(
+                        return Task::perform(
                             get_entries(
                                 match self.selected_instance.as_ref().unwrap() {
                                     ql_core::InstanceSelection::Instance(_) => "instances",
@@ -141,7 +141,7 @@ impl Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
     fn e_java_arg_add(&mut self) {

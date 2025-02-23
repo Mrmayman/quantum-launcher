@@ -67,7 +67,7 @@ impl MenuEditMods {
                     }
                 ))
                 .spacing(10),
-                button_with_icon(icon_manager::update(), "Update")
+                button_with_icon(icon_manager::update(), "Update", 16)
                     .on_press(Message::ManageMods(ManageModsMessage::UpdateMods)),
             )
             .padding(10)
@@ -201,11 +201,11 @@ impl MenuEditMods {
             )),
             if download_mods {
                 widget::column!(
-                    button_with_icon(icon_manager::download(), "Download Mods")
+                    button_with_icon(icon_manager::download(), "Download Mods", 16)
                         .on_press(Message::InstallMods(InstallModsMessage::Open)),
                     widget::text("Warning: the mod store is\nexperimental and may have bugs")
                         .size(12),
-                    button_with_icon(icon_manager::save(), "Mod Presets...")
+                    button_with_icon(icon_manager::save(), "Mod Presets...", 16)
                         .on_press(Message::EditPresets(EditPresetsMessage::Open))
                 )
                 .spacing(5)
@@ -227,7 +227,7 @@ impl MenuEditMods {
             path.exists().then_some(path.to_str().unwrap().to_owned())
         };
 
-        button_with_icon(icon_manager::folder(), "Go to Mods Folder")
+        button_with_icon(icon_manager::folder(), "Go to Mods Folder", 16)
             .on_press_maybe(path.map(Message::CoreOpenDir))
             .into()
     }
@@ -242,9 +242,9 @@ impl MenuEditMods {
         widget::column!(
             "Select some mods to perform actions on them",
             widget::row!(
-                button_with_icon(icon_manager::delete(), "Delete")
+                button_with_icon(icon_manager::delete(), "Delete", 16)
                     .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
-                button_with_icon(icon_manager::toggle(), "Toggle")
+                button_with_icon(icon_manager::toggle(), "Toggle", 16)
                     .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
                 button_with_icon(
                     icon_manager::tick(),
@@ -252,7 +252,8 @@ impl MenuEditMods {
                         "Unselect All"
                     } else {
                         "Select All"
-                    }
+                    },
+                    16
                 )
                 .on_press(Message::ManageModsSelectAll)
             )

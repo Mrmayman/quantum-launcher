@@ -109,7 +109,12 @@ pub async fn launch(
     let mut command = game_launcher.get_java_command().await?;
 
     info!("Java args: {java_arguments:?}\n");
-    info!("Game args: {game_arguments:?}\n");
+
+    censor(&mut game_arguments, "--clientId", |args| {
+        censor(args, "--accessToken", |args| {
+            info!("Game args: {args:?}\n");
+        });
+    });
 
     let n = game_launcher
         .config_json
@@ -156,6 +161,27 @@ pub async fn launch(
     let child = command.spawn().map_err(GameLaunchError::CommandError)?;
 
     Ok(child)
+}
+
+fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, code: F) {
+    if let Some(index) = vec
+        .iter_mut()
+        .enumerate()
+        .find_map(|(i, n)| (n == argument).then_some(i))
+    {
+        let old_id = vec.get(index + 1).cloned();
+        if let Some(n) = vec.get_mut(index + 1) {
+            *n = "[REDACTED]".to_owned();
+        }
+
+        code(vec);
+
+        if let (Some(n), Some(old_id)) = (vec.get_mut(index + 1), old_id) {
+            *n = old_id;
+        }
+    } else {
+        code(vec);
+    }
 }
 
 pub struct GameLauncher {

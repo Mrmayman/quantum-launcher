@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use iced::{widget::image::Handle, Command};
+use iced::{widget::image::Handle, Task};
 use ql_core::{err, InstanceSelection, IntoIoError, SelectedMod};
 use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
 
@@ -14,7 +14,7 @@ use crate::launcher_state::{
 };
 
 impl Launcher {
-    pub fn update_install_fabric(&mut self, message: InstallFabricMessage) -> Command<Message> {
+    pub fn update_install_fabric(&mut self, message: InstallFabricMessage) -> Task<Message> {
         match message {
             InstallFabricMessage::End(result) => match result {
                 Ok(is_quilt) => {
@@ -65,7 +65,7 @@ impl Launcher {
                     *progress = Some(ProgressBar::with_recv(receiver));
                     let loader_version = fabric_version.clone().unwrap();
 
-                    return Command::perform(
+                    return Task::perform(
                         loaders::fabric::install_w(
                             loader_version,
                             self.selected_instance.clone().unwrap(),
@@ -79,7 +79,7 @@ impl Launcher {
             InstallFabricMessage::ScreenOpen { is_quilt } => {
                 self.state = State::InstallFabric(MenuInstallFabric::Loading(is_quilt));
 
-                return Command::perform(
+                return Task::perform(
                     loaders::fabric::get_list_of_versions_w(
                         self.selected_instance.clone().unwrap(),
                         is_quilt,
@@ -88,10 +88,10 @@ impl Launcher {
                 );
             }
         }
-        Command::none()
+        Task::none()
     }
 
-    pub fn update_create_instance(&mut self, message: CreateInstanceMessage) -> Command<Message> {
+    pub fn update_create_instance(&mut self, message: CreateInstanceMessage) -> Task<Message> {
         match message {
             CreateInstanceMessage::ScreenOpen => return self.go_to_create_screen(),
             CreateInstanceMessage::VersionsLoaded(result) => {
@@ -118,10 +118,10 @@ impl Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
-    pub fn update_manage_mods(&mut self, msg: ManageModsMessage) -> Command<Message> {
+    pub fn update_manage_mods(&mut self, msg: ManageModsMessage) -> Task<Message> {
         match msg {
             ManageModsMessage::ScreenOpen => match self.go_to_edit_mods_menu() {
                 Ok(command) => return command,
@@ -181,13 +181,13 @@ impl Launcher {
                         .map(|n| mods_dir.join(n))
                         .map(delete_file_wrapper)
                         .map(|n| {
-                            Command::perform(n, |n| {
+                            Task::perform(n, |n| {
                                 Message::ManageMods(ManageModsMessage::LocalDeleteFinished(n))
                             })
                         });
-                    let delete_local_command = Command::batch(file_paths);
+                    let delete_local_command = Task::batch(file_paths);
 
-                    return Command::batch(vec![command, delete_local_command]);
+                    return Task::batch(vec![command, delete_local_command]);
                 }
             }
             ManageModsMessage::DeleteFinished(result) => match result {
@@ -219,7 +219,7 @@ impl Launcher {
                             }
                         })
                         .collect();
-                    return Command::perform(
+                    return Task::perform(
                         ql_mod_manager::mod_manager::toggle_mods_w(
                             ids,
                             self.selected_instance.clone().unwrap(),
@@ -244,7 +244,7 @@ impl Launcher {
                     if let State::EditMods(menu) = &mut self.state {
                         menu.available_updates.clear();
                     }
-                    return Command::perform(
+                    return Task::perform(
                         ql_mod_manager::mod_manager::check_for_updates(
                             self.selected_instance.clone().unwrap(),
                         ),
@@ -269,13 +269,13 @@ impl Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
     fn get_delete_mods_command(
         selected_instance: InstanceSelection,
         menu: &crate::launcher_state::MenuEditMods,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         let ids = menu
             .selected_mods
             .iter()
@@ -288,13 +288,13 @@ impl Launcher {
             })
             .collect();
 
-        Command::perform(
+        Task::perform(
             ql_mod_manager::mod_manager::delete_mods_w(ids, selected_instance),
             |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n)),
         )
     }
 
-    pub fn update_install_mods(&mut self, message: InstallModsMessage) -> Command<Message> {
+    pub fn update_install_mods(&mut self, message: InstallModsMessage) -> Task<Message> {
         match message {
             InstallModsMessage::SearchResult(search) => {
                 if let State::ModsDownload(menu) = &mut self.state {
@@ -332,7 +332,7 @@ impl Launcher {
                     } else {
                         self.images
                             .bitmap
-                            .insert(image.url, Handle::from_memory(image.image));
+                            .insert(image.url, Handle::from_bytes(image.image));
                     }
                 }
                 Err(err) => {
@@ -346,7 +346,7 @@ impl Launcher {
                         let hit = results.hits.get(i).unwrap();
                         if !menu.result_data.contains_key(&hit.project_id) {
                             let task = ProjectInfo::download_w(hit.project_id.clone());
-                            return Command::perform(task, |n| {
+                            return Task::perform(task, |n| {
                                 Message::InstallMods(InstallModsMessage::LoadData(n))
                             });
                         }
@@ -389,16 +389,16 @@ impl Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
-    pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Command<Message> {
+    pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Task<Message> {
         match message {
             InstallOptifineMessage::ScreenOpen => {
                 self.state = State::InstallOptifine(MenuInstallOptifine::default());
             }
             InstallOptifineMessage::SelectInstallerStart => {
-                return Command::perform(
+                return Task::perform(
                     rfd::AsyncFileDialog::new()
                         .add_filter("jar", &["jar"])
                         .set_title("Select OptiFine Installer")
@@ -419,7 +419,7 @@ impl Launcher {
                         is_java_being_installed: false,
                     });
 
-                    return Command::perform(
+                    return Task::perform(
                         // Note: OptiFine does not support servers
                         // so it's safe to assume we've selected an instance.
                         ql_mod_manager::loaders::optifine::install_w(
@@ -444,7 +444,7 @@ impl Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 }
 

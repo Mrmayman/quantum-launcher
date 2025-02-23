@@ -1,4 +1,4 @@
-use iced::Command;
+use iced::Task;
 use ql_core::SelectedMod;
 
 use crate::launcher_state::{
@@ -19,7 +19,7 @@ macro_rules! iflet_manage_preset {
 }
 
 impl Launcher {
-    pub fn update_edit_presets(&mut self, message: EditPresetsMessage) -> Command<Message> {
+    pub fn update_edit_presets(&mut self, message: EditPresetsMessage) -> Task<Message> {
         match message {
             EditPresetsMessage::Open => return self.go_to_edit_presets_menu(),
             EditPresetsMessage::ToggleCheckbox((name, id), enable) => {
@@ -64,7 +64,7 @@ impl Launcher {
             EditPresetsMessage::BuildYourOwn => {
                 iflet_manage_preset!(self, Build, selected_mods, is_building, {
                     *is_building = true;
-                    return Command::perform(
+                    return Task::perform(
                         ql_mod_manager::PresetJson::generate_w(
                             self.selected_instance.clone().unwrap(),
                             selected_mods.clone(),
@@ -142,7 +142,7 @@ impl Launcher {
 
                     *progress = Some(ProgressBar::with_recv(receiver));
 
-                    return Command::perform(
+                    return Task::perform(
                         ql_mod_manager::mod_manager::download_mods_w(
                             mods.iter()
                                 .filter(|n| n.0)
@@ -166,6 +166,6 @@ impl Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 }

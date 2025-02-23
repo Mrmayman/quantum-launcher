@@ -3,7 +3,7 @@ use std::{
     time::Instant,
 };
 
-use iced::Command;
+use iced::Task;
 use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     InstanceSelection, IntoIoError,
@@ -13,7 +13,7 @@ use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
 use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
 impl Launcher {
-    pub fn open_mods_screen(&mut self) -> Result<Command<Message>, String> {
+    pub fn open_mods_screen(&mut self) -> Result<Task<Message>, String> {
         let selection = self.selected_instance.as_ref().unwrap();
         let instances_dir = selection.get_instance_path(&self.dir);
 
@@ -55,13 +55,13 @@ impl Launcher {
 }
 
 impl MenuModsDownload {
-    pub fn search_modrinth(&mut self, is_server: bool) -> Command<Message> {
+    pub fn search_modrinth(&mut self, is_server: bool) -> Task<Message> {
         let Ok(loaders) = Loader::try_from(self.config.mod_type.as_str()) else {
-            return Command::none();
+            return Task::none();
         };
 
         self.is_loading_search = true;
-        Command::perform(
+        Task::perform(
             Search::search_w(Query {
                 name: self.query.clone(),
                 versions: vec![self.json.id.clone()],

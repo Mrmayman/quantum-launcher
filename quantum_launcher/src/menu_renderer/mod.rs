@@ -8,15 +8,12 @@ use crate::{
     icon_manager,
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, EditPresetsMessage, InstallFabricMessage,
-        InstallOptifineMessage, Launcher, ManageModsMessage, MenuCreateInstance, MenuEditInstance,
+        InstallOptifineMessage, ManageModsMessage, MenuCreateInstance, MenuEditInstance,
         MenuEditPresets, MenuEditPresetsInner, MenuInstallFabric, MenuInstallForge,
         MenuInstallOptifine, MenuLauncherSettings, MenuLauncherUpdate, Message, ModListEntry,
         ProgressBar, SelectedState,
     },
-    stylesheet::{
-        color::Color,
-        styles::{LauncherTheme, StyleContainer, StyleFlatness},
-    },
+    stylesheet::{color::Color, styles::LauncherTheme},
 };
 
 pub mod changelog;
@@ -30,14 +27,18 @@ pub use dynamic_box::dynamic_box;
 
 pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
 
-pub type Element<'a> =
-    iced::Element<'a, Message, <Launcher as iced::Application>::Theme, iced::Renderer>;
+pub type Element<'a> = iced::Element<'a, Message, LauncherTheme, iced::Renderer>;
 
 pub fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
-) -> iced::widget::Button<'element, Message, LauncherTheme> {
-    widget::button(widget::row![icon, text].spacing(10).padding(5))
+    size: u16,
+) -> iced::widget::Button<'element, Message, LauncherTheme, iced::Renderer> {
+    widget::button(
+        widget::row![icon, widget::text(text).size(size)]
+            .spacing(10)
+            .padding(5),
+    )
 }
 
 impl MenuEditInstance {
@@ -60,7 +61,7 @@ impl MenuEditInstance {
                             InstanceSelection::Server(n) => format!("Editing {} server: {n}", self.config.mod_type),
                         }
                     ),
-                ).padding(10).spacing(10)).style(StyleContainer::SharpBox(Color::Black, 0.0)),
+                ).padding(10).spacing(10)).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
                 widget::container(
                     widget::column![
                         "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
@@ -75,7 +76,7 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(10)
-                ).style(StyleContainer::SharpBox(Color::Dark, 0.0)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
                 widget::container(
                     widget::column![
                         "Allocated memory",
@@ -87,7 +88,7 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(5),
-                ).style(StyleContainer::SharpBox(Color::Black, 0.0)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
                 widget::container(
                     widget::column![
                         widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
@@ -96,7 +97,7 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(10)
-                ).style(StyleContainer::SharpBox(Color::Dark, 0.0)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
                 widget::container(
                     widget::column!(
                         "Java arguments:",
@@ -108,12 +109,12 @@ impl MenuEditInstance {
                                 |n| Message::EditInstance(EditInstanceMessage::JavaArgShiftDown(n)),
                                 &|n, i| Message::EditInstance(EditInstanceMessage::JavaArgEdit(n, i))
                             ),
-                            button_with_icon(icon_manager::create(), "Add")
+                            button_with_icon(icon_manager::create(), "Add", 16)
                                 .on_press(Message::EditInstance(EditInstanceMessage::JavaArgsAdd))
                         ),
                         widget::horizontal_space(),
                     ).padding(10).spacing(10)
-                ).style(StyleContainer::SharpBox(Color::Black, 0.0)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
                 widget::container(
                     widget::column!(
                         "Game arguments:",
@@ -125,20 +126,20 @@ impl MenuEditInstance {
                                 |n| Message::EditInstance(EditInstanceMessage::GameArgShiftDown(n)),
                                 &|n, i| Message::EditInstance(EditInstanceMessage::GameArgEdit(n, i))
                             ),
-                            button_with_icon(icon_manager::create(), "Add")
+                            button_with_icon(icon_manager::create(), "Add", 16)
                                 .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
                         )
                     ).padding(10).spacing(10)
-                ).style(StyleContainer::SharpBox(Color::Dark, 0.0)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
                 widget::container(widget::row!(
-                    button_with_icon(icon_manager::delete(), "Delete Instance")
+                    button_with_icon(icon_manager::delete(), "Delete Instance", 16)
                         .on_press(
                             Message::DeleteInstanceMenu
                         ),
                     widget::horizontal_space(),
-                )).padding(10).style(StyleContainer::SharpBox(Color::Black, 0.0)),
+                )).padding(10).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
             ]
-        ).style(StyleFlatness::Flat).into()
+        ).style(LauncherTheme::style_scrollable_flat).into()
     }
 
     fn get_java_args_list<'a>(
@@ -157,19 +158,19 @@ impl MenuEditInstance {
             widget::row!(
                 widget::button(
                     widget::row![icon_manager::delete_with_size(ITEM_SIZE)]
-                        .align_items(iced::Alignment::Center)
+                        .align_y(iced::Alignment::Center)
                         .padding(5)
                 )
                 .on_press(msg_delete(i)),
                 widget::button(
                     widget::row![icon_manager::arrow_up_with_size(ITEM_SIZE)]
-                        .align_items(iced::Alignment::Center)
+                        .align_y(iced::Alignment::Center)
                         .padding(5)
                 )
                 .on_press(msg_up(i)),
                 widget::button(
                     widget::row![icon_manager::arrow_down_with_size(ITEM_SIZE)]
-                        .align_items(iced::Alignment::Center)
+                        .align_y(iced::Alignment::Center)
                         .padding(5)
                 )
                 .on_press(msg_down(i)),
@@ -208,9 +209,10 @@ impl MenuInstallOptifine {
         .into()
     }
 
-    pub fn install_optifine_screen<'a>() -> iced::widget::Column<'a, Message, LauncherTheme> {
+    pub fn install_optifine_screen<'a>(
+    ) -> iced::widget::Column<'a, Message, LauncherTheme, iced::Renderer> {
         widget::column!(
-            button_with_icon(icon_manager::back(), "Back")
+            button_with_icon(icon_manager::back(), "Back", 16)
                 .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
             widget::container(
                 widget::column!(
@@ -278,7 +280,7 @@ impl MenuCreateInstance {
                         widget::tooltip(
                             widget::checkbox("Download assets?", *download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
                             widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
-                            widget::tooltip::Position::FollowCursor).style(StyleContainer::SharpBox(Color::Black, 0.0)),
+                            widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
                         widget::button(widget::row![icon_manager::create(), "Create Instance"]
                                 .spacing(10)
                                 .padding(5)
@@ -328,7 +330,7 @@ impl MenuInstallFabric {
                     )
                 } else {
                     widget::column![
-                        button_with_icon(icon_manager::back(), "Back")
+                        button_with_icon(icon_manager::back(), "Back", 16)
                             .on_press(back_to_launch_screen(selected_instance, None)),
                         widget::text(format!(
                             "Select {} Version for instance {}",
@@ -355,7 +357,7 @@ impl MenuInstallFabric {
             }
             MenuInstallFabric::Unsupported(is_quilt) => {
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back")
+                    button_with_icon(icon_manager::back(), "Back", 16)
                         .on_press(back_to_launch_screen(selected_instance, None)),
                     if *is_quilt {
                         "Quilt is unsupported for this Minecraft version."
@@ -398,9 +400,9 @@ impl MenuLauncherUpdate {
             widget::column!(
                 "A new launcher update has been found! Do you want to download it?",
                 widget::row!(
-                    button_with_icon(icon_manager::download(), "Download")
+                    button_with_icon(icon_manager::download(), "Download", 16)
                         .on_press(Message::UpdateDownloadStart),
-                    button_with_icon(icon_manager::back(), "Back").on_press(
+                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
                         Message::LaunchScreenOpen {
                             message: None,
                             clear_selection: false
@@ -460,7 +462,7 @@ impl MenuLauncherSettings {
 
         widget::scrollable(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back").on_press(
+                button_with_icon(icon_manager::back(), "Back", 16).on_press(
                     Message::LaunchScreenOpen {
                         message: None,
                         clear_selection: false
@@ -469,19 +471,19 @@ impl MenuLauncherSettings {
                 config_view,
                 widget::container(
                     widget::column!(
-                        button_with_icon(icon_manager::page(), "View Changelog")
+                        button_with_icon(icon_manager::page(), "View Changelog", 16)
                             .on_press(Message::CoreOpenChangeLog),
-                        button_with_icon(icon_manager::page(), "Open Website").on_press(
+                        button_with_icon(icon_manager::page(), "Open Website", 16).on_press(
                             Message::CoreOpenDir(
                                 "https://mrmayman.github.io/quantumlauncher".to_owned()
                             )
                         ),
-                        button_with_icon(icon_manager::github(), "Open Github Repo").on_press(
+                        button_with_icon(icon_manager::github(), "Open Github Repo", 16).on_press(
                             Message::CoreOpenDir(
                                 "https://github.com/Mrmayman/quantum-launcher".to_owned()
                             )
                         ),
-                        button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
+                        button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
                             Message::CoreOpenDir(DISCORD.to_owned())
                         ),
                         "QuantumLauncher is free and open source software under the GNU GPL3 license.",
@@ -537,13 +539,13 @@ impl MenuEditPresets {
         widget::scrollable(
             widget::column!(
                 widget::row!(
-                    button_with_icon(icon_manager::back(), "Back")
+                    button_with_icon(icon_manager::back(), "Back", 16)
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
-                    widget::tooltip(button_with_icon(icon_manager::folder(), "Import Preset")
+                    widget::tooltip(button_with_icon(icon_manager::folder(), "Import Preset", 16)
                         .on_press(Message::EditPresets(EditPresetsMessage::Load)), widget::column!(
                             widget::text("Note: Sideloaded mods in imported presets (that anyone sends to you) could be untrusted (might have viruses)").size(12),
                                 widget::text("To get rid of them after installing, remove all the mods in the list ending in \".jar\"").size(12)
-                        ), widget::tooltip::Position::FollowCursor).style(StyleContainer::SharpBox(Color::Black, 0.0)),
+                        ), widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
                 )
                 .spacing(5),
                 "Presets are small bundles of mods and their configuration that you can share with anyone. You can import presets, create them or download recommended mods (if you haven't installed any yet.",
@@ -572,7 +574,7 @@ impl MenuEditPresets {
                 })
                 .on_press(Message::EditPresets(EditPresetsMessage::SelectAll)),
                 widget::container(Self::get_mods_list(selected_mods, mods).padding(10)),
-                button_with_icon(icon_manager::save(), "Build Preset")
+                button_with_icon(icon_manager::save(), "Build Preset", 16)
                     .on_press(Message::EditPresets(EditPresetsMessage::BuildYourOwn)),
             )
             .spacing(10)
@@ -591,7 +593,7 @@ impl MenuEditPresets {
                     .into()
                 } else if let Some(mods) = mods {
                     widget::column!(
-                        button_with_icon(icon_manager::download(), "Download Recommended Mods")
+                        button_with_icon(icon_manager::download(), "Download Recommended Mods", 16)
                             .on_press(Message::EditPresets(
                                 EditPresetsMessage::RecommendedDownload
                             )),
@@ -625,7 +627,7 @@ impl MenuEditPresets {
     fn get_mods_list<'a>(
         selected_mods: &'a HashSet<SelectedMod>,
         mods: &'a [ModListEntry],
-    ) -> widget::Column<'a, Message, LauncherTheme> {
+    ) -> widget::Column<'a, Message, LauncherTheme, iced::Renderer> {
         widget::column(mods.iter().map(|entry| {
             if entry.is_manually_installed() {
                 widget::checkbox(entry.name(), selected_mods.contains(&entry.id()))

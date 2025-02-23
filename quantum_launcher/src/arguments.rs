@@ -166,6 +166,7 @@ pub fn cmd_list_instances(cmds: Vec<PrintCmd>, dirname: &str) {
 /// The actual data is `include_str!()`ed from
 /// - `assets/ascii/icon.txt` for the ASCII art
 /// - `assets/ascii/text.txt` for the text logo
+///
 /// The other files in `assets/ascii` are unused.
 pub fn print_intro() {
     const TEXT_WIDTH: u16 = 39;

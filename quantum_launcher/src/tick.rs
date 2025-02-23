@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use iced::Command;
+use iced::Task;
 use ql_core::{err, info, GenericProgress, InstanceSelection};
 use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
@@ -16,7 +16,7 @@ use crate::launcher_state::{
 };
 
 impl Launcher {
-    pub fn tick(&mut self) -> Command<Message> {
+    pub fn tick(&mut self) -> Task<Message> {
         match &mut self.state {
             State::Launch(MenuLaunch {
                 java_recv,
@@ -31,7 +31,7 @@ impl Launcher {
                             receiver,
                             "Starting".to_owned(),
                         ));
-                        return Command::none();
+                        return Task::none();
                     }
                     *java_recv = Some(receiver);
                 }
@@ -42,7 +42,7 @@ impl Launcher {
                             progress: ProgressBar::with_recv(receiver),
                             java_recv: java_recv.take(),
                         };
-                        return Command::none();
+                        return Task::none();
                     }
                     *asset_recv = Some(receiver);
                 }
@@ -50,7 +50,7 @@ impl Launcher {
                 let mut commands = Vec::new();
 
                 if let Some(edit) = edit_instance.as_ref() {
-                    let cmd = Command::perform(
+                    let cmd = Task::perform(
                         Launcher::save_config_w(
                             self.selected_instance.clone().unwrap(),
                             edit.config.clone(),
@@ -64,12 +64,9 @@ impl Launcher {
                 self.tick_processes_and_logs();
 
                 if let Some(config) = self.config.clone() {
-                    commands.push(Command::perform(
-                        config.save_w(),
-                        Message::CoreTickConfigSaved,
-                    ));
+                    commands.push(Task::perform(config.save_w(), Message::CoreTickConfigSaved));
                 }
-                return Command::batch(commands);
+                return Task::batch(commands);
             }
             State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
@@ -112,7 +109,7 @@ impl Launcher {
                 }
             }
             State::ModsDownload(menu) => {
-                let index_cmd = Command::perform(
+                let index_cmd = Task::perform(
                     ModIndex::get_w(self.selected_instance.clone().unwrap()),
                     |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n)),
                 );
@@ -129,20 +126,20 @@ impl Launcher {
                             self.images
                                 .downloads_in_progress
                                 .insert(result.title.clone());
-                            commands.push(Command::perform(
+                            commands.push(Task::perform(
                                 Search::download_image(result.icon_url.clone(), true),
                                 |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                             ));
                         }
                     }
 
-                    return Command::batch(commands);
+                    return Task::batch(commands);
                 }
                 return index_cmd;
             }
             State::LauncherSettings => {
                 if let Some(config) = self.config.clone() {
-                    return Command::perform(config.save_w(), Message::CoreTickConfigSaved);
+                    return Task::perform(config.save_w(), Message::CoreTickConfigSaved);
                 }
             }
             State::RedownloadAssets {
@@ -163,7 +160,7 @@ impl Launcher {
                         sidebar_width: 200,
                         sidebar_dragging: false,
                     });
-                    return Command::perform(
+                    return Task::perform(
                         get_entries("instances".to_owned(), false),
                         Message::CoreListLoaded,
                     );
@@ -229,10 +226,10 @@ impl Launcher {
             | State::InstallPaper => {}
         }
 
-        Command::none()
+        Task::none()
     }
 
-    pub fn get_imgs_to_load(&mut self) -> Vec<Command<Message>> {
+    pub fn get_imgs_to_load(&mut self) -> Vec<Task<Message>> {
         let mut commands = Vec::new();
 
         let mut images_to_load = self.images.to_load.lock().unwrap();
@@ -240,7 +237,7 @@ impl Launcher {
         for url in images_to_load.iter() {
             if !self.images.downloads_in_progress.contains(url) {
                 self.images.downloads_in_progress.insert(url.to_owned());
-                commands.push(Command::perform(
+                commands.push(Task::perform(
                     Search::download_image(url.to_owned(), false),
                     |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                 ));
@@ -408,7 +405,7 @@ pub fn sort_dependencies(
 }
 
 impl MenuEditMods {
-    fn tick(&mut self, instance_selection: &InstanceSelection, dir: &Path) -> Command<Message> {
+    fn tick(&mut self, instance_selection: &InstanceSelection, dir: &Path) -> Task<Message> {
         self.sorted_mods_list = sort_dependencies(&self.mods.mods, &self.locally_installed_mods);
 
         if let Some(progress) = &mut self.mod_update_progress {

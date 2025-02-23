@@ -16,7 +16,7 @@ mod markdown;
 impl MenuModsDownload {
     /// Renders the main store page, with the search bar,
     /// back button and list of searched mods.
-    fn view_main(&self, images: &ImageState) -> Element {
+    fn view_main<'a>(&'a self, images: &'a ImageState) -> Element<'a> {
         let mods_list = match self.results.as_ref() {
             Some(results) => widget::column(
                 results
@@ -38,7 +38,7 @@ impl MenuModsDownload {
                 widget::text_input("Search...", &self.query)
                     .on_input(|n| Message::InstallMods(InstallModsMessage::SearchInput(n))),
                 if self.mods_download_in_progress.is_empty() {
-                    widget::column!(button_with_icon(icon_manager::back(), "Back")
+                    widget::column!(button_with_icon(icon_manager::back(), "Back", 16)
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)))
                 } else {
                     // Mods are being installed. Can't back out.
@@ -63,7 +63,12 @@ impl MenuModsDownload {
     }
 
     /// Renders a single mod entry (and button) in the search results.
-    fn view_mod_entry(&self, i: usize, hit: &Entry, images: &ImageState) -> Element {
+    fn view_mod_entry<'a>(
+        &'a self,
+        i: usize,
+        hit: &'a Entry,
+        images: &'a ImageState,
+    ) -> Element<'a> {
         widget::row!(
             widget::button(
                 widget::row![icon_manager::download()]
@@ -89,7 +94,7 @@ impl MenuModsDownload {
                         icon_manager::download_with_size(20),
                         widget::text(Self::format_downloads(hit.downloads)).size(12),
                     )
-                    .align_items(iced::Alignment::Center)
+                    .align_x(iced::Alignment::Center)
                     .width(40)
                     .height(60)
                     .spacing(5),
@@ -139,12 +144,12 @@ impl MenuModsDownload {
         widget::scrollable(
             widget::column!(
                 widget::row!(
-                    button_with_icon(icon_manager::back(), "Back")
+                    button_with_icon(icon_manager::back(), "Back", 16)
                         .on_press(Message::InstallMods(InstallModsMessage::BackToMainScreen)),
-                    button_with_icon(icon_manager::page(), "Open Mod Page").on_press(
+                    button_with_icon(icon_manager::page(), "Open Mod Page", 16).on_press(
                         Message::CoreOpenDir(format!("https://modrinth.com/mod/{}", hit.slug))
                     ),
-                    button_with_icon(icon_manager::save(), "Copy ID")
+                    button_with_icon(icon_manager::save(), "Copy ID", 16)
                         .on_press(Message::CoreCopyText(hit.project_id.clone())),
                 )
                 .spacing(10),

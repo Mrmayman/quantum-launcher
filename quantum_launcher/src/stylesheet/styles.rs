@@ -82,16 +82,312 @@ impl LauncherTheme {
             self.get_border(color, invert)
         }
     }
+
+    fn style_scrollable_active(&self, style: StyleScrollable) -> widget::scrollable::Style {
+        let border = self.get_border_style(
+            &style,
+            match style {
+                StyleScrollable::Round => Color::SecondDark,
+                StyleScrollable::Flat => Color::Dark,
+            },
+            true,
+        );
+        let rail = widget::scrollable::Rail {
+            background: Some(self.get_bg(Color::Dark, true)),
+            border,
+            scroller: widget::scrollable::Scroller {
+                color: self.get(Color::SecondDark, true),
+                border: self.get_border_style(&style, Color::Mid, true),
+            },
+        };
+        widget::scrollable::Style {
+            container: widget::container::Style {
+                text_color: None,
+                background: match style {
+                    StyleScrollable::Round => None,
+                    StyleScrollable::Flat => Some(self.get_bg(Color::Dark, true)),
+                },
+                border,
+                shadow: iced::Shadow::default(),
+            },
+            gap: None,
+            vertical_rail: rail,
+            horizontal_rail: rail,
+        }
+    }
+
+    fn style_scrollable_hovered(
+        &self,
+        style: StyleScrollable,
+        is_vertical_scrollbar_hovered: bool,
+        is_horizontal_scrollbar_hovered: bool,
+    ) -> widget::scrollable::Style {
+        let border = self.get_border_style(
+            &style,
+            match style {
+                StyleScrollable::Round => Color::Mid,
+                StyleScrollable::Flat => Color::Dark,
+            },
+            true,
+        );
+        let rail_v = widget::scrollable::Rail {
+            background: Some(self.get_bg(Color::Dark, true)),
+            border,
+            scroller: widget::scrollable::Scroller {
+                color: self.get(
+                    if is_vertical_scrollbar_hovered {
+                        Color::Light
+                    } else {
+                        Color::Mid
+                    },
+                    true,
+                ),
+                border: self.get_border_style(&style, Color::Light, true),
+            },
+        };
+        let rail_h = widget::scrollable::Rail {
+            background: Some(self.get_bg(Color::Dark, true)),
+            border,
+            scroller: widget::scrollable::Scroller {
+                color: self.get(
+                    if is_horizontal_scrollbar_hovered {
+                        Color::Light
+                    } else {
+                        Color::Mid
+                    },
+                    true,
+                ),
+                border: self.get_border_style(&style, Color::Light, true),
+            },
+        };
+        widget::scrollable::Style {
+            container: widget::container::Style {
+                text_color: None,
+                background: match style {
+                    StyleScrollable::Round => None,
+                    StyleScrollable::Flat => Some(self.get_bg(Color::Dark, true)),
+                },
+                border,
+                shadow: iced::Shadow::default(),
+            },
+            vertical_rail: rail_v,
+            horizontal_rail: rail_h,
+            gap: None,
+        }
+    }
+
+    fn style_scrollable_dragged(
+        &self,
+        style: StyleScrollable,
+        is_vertical_scrollbar_dragged: bool,
+        is_horizontal_scrollbar_dragged: bool,
+    ) -> widget::scrollable::Style {
+        let border = self.get_border_style(
+            &style,
+            match style {
+                StyleScrollable::Round => Color::Mid,
+                StyleScrollable::Flat => Color::Dark,
+            },
+            true,
+        );
+        let rail_v = widget::scrollable::Rail {
+            background: Some(self.get_bg(Color::Dark, true)),
+            border,
+            scroller: widget::scrollable::Scroller {
+                color: self.get(
+                    if is_vertical_scrollbar_dragged {
+                        Color::White
+                    } else {
+                        Color::Mid
+                    },
+                    true,
+                ),
+                border: self.get_border_style(&style, Color::Light, true),
+            },
+        };
+        let rail_h = widget::scrollable::Rail {
+            background: Some(self.get_bg(Color::Dark, true)),
+            border,
+            scroller: widget::scrollable::Scroller {
+                color: self.get(
+                    if is_horizontal_scrollbar_dragged {
+                        Color::White
+                    } else {
+                        Color::Mid
+                    },
+                    true,
+                ),
+                border: self.get_border_style(&style, Color::Light, true),
+            },
+        };
+        widget::scrollable::Style {
+            container: widget::container::Style {
+                text_color: None,
+                background: match style {
+                    StyleScrollable::Round => None,
+                    StyleScrollable::Flat => Some(self.get_bg(Color::Dark, true)),
+                },
+                border,
+                shadow: iced::Shadow::default(),
+            },
+            vertical_rail: rail_v,
+            horizontal_rail: rail_h,
+            gap: None,
+        }
+    }
+
+    pub fn style_rule(&self, color: Color, thickness: u16) -> widget::rule::Style {
+        widget::rule::Style {
+            color: self.get(color, true),
+            width: thickness,
+            radius: 0.into(),
+            fill_mode: widget::rule::FillMode::Full,
+        }
+    }
+
+    pub fn style_container_box(&self) -> widget::container::Style {
+        widget::container::Style {
+            border: self.get_border(Color::SecondDark, true),
+            ..Default::default()
+        }
+    }
+
+    pub fn style_container_selected_flat_button(&self) -> widget::container::Style {
+        widget::container::Style {
+            border: self.get_border_sharp(Color::Mid, true),
+            background: Some(self.get_bg(Color::Mid, true)),
+            text_color: Some(self.get(Color::Dark, true)),
+            ..Default::default()
+        }
+    }
+
+    pub fn style_container_sharp_box(&self, width: f32, color: Color) -> widget::container::Style {
+        widget::container::Style {
+            border: {
+                let (palette, color) = self.get_base(true, Color::Mid);
+                iced::Border {
+                    color: palette.get(color),
+                    width,
+                    radius: 0.0.into(),
+                }
+            },
+            background: Some(self.get_bg(color, true)),
+            ..Default::default()
+        }
+    }
+
+    pub fn style_scrollable_round(
+        &self,
+        status: widget::scrollable::Status,
+    ) -> widget::scrollable::Style {
+        self.style_scrollable(status, StyleScrollable::Round)
+    }
+
+    pub fn style_scrollable_flat(
+        &self,
+        status: widget::scrollable::Status,
+    ) -> widget::scrollable::Style {
+        self.style_scrollable(status, StyleScrollable::Flat)
+    }
+
+    fn style_scrollable(
+        &self,
+        status: widget::scrollable::Status,
+        style: StyleScrollable,
+    ) -> widget::scrollable::Style {
+        match status {
+            widget::scrollable::Status::Active => self.style_scrollable_active(style),
+            widget::scrollable::Status::Hovered {
+                is_horizontal_scrollbar_hovered,
+                is_vertical_scrollbar_hovered,
+            } => self.style_scrollable_hovered(
+                style,
+                is_vertical_scrollbar_hovered,
+                is_horizontal_scrollbar_hovered,
+            ),
+            widget::scrollable::Status::Dragged {
+                is_horizontal_scrollbar_dragged,
+                is_vertical_scrollbar_dragged,
+            } => self.style_scrollable_dragged(
+                style,
+                is_vertical_scrollbar_dragged,
+                is_horizontal_scrollbar_dragged,
+            ),
+        }
+    }
+
+    pub fn style_rule_default(&self) -> widget::rule::Style {
+        self.style_rule(Color::Mid, 2)
+    }
+
+    pub fn style_button(
+        &self,
+        status: widget::button::Status,
+        style: StyleButton,
+    ) -> widget::button::Style {
+        match status {
+            widget::button::Status::Active => {
+                let color = match style {
+                    StyleButton::Round | StyleButton::Flat => Color::SecondDark,
+                    StyleButton::FlatDark => Color::Dark,
+                    StyleButton::FlatExtraDark => Color::Black,
+                };
+                widget::button::Style {
+                    background: Some(self.get_bg(color, true)),
+                    text_color: self.get(Color::White, true),
+                    border: self.get_border_style(&style, color, true),
+                    ..Default::default()
+                }
+            }
+            widget::button::Status::Hovered => {
+                let color = match style {
+                    StyleButton::Round | StyleButton::Flat | StyleButton::FlatDark => Color::Mid,
+                    StyleButton::FlatExtraDark => Color::SecondDark,
+                };
+                widget::button::Style {
+                    background: Some(self.get_bg(color, true)),
+                    text_color: self.get(
+                        match style {
+                            StyleButton::Round | StyleButton::Flat => Color::Dark,
+                            StyleButton::FlatDark | StyleButton::FlatExtraDark => Color::White,
+                        },
+                        true,
+                    ),
+                    border: self.get_border_style(&style, color, true),
+                    ..Default::default()
+                }
+            }
+            widget::button::Status::Pressed => widget::button::Style {
+                background: Some(self.get_bg(Color::White, true)),
+                text_color: self.get(Color::Dark, true),
+                border: self.get_border_style(&style, Color::White, true),
+                ..Default::default()
+            },
+            widget::button::Status::Disabled => widget::button::Style {
+                background: Some(self.get_bg(
+                    match style {
+                        StyleButton::Round | StyleButton::Flat => Color::SecondDark,
+                        StyleButton::FlatDark => Color::Dark,
+                        StyleButton::FlatExtraDark => Color::Black,
+                    },
+                    true,
+                )),
+                text_color: self.get(Color::SecondLight, true),
+                border: self.get_border_style(&style, Color::SecondDark, true),
+                ..Default::default()
+            },
+        }
+    }
 }
 
-#[derive(Default)]
-pub enum StyleFlatness {
+#[derive(Default, Clone, Copy)]
+enum StyleScrollable {
     #[default]
     Round,
     Flat,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 #[allow(unused)]
 pub enum StyleButton {
     #[default]
@@ -99,14 +395,6 @@ pub enum StyleButton {
     Flat,
     FlatDark,
     FlatExtraDark,
-}
-
-#[derive(Default)]
-pub enum StyleContainer {
-    #[default]
-    Box,
-    SelectedFlatButton,
-    SharpBox(Color, f32),
 }
 
 trait IsFlat {
@@ -122,43 +410,27 @@ impl IsFlat for StyleButton {
     }
 }
 
-impl IsFlat for StyleFlatness {
+impl IsFlat for StyleScrollable {
     fn is_flat(&self) -> bool {
         match self {
-            StyleFlatness::Round => false,
-            StyleFlatness::Flat => true,
+            StyleScrollable::Round => false,
+            StyleScrollable::Flat => true,
         }
     }
 }
 
-impl widget::container::StyleSheet for LauncherTheme {
-    type Style = StyleContainer;
+impl widget::container::Catalog for LauncherTheme {
+    type Class<'a> = widget::container::StyleFn<'a, LauncherTheme>;
 
-    fn appearance(&self, style: &Self::Style) -> widget::container::Appearance {
-        match style {
-            StyleContainer::Box => widget::container::Appearance {
-                border: self.get_border(Color::SecondDark, true),
-                ..Default::default()
-            },
-            StyleContainer::SelectedFlatButton => widget::container::Appearance {
-                border: self.get_border_sharp(Color::Mid, true),
-                background: Some(self.get_bg(Color::Mid, true)),
-                text_color: Some(self.get(Color::Dark, true)),
-                ..Default::default()
-            },
-            StyleContainer::SharpBox(color, width) => widget::container::Appearance {
-                border: {
-                    let (palette, color) = self.get_base(true, Color::Mid);
-                    iced::Border {
-                        color: palette.get(color),
-                        width: *width,
-                        radius: 0.0.into(),
-                    }
-                },
-                background: Some(self.get_bg(*color, true)),
-                ..Default::default()
-            },
-        }
+    fn default<'a>() -> <Self as widget::container::Catalog>::Class<'a> {
+        Box::new(Self::style_container_box)
+    }
+
+    fn style(
+        &self,
+        style: &widget::container::StyleFn<'_, LauncherTheme>,
+    ) -> widget::container::Style {
+        style(self)
     }
 }
 
@@ -170,16 +442,16 @@ impl widget::container::StyleSheet for LauncherTheme {
 // all the other widgets look bad with this skeumorphic
 // aesthetic.
 /*
-impl widget::button::StyleSheet for LauncherTheme {
-    type Style = StyleButton;
+impl widget::button::Catalog for LauncherTheme {
+    type Class<'a> = StyleButton;
 
-    fn active(&self, style: &Self::Style) -> widget::button::Appearance {
+    fn active(&self, style: &Self::Class) -> widget::button::Style {
         let color = match style {
             StyleButton::Round | StyleButton::Flat => Color::SecondDark,
             StyleButton::FlatDark => Color::Dark,
             StyleButton::FlatExtraDark => Color::Black,
         };
-        widget::button::Appearance {
+        widget::button::Style {
             background: Some(if let StyleButton::Round = style {
                 iced::Background::Gradient(iced::Gradient::Linear(
                     iced::gradient::Linear::new(0.0)
@@ -195,13 +467,13 @@ impl widget::button::StyleSheet for LauncherTheme {
         }
     }
 
-    fn hovered(&self, style: &Self::Style) -> widget::button::Appearance {
+    fn hovered(&self, style: &Self::Class) -> widget::button::Style {
         let color = match style {
             StyleButton::Round | StyleButton::Flat => Color::Mid,
             StyleButton::FlatDark => Color::Mid,
             StyleButton::FlatExtraDark => Color::SecondDark,
         };
-        widget::button::Appearance {
+        widget::button::Style {
             background: Some(if let StyleButton::Round = style {
                 iced::Background::Gradient(iced::Gradient::Linear(
                     iced::gradient::Linear::new(0.0)
@@ -223,8 +495,8 @@ impl widget::button::StyleSheet for LauncherTheme {
         }
     }
 
-    fn pressed(&self, style: &Self::Style) -> widget::button::Appearance {
-        widget::button::Appearance {
+    fn pressed(&self, style: &Self::Class) -> widget::button::Style {
+        widget::button::Style {
             background: Some(if let StyleButton::Round = style {
                 iced::Background::Gradient(iced::Gradient::Linear(
                     iced::gradient::Linear::new(0.0)
@@ -240,8 +512,8 @@ impl widget::button::StyleSheet for LauncherTheme {
         }
     }
 
-    fn disabled(&self, style: &Self::Style) -> widget::button::Appearance {
-        widget::button::Appearance {
+    fn disabled(&self, style: &Self::Class) -> widget::button::Style {
+        widget::button::Style {
             background: Some(self.get_bg(
                 match style {
                     StyleButton::Round | StyleButton::Flat => Color::SecondDark,
@@ -258,105 +530,71 @@ impl widget::button::StyleSheet for LauncherTheme {
 }
 */
 
-impl widget::button::StyleSheet for LauncherTheme {
-    type Style = StyleButton;
+impl widget::button::Catalog for LauncherTheme {
+    type Class<'a> = widget::button::StyleFn<'a, LauncherTheme>;
 
-    fn active(&self, style: &Self::Style) -> widget::button::Appearance {
-        let color = match style {
-            StyleButton::Round | StyleButton::Flat => Color::SecondDark,
-            StyleButton::FlatDark => Color::Dark,
-            StyleButton::FlatExtraDark => Color::Black,
-        };
-        widget::button::Appearance {
-            background: Some(self.get_bg(color, true)),
-            text_color: self.get(Color::White, true),
-            border: self.get_border_style(style, color, true),
-            ..Default::default()
-        }
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(|n, status| n.style_button(status, StyleButton::default()))
     }
 
-    fn hovered(&self, style: &Self::Style) -> widget::button::Appearance {
-        let color = match style {
-            StyleButton::Round | StyleButton::Flat | StyleButton::FlatDark => Color::Mid,
-            StyleButton::FlatExtraDark => Color::SecondDark,
-        };
-        widget::button::Appearance {
-            background: Some(self.get_bg(color, true)),
-            text_color: self.get(
-                match style {
-                    StyleButton::Round | StyleButton::Flat => Color::Dark,
-                    StyleButton::FlatDark | StyleButton::FlatExtraDark => Color::White,
-                },
-                true,
-            ),
-            border: self.get_border_style(style, color, true),
-            ..Default::default()
-        }
+    fn style(
+        &self,
+        style: &widget::button::StyleFn<'_, LauncherTheme>,
+        status: widget::button::Status,
+    ) -> widget::button::Style {
+        style(self, status)
     }
+}
 
-    fn pressed(&self, style: &Self::Style) -> widget::button::Appearance {
-        widget::button::Appearance {
-            background: Some(self.get_bg(Color::White, true)),
-            text_color: self.get(Color::Dark, true),
-            border: self.get_border_style(style, Color::White, true),
-            ..Default::default()
-        }
+impl widget::text::Catalog for LauncherTheme {
+    type Class<'a> = ();
+
+    fn default<'a>() -> Self::Class<'a> {}
+
+    fn style(&self, _: &()) -> widget::text::Style {
+        widget::text::Style { color: None }
     }
+}
 
-    fn disabled(&self, style: &Self::Style) -> widget::button::Appearance {
-        widget::button::Appearance {
-            background: Some(self.get_bg(
-                match style {
-                    StyleButton::Round | StyleButton::Flat => Color::SecondDark,
-                    StyleButton::FlatDark => Color::Dark,
-                    StyleButton::FlatExtraDark => Color::Black,
-                },
-                true,
-            )),
-            text_color: self.get(Color::SecondLight, true),
-            border: self.get_border_style(style, Color::SecondDark, true),
-            ..Default::default()
+impl widget::pick_list::Catalog for LauncherTheme {
+    type Class<'a> = ();
+
+    fn default<'a>() -> <Self as widget::pick_list::Catalog>::Class<'a> {}
+
+    fn style(&self, (): &(), status: iced::widget::pick_list::Status) -> widget::pick_list::Style {
+        match status {
+            widget::pick_list::Status::Active => widget::pick_list::Style {
+                text_color: self.get(Color::Dark, false),
+                placeholder_color: self.get(Color::SecondDark, false),
+                handle_color: self.get(Color::Dark, false),
+                background: iced::Background::Color(self.get(Color::Light, false)),
+                border: self.get_border(Color::Mid, false),
+            },
+            widget::pick_list::Status::Hovered => widget::pick_list::Style {
+                text_color: self.get(Color::Dark, false),
+                placeholder_color: self.get(Color::SecondDark, false),
+                handle_color: self.get(Color::Dark, false),
+                background: self.get_bg(Color::SecondLight, false),
+                border: self.get_border(Color::SecondLight, false),
+            },
+            widget::pick_list::Status::Opened => widget::pick_list::Style {
+                text_color: self.get(Color::Dark, false),
+                placeholder_color: self.get(Color::SecondDark, false),
+                handle_color: self.get(Color::Dark, false),
+                background: self.get_bg(Color::Light, false),
+                border: self.get_border(Color::SecondLight, false),
+            },
         }
     }
 }
 
-impl widget::text::StyleSheet for LauncherTheme {
-    type Style = ();
+impl widget::overlay::menu::Catalog for LauncherTheme {
+    type Class<'a> = ();
 
-    fn appearance(&self, _style: Self::Style) -> widget::text::Appearance {
-        widget::text::Appearance { color: None }
-    }
-}
+    fn default<'a>() -> <Self as widget::overlay::menu::Catalog>::Class<'a> {}
 
-impl widget::pick_list::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn active(&self, (): &Self::Style) -> widget::pick_list::Appearance {
-        widget::pick_list::Appearance {
-            text_color: self.get(Color::Dark, false),
-            placeholder_color: self.get(Color::SecondDark, false),
-            handle_color: self.get(Color::Dark, false),
-            background: iced::Background::Color(self.get(Color::Light, false)),
-            border: self.get_border(Color::Mid, false),
-        }
-    }
-
-    fn hovered(&self, (): &Self::Style) -> widget::pick_list::Appearance {
-        widget::pick_list::Appearance {
-            text_color: self.get(Color::Dark, false),
-            placeholder_color: self.get(Color::SecondDark, false),
-            handle_color: self.get(Color::Dark, false),
-            background: self.get_bg(Color::SecondLight, false),
-            border: self.get_border(Color::SecondLight, false),
-        }
-    }
-}
-
-impl widget::overlay::menu::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn appearance(&self, (): &Self::Style) -> iced::overlay::menu::Appearance {
-        iced::overlay::menu::Appearance {
+    fn style(&self, (): &()) -> iced::overlay::menu::Style {
+        iced::overlay::menu::Style {
             text_color: self.get(Color::White, true),
             background: self.get_bg(Color::SecondDark, true),
             border: self.get_border(Color::Mid, true),
@@ -366,194 +604,140 @@ impl widget::overlay::menu::StyleSheet for LauncherTheme {
     }
 }
 
-impl widget::scrollable::StyleSheet for LauncherTheme {
-    type Style = StyleFlatness;
+impl widget::scrollable::Catalog for LauncherTheme {
+    type Class<'a> = widget::scrollable::StyleFn<'a, LauncherTheme>;
 
-    fn active(&self, style: &Self::Style) -> widget::scrollable::Appearance {
-        let border = self.get_border_style(
-            style,
-            match style {
-                StyleFlatness::Round => Color::SecondDark,
-                StyleFlatness::Flat => Color::Dark,
-            },
-            true,
-        );
-        widget::scrollable::Appearance {
-            container: widget::container::Appearance {
-                text_color: None,
-                background: match style {
-                    StyleFlatness::Round => None,
-                    StyleFlatness::Flat => Some(self.get_bg(Color::Dark, true)),
-                },
-                border,
-                shadow: iced::Shadow::default(),
-            },
-            scrollbar: widget::scrollable::Scrollbar {
-                background: Some(self.get_bg(Color::Dark, true)),
-                border,
-                scroller: widget::scrollable::Scroller {
-                    color: self.get(Color::SecondDark, true),
-                    border: self.get_border_style(style, Color::Mid, true),
-                },
-            },
-            gap: None,
-        }
+    fn default<'a>() -> <Self as widget::scrollable::Catalog>::Class<'a> {
+        Box::new(Self::style_scrollable_round)
     }
 
-    fn hovered(
+    fn style(
         &self,
-        style: &Self::Style,
-        _is_mouse_over_scrollbar: bool,
-    ) -> widget::scrollable::Appearance {
-        let border = self.get_border_style(
-            style,
-            match style {
-                StyleFlatness::Round => Color::Mid,
-                StyleFlatness::Flat => Color::Dark,
+        style: &widget::scrollable::StyleFn<'_, LauncherTheme>,
+        status: widget::scrollable::Status,
+    ) -> widget::scrollable::Style {
+        style(self, status)
+    }
+}
+
+impl widget::text_input::Catalog for LauncherTheme {
+    type Class<'a> = ();
+
+    fn default<'a>() -> <Self as widget::text_input::Catalog>::Class<'a> {}
+
+    fn style(&self, (): &(), status: widget::text_input::Status) -> widget::text_input::Style {
+        match status {
+            widget::text_input::Status::Active => widget::text_input::Style {
+                background: self.get_bg(Color::Dark, true),
+                border: self.get_border(Color::Mid, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::SecondLight, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Light, true),
             },
-            true,
-        );
-        widget::scrollable::Appearance {
-            container: widget::container::Appearance {
-                text_color: None,
-                background: match style {
-                    StyleFlatness::Round => None,
-                    StyleFlatness::Flat => Some(self.get_bg(Color::Dark, true)),
-                },
-                border,
-                shadow: iced::Shadow::default(),
+            widget::text_input::Status::Hovered => widget::text_input::Style {
+                background: self.get_bg(Color::SecondDark, true),
+                border: self.get_border(Color::Mid, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::SecondLight, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Light, true),
             },
-            scrollbar: widget::scrollable::Scrollbar {
-                background: Some(self.get_bg(Color::Dark, true)),
-                border,
-                scroller: widget::scrollable::Scroller {
-                    color: self.get(Color::White, true),
-                    border: self.get_border_style(style, Color::Light, true),
-                },
+            widget::text_input::Status::Focused => widget::text_input::Style {
+                background: self.get_bg(Color::SecondDark, true),
+                border: self.get_border(Color::Light, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::SecondLight, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Light, true),
             },
-            gap: None,
+            widget::text_input::Status::Disabled => widget::text_input::Style {
+                background: self.get_bg(Color::Black, true),
+                border: self.get_border(Color::Dark, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::SecondLight, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Light, true),
+            },
         }
     }
 }
 
-impl widget::text_input::StyleSheet for LauncherTheme {
-    type Style = ();
+impl widget::progress_bar::Catalog for LauncherTheme {
+    type Class<'a> = ();
 
-    fn active(&self, (): &Self::Style) -> widget::text_input::Appearance {
-        widget::text_input::Appearance {
-            background: self.get_bg(Color::SecondDark, true),
-            border: self.get_border(Color::Mid, true),
-            icon_color: iced::Color::default(),
-        }
-    }
+    fn default<'a>() -> <Self as widget::progress_bar::Catalog>::Class<'a> {}
 
-    fn focused(&self, (): &Self::Style) -> widget::text_input::Appearance {
-        widget::text_input::Appearance {
-            background: self.get_bg(Color::SecondDark, true),
-            border: self.get_border(Color::Mid, true),
-            icon_color: iced::Color::default(),
-        }
-    }
-
-    fn placeholder_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::SecondLight, true)
-    }
-
-    fn value_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::White, true)
-    }
-
-    fn disabled_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::SecondDark, true)
-    }
-
-    fn selection_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::SecondLight, true)
-    }
-
-    fn disabled(&self, (): &Self::Style) -> widget::text_input::Appearance {
-        widget::text_input::Appearance {
-            background: self.get_bg(Color::Dark, true),
-            border: self.get_border(Color::SecondDark, true),
-            icon_color: iced::Color::default(),
-        }
-    }
-}
-
-impl widget::progress_bar::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn appearance(&self, (): &Self::Style) -> widget::progress_bar::Appearance {
-        widget::progress_bar::Appearance {
+    fn style(&self, (): &()) -> widget::progress_bar::Style {
+        widget::progress_bar::Style {
             background: self.get_bg(Color::SecondDark, true),
             bar: self.get_bg(Color::Light, true),
-            border_radius: BORDER_RADIUS.into(),
+            border: self.get_border(Color::Mid, true),
         }
     }
 }
 
-impl widget::slider::StyleSheet for LauncherTheme {
-    type Style = ();
+impl widget::slider::Catalog for LauncherTheme {
+    type Class<'a> = ();
 
-    fn active(&self, (): &Self::Style) -> widget::slider::Appearance {
-        widget::slider::Appearance {
-            rail: widget::slider::Rail {
-                colors: (
-                    self.get(Color::Mid, true),
-                    self.get(Color::SecondDark, true),
-                ),
-                width: 4.0,
-                border_radius: BORDER_RADIUS.into(),
-            },
-            handle: widget::slider::Handle {
-                shape: widget::slider::HandleShape::Circle { radius: 8.0 },
-                color: self.get(Color::SecondLight, true),
-                border_width: 2.0,
-                border_color: self.get(Color::Light, true),
-            },
-        }
-    }
+    fn default<'a>() -> <Self as widget::slider::Catalog>::Class<'a> {}
 
-    fn hovered(&self, (): &Self::Style) -> widget::slider::Appearance {
-        widget::slider::Appearance {
-            rail: widget::slider::Rail {
-                colors: (self.get(Color::Light, true), self.get(Color::Mid, true)),
-                width: 4.0,
-                border_radius: BORDER_RADIUS.into(),
+    fn style(&self, (): &(), status: widget::slider::Status) -> widget::slider::Style {
+        match status {
+            widget::slider::Status::Active => widget::slider::Style {
+                rail: widget::slider::Rail {
+                    backgrounds: (
+                        self.get_bg(Color::Mid, true),
+                        self.get_bg(Color::SecondDark, true),
+                    ),
+                    width: 4.0,
+                    border: self.get_border(Color::SecondDark, true),
+                },
+                handle: widget::slider::Handle {
+                    shape: widget::slider::HandleShape::Circle { radius: 8.0 },
+                    background: self.get_bg(Color::SecondLight, true),
+                    border_width: 2.0,
+                    border_color: self.get(Color::Light, true),
+                },
             },
-            handle: widget::slider::Handle {
-                shape: widget::slider::HandleShape::Circle { radius: 8.0 },
-                color: self.get(Color::SecondLight, true),
-                border_width: 2.0,
-                border_color: self.get(Color::White, true),
+            widget::slider::Status::Hovered => widget::slider::Style {
+                rail: widget::slider::Rail {
+                    backgrounds: (
+                        self.get_bg(Color::Light, true),
+                        self.get_bg(Color::Mid, true),
+                    ),
+                    width: 4.0,
+                    border: self.get_border(Color::Mid, true),
+                },
+                handle: widget::slider::Handle {
+                    shape: widget::slider::HandleShape::Circle { radius: 8.0 },
+                    background: self.get_bg(Color::SecondLight, true),
+                    border_width: 2.0,
+                    border_color: self.get(Color::White, true),
+                },
             },
-        }
-    }
-
-    fn dragging(&self, (): &Self::Style) -> widget::slider::Appearance {
-        widget::slider::Appearance {
-            rail: widget::slider::Rail {
-                colors: (
-                    self.get(Color::Mid, true),
-                    self.get(Color::SecondDark, true),
-                ),
-                width: 6.0,
-                border_radius: BORDER_RADIUS.into(),
-            },
-            handle: widget::slider::Handle {
-                shape: widget::slider::HandleShape::Circle { radius: 12.0 },
-                color: self.get(Color::White, true),
-                border_width: 2.0,
-                border_color: self.get(Color::White, true),
+            widget::slider::Status::Dragged => widget::slider::Style {
+                rail: widget::slider::Rail {
+                    backgrounds: (
+                        self.get_bg(Color::White, true),
+                        self.get_bg(Color::SecondDark, true),
+                    ),
+                    width: 6.0,
+                    border: self.get_border(Color::Mid, true),
+                },
+                handle: widget::slider::Handle {
+                    shape: widget::slider::HandleShape::Circle { radius: 12.0 },
+                    background: self.get_bg(Color::White, true),
+                    border_width: 2.0,
+                    border_color: self.get(Color::White, true),
+                },
             },
         }
     }
 }
 
-impl iced::application::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn appearance(&self, (): &Self::Style) -> iced::application::Appearance {
+impl iced::application::DefaultStyle for LauncherTheme {
+    fn default_style(&self) -> iced::application::Appearance {
         iced::application::Appearance {
             background_color: self.get(Color::Black, true),
             text_color: self.get(Color::Light, true),
@@ -561,154 +745,162 @@ impl iced::application::StyleSheet for LauncherTheme {
     }
 }
 
-impl widget::checkbox::StyleSheet for LauncherTheme {
-    type Style = ();
+impl widget::checkbox::Catalog for LauncherTheme {
+    type Class<'a> = ();
 
-    fn active(&self, (): &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
-        widget::checkbox::Appearance {
-            background: if is_checked {
-                self.get_bg(Color::Light, true)
-            } else {
-                self.get_bg(Color::Dark, true)
-            },
-            icon_color: if is_checked {
-                self.get(Color::Dark, true)
-            } else {
-                self.get(Color::Light, true)
-            },
-            border: self.get_border(Color::SecondLight, true),
-            text_color: None,
-        }
-    }
+    fn default<'a>() -> <Self as widget::checkbox::Catalog>::Class<'a> {}
 
-    fn hovered(&self, (): &Self::Style, is_checked: bool) -> widget::checkbox::Appearance {
-        widget::checkbox::Appearance {
-            background: if is_checked {
-                self.get_bg(Color::White, true)
-            } else {
-                self.get_bg(Color::SecondDark, true)
-            },
-            icon_color: if is_checked {
-                self.get(Color::SecondDark, true)
-            } else {
-                self.get(Color::White, true)
-            },
-            border: self.get_border(Color::Light, true),
-            text_color: None,
-        }
-    }
-}
-
-impl widget::text_editor::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn active(&self, (): &Self::Style) -> widget::text_editor::Appearance {
-        widget::text_editor::Appearance {
-            background: self.get_bg(Color::Dark, true),
-            border: self.get_border(Color::SecondDark, true),
-        }
-    }
-
-    fn focused(&self, (): &Self::Style) -> widget::text_editor::Appearance {
-        widget::text_editor::Appearance {
-            background: self.get_bg(Color::SecondDark, true),
-            border: self.get_border(Color::Mid, true),
-        }
-    }
-
-    fn placeholder_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::Light, true)
-    }
-
-    fn value_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::White, true)
-    }
-
-    fn disabled_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::Dark, true)
-    }
-
-    fn selection_color(&self, (): &Self::Style) -> iced::Color {
-        self.get(Color::Dark, true)
-    }
-
-    fn disabled(&self, (): &Self::Style) -> widget::text_editor::Appearance {
-        widget::text_editor::Appearance {
-            background: self.get_bg(Color::Mid, true),
-            border: self.get_border(Color::SecondLight, true),
-        }
-    }
-}
-
-impl widget::svg::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn appearance(&self, (): &Self::Style) -> widget::svg::Appearance {
-        widget::svg::Appearance { color: None }
-    }
-}
-
-impl widget::radio::StyleSheet for LauncherTheme {
-    type Style = ();
-
-    fn active(&self, (): &Self::Style, is_selected: bool) -> widget::radio::Appearance {
-        widget::radio::Appearance {
-            background: self.get_bg(Color::Dark, true),
-            dot_color: self.get(
-                if is_selected {
-                    Color::Light
+    fn style(&self, (): &(), status: widget::checkbox::Status) -> widget::checkbox::Style {
+        match status {
+            widget::checkbox::Status::Active { is_checked } => widget::checkbox::Style {
+                background: if is_checked {
+                    self.get_bg(Color::Light, true)
                 } else {
-                    Color::Dark
+                    self.get_bg(Color::Dark, true)
                 },
-                true,
-            ),
-            border_width: BORDER_WIDTH,
-            border_color: self.get(Color::SecondLight, true),
-            text_color: None,
-        }
-    }
-
-    fn hovered(&self, (): &Self::Style, is_selected: bool) -> widget::radio::Appearance {
-        widget::radio::Appearance {
-            background: self.get_bg(Color::Dark, true),
-            dot_color: self.get(
-                if is_selected {
-                    Color::White
+                icon_color: if is_checked {
+                    self.get(Color::Dark, true)
                 } else {
-                    Color::SecondDark
+                    self.get(Color::Light, true)
                 },
-                true,
-            ),
-            border_width: BORDER_WIDTH,
-            border_color: self.get(Color::SecondLight, true),
-            text_color: None,
+                border: self.get_border(Color::SecondLight, true),
+                text_color: None,
+            },
+            widget::checkbox::Status::Hovered { is_checked } => widget::checkbox::Style {
+                background: if is_checked {
+                    self.get_bg(Color::White, true)
+                } else {
+                    self.get_bg(Color::SecondDark, true)
+                },
+                icon_color: if is_checked {
+                    self.get(Color::SecondDark, true)
+                } else {
+                    self.get(Color::White, true)
+                },
+                border: self.get_border(Color::Light, true),
+                text_color: None,
+            },
+            widget::checkbox::Status::Disabled { is_checked } => widget::checkbox::Style {
+                background: if is_checked {
+                    self.get_bg(Color::SecondLight, true)
+                } else {
+                    self.get_bg(Color::Black, true)
+                },
+                icon_color: if is_checked {
+                    self.get(Color::Black, true)
+                } else {
+                    self.get(Color::SecondLight, true)
+                },
+                border: self.get_border(Color::Mid, true),
+                text_color: None,
+            },
         }
     }
 }
 
-pub struct StyleRule {
-    pub thickness: u16,
-    pub color: Color,
-}
+impl widget::text_editor::Catalog for LauncherTheme {
+    type Class<'a> = ();
 
-impl Default for StyleRule {
-    fn default() -> Self {
-        Self {
-            thickness: 2,
-            color: Color::Mid,
+    fn default<'a>() -> <Self as widget::text_editor::Catalog>::Class<'a> {}
+
+    fn style(&self, (): &(), status: widget::text_editor::Status) -> widget::text_editor::Style {
+        match status {
+            widget::text_editor::Status::Active => widget::text_editor::Style {
+                background: self.get_bg(Color::Black, true),
+                border: self.get_border(Color::SecondDark, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::Light, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Dark, true),
+            },
+            widget::text_editor::Status::Hovered => widget::text_editor::Style {
+                background: self.get_bg(Color::Black, true),
+                border: self.get_border(Color::Mid, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::Light, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Dark, true),
+            },
+            widget::text_editor::Status::Focused => widget::text_editor::Style {
+                background: self.get_bg(Color::Dark, true),
+                border: self.get_border(Color::Mid, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::Light, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::SecondDark, true),
+            },
+            widget::text_editor::Status::Disabled => widget::text_editor::Style {
+                background: self.get_bg(Color::SecondDark, true),
+                border: self.get_border(Color::Mid, true),
+                icon: self.get(Color::Light, true),
+                placeholder: self.get(Color::Light, true),
+                value: self.get(Color::White, true),
+                selection: self.get(Color::Dark, true),
+            },
         }
     }
 }
 
-impl widget::rule::StyleSheet for LauncherTheme {
-    type Style = StyleRule;
+impl widget::svg::Catalog for LauncherTheme {
+    type Class<'a> = ();
 
-    fn appearance(&self, style: &Self::Style) -> widget::rule::Appearance {
-        widget::rule::Appearance {
-            color: self.get(style.color, true),
-            width: style.thickness,
-            radius: 0.into(),
-            fill_mode: widget::rule::FillMode::Full,
+    fn default<'a>() -> <Self as widget::svg::Catalog>::Class<'a> {}
+
+    fn style(&self, (): &(), _: widget::svg::Status) -> widget::svg::Style {
+        // Who hovers on an svg image huh?
+        widget::svg::Style { color: None }
+    }
+}
+
+impl widget::radio::Catalog for LauncherTheme {
+    type Class<'a> = ();
+
+    fn default<'a>() -> <Self as widget::radio::Catalog>::Class<'a> {}
+
+    fn style(&self, (): &(), status: widget::radio::Status) -> widget::radio::Style {
+        match status {
+            widget::radio::Status::Active { is_selected } => widget::radio::Style {
+                background: self.get_bg(Color::Dark, true),
+                dot_color: self.get(
+                    if is_selected {
+                        Color::Light
+                    } else {
+                        Color::Dark
+                    },
+                    true,
+                ),
+                border_width: BORDER_WIDTH,
+                border_color: self.get(Color::SecondLight, true),
+                text_color: None,
+            },
+            widget::radio::Status::Hovered { is_selected } => widget::radio::Style {
+                background: self.get_bg(Color::Dark, true),
+                dot_color: self.get(
+                    if is_selected {
+                        Color::White
+                    } else {
+                        Color::SecondDark
+                    },
+                    true,
+                ),
+                border_width: BORDER_WIDTH,
+                border_color: self.get(Color::SecondLight, true),
+                text_color: None,
+            },
         }
     }
 }
+
+impl widget::rule::Catalog for LauncherTheme {
+    type Class<'a> = widget::rule::StyleFn<'a, LauncherTheme>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(LauncherTheme::style_rule_default)
+    }
+
+    fn style(&self, style: &widget::rule::StyleFn<'_, LauncherTheme>) -> widget::rule::Style {
+        style(self)
+    }
+}
+
+impl widget::combo_box::Catalog for LauncherTheme {}

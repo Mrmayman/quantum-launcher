@@ -72,7 +72,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use std::{sync::Arc, time::Duration};
 
 use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
-use iced::{widget, Application, Command, Settings};
+use iced::{widget, Settings, Task};
 use launcher_state::{
     get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherSettings,
     MenuLauncherUpdate, MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess,
@@ -109,16 +109,11 @@ mod tick;
 
 const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
-impl Application for Launcher {
-    type Executor = iced::executor::Default;
-    type Message = Message;
-    type Theme = LauncherTheme;
-    type Flags = ();
-
-    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+impl Launcher {
+    fn new() -> (Self, iced::Task<Message>) {
         let load_icon_command = load_window_icon();
 
-        let check_for_updates_command = Command::perform(
+        let check_for_updates_command = Task::perform(
             ql_instances::check_for_launcher_updates_w(),
             Message::UpdateCheckResult,
         );
@@ -126,14 +121,14 @@ impl Application for Launcher {
         let is_new_user = file_utils::is_new_user();
         // let is_new_user = true;
 
-        let get_entries_command = Command::perform(
+        let get_entries_command = Task::perform(
             get_entries("instances".to_owned(), false),
             Message::CoreListLoaded,
         );
 
         (
             Launcher::load_new(None, is_new_user).unwrap_or_else(Launcher::with_error),
-            Command::batch(vec![
+            Task::batch(vec![
                 load_icon_command,
                 check_for_updates_command,
                 get_entries_command,
@@ -141,11 +136,7 @@ impl Application for Launcher {
         )
     }
 
-    fn title(&self) -> String {
-        "Quantum Launcher".to_owned()
-    }
-
-    fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::HomeAccountSelected(account) => self.accounts_selected = Some(account),
             Message::ManageMods(message) => return self.update_manage_mods(message),
@@ -195,16 +186,16 @@ impl Application for Launcher {
                 let mut commands = self.get_imgs_to_load();
                 let command = self.tick();
                 commands.push(command);
-                return Command::batch(commands);
+                return Task::batch(commands);
             }
             Message::UninstallLoaderForgeStart => {
-                return Command::perform(
+                return Task::perform(
                     loaders::forge::uninstall_w(self.selected_instance.clone().unwrap()),
                     Message::UninstallLoaderEnd,
                 )
             }
             Message::UninstallLoaderOptiFineStart => {
-                return Command::perform(
+                return Task::perform(
                     loaders::optifine::uninstall_w(
                         self.selected_instance
                             .as_ref()
@@ -216,7 +207,7 @@ impl Application for Launcher {
                 );
             }
             Message::UninstallLoaderFabricStart => {
-                return Command::perform(
+                return Task::perform(
                     loaders::fabric::uninstall_w(self.selected_instance.clone().unwrap()),
                     Message::UninstallLoaderEnd,
                 )
@@ -256,7 +247,7 @@ impl Application for Launcher {
                     .client_processes
                     .remove(self.selected_instance.as_ref().unwrap().get_name())
                 {
-                    return Command::perform(
+                    return Task::perform(
                         {
                             async move {
                                 let mut child = process.child.lock().unwrap();
@@ -306,7 +297,7 @@ impl Application for Launcher {
                         "Starting Update".to_owned(),
                     ));
 
-                    return Command::perform(
+                    return Task::perform(
                         ql_instances::install_launcher_update_w(url.clone(), sender),
                         Message::UpdateDownloadEnd,
                     );
@@ -405,7 +396,7 @@ impl Application for Launcher {
                         progress_number: 0.0,
                     });
 
-                    return Command::perform(
+                    return Task::perform(
                         ql_servers::list_versions(Some(Arc::new(sender))),
                         Message::ServerCreateVersionsLoaded,
                     );
@@ -439,7 +430,7 @@ impl Application for Launcher {
                     self.state = State::ServerCreate(MenuServerCreate::Downloading {
                         progress: ProgressBar::with_recv(receiver),
                     });
-                    return Command::perform(
+                    return Task::perform(
                         ql_servers::create_server_w(name, selected_version, Some(sender)),
                         Message::ServerCreateEnd,
                     );
@@ -497,7 +488,7 @@ impl Application for Launcher {
                 if self.server_processes.contains_key(&server) {
                     err!("Server is already running");
                 } else {
-                    return Command::perform(
+                    return Task::perform(
                         ql_servers::run_w(server, sender),
                         Message::ServerManageStartServerFinish,
                     );
@@ -579,7 +570,7 @@ impl Application for Launcher {
             }
             Message::InstallPaperStart => {
                 self.state = State::InstallPaper;
-                return Command::perform(
+                return Task::perform(
                     loaders::paper::install_w(
                         self.selected_instance
                             .as_ref()
@@ -598,7 +589,7 @@ impl Application for Launcher {
                 }
             }
             Message::UninstallLoaderPaperStart => {
-                return Command::perform(
+                return Task::perform(
                     loaders::paper::uninstall_w(
                         self.selected_instance
                             .as_ref()
@@ -649,21 +640,21 @@ impl Application for Launcher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
-    fn subscription(&self) -> iced::Subscription<Self::Message> {
+    fn subscription(&self) -> iced::Subscription<Message> {
         const UPDATES_PER_SECOND: u64 = 12;
 
         let tick = iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
             .map(|_| Message::CoreTick);
 
-        let events = iced::event::listen_with(|a, b| Some(Message::CoreEvent(a, b)));
+        let events = iced::event::listen_with(|a, b, _| Some(Message::CoreEvent(a, b)));
 
         iced::Subscription::batch(vec![tick, events])
     }
 
-    fn view(&self) -> iced::Element<'_, Self::Message, Self::Theme, iced::Renderer> {
+    fn view(&self) -> iced::Element<'_, Message, LauncherTheme, iced::Renderer> {
         match &self.state {
             State::Launch(menu) => self.view_main_menu(menu),
             State::AccountLogin { url, code } => widget::column!(
@@ -676,7 +667,7 @@ impl Application for Launcher {
             )
             .padding(10)
             .spacing(10)
-            .align_items(iced::Alignment::Center)
+            .align_x(iced::Alignment::Center)
             .into(),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),
             State::Create(menu) => menu.view(),
@@ -743,7 +734,7 @@ impl Application for Launcher {
             State::ManagePresets(menu) => menu.view(),
             State::ChangeLog => widget::scrollable(
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back").on_press(
+                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
                         Message::LaunchScreenOpen {
                             message: None,
                             clear_selection: true
@@ -759,7 +750,7 @@ impl Application for Launcher {
         }
     }
 
-    fn theme(&self) -> Self::Theme {
+    fn theme(&self) -> LauncherTheme {
         self.theme.clone()
     }
 
@@ -768,13 +759,13 @@ impl Application for Launcher {
     }
 }
 
-fn load_window_icon() -> Command<Message> {
+fn load_window_icon() -> Task<Message> {
     let icon = iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico));
     match icon {
-        Ok(icon) => iced::window::change_icon(iced::window::Id::MAIN, icon),
+        Ok(icon) => iced::window::change_icon(iced::window::Id::unique(), icon),
         Err(err) => {
             err!("Could not load icon: {err}");
-            Command::none()
+            Task::none()
         }
     }
 }
@@ -841,30 +832,53 @@ fn main() {
 
     info!("Starting up the launcher...");
 
-    Launcher::run(Settings {
-        window: iced::window::Settings {
-            size: iced::Size {
-                width: WINDOW_WIDTH,
-                height: WINDOW_HEIGHT,
-            },
-            resizable: true,
+    iced::application("QuantumLauncher", Launcher::update, Launcher::view)
+        .subscription(Launcher::subscription)
+        .window_size((WINDOW_WIDTH, WINDOW_HEIGHT))
+        .scale_factor(Launcher::scale_factor)
+        .exit_on_close_request(false)
+        .theme(Launcher::theme)
+        .settings(Settings {
+            fonts: vec![
+                include_bytes!("../../assets/fonts/Inter-Regular.ttf")
+                    .as_slice()
+                    .into(),
+                include_bytes!("../../assets/fonts/launcher-icons.ttf")
+                    .as_slice()
+                    .into(),
+                include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
+                    .as_slice()
+                    .into(),
+            ],
+            default_font: iced::Font::with_name("Inter"),
             ..Default::default()
-        },
-        fonts: vec![
-            include_bytes!("../../assets/fonts/Inter-Regular.ttf")
-                .as_slice()
-                .into(),
-            include_bytes!("../../assets/fonts/launcher-icons.ttf")
-                .as_slice()
-                .into(),
-            include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
-                .as_slice()
-                .into(),
-        ],
-        default_font: iced::Font::with_name("Inter"),
-        ..Default::default()
-    })
-    .unwrap();
+        })
+        .run_with(Launcher::new)
+        .unwrap();
+    // Launcher::run(Settings {
+    //     window: iced::window::Settings {
+    //         size: iced::Size {
+    //             width: WINDOW_WIDTH,
+    //             height: WINDOW_HEIGHT,
+    //         },
+    //         resizable: true,
+    //         ..Default::default()
+    //     },
+    //     fonts: vec![
+    //         include_bytes!("../../assets/fonts/Inter-Regular.ttf")
+    //             .as_slice()
+    //             .into(),
+    //         include_bytes!("../../assets/fonts/launcher-icons.ttf")
+    //             .as_slice()
+    //             .into(),
+    //         include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
+    //             .as_slice()
+    //             .into(),
+    //     ],
+    //     default_font: iced::Font::with_name("Inter"),
+    //     ..Default::default()
+    // })
+    // .unwrap();
 }
 
 fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<PrintCmd> {

@@ -13,7 +13,7 @@ use crate::{
     message_handler::SIDEBAR_DRAG_LEEWAY,
     stylesheet::{
         color::Color,
-        styles::{LauncherTheme, StyleButton, StyleContainer, StyleFlatness, StyleRule},
+        styles::{LauncherTheme, StyleButton},
     },
 };
 
@@ -53,7 +53,7 @@ impl Launcher {
                     .map(|n| render_tab(n, menu)),
                 60.0,
                 31.0,
-                self.window_size.0 as f32 - menu.sidebar_width as f32,
+                self.window_size.0 - menu.sidebar_width as f32,
                 0.0,
                 0.0,
             );
@@ -65,11 +65,11 @@ impl Launcher {
                         icon_manager::settings(),
                         widget::horizontal_space()
                     ]
-                    .align_items(iced::Alignment::Center)
+                    .align_y(iced::Alignment::Center)
                 )
                 .height(31.0)
                 .width(31.0)
-                .style(StyleButton::FlatDark)
+                .style(|n, status| n.style_button(status, StyleButton::FlatDark))
                 .on_press(Message::LauncherSettingsOpen),
                 tab_bar,
                 widget::horizontal_space()
@@ -86,11 +86,11 @@ impl Launcher {
             }
             .height(height);
             widget::container(n)
-                .style(StyleContainer::SharpBox(Color::Dark, 0.0))
+                .style(|n| n.style_container_sharp_box(0.0, Color::Dark))
                 .into()
         };
 
-        let mods_button = button_with_icon(icon_manager::download(), "Mods")
+        let mods_button = button_with_icon(icon_manager::download(), "Mods", 15)
             .on_press_maybe(
                 (selected_instance_s.is_some())
                     .then_some(Message::ManageMods(ManageModsMessage::ScreenOpen)),
@@ -108,14 +108,15 @@ impl Launcher {
                         ],
                         98.0,
                         0.0,
-                        self.window_size.0 as f32 - menu.sidebar_width as f32,
+                        self.window_size.0 - menu.sidebar_width as f32,
                         0.0,
                         5.0,
                     );
 
                     widget::column!(
                         main_buttons,
-                        widget::horizontal_rule(10),
+                        widget::horizontal_rule(10)
+                            .style(|n: &LauncherTheme| n.style_rule(Color::SecondDark, 2)),
                         get_servers_button(),
                         widget::horizontal_space(),
                         widget::vertical_space(),
@@ -147,7 +148,7 @@ impl Launcher {
     }
 
     pub fn get_log_pane<'element>(
-        logs: &HashMap<String, InstanceLog>,
+        logs: &'element HashMap<String, InstanceLog>,
         selected_instance: Option<&'element String>,
         is_server: bool,
     ) -> widget::Column<'element, Message, LauncherTheme> {
@@ -213,20 +214,23 @@ impl Launcher {
                 widget::column!(widget::scrollable(
                     widget::column!(
                         self.get_accounts_bar(menu, username),
-                        button_with_icon(icon_manager::create(), "New")
-                            .style(StyleButton::Flat)
+                        button_with_icon(icon_manager::create(), "New", 16)
+                            .style(|n, status| n.style_button(status, StyleButton::Flat))
                             .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
                             .width(menu.sidebar_width),
                         widget::column(instances.iter().map(|name| {
+                            let text = widget::text(name).size(16);
                             if selected_instance_s == Some(name) {
-                                widget::container(widget::text(name))
-                                    .style(StyleContainer::SelectedFlatButton)
+                                widget::container(widget::row!(widget::Space::with_width(5), text))
+                                    .style(LauncherTheme::style_container_selected_flat_button)
                                     .width(menu.sidebar_width)
                                     .padding(5)
                                     .into()
                             } else {
-                                widget::button(widget::text(name).size(16))
-                                    .style(StyleButton::Flat)
+                                widget::button(text)
+                                    .style(|n: &LauncherTheme, status| {
+                                        n.style_button(status, StyleButton::Flat)
+                                    })
                                     .on_press(Message::LaunchInstanceSelected(name.clone()))
                                     .width(menu.sidebar_width)
                                     .into()
@@ -235,21 +239,18 @@ impl Launcher {
                     )
                     .spacing(5),
                 )
-                .style(StyleFlatness::Flat),)
+                .style(LauncherTheme::style_scrollable_flat))
             } else {
                 widget::column!("Loading...")
             }
             .push(widget::vertical_space()))
             .push_maybe(
                 (difference < SIDEBAR_DRAG_LEEWAY && difference > 0.0).then_some(
-                    widget::vertical_rule(0).style(StyleRule {
-                        thickness: 4,
-                        color: Color::Mid,
-                    }),
+                    widget::vertical_rule(0).style(|n: &LauncherTheme| n.style_rule(Color::Mid, 4)),
                 ),
             ),
         )
-        .style(StyleContainer::SharpBox(Color::Dark, 0.0))
+        .style(|n| n.style_container_sharp_box(0.0, Color::Dark))
         .into()
     }
 
@@ -281,7 +282,7 @@ impl Launcher {
         username: &'a str,
         selected_instance: Option<&'a String>,
     ) -> widget::Column<'a, Message, LauncherTheme> {
-        let play_button = button_with_icon(icon_manager::play(), "Play").width(98);
+        let play_button = button_with_icon(icon_manager::play(), "Play", 16).width(98);
 
         let play_button = if username.is_empty() {
             widget::column!(widget::tooltip(
@@ -289,17 +290,17 @@ impl Launcher {
                 "Username is empty!",
                 widget::tooltip::Position::FollowCursor,
             )
-            .style(StyleContainer::SharpBox(Color::Black, 0.0)))
+            .style(|n| n.style_container_sharp_box(0.0, Color::Black)))
         } else if username.contains(' ') {
             widget::column!(widget::tooltip(
                 play_button,
                 "Username contains spaces!",
                 widget::tooltip::Position::FollowCursor,
             )
-            .style(StyleContainer::SharpBox(Color::Black, 0.0)))
+            .style(|n| n.style_container_sharp_box(0.0, Color::Black)))
         } else if let Some(selected_instance) = selected_instance {
             widget::column!(if self.client_processes.contains_key(selected_instance) {
-                button_with_icon(icon_manager::play(), "Kill")
+                button_with_icon(icon_manager::play(), "Kill", 16)
                     .on_press(Message::LaunchKill)
                     .width(98)
             } else {
@@ -311,7 +312,7 @@ impl Launcher {
                 "Select an instance first!",
                 widget::tooltip::Position::FollowCursor,
             )
-            .style(StyleContainer::SharpBox(Color::Black, 0.0)))
+            .style(|n| n.style_container_sharp_box(0.0, Color::Black)))
         };
         play_button
     }
@@ -320,7 +321,7 @@ impl Launcher {
         &self,
         selected_instance: Option<&'a String>,
     ) -> widget::Button<'a, Message, LauncherTheme> {
-        button_with_icon(icon_manager::folder(), "Files")
+        button_with_icon(icon_manager::folder(), "Files", 16)
             .on_press_maybe((selected_instance.is_some()).then(|| {
                 Message::CoreOpenDir(
                     self.dir
@@ -344,13 +345,13 @@ fn render_tab(n: LaunchTabId, menu: &MenuLaunch) -> Element {
     );
     if menu.tab == n {
         widget::container(txt)
-            .style(StyleContainer::SelectedFlatButton)
+            .style(LauncherTheme::style_container_selected_flat_button)
             .padding(5)
             .width(60)
             .into()
     } else {
         widget::button(txt)
-            .style(StyleButton::Flat)
+            .style(|n, status| n.style_button(status, StyleButton::Flat))
             .on_press(Message::LaunchChangeTab(n))
             .width(60)
             .into()
@@ -365,7 +366,7 @@ fn get_no_instance_message<'a>() -> widget::Column<'a, Message, LauncherTheme> {
             widget::text(
                 "Note: This version is VERY experimental. If you want to get help join our discord"
             ),
-            button_with_icon(icon_manager::chat(), "Join our Discord")
+            button_with_icon(icon_manager::chat(), "Join our Discord", 16)
                 .on_press(Message::CoreOpenDir(DISCORD.to_owned())),
         );
         widget::column!(BASE_MESSAGE, arm_message)
@@ -375,17 +376,12 @@ fn get_no_instance_message<'a>() -> widget::Column<'a, Message, LauncherTheme> {
 }
 
 fn get_servers_button<'a>() -> Element<'a> {
-    widget::button(
-        widget::row![icon_manager::page(), widget::text("Servers").size(14)]
-            .spacing(10)
-            .padding(5),
-    )
-    .width(98)
-    .on_press(Message::ServerManageOpen {
-        selected_server: None,
-        message: None,
-    })
-    .into()
+    button_with_icon(icon_manager::page(), "Servers", 14)
+        .on_press(Message::ServerManageOpen {
+            selected_server: None,
+            message: None,
+        })
+        .into()
 }
 
 fn get_footer_text(menu: &MenuLaunch) -> Element {

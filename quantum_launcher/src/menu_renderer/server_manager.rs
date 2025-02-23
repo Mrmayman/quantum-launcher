@@ -9,7 +9,7 @@ use crate::{
         EditInstanceMessage, InstanceLog, Launcher, MenuServerCreate, MenuServerManage, Message,
         ServerProcess,
     },
-    stylesheet::{color::Color, styles::StyleContainer},
+    stylesheet::{color::Color, styles::LauncherTheme},
 };
 
 use super::{button_with_icon, Element};
@@ -52,7 +52,7 @@ impl MenuServerManage {
                     widget::column!(
                         widget::row!(
                             button_play,
-                            button_with_icon(icon_manager::settings(), "Edit")
+                            button_with_icon(icon_manager::settings(), "Edit", 16)
                                 .width(98)
                                 .on_press_maybe(selected_server.map(|_| {
                                     Message::EditInstance(EditInstanceMessage::MenuOpen)
@@ -61,7 +61,7 @@ impl MenuServerManage {
                         .spacing(5),
                         widget::row!(
                             button_files,
-                            button_with_icon(icon_manager::download(), "Mods")
+                            button_with_icon(icon_manager::download(), "Mods", 16)
                                 .width(98)
                                 .on_press_maybe(selected_server.and_then(|n| {
                                     (!processes.contains_key(n))
@@ -69,7 +69,7 @@ impl MenuServerManage {
                                 })),
                         )
                         .spacing(5),
-                        widget::row!(button_with_icon(icon_manager::delete(), "Delete")
+                        widget::row!(button_with_icon(icon_manager::delete(), "Delete", 16)
                             .width(97)
                             .on_press_maybe(
                                 (selected_server.is_some()).then(|| { Message::ServerDeleteOpen })
@@ -92,13 +92,13 @@ impl MenuServerManage {
 
         widget::row!(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back").on_press(
+                button_with_icon(icon_manager::back(), "Back", 16).on_press(
                     Message::LaunchScreenOpen {
                         message: None,
                         clear_selection: true
                     }
                 ),
-                button_with_icon(icon_manager::create(), "New Server")
+                button_with_icon(icon_manager::create(), "New Server", 16)
                     .on_press(Message::ServerCreateScreenOpen),
                 widget::container(server_ops)
             )
@@ -115,7 +115,7 @@ impl MenuServerManage {
         processes: &'a HashMap<String, ServerProcess>,
     ) -> Element<'a> {
         if selected_server.is_some_and(|n| processes.contains_key(n)) {
-            button_with_icon(icon_manager::play(), "Stop")
+            button_with_icon(icon_manager::play(), "Stop", 16)
                 .width(97)
                 .on_press_maybe(
                     (selected_server.is_some())
@@ -124,7 +124,7 @@ impl MenuServerManage {
                 .into()
         } else {
             widget::tooltip(
-                button_with_icon(icon_manager::play(), "Start")
+                button_with_icon(icon_manager::play(), "Start", 16)
                     .width(97)
                     .on_press_maybe((selected_server.is_some()).then(|| {
                         Message::ServerManageStartServer(selected_server.unwrap().clone())
@@ -132,7 +132,7 @@ impl MenuServerManage {
                 "By starting the server, you agree to the EULA",
                 widget::tooltip::Position::FollowCursor,
             )
-            .style(StyleContainer::SharpBox(Color::Black, 0.0))
+            .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black))
             .into()
         }
     }
@@ -141,7 +141,7 @@ impl MenuServerManage {
         selected_server: Option<&'a String>,
         launcher_dir: &'a Path,
     ) -> widget::Button<'a, Message, crate::stylesheet::styles::LauncherTheme> {
-        button_with_icon(icon_manager::folder(), "Files")
+        button_with_icon(icon_manager::folder(), "Files", 16)
             .width(97)
             .on_press_maybe((selected_server.is_some()).then(|| {
                 Message::CoreOpenDir(
@@ -179,7 +179,7 @@ impl MenuServerCreate {
                 ..
             } => {
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back").on_press(
+                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
                         Message::ServerManageOpen {
                             selected_server: None,
                             message: None

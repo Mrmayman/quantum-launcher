@@ -8,7 +8,7 @@ env:
   PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
   FINAL_NAME: quantum_launcher
-  APP_VERSION: 0.3.1
+  APP_VERSION: 0.4.0
   ICON_NAME: ql_logo # Base name for the icon (without extension)
 
 jobs:

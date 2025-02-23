@@ -7,16 +7,45 @@ use super::{button_with_icon, Element, DISCORD};
 
 lazy_static! {
     pub static ref IMG_NEW: Handle =
-        Handle::from_memory(include_bytes!("../../../assets/screenshots/new.png"));
-    pub static ref IMG_LOADERS: Handle = Handle::from_memory(include_bytes!(
-        "../../../assets/screenshots/install_loader.png"
-    ));
+        Handle::from_bytes(include_bytes!("../../../assets/screenshots/new.png").as_slice());
+    pub static ref IMG_LOADERS: Handle = Handle::from_bytes(
+        include_bytes!("../../../assets/screenshots/install_loader.png").as_slice()
+    );
     pub static ref IMG_MOD_STORE: Handle =
-        Handle::from_memory(include_bytes!("../../../assets/screenshots/mod_store.png"));
+        Handle::from_bytes(include_bytes!("../../../assets/screenshots/mod_store.png").as_slice());
     pub static ref IMG_OLD_MC: Handle =
-        Handle::from_memory(include_bytes!("../../../assets/screenshots/old_mc.png"));
+        Handle::from_bytes(include_bytes!("../../../assets/screenshots/old_mc.png").as_slice());
     pub static ref IMG_THEMES: Handle =
-        Handle::from_memory(include_bytes!("../../../assets/screenshots/themes.png"));
+        Handle::from_bytes(include_bytes!("../../../assets/screenshots/themes.png").as_slice());
+}
+
+pub fn changelog_0_4<'a>() -> Element<'a> {
+    widget::column!(
+        widget::text("QuantumLauncher v0.4").size(40),
+        widget::text("Changelog:").size(30),
+        widget::text("Redesign:").size(20),
+        "- The launcher menus have been redesigned",
+        "- Select instances easily with a sidebar, and enjoy the simpler navigation with tabs!",
+        "- The purple colour pallete has been changed to be more vibrant and punchy",
+        widget::text("Plugins:").size(20), // TODO: Implement this
+        "- Added a lua-based plugin system. Tweak the launcher to your liking",
+        "- There's now a plugin store too!",
+        "- Plugins are safe. They are completely sandboxed and manually reviewed for security",
+        widget::text("Servers").size(20),
+        "- Added a server management system",
+        "- You can create, edit, delete, launch and install mods for servers",
+        "- Extensive configuration and server plugin management!", // TODO: Implement this too and stop yapping
+        widget::text("Microsoft Account").size(20),
+        "- Added optional Microsoft login for those with a paid account",
+        "- Normal users can continue using the launcher, this is entirely optional",
+        widget::text("Other").size(20),
+        "- Redesigned the command-line experience with the \"clap\" library",
+        "- Updated \"iced\" to 0.13.1 from 0.12.1",
+        // Look, these aren't false promises. By the time the update releases
+        // I will either have finished these or removed them from changelog
+    )
+    .spacing(10)
+    .into()
 }
 
 pub fn changelog_0_3_1<'a>() -> Element<'a> {
@@ -82,7 +111,7 @@ pub fn welcome_msg<'a>() -> Element<'a> {
         widget::container(
             widget::column!(
                 "Got any problems? Join the discord!",
-                button_with_icon(icon_manager::chat(), "Join our Discord").on_press(
+                button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
                     Message::CoreOpenDir(DISCORD.to_owned())
                 ),
             ).padding(10).spacing(10)
