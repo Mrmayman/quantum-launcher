@@ -10,16 +10,17 @@
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
 
-use ql_core::RequestError;
+use ql_core::{GenericProgress, RequestError};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use thiserror::Error;
 
 // Please don't steal :)
 pub const CLIENT_ID: &str = "43431a16-38f5-4b42-91f9-4bf70c3bee1e";
 
+#[derive(Debug, Clone)]
 pub struct AccountData {
     pub access_token: String,
     pub uuid: String,
@@ -56,13 +57,13 @@ struct XboxLiveAuthResponse {
     display_claims: HashMap<String, Vec<HashMap<String, String>>>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 struct MinecraftAuthResponse {
-    username: String,
-    roles: Vec<String>,
     access_token: String,
-    expires_in: u32,
-    token_type: String,
+    // username: String,
+    // roles: Vec<String>,
+    // expires_in: u32,
+    // token_type: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -90,6 +91,8 @@ pub enum AuthError {
     MissingField(String),
     #[error("microsoft account error: no uuid found")]
     NoUuid,
+    #[error("microsoft account doesn't own minecraft")]
+    DoesntOwnGame,
 }
 
 impl From<reqwest::Error> for AuthError {
@@ -98,8 +101,13 @@ impl From<reqwest::Error> for AuthError {
     }
 }
 
-pub async fn login_3_xbox_w(data: AuthTokenResponse) -> Result<AccountData, String> {
-    login_3_xbox(data).await.map_err(|err| err.to_string())
+pub async fn login_3_xbox_w(
+    data: AuthTokenResponse,
+    sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
+) -> Result<AccountData, String> {
+    login_3_xbox(data, sender)
+        .await
+        .map_err(|err| err.to_string())
 }
 
 pub async fn login_1_link_w() -> Result<AuthCodeResponse, String> {
@@ -135,11 +143,23 @@ pub async fn login_2_wait(data: AuthCodeResponse) -> Result<AuthTokenResponse, A
     Ok(token)
 }
 
-pub async fn login_3_xbox(data: AuthTokenResponse) -> Result<AccountData, AuthError> {
+pub async fn login_3_xbox(
+    data: AuthTokenResponse,
+    sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
+) -> Result<AccountData, AuthError> {
     let client = reqwest::Client::new();
+    send_progress(sender.as_ref(), 0, "Logging into xbox live...");
     let xbox = login_in_xbox_live(&client, &data).await?;
+    send_progress(sender.as_ref(), 1, "Logging into minecraft...");
     let minecraft = login_in_minecraft(&client, &xbox).await?;
+    send_progress(sender.as_ref(), 2, "Getting account details...");
     let final_details = get_final_details(&client, &minecraft).await?;
+    send_progress(sender.as_ref(), 3, "Checking game ownership...");
+    let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
+
+    if !owns_game {
+        return Err(AuthError::DoesntOwnGame);
+    }
 
     let data = AccountData {
         access_token: minecraft.access_token,
@@ -149,6 +169,21 @@ pub async fn login_3_xbox(data: AuthTokenResponse) -> Result<AccountData, AuthEr
     };
 
     Ok(data)
+}
+
+fn send_progress(
+    sender: Option<&std::sync::mpsc::Sender<GenericProgress>>,
+    done: usize,
+    var_name: &str,
+) {
+    if let Some(sender) = sender {
+        _ = sender.send(GenericProgress {
+            done,
+            total: 4,
+            message: Some(var_name.to_owned()),
+            has_finished: false,
+        });
+    }
 }
 
 async fn wait_for_login(
@@ -266,9 +301,7 @@ async fn login_in_minecraft(
         .json(&json!({
             "identityToken":
                 format!(
-                    "XBL3.0 x={user_hash};{xsts_token}",
-                    user_hash = user_hash,
-                    xsts_token = xbox_security_token
+                    "XBL3.0 x={user_hash};{xbox_security_token}"
                 )
         }))
         .send()
@@ -295,4 +328,23 @@ async fn get_final_details(
         .await?;
 
     serde_json::from_str(&text).map_err(|n| AuthError::SerdeError(n, text))
+}
+
+async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
+    #[derive(Deserialize)]
+    struct Ownership {
+        items: Vec<Value>,
+    }
+
+    let client = Client::new();
+
+    let response = client
+        .get("https://api.minecraftservices.com/entitlements/mcstore")
+        .bearer_auth(access_token)
+        .send()
+        .await?
+        .json::<Ownership>() // Deserialize response as JSON
+        .await?;
+
+    Ok(!response.items.is_empty())
 }

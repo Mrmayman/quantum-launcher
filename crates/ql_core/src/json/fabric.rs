@@ -1,8 +1,8 @@
 use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[allow(non_snake_case)]
 pub struct FabricJSON {
     pub mainClass: String,
@@ -10,13 +10,13 @@ pub struct FabricJSON {
     pub libraries: Vec<Library>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Arguments {
     pub jvm: Option<Vec<String>>,
     pub game: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Library {
     pub name: String,
     pub url: String,

@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct JavaFilesJson {
     pub files: BTreeMap<String, JavaFile>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(tag = "type")]
 #[allow(non_camel_case_types)]
 pub enum JavaFile {
@@ -21,15 +21,15 @@ pub enum JavaFile {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct JavaFileDownload {
-    pub lzma: Option<JavaFileDownloadDetails>,
+    // lzma: Option<JavaFileDownloadDetails>, // TODO: Add lzma downloading
     pub raw: JavaFileDownloadDetails,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct JavaFileDownloadDetails {
-    pub sha1: String,
-    pub size: usize,
+    // sha1: String,
+    // size: usize,
     pub url: String,
 }

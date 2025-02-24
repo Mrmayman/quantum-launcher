@@ -5,7 +5,7 @@ use std::{
 };
 
 use iced::Task;
-use ql_core::{err, info, GenericProgress, InstanceSelection};
+use ql_core::{err, InstanceSelection};
 use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
 
@@ -19,28 +19,21 @@ impl Launcher {
     pub fn tick(&mut self) -> Task<Message> {
         match &mut self.state {
             State::Launch(MenuLaunch {
-                java_recv,
                 asset_recv,
                 edit_instance,
                 ..
             }) => {
-                if let Some(receiver) = java_recv.take() {
-                    if let Ok(GenericProgress { done: 0, .. }) = receiver.try_recv() {
-                        info!("Installing Java");
-                        self.state = State::InstallJava(ProgressBar::with_recv_and_msg(
-                            receiver,
-                            "Starting".to_owned(),
-                        ));
+                if let Some(receiver) = &mut self.java_recv {
+                    if receiver.tick() {
+                        self.state = State::InstallJava;
                         return Task::none();
                     }
-                    *java_recv = Some(receiver);
                 }
 
                 if let Some(receiver) = asset_recv.take() {
                     if receiver.try_recv().is_ok() {
                         self.state = State::RedownloadAssets {
                             progress: ProgressBar::with_recv(receiver),
-                            java_recv: java_recv.take(),
                         };
                         return Task::none();
                     }
@@ -94,9 +87,15 @@ impl Launcher {
                     progress.tick();
                 }
             }
-            State::InstallJava(menu) => {
-                menu.tick();
-                if menu.progress.has_finished {
+            State::InstallJava => {
+                let has_finished = if let Some(progress) = &mut self.java_recv {
+                    progress.tick();
+                    progress.progress.has_finished
+                } else {
+                    true
+                };
+                if has_finished {
+                    self.java_recv = None;
                     let message = "Installed Java".to_owned();
                     match &self.selected_instance {
                         Some(InstanceSelection::Instance(_)) | None => {
@@ -142,17 +141,12 @@ impl Launcher {
                     return Task::perform(config.save_w(), Message::CoreTickConfigSaved);
                 }
             }
-            State::RedownloadAssets {
-                progress,
-                java_recv,
-            } => {
+            State::RedownloadAssets { progress } => {
                 progress.tick();
                 if progress.progress.has_finished {
                     let message = "Redownloaded Assets".to_owned();
-                    let java_recv = java_recv.take();
                     self.state = State::Launch(MenuLaunch {
                         message,
-                        java_recv,
                         asset_recv: None,
                         tab: LaunchTabId::default(),
                         edit_instance: None,
@@ -176,16 +170,10 @@ impl Launcher {
                     }
                 }
             }
-            State::ServerManage(menu) => {
-                if menu
-                    .java_install_recv
-                    .as_ref()
-                    .and_then(|n| n.try_recv().ok())
-                    .is_some()
-                {
-                    self.state = State::InstallJava(ProgressBar::with_recv(
-                        menu.java_install_recv.take().unwrap(),
-                    ));
+            State::ServerManage(_) => {
+                if self.java_recv.as_mut().map(|n| n.tick()).unwrap_or(false) {
+                    self.state = State::InstallJava;
+                    return Task::none();
                 }
 
                 self.tick_server_processes_and_logs();
@@ -217,12 +205,16 @@ impl Launcher {
                     progress.tick();
                 }
             }
+            State::AccountLoginProgress(progress) => {
+                progress.tick();
+            }
             // These menus don't require background ticking
             State::Error { .. }
             | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::Welcome
             | State::AccountLogin { .. }
+            | State::GenericMessage(_)
             | State::InstallPaper => {}
         }
 

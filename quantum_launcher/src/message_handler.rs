@@ -39,10 +39,16 @@ impl Launcher {
     pub fn launch_game(&mut self, account_data: Option<AccountData>) -> Task<Message> {
         if let State::Launch(ref mut menu_launch) = self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
-            let username = self.config.as_ref().unwrap().username.clone();
+            let username = if let Some(account_data) = &account_data {
+                // Microsoft account
+                account_data.username.clone()
+            } else {
+                // Offline username
+                self.config.as_ref().unwrap().username.clone()
+            };
 
             let (sender, receiver) = std::sync::mpsc::channel();
-            menu_launch.java_recv = Some(receiver);
+            self.java_recv = Some(ProgressBar::with_recv(receiver));
 
             let (asset_sender, asset_receiver) = std::sync::mpsc::channel();
             menu_launch.asset_recv = Some(asset_receiver);
@@ -79,6 +85,10 @@ impl Launcher {
     }
 
     pub fn finish_launching(&mut self, result: GameLaunchResult) -> Task<Message> {
+        self.java_recv = None;
+        if let State::Launch(menu) = &mut self.state {
+            menu.asset_recv = None;
+        }
         match result {
             GameLaunchResult::Ok(child) => {
                 let Some(InstanceSelection::Instance(selected_instance)) =
@@ -308,7 +318,7 @@ impl Launcher {
                     locally_installed_mods: HashSet::new(),
                 });
 
-                Ok(Task::batch(vec![locally_installed_mods]))
+                Ok(locally_installed_mods)
             }
             Err(err) => {
                 self.set_error(err);
@@ -351,7 +361,7 @@ impl Launcher {
                     )
                 };
 
-                return Ok(Task::batch(vec![locally_installed_mods, update_cmd]));
+                return Ok(Task::batch([locally_installed_mods, update_cmd]));
             }
             Err(err) => {
                 self.set_error(err);
@@ -433,10 +443,7 @@ impl Launcher {
     }
 
     pub fn go_to_server_manage_menu(&mut self, message: Option<String>) -> Task<Message> {
-        self.state = State::ServerManage(MenuServerManage {
-            java_install_recv: None,
-            message,
-        });
+        self.state = State::ServerManage(MenuServerManage { message });
         Task::perform(
             get_entries("servers".to_owned(), true),
             Message::CoreListLoaded,
@@ -665,9 +672,13 @@ impl Launcher {
             State::ModsDownload(menu) if menu.mods_download_in_progress.is_empty() => {
                 should_return_to_mods_screen = true;
             }
+            State::AccountLogin { cancel_handle, .. } => {
+                cancel_handle.abort();
+                should_return_to_main_screen = true;
+            }
             State::InstallPaper
             | State::InstallForge(_)
-            | State::InstallJava(_)
+            | State::InstallJava
             | State::InstallOptifine(_)
             | State::UpdateFound(_)
             | State::RedownloadAssets { .. }
@@ -678,7 +689,8 @@ impl Launcher {
             | State::ModsDownload(_)
             | State::ServerManage(_)
             | State::ServerCreate(_)
-            | State::AccountLogin { .. }
+            | State::GenericMessage(_)
+            | State::AccountLoginProgress(_)
             | State::Launch(_) => {}
         }
 

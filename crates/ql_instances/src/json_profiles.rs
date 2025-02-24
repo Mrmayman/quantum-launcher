@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Represents the `launcher_profiles.json` file.
 ///
 /// It's not needed for the game to run, but some
 /// loader installers depend on it so it's included.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[allow(non_snake_case)]
 pub struct ProfileJson {
     pub profiles: BTreeMap<String, Profiles>,
@@ -21,7 +21,7 @@ pub struct ProfileJson {
     pub version: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[allow(non_snake_case)]
 pub struct Profiles {
     pub name: String,
@@ -38,13 +38,13 @@ pub struct Profiles {
     pub resolution: Option<Resolution>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct Resolution {
     pub height: i32,
     pub width: i32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[allow(non_snake_case)]
 pub struct AuthenticationDatabase {
     pub accessToken: String,
@@ -53,7 +53,7 @@ pub struct AuthenticationDatabase {
     pub profiles: BTreeMap<String, String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[allow(non_snake_case)]
 pub struct LauncherVersion {
     pub name: String,
@@ -61,7 +61,7 @@ pub struct LauncherVersion {
     pub profilesFormat: i32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[allow(non_snake_case)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
@@ -78,7 +78,7 @@ pub struct Settings {
     pub soundOn: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct SelectedUser {
     pub account: String,
     pub profile: String,

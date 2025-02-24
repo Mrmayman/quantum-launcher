@@ -6,7 +6,7 @@ use ql_core::{
     json::{FabricJSON, VersionDetails},
     GenericProgress, InstanceSelection, IntoIoError, RequestError,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use version_compare::compare_versions;
 
 use super::change_instance_type;
@@ -304,12 +304,12 @@ pub async fn install_client_w(
         .map_err(|err| err.to_string())
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct FabricVersionListItem {
     pub loader: FabricVersion,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct FabricVersion {
     pub separator: String,
     pub build: usize,

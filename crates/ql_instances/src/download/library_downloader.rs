@@ -11,7 +11,6 @@ use ql_core::{
     },
     pt, DownloadError, DownloadProgress, IntoIoError, IoError, RequestError, IS_ARM_LINUX,
 };
-use serde::{Deserialize, Serialize};
 use zip_extract::ZipExtractError;
 
 use crate::{
@@ -25,11 +24,6 @@ use super::{constants::OS_NAMES, GameDownloader};
 use super::constants::{
     LWJGL_294, LWJGL_312, LWJGL_316, LWJGL_321, LWJGL_322, LWJGL_331, LWJGL_332, LWJGL_333,
 };
-
-#[derive(Serialize, Deserialize)]
-struct LwjglLibrary {
-    libraries: Vec<Library>,
-}
 
 impl GameDownloader {
     pub async fn download_libraries(&mut self) -> Result<(), DownloadError> {

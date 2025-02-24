@@ -7,7 +7,7 @@ use crate::rate_limiter::RATE_LIMITER;
 
 use super::{Loader, ModError, RecommendedMod};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ModVersion {
     pub game_versions: Vec<String>,
     pub loaders: Vec<String>,
@@ -92,7 +92,7 @@ impl ModVersion {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(clippy::struct_field_names)]
 pub struct Dependency {
     pub version_id: Option<serde_json::Value>,

@@ -172,10 +172,7 @@ impl MenuEditMods {
                 false,
             ),
             _ => {
-                widget::column!(widget::text(format!(
-                    "Unknown mod type: {}",
-                    self.config.mod_type
-                )))
+                widget::column!(widget::text!("Unknown mod type: {}", self.config.mod_type))
             }
         }
         .spacing(5)
@@ -190,7 +187,7 @@ impl MenuEditMods {
             widget::button(
                 widget::row!(
                     icon_manager::delete(),
-                    widget::text(format!("Uninstall {mod_type}"))
+                    widget::text!("Uninstall {mod_type}")
                 )
                 .spacing(10)
                 .padding(5)
@@ -290,10 +287,7 @@ impl MenuEditMods {
                                     ))
                                 }))
                             } else {
-                                widget::row!(widget::text(format!(
-                                    "- (DEPENDENCY) {}",
-                                    config.name
-                                )))
+                                widget::row!(widget::text!("- (DEPENDENCY) {}", config.name))
                             },
                             widget::horizontal_space(),
                             widget::text(&config.installed_version).width(100).size(12),

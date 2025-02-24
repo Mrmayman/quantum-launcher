@@ -332,11 +332,11 @@ impl MenuInstallFabric {
                     widget::column![
                         button_with_icon(icon_manager::back(), "Back", 16)
                             .on_press(back_to_launch_screen(selected_instance, None)),
-                        widget::text(format!(
+                        widget::text!(
                             "Select {} Version for instance {}",
                             if *is_quilt { "Quilt" } else { "Fabric" },
                             selected_instance.get_name()
-                        )),
+                        ),
                         widget::pick_list(
                             fabric_versions.as_slice(),
                             fabric_version.as_ref(),
@@ -586,7 +586,7 @@ impl MenuEditPresets {
             } => {
                 if let Some(error) = error {
                     widget::column!(
-                        widget::text(format!("Error loading presets: {error}")),
+                        widget::text!("Error loading presets: {error}"),
                         widget::button("Copy Error").on_press(Message::CoreCopyText(error.clone()))
                     )
                     .spacing(10)
@@ -599,7 +599,7 @@ impl MenuEditPresets {
                             )),
                         widget::column(mods.iter().enumerate().map(|(i, (e, n))| {
                             let elem: Element = if n.enabled_by_default {
-                                widget::text(format!("- {}", n.name)).into()
+                                widget::text!("- {}", n.name).into()
                             } else {
                                 widget::checkbox(n.name, *e)
                                     .on_toggle(move |n| {
@@ -644,7 +644,7 @@ impl MenuEditPresets {
                     })
                     .into()
             } else {
-                widget::text(format!(" - (DEPENDENCY) {}", entry.name())).into()
+                widget::text!(" - (DEPENDENCY) {}", entry.name()).into()
             }
         }))
         .spacing(5)
@@ -665,4 +665,30 @@ impl<T: Progress> ProgressBar<T> {
         .spacing(10)
         .into()
     }
+}
+
+pub fn view_account_login<'a>(url: &'a str, code: &'a str) -> Element<'a> {
+    widget::row!(
+        widget::horizontal_space(),
+        widget::column!(
+            button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                Message::LaunchScreenOpen {
+                    message: None,
+                    clear_selection: false
+                }
+            ),
+            widget::vertical_space(),
+            widget::text("Login to Microsoft").size(20),
+            "Open this link and enter the code:",
+            widget::text(url),
+            widget::button("Open").on_press(Message::CoreOpenDir(url.to_owned())),
+            widget::text(code),
+            widget::button("Copy").on_press(Message::CoreCopyText(code.to_owned())),
+            widget::vertical_space(),
+        )
+        .spacing(5)
+        .align_x(iced::Alignment::Center),
+        widget::horizontal_space()
+    )
+    .into()
 }

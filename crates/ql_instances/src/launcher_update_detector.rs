@@ -8,7 +8,7 @@ use std::{
 };
 
 use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 
 use crate::LAUNCHER_VERSION;
@@ -218,23 +218,23 @@ pub enum UpdateError {
     Send(#[from] SendError<GenericProgress>),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct GithubRelease {
-    url: String,
-    assets_url: String,
-    upload_url: String,
-    html_url: String,
-    id: usize,
     tag_name: String,
-    name: String,
-    draft: bool,
-    prerelease: bool,
-    created_at: String,
-    published_at: String,
     assets: Vec<GithubAsset>,
+    // url: String,
+    // assets_url: String,
+    // upload_url: String,
+    // html_url: String,
+    // id: usize,
+    // name: String,
+    // draft: bool,
+    // prerelease: bool,
+    // created_at: String,
+    // published_at: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct GithubAsset {
     name: String,
     browser_download_url: String,

@@ -11,10 +11,7 @@ use crate::{
     },
     menu_renderer::DISCORD,
     message_handler::SIDEBAR_DRAG_LEEWAY,
-    stylesheet::{
-        color::Color,
-        styles::{LauncherTheme, StyleButton},
-    },
+    stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
 
 use super::{button_with_icon, dynamic_box, Element};
@@ -78,7 +75,7 @@ impl Launcher {
             let n = if let Some(select) = selected_instance_s {
                 n.push(widget::column!(
                     widget::vertical_space(),
-                    widget::text(format!("{select}  ")),
+                    widget::text!("{select}  "),
                     widget::vertical_space()
                 ))
             } else {
@@ -175,7 +172,7 @@ impl Launcher {
                 ).spacing(10),
                 if *has_crashed {
                     widget::column!(
-                        widget::text(format!("The {} has crashed!", if is_server {"server"} else {"game"})).size(14),
+                        widget::text!("The {} has crashed!", if is_server {"server"} else {"game"}).size(14),
                         widget::text("Go to Edit -> Enable Logging (disable it) then launch the game again.").size(12),
                         widget::text("Then copy the text in the second terminal window for crash information").size(12),
                         log
@@ -255,26 +252,34 @@ impl Launcher {
     }
 
     fn get_accounts_bar(&self, menu: &MenuLaunch, username: &str) -> Element {
-        widget::column!(
-            "Accounts",
+        let something_is_happening =
+            self.java_recv.is_some() || menu.asset_recv.is_some() || menu.login_progress.is_some();
+
+        let dropdown: Element = if something_is_happening {
+            widget::text_input("", self.accounts_selected.as_deref().unwrap_or_default())
+                .width(menu.sidebar_width - 10)
+                .into()
+        } else {
             widget::pick_list(
                 self.accounts_dropdown.clone(),
                 self.accounts_selected.clone(),
-                Message::HomeAccountSelected
+                Message::AccountSelected,
             )
             .width(menu.sidebar_width - 10)
-        )
-        .push_maybe(
-            (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME)).then_some(
-                widget::text_input("Enter username...", username)
-                    .on_input(Message::LaunchUsernameSet)
-                    .width(menu.sidebar_width - 10),
-            ),
-        )
-        .height(110)
-        .padding(5)
-        .spacing(5)
-        .into()
+            .into()
+        };
+
+        widget::column!("Accounts", dropdown)
+            .push_maybe(
+                (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME)).then_some(
+                    widget::text_input("Enter username...", username)
+                        .on_input(Message::LaunchUsernameSet)
+                        .width(menu.sidebar_width - 10),
+                ),
+            )
+            .padding(5)
+            .spacing(5)
+            .into()
     }
 
     fn get_play_button<'a>(
@@ -388,7 +393,7 @@ fn get_footer_text(menu: &MenuLaunch) -> Element {
     let version_message = widget::column!(
         widget::row!(
             widget::horizontal_space(),
-            widget::text(format!("QuantumLauncher v{LAUNCHER_VERSION_NAME}")).size(12)
+            widget::text!("QuantumLauncher v{LAUNCHER_VERSION_NAME}").size(12)
         ),
         widget::row!(
             widget::horizontal_space(),

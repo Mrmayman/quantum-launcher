@@ -2,13 +2,13 @@ use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
 use ql_core::{err, file_utils, IoError, JsonFileError, RequestError};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 use zip_extract::ZipError;
 
 use crate::rate_limiter::RATE_LIMITER;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Search {
     pub hits: Vec<Entry>,
     pub offset: usize,
@@ -278,7 +278,7 @@ impl Display for Loader {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Entry {
     pub project_id: String,
     pub project_type: String,

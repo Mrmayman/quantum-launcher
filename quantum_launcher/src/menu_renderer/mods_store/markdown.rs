@@ -158,7 +158,7 @@ fn render_list_item<'a>(
     widget::column(md.children().map(|n| {
         let starting = match item.list_type {
             comrak::nodes::ListType::Bullet => widget::text(char::from(item.bullet_char)),
-            comrak::nodes::ListType::Ordered => widget::text(format!("{}.", item.start)),
+            comrak::nodes::ListType::Ordered => widget::text!("{}.", item.start),
         };
         let mut element = widget::column!().into();
         MenuModsDownload::render_element(n, 0, &mut element, images);

@@ -1,10 +1,10 @@
 use ql_core::json::version::{LibraryDownloadArtifact, LibraryRule};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct JsonNatives {
-    pub name: String,
-    pub uid: String,
+    // pub name: String,
+    // pub uid: String,
     pub version: String,
     pub libraries: Vec<NativeLibrary>,
 }
@@ -60,14 +60,14 @@ impl JsonNatives {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct NativeLibrary {
-    pub name: String,
+    // pub name: String,
     pub downloads: NativeDownloads,
     pub rules: Option<Vec<LibraryRule>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct NativeDownloads {
     pub artifact: LibraryDownloadArtifact,
 }

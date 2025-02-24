@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{file_utils, IntoIoError, IoError, JsonFileError};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[allow(non_snake_case)]
 pub struct JsonOptifine {
     pub id: String,
@@ -128,12 +128,12 @@ async fn find_subdirectory_with_name(
     Ok(None)
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct OptifineLibrary {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct OptifineArguments {
     pub game: Vec<String>,
 }

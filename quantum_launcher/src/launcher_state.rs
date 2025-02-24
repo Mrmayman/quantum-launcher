@@ -13,7 +13,10 @@ use ql_core::{
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
     SelectedMod, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{GameLaunchResult, ListEntry, LogLine, UpdateCheckInfo};
+use ql_instances::{
+    AccountData, AuthCodeResponse, AuthTokenResponse, GameLaunchResult, ListEntry, LogLine,
+    UpdateCheckInfo,
+};
 use ql_mod_manager::{
     loaders::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
@@ -131,7 +134,12 @@ pub enum EditPresetsMessage {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    HomeAccountSelected(String),
+    #[allow(unused)]
+    Nothing,
+    AccountSelected(String),
+    AccountResponse1(Result<AuthCodeResponse, String>),
+    AccountResponse2(Result<AuthTokenResponse, String>),
+    AccountResponse3(Result<AccountData, String>),
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
     ManageMods(ManageModsMessage),
@@ -227,7 +235,6 @@ impl std::fmt::Display for LaunchTabId {
 /// The home screen of the launcher.
 pub struct MenuLaunch {
     pub message: String,
-    pub java_recv: Option<Receiver<GenericProgress>>,
     pub asset_recv: Option<Receiver<GenericProgress>>,
     pub login_progress: Option<ProgressBar<GenericProgress>>,
     pub tab: LaunchTabId,
@@ -246,7 +253,6 @@ impl MenuLaunch {
     pub fn with_message(message: String) -> Self {
         Self {
             message,
-            java_recv: None,
             asset_recv: None,
             tab: LaunchTabId::default(),
             edit_instance: None,
@@ -432,18 +438,20 @@ pub enum State {
         yes: Message,
         no: Message,
     },
+    GenericMessage(String),
+    AccountLoginProgress(ProgressBar<GenericProgress>),
     AccountLogin {
         url: String,
         code: String,
+        cancel_handle: iced::task::Handle,
     },
     InstallPaper,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
     InstallOptifine(MenuInstallOptifine),
-    InstallJava(ProgressBar<GenericProgress>),
+    InstallJava,
     RedownloadAssets {
         progress: ProgressBar<GenericProgress>,
-        java_recv: Option<Receiver<GenericProgress>>,
     },
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(Box<MenuModsDownload>),
@@ -454,7 +462,6 @@ pub enum State {
 }
 
 pub struct MenuServerManage {
-    pub java_install_recv: Option<Receiver<GenericProgress>>,
     pub message: Option<String>,
 }
 
@@ -486,11 +493,6 @@ pub struct InstanceLog {
     pub command: String,
 }
 
-pub struct AccountEntry {
-    pub refresh_token: String,
-    pub username: String,
-}
-
 pub struct Launcher {
     pub state: State,
     pub dir: PathBuf,
@@ -499,7 +501,9 @@ pub struct Launcher {
     pub theme: LauncherTheme,
     pub images: ImageState,
 
-    pub accounts: HashMap<String, AccountEntry>,
+    pub java_recv: Option<ProgressBar<GenericProgress>>,
+
+    pub accounts: HashMap<String, AccountData>,
     pub accounts_dropdown: Vec<String>,
     pub accounts_selected: Option<String>,
 
@@ -596,6 +600,7 @@ impl Launcher {
             dir: launcher_dir,
             client_list: None,
             server_list: None,
+            java_recv: None,
             state,
             client_processes: HashMap::new(),
             config,
@@ -638,6 +643,7 @@ impl Launcher {
         Self {
             dir: launcher_dir.unwrap_or_default(),
             state: State::Error { error },
+            java_recv: None,
             client_list: None,
             server_list: None,
             config,

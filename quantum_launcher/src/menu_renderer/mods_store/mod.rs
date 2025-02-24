@@ -47,7 +47,7 @@ impl MenuModsDownload {
                         widget::column(self.mods_download_in_progress.iter().filter_map(|id| {
                             let search = self.results.as_ref()?;
                             let hit = search.hits.iter().find(|hit| &hit.project_id == id)?;
-                            Some(widget::text(format!("- {}", hit.title)).into())
+                            Some(widget::text!("- {}", hit.title).into())
                         }))
                     })
                 },

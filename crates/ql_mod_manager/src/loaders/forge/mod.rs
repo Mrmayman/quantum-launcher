@@ -253,7 +253,9 @@ impl ForgeInstaller {
         Ok(())
     }
 
-    async fn get_forge_json(installer_file: &[u8]) -> Result<JsonDetails, ForgeInstallError> {
+    async fn get_forge_json(
+        installer_file: &[u8],
+    ) -> Result<(JsonDetails, String), ForgeInstallError> {
         let temp_dir = Self::extract_zip_file(installer_file)?;
         let forge_json_path = temp_dir.path().join("version.json");
         if forge_json_path.exists() {
@@ -261,8 +263,8 @@ impl ForgeInstaller {
                 .await
                 .path(forge_json_path)?;
 
-            let forge_json: JsonDetails = serde_json::from_str(&forge_json)?;
-            Ok(forge_json)
+            let forge_json_parsed: JsonDetails = serde_json::from_str(&forge_json)?;
+            Ok((forge_json_parsed, forge_json))
         } else {
             let forge_json_path = temp_dir.path().join("install_profile.json");
             if forge_json_path.exists() {
@@ -270,8 +272,8 @@ impl ForgeInstaller {
                     .await
                     .path(forge_json_path)?;
 
-                let forge_json: JsonInstallProfile = serde_json::from_str(&forge_json)?;
-                Ok(forge_json.versionInfo)
+                let forge_json_parsed: JsonInstallProfile = serde_json::from_str(&forge_json)?;
+                Ok((forge_json_parsed.versionInfo, forge_json))
             } else {
                 Err(ForgeInstallError::NoInstallJson)
             }
@@ -645,7 +647,7 @@ pub async fn install_client(
 
     let mut clean_classpath = String::new();
 
-    let forge_json = ForgeInstaller::get_forge_json(&installer_file).await?;
+    let (forge_json, forge_json_str) = ForgeInstaller::get_forge_json(&installer_file).await?;
 
     let num_libraries = forge_json
         .libraries
@@ -682,7 +684,7 @@ pub async fn install_client(
         .path(clean_classpath_path)?;
 
     let json_path = installer.forge_dir.join("details.json");
-    tokio::fs::write(&json_path, serde_json::to_string(&forge_json)?)
+    tokio::fs::write(&json_path, serde_json::to_string(&forge_json_str)?)
         .await
         .path(json_path)?;
 

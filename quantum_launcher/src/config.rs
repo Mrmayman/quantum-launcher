@@ -1,6 +1,6 @@
 use ql_core::{err, file_utils, IntoIoError, JsonFileError, LAUNCHER_VERSION_NAME};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 /// The launcher configuration.
 ///
@@ -12,6 +12,7 @@ pub struct LauncherConfig {
     pub style: Option<String>,
     pub version: Option<String>,
     pub sidebar_width: Option<u32>,
+    pub accounts: Option<HashMap<String, ConfigAccount>>,
 }
 
 impl Default for LauncherConfig {
@@ -22,6 +23,7 @@ impl Default for LauncherConfig {
             style: None,
             version: Some(LAUNCHER_VERSION_NAME.to_owned()),
             sidebar_width: Some(200),
+            accounts: None,
         }
     }
 }
@@ -68,4 +70,10 @@ impl LauncherConfig {
 
         Ok(config)
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ConfigAccount {
+    pub uuid: String,
+    pub skin: Option<String>, // TODO: Add skin visualization?
 }

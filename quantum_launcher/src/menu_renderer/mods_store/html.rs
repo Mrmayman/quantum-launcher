@@ -131,7 +131,7 @@ fn render_html(
                 *element = widget::text("[HTML error: malformed image]]").into();
             }
         }
-        _ => *element = widget::text(format!("[HTML todo: {name}]")).into(),
+        _ => *element = widget::text!("[HTML todo: {name}]").into(),
     }
 }
 

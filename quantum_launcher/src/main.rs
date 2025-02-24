@@ -76,13 +76,13 @@ use iced::{widget, Settings, Task};
 use launcher_state::{
     get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherSettings,
     MenuLauncherUpdate, MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess,
-    State,
+    State, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
 };
 
 use menu_renderer::{
     button_with_icon,
-    changelog::{changelog_0_3_1, welcome_msg},
-    DISCORD,
+    changelog::{changelog_0_4, welcome_msg},
+    view_account_login, DISCORD,
 };
 use ql_core::{err, file_utils, info, open_file_explorer, InstanceSelection, SelectedMod};
 use ql_instances::UpdateCheckInfo;
@@ -111,8 +111,6 @@ const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
 impl Launcher {
     fn new() -> (Self, iced::Task<Message>) {
-        let load_icon_command = load_window_icon();
-
         let check_for_updates_command = Task::perform(
             ql_instances::check_for_launcher_updates_w(),
             Message::UpdateCheckResult,
@@ -128,24 +126,79 @@ impl Launcher {
 
         (
             Launcher::load_new(None, is_new_user).unwrap_or_else(Launcher::with_error),
-            Task::batch(vec![
-                load_icon_command,
-                check_for_updates_command,
-                get_entries_command,
-            ]),
+            Task::batch([check_for_updates_command, get_entries_command]),
         )
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::HomeAccountSelected(account) => self.accounts_selected = Some(account),
+            Message::Nothing => {}
+            Message::AccountSelected(account) => {
+                if account == NEW_ACCOUNT_NAME {
+                    self.state = State::GenericMessage("Loading Login...".to_owned());
+                    return Task::perform(
+                        ql_instances::login_1_link_w(),
+                        Message::AccountResponse1,
+                    );
+                } else {
+                    self.accounts_selected = Some(account);
+                }
+            }
+            Message::AccountResponse1(result) => match result {
+                Ok(code) => {
+                    let (task, handle) = Task::perform(
+                        ql_instances::login_2_wait_w(code.clone()),
+                        Message::AccountResponse2,
+                    )
+                    .abortable();
+                    self.state = State::AccountLogin {
+                        url: code.verification_uri,
+                        code: code.user_code,
+                        cancel_handle: handle,
+                    };
+                    return task;
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::AccountResponse2(result) => match result {
+                Ok(token) => {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+                    self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
+                    return Task::perform(
+                        ql_instances::login_3_xbox_w(token, Some(sender)),
+                        Message::AccountResponse3,
+                    );
+                }
+                Err(err) => self.set_error(err),
+            },
+            Message::AccountResponse3(result) => match result {
+                Ok(data) => {
+                    self.accounts_dropdown.push(data.username.clone());
+                    self.accounts.insert(data.username.clone(), data);
+                    return self.go_to_launch_screen(None);
+                }
+                Err(err) => {
+                    self.set_error(err);
+                }
+            },
             Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected(selected_instance) => {
                 self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
                 self.edit_instance_w();
             }
             Message::LaunchUsernameSet(username) => self.set_username(username),
-            Message::LaunchStart => return self.launch_game(None),
+            Message::LaunchStart => {
+                let account_data = if let Some(account) = &self.accounts_selected {
+                    if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
+                        None
+                    } else {
+                        self.accounts.get(account).cloned()
+                    }
+                } else {
+                    None
+                };
+                return self.launch_game(account_data);
+            }
             Message::LaunchEnd(result) => {
                 return self.finish_launching(result);
             }
@@ -169,6 +222,9 @@ impl Launcher {
                 message,
                 clear_selection,
             } => {
+                if let State::AccountLogin { cancel_handle, .. } = &self.state {
+                    cancel_handle.abort();
+                }
                 if clear_selection {
                     self.selected_instance = None;
                 }
@@ -481,8 +537,8 @@ impl Launcher {
             Message::ServerManageStartServer(server) => {
                 self.server_logs.remove(&server);
                 let (sender, receiver) = std::sync::mpsc::channel();
-                if let State::ServerManage(menu) = &mut self.state {
-                    menu.java_install_recv = Some(receiver);
+                if let State::ServerManage(_) = &mut self.state {
+                    self.java_recv = Some(ProgressBar::with_recv(receiver));
                 }
 
                 if self.server_processes.contains_key(&server) {
@@ -657,18 +713,15 @@ impl Launcher {
     fn view(&self) -> iced::Element<'_, Message, LauncherTheme, iced::Renderer> {
         match &self.state {
             State::Launch(menu) => self.view_main_menu(menu),
-            State::AccountLogin { url, code } => widget::column!(
-                widget::text("Login to Microsoft").size(20),
-                "Open this link and enter the code:",
-                widget::text(url),
-                widget::button("Open").on_press(Message::CoreOpenDir(url.to_owned())),
-                widget::text(code),
-                widget::button("Copy").on_press(Message::CoreCopyText(code.to_owned()))
-            )
-            .padding(10)
+            State::AccountLoginProgress(progress) => widget::column![
+                widget::text("Logging into microsoft account").size(20),
+                progress.view()
+            ]
             .spacing(10)
-            .align_x(iced::Alignment::Center)
+            .padding(10)
             .into(),
+            State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
+            State::AccountLogin { url, code, .. } => view_account_login(url, code),
             State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),
             State::Create(menu) => menu.view(),
             State::ConfirmAction {
@@ -677,7 +730,7 @@ impl Launcher {
                 yes,
                 no,
             } => widget::column![
-                widget::text(format!("Are you SURE you want to {msg1}?",)),
+                widget::text!("Are you SURE you want to {msg1}?"),
                 msg2.as_str(),
                 widget::button("Yes").on_press(yes.clone()),
                 widget::button("No").on_press(no.clone()),
@@ -687,7 +740,7 @@ impl Launcher {
             .into(),
             State::Error { error } => widget::scrollable(
                 widget::column!(
-                    widget::text(format!("Error: {error}")),
+                    widget::text!("Error: {error}"),
                     widget::button("Back").on_press(Message::LaunchScreenOpen {
                         message: None,
                         clear_selection: true
@@ -703,12 +756,11 @@ impl Launcher {
             State::InstallFabric(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
-            State::InstallJava(bar) => {
-                widget::column!(widget::text("Downloading Java").size(20), bar.view())
-                    .padding(10)
-                    .spacing(10)
-                    .into()
-            }
+            State::InstallJava => widget::column!(widget::text("Downloading Java").size(20),)
+                .push_maybe(self.java_recv.as_ref().map(|n| n.view()))
+                .padding(10)
+                .spacing(10)
+                .into(),
             State::ModsDownload(menu) => menu.view(&self.images),
             State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
             State::RedownloadAssets { progress, .. } => widget::column!(
@@ -740,7 +792,7 @@ impl Launcher {
                             clear_selection: true
                         }
                     ),
-                    changelog_0_3_1()
+                    changelog_0_4() // changelog_0_3_1()
                 )
                 .padding(10)
                 .spacing(10),
@@ -756,17 +808,6 @@ impl Launcher {
 
     fn scale_factor(&self) -> f64 {
         1.0
-    }
-}
-
-fn load_window_icon() -> Task<Message> {
-    let icon = iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico));
-    match icon {
-        Ok(icon) => iced::window::change_icon(iced::window::Id::unique(), icon),
-        Err(err) => {
-            err!("Could not load icon: {err}");
-            Task::none()
-        }
     }
 }
 
@@ -832,11 +873,12 @@ fn main() {
 
     info!("Starting up the launcher...");
 
+    let icon =
+        iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico)).ok();
+
     iced::application("QuantumLauncher", Launcher::update, Launcher::view)
         .subscription(Launcher::subscription)
-        .window_size((WINDOW_WIDTH, WINDOW_HEIGHT))
         .scale_factor(Launcher::scale_factor)
-        .exit_on_close_request(false)
         .theme(Launcher::theme)
         .settings(Settings {
             fonts: vec![
@@ -851,6 +893,15 @@ fn main() {
                     .into(),
             ],
             default_font: iced::Font::with_name("Inter"),
+            ..Default::default()
+        })
+        .window(iced::window::Settings {
+            icon,
+            exit_on_close_request: false,
+            size: iced::Size {
+                width: WINDOW_WIDTH,
+                height: WINDOW_HEIGHT,
+            },
             ..Default::default()
         })
         .run_with(Launcher::new)

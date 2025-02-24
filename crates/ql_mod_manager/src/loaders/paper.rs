@@ -3,14 +3,14 @@ use std::{collections::HashMap, path::Path};
 use ql_core::{
     file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, RequestError,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct PaperVersions {
-    latest: String,
+    // latest: String,
     versions: HashMap<String, String>,
 }
 

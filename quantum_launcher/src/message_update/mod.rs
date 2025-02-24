@@ -187,7 +187,7 @@ impl Launcher {
                         });
                     let delete_local_command = Task::batch(file_paths);
 
-                    return Task::batch(vec![command, delete_local_command]);
+                    return Task::batch([command, delete_local_command]);
                 }
             }
             ManageModsMessage::DeleteFinished(result) => match result {

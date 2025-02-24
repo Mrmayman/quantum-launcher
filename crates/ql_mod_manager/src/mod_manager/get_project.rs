@@ -1,11 +1,11 @@
 use ql_core::{err, file_utils};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::rate_limiter::RATE_LIMITER;
 
 use super::ModError;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ProjectInfo {
     pub slug: String,
     pub title: String,
@@ -64,21 +64,21 @@ impl ProjectInfo {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct DonationLink {
     pub id: String,
     pub platform: String,
     pub url: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct License {
     pub id: String,
     pub name: String,
     pub url: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GalleryItem {
     pub url: String,
     pub featured: bool,

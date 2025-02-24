@@ -48,6 +48,7 @@ pub fn changelog_0_4<'a>() -> Element<'a> {
     .into()
 }
 
+#[allow(unused)]
 pub fn changelog_0_3_1<'a>() -> Element<'a> {
     widget::column!(
         widget::text("QuantumLauncher v0.3.1").size(32),

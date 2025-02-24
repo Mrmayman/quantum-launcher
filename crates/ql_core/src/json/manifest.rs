@@ -1,10 +1,10 @@
 use crate::{file_utils, JsonDownloadError};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 /// An official Minecraft version manifest
 /// (list of all versions and their download links)
 /// from Mojang's servers.
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct Manifest {
     pub latest: Latest,
     pub versions: Vec<Version>,
@@ -46,14 +46,14 @@ impl Manifest {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct Latest {
     pub release: String,
     pub snapshot: String,
 }
 
 #[allow(non_snake_case)]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct Version {
     pub id: String,
     pub r#type: String,
