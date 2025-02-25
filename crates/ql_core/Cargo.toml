@@ -20,6 +20,3 @@ thiserror = { workspace = true }
 # For finding the closest official version to
 # an Omniarchive version.
 strsim = "0.11"
-# For extracting aarch64 java.
-flate2 = "1"
-tar = "0.4"

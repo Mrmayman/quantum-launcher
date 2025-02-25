@@ -1,16 +1,11 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool};
+use std::path::{Path, PathBuf};
 
-use lazy_static::lazy_static;
 use reqwest::Client;
 use thiserror::Error;
 
 use crate::{error::IoError, InstanceSelection, IntoIoError, CLIENT};
 
 const REQUEST_TRY_LIMIT: usize = 5;
-
-lazy_static! {
-    pub static ref MOCK_DIR_FAILURE: AtomicBool = AtomicBool::new(false);
-}
 
 /// Returns the path to the QuantumLauncher root folder.
 ///
@@ -39,11 +34,7 @@ pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
     let launcher_directory = config_directory.join("QuantumLauncher");
     std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
 
-    if MOCK_DIR_FAILURE.load(std::sync::atomic::Ordering::SeqCst) {
-        Err(IoError::MockError)
-    } else {
-        Ok(launcher_directory)
-    }
+    Ok(launcher_directory)
 }
 
 /// Returns whether the user is new to QuantumLauncher,
@@ -296,24 +287,24 @@ pub async fn set_executable(path: &std::path::Path) -> Result<(), IoError> {
     tokio::fs::set_permissions(path, perms).await.path(path)
 }
 
-// #[cfg(unix)]
-// use std::os::unix::fs::symlink;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 
-// #[cfg(windows)]
-// use std::os::windows::fs::{symlink_dir, symlink_file};
+#[cfg(windows)]
+use std::os::windows::fs::{symlink_dir, symlink_file};
 
-// pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
-//     #[cfg(unix)]
-//     {
-//         symlink(src, dest).path(src.clone())
-//     }
+pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
+    #[cfg(unix)]
+    {
+        symlink(src, dest).path(src)
+    }
 
-//     #[cfg(windows)]
-//     {
-//         if src.is_dir() {
-//             symlink_dir(src, dest).path(src.clone())
-//         } else {
-//             symlink_file(src, dest).path(src.clone())
-//         }
-//     }
-// }
+    #[cfg(windows)]
+    {
+        if src.is_dir() {
+            symlink_dir(src, dest).path(src)
+        } else {
+            symlink_file(src, dest).path(src)
+        }
+    }
+}

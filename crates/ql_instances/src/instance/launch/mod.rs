@@ -5,15 +5,15 @@ use crate::{
 use chrono::DateTime;
 use error::GameLaunchError;
 use ql_core::{
-    err, file_utils, get_java_binary, info,
+    err, file_utils, info,
     json::{
         forge,
         version::{LibraryDownloadArtifact, LibraryDownloads},
-        FabricJSON, InstanceConfigJson, JavaVersion, JsonOptifine, OmniarchiveEntry,
-        VersionDetails,
+        FabricJSON, InstanceConfigJson, JsonOptifine, OmniarchiveEntry, VersionDetails,
     },
     GenericProgress, IntoIoError, IoError, JsonFileError, CLASSPATH_SEPARATOR,
 };
+use ql_java_handler::{get_java_binary, JavaVersion};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},

@@ -5,10 +5,11 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, get_java_binary, info,
-    json::{InstanceConfigJson, JavaVersion, VersionDetails},
+    err, file_utils, info,
+    json::{InstanceConfigJson, VersionDetails},
     GenericProgress, IntoIoError,
 };
+use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::{Child, Command};
 
 use crate::ServerError;

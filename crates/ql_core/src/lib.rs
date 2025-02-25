@@ -11,7 +11,6 @@
 mod error;
 /// Common utilities for working with files.
 pub mod file_utils;
-mod java_install;
 /// JSON structs for version, instance config, Fabric, Forge, OptiFine, etc.
 pub mod json;
 /// Logging macros.
@@ -24,15 +23,14 @@ use std::{
 };
 
 pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
-pub use file_utils::{RequestError, MOCK_DIR_FAILURE};
+pub use file_utils::RequestError;
 use futures::StreamExt;
-pub use java_install::{get_java_binary, JavaInstallError};
 pub use progress::{DownloadProgress, GenericProgress, Progress};
 
 pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 lazy_static::lazy_static! {
-    static ref CLIENT: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
+    pub static ref CLIENT: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
 }
 
 /// Limit on how many files to download concurrently.

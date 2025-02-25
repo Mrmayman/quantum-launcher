@@ -22,7 +22,7 @@ pub struct VersionDetails {
     /// Name of the version.
     pub id: String,
     /// Version of java required.
-    pub javaVersion: Option<JavaVersion>,
+    pub javaVersion: Option<JavaVersionJson>,
     /// Library dependencies of the version that need to be downloaded.
     pub libraries: Vec<Library>,
     /// Details regarding console logging with log4j.
@@ -112,7 +112,7 @@ pub struct Download {
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct JavaVersion {
+pub struct JavaVersionJson {
     pub component: String,
     pub majorVersion: usize,
 }

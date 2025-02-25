@@ -1,4 +1,5 @@
-use ql_core::{IoError, JavaInstallError, JsonDownloadError, RequestError};
+use ql_core::{IoError, JsonDownloadError, RequestError};
+use ql_java_handler::JavaInstallError;
 
 mod create;
 mod list_versions;

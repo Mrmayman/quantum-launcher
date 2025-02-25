@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 ql_core = { path = "../ql_core" }
+ql_java_handler = { path = "../ql_java_handler" }
 
 colored = { workspace = true }
 tokio = { workspace = true }

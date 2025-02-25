@@ -30,6 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! - `ql_plugins` - A lua-based plugin system (incomplete)
 //! - `ql_servers` - A self-hosted server management system (incomplete)
 //! - `ql_core` - Core utilities and shared code
+//! - `ql_java_handler` - A library to auto-install and provide java runtimes
 //!
 //! # Brief Overview of the codebase
 //! The architecture of the launcher is based on the

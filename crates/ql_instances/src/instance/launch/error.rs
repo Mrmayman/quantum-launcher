@@ -1,7 +1,8 @@
+use ql_java_handler::JavaInstallError;
 use std::path::PathBuf;
 use thiserror::Error;
 
-use ql_core::{json::VersionDetails, DownloadError, IoError, JavaInstallError, JsonFileError};
+use ql_core::{json::VersionDetails, DownloadError, IoError, JsonFileError};
 
 use crate::mc_auth::AuthError;
 

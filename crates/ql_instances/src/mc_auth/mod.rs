@@ -10,7 +10,7 @@
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
 
-use ql_core::{GenericProgress, RequestError};
+use ql_core::{GenericProgress, RequestError, CLIENT};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -115,9 +115,7 @@ pub async fn login_1_link_w() -> Result<AuthCodeResponse, String> {
 }
 
 pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
-    let client = reqwest::Client::new();
-
-    let response = client
+    let response = CLIENT
         .get("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
         .query(&[
             ("client_id", CLIENT_ID),
@@ -134,26 +132,19 @@ pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
 }
 
 pub async fn login_2_wait_w(data: AuthCodeResponse) -> Result<AuthTokenResponse, String> {
-    login_2_wait(data).await.map_err(|err| err.to_string())
-}
-
-pub async fn login_2_wait(data: AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
-    let client = reqwest::Client::new();
-    let token = wait_for_login(&client, &data).await?;
-    Ok(token)
+    login_2_wait(&data).await.map_err(|err| err.to_string())
 }
 
 pub async fn login_3_xbox(
     data: AuthTokenResponse,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, AuthError> {
-    let client = reqwest::Client::new();
     send_progress(sender.as_ref(), 0, "Logging into xbox live...");
-    let xbox = login_in_xbox_live(&client, &data).await?;
+    let xbox = login_in_xbox_live(&CLIENT, &data).await?;
     send_progress(sender.as_ref(), 1, "Logging into minecraft...");
-    let minecraft = login_in_minecraft(&client, &xbox).await?;
+    let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
     send_progress(sender.as_ref(), 2, "Getting account details...");
-    let final_details = get_final_details(&client, &minecraft).await?;
+    let final_details = get_final_details(&CLIENT, &minecraft).await?;
     send_progress(sender.as_ref(), 3, "Checking game ownership...");
     let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
 
@@ -186,14 +177,11 @@ fn send_progress(
     }
 }
 
-async fn wait_for_login(
-    client: &Client,
-    response: &AuthCodeResponse,
-) -> Result<AuthTokenResponse, AuthError> {
+pub async fn login_2_wait(response: &AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(response.interval + 1)).await;
 
-        let code_resp = client
+        let code_resp = CLIENT
             .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
             .form(&[
                 ("client_id", CLIENT_ID),

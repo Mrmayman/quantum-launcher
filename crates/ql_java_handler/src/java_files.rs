@@ -23,7 +23,7 @@ pub enum JavaFile {
 
 #[derive(Deserialize)]
 pub struct JavaFileDownload {
-    // lzma: Option<JavaFileDownloadDetails>, // TODO: Add lzma downloading
+    pub lzma: Option<JavaFileDownloadDetails>, // TODO: Add lzma downloading
     pub raw: JavaFileDownloadDetails,
 }
 

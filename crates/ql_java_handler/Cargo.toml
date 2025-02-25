@@ -1,16 +1,19 @@
 [package]
-name = "ql_servers"
-version = "0.4.0"
+name = "ql_java_handler"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 ql_core = { path = "../ql_core" }
-ql_java_handler = { path = "../ql_java_handler" }
-omniarchive_api = { path = "../omniarchive_api" }
 
+thiserror = { workspace = true }
+tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
 colored = { workspace = true }
+
+# Avengers assemble
+flate2 = "1"
+tar = "0.4"
 zip-extract = { workspace = true }
-thiserror = { workspace = true }
+lzma-rs = "0.3"

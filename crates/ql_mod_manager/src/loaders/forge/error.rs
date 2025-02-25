@@ -1,6 +1,7 @@
 use std::{num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
-use ql_core::{IoError, JavaInstallError, JsonDownloadError, JsonFileError, RequestError};
+use ql_core::{IoError, JsonDownloadError, JsonFileError, RequestError};
+use ql_java_handler::JavaInstallError;
 use thiserror::Error;
 use zip_extract::ZipExtractError;
 

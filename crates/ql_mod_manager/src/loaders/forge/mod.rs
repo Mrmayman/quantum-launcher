@@ -6,13 +6,14 @@ use std::{
 
 use error::{ForgeInstallError, Is404NotFound};
 use ql_core::{
-    err, file_utils, get_java_binary, info,
+    err, file_utils, info,
     json::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
-        JavaVersion, VersionDetails,
+        VersionDetails,
     },
     pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress, CLASSPATH_SEPARATOR,
 };
+use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use crate::loaders::change_instance_type;

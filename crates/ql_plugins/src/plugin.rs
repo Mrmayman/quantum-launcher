@@ -6,9 +6,10 @@ use std::{
 
 use mlua::{Function, Lua, StdLib, Table, Value, Variadic};
 use ql_core::{
-    err, file_utils, get_java_binary, info, json::JavaVersion, pt, GenericProgress,
-    InstanceSelection, IntoIoError, IoError, CLASSPATH_SEPARATOR,
+    err, file_utils, info, pt, GenericProgress, InstanceSelection, IntoIoError, IoError,
+    CLASSPATH_SEPARATOR,
 };
+use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::runtime::Runtime;
 
 use crate::{
@@ -201,9 +202,7 @@ impl Plugin {
                 let version = match version {
                     8 => JavaVersion::Java8,
                     16 => JavaVersion::Java16,
-                    17 => JavaVersion::Java17Gamma,
-                    170 => JavaVersion::Java17Beta,
-                    171 => JavaVersion::Java17GammaSnapshot,
+                    17 => JavaVersion::Java17,
                     21 => JavaVersion::Java21,
                     ver => {
                         return Err(mlua::Error::ExternalError(Arc::new(StrErr(format!(

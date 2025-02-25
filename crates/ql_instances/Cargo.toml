@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ql_core = { path = "../ql_core" }
 omniarchive_api = { path = "../omniarchive_api" }
+ql_java_handler = { path = "../ql_java_handler" }
 
 chrono = { workspace = true }
 semver = "1"
