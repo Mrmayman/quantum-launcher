@@ -25,7 +25,7 @@ jobs:
       - name: Install Flatpak and Flathub
         run: |
           sudo apt-get update
-          sudo apt-get install flatpak flatpak-builder
+          sudo apt-get install flatpak flatpak-builder appstream-compose
           sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 -y
         
@@ -36,7 +36,11 @@ jobs:
           flatpak build-export export build
           exec flatpak build-bundle export quantum-launcher.flatpak com.mrmayman.quantumlauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 
+      - name: Copy Flatpak
+        run: |
+          mv quantum-launcher.flatpak quantum_launcher.flatpak
+
       - uses: actions/upload-artifact@v4
         with:
-          name: quantum-launcher.flatpak
-          path: quantum-launcher.flatpak
+          name: quantum-launcher-flatpak_x86_64
+          path: quantum_launcher.flatpak
