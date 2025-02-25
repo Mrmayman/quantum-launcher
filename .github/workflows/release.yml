@@ -56,7 +56,6 @@ jobs:
           rust: stable
           target: aarch64-unknown-linux-gnu
           cross: true
-          rustflags: 
           final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
@@ -129,9 +128,42 @@ jobs:
           name: quantum-launcher-${{ matrix.final_name }}
           path: dist
 
+  Flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+    
+      - name: Install Flatpak and Flathub
+        run: |
+          sudo apt-get update
+          sudo apt-get install flatpak flatpak-builder appstream-compose
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 -y
+        
+      - name: Build Flatpak
+        run: |
+          cp assets/freedesktop/manifest.yml .
+          flatpak-builder --user build manifest.yml
+          flatpak build-export export build
+          exec flatpak build-bundle export quantum-launcher.flatpak com.mrmayman.quantumlauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Copy Flatpak
+        run: |
+          mv quantum-launcher.flatpak quantum_launcher.flatpak
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-launcher-flatpak_x86_64
+          path: quantum_launcher.flatpak
+
   publish:
     name: Publish
-    needs: [dist]
+    needs: [dist, Flatpak]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -175,12 +207,19 @@ jobs:
                   exe=""
               fi
 
+              unset flatpak
+              if [[ $platform =~ "flatpak" ]]; then
+                  flatpak=".flatpak"
+              else
+                  flatpak=""
+              fi
+
               # Change PROJECT_NAME to BIN_NAME if you wish
               pkgname=${PROJECT_NAME}_${platform}
 
               echo "Package name: $pkgname"
 
-              binary_path=$dir/$BIN_NAME$exe
+              binary_path=$dir/$BIN_NAME$exe$flatpak
               if [ ! -f "$binary_path" ]; then
                   echo "Error: Binary not found at $binary_path.  Check your setup!"
                   exit 1
@@ -189,9 +228,6 @@ jobs:
               # Zip the binary with no sub dir
               (zip -j "dist/$pkgname.zip" "$binary_path")
 
-              # Copy and rename the binary to the dist folder
-              # cp "$binary_path" "dist/$pkgname$exe"
-              # echo "Copied and renamed to dist/$pkgname$exe"
 
               # Zip the binary to arti
               (zip -j "arti/$pkgname.zip" "$binary_path")
