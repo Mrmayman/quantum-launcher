@@ -10,10 +10,10 @@
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
 
-use ql_core::{GenericProgress, RequestError, CLIENT};
+use ql_core::{info, pt, GenericProgress, RequestError, CLIENT};
 use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde::Deserialize;
+use serde_json::json;
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -22,13 +22,14 @@ pub const CLIENT_ID: &str = "43431a16-38f5-4b42-91f9-4bf70c3bee1e";
 
 #[derive(Debug, Clone)]
 pub struct AccountData {
-    pub access_token: String,
+    pub access_token: Option<String>,
     pub uuid: String,
     pub username: String,
     pub refresh_token: String,
+    pub needs_refresh: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthCodeResponse {
     pub user_code: String,
     pub device_code: String,
@@ -38,17 +39,17 @@ pub struct AuthCodeResponse {
     pub message: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthTokenResponse {
-    pub token_type: String,
-    pub scope: String,
-    pub expires_in: i64,
-    pub ext_expires_in: i64,
+    // pub token_type: String,
+    // pub scope: String,
+    // pub expires_in: i64,
+    // pub ext_expires_in: i64,
     pub access_token: String,
     pub refresh_token: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct XboxLiveAuthResponse {
     issue_instant: String,
@@ -66,12 +67,19 @@ struct MinecraftAuthResponse {
     // token_type: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+struct RefreshResponse {
+    // pub expires_in: u64,
+    pub access_token: String,
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 struct AuthServiceErrorMessage {
     error: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 struct MinecraftFinalDetails {
     id: Option<String>,
     name: String,
@@ -93,12 +101,64 @@ pub enum AuthError {
     NoUuid,
     #[error("microsoft account doesn't own minecraft")]
     DoesntOwnGame,
+    #[error("microsoft account error: keyring error: {0}")]
+    KeyringError(#[from] keyring::Error),
 }
 
 impl From<reqwest::Error> for AuthError {
     fn from(value: reqwest::Error) -> Self {
         Self::RequestError(RequestError::ReqwestError(value))
     }
+}
+
+pub async fn login_refresh_w(
+    username: String,
+    refresh_token: String,
+    sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
+) -> Result<AccountData, String> {
+    login_refresh(&username, &refresh_token, sender)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+pub async fn login_refresh(
+    username: &str,
+    refresh_token: &str,
+    sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
+) -> Result<AccountData, AuthError> {
+    info!("Refreshing account token...");
+    send_progress(sender.as_ref(), 0, "Refreshing account token...");
+
+    let response = CLIENT
+        .post("https://login.live.com/oauth20_token.srf")
+        .form(&[
+            ("client_id", CLIENT_ID),
+            ("refresh_token", refresh_token),
+            ("grant_type", "refresh_token"),
+            ("redirect_uri", "https://login.live.com/oauth20_desktop.srf"),
+            ("scope", "XboxLive.signin offline_access"),
+        ])
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    let data: RefreshResponse =
+        serde_json::from_str(&response).map_err(|n| AuthError::SerdeError(n, response))?;
+
+    let entry = keyring::Entry::new("QuantumLauncher", username)?;
+    entry.set_password(&data.refresh_token)?;
+
+    let data = login_3_xbox(
+        AuthTokenResponse {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+        },
+        sender,
+    )
+    .await?;
+
+    Ok(data)
 }
 
 pub async fn login_3_xbox_w(
@@ -115,6 +175,9 @@ pub async fn login_1_link_w() -> Result<AuthCodeResponse, String> {
 }
 
 pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
+    info!("Logging into Microsoft Account...");
+
+    pt!("Sending device code request");
     let response = CLIENT
         .get("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
         .query(&[
@@ -128,11 +191,24 @@ pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
 
     let data: AuthCodeResponse =
         serde_json::from_str(&response).map_err(|n| AuthError::SerdeError(n, response))?;
+
+    pt!(
+        "Go to {} and enter code {} (shown in menu)",
+        data.verification_uri,
+        data.user_code
+    );
+
     Ok(data)
 }
 
 pub async fn login_2_wait_w(data: AuthCodeResponse) -> Result<AuthTokenResponse, String> {
     login_2_wait(&data).await.map_err(|err| err.to_string())
+}
+
+pub fn read_refresh_token(username: &str) -> Result<String, AuthError> {
+    let entry = keyring::Entry::new("QuantumLauncher", username)?;
+    let refresh_token = entry.get_password()?;
+    Ok(refresh_token)
 }
 
 pub async fn login_3_xbox(
@@ -145,18 +221,22 @@ pub async fn login_3_xbox(
     let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
     send_progress(sender.as_ref(), 2, "Getting account details...");
     let final_details = get_final_details(&CLIENT, &minecraft).await?;
-    send_progress(sender.as_ref(), 3, "Checking game ownership...");
-    let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
+    // send_progress(sender.as_ref(), 3, "Checking game ownership...");
+    // let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
 
-    if !owns_game {
-        return Err(AuthError::DoesntOwnGame);
-    }
+    // if !owns_game {
+    //     return Err(AuthError::DoesntOwnGame);
+    // }
+
+    let entry = keyring::Entry::new("QuantumLauncher", &final_details.name)?;
+    entry.set_password(&data.refresh_token)?;
 
     let data = AccountData {
-        access_token: minecraft.access_token,
+        access_token: Some(minecraft.access_token),
         uuid: final_details.id.ok_or(AuthError::NoUuid)?,
         username: final_details.name,
         refresh_token: data.refresh_token,
+        needs_refresh: false,
     };
 
     Ok(data)
@@ -165,19 +245,28 @@ pub async fn login_3_xbox(
 fn send_progress(
     sender: Option<&std::sync::mpsc::Sender<GenericProgress>>,
     done: usize,
-    var_name: &str,
+    message: &str,
 ) {
+    pt!("{message}");
     if let Some(sender) = sender {
         _ = sender.send(GenericProgress {
             done,
-            total: 4,
-            message: Some(var_name.to_owned()),
+            total: 3,
+            message: Some(message.to_owned()),
             has_finished: false,
         });
     }
 }
 
 pub async fn login_2_wait(response: &AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
+    // This code is ugly but it's not my code :')
+    // If the top comment wasn't clear enough this was taken from
+    // https://github.com/minecraft-rs/auth
+    //
+    // Massive props to them for even implementing something,
+    // that makes them already ahead of me.
+    //
+    // (WTF: ) tag so people can search for it
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(response.interval + 1)).await;
 
@@ -318,21 +407,21 @@ async fn get_final_details(
     serde_json::from_str(&text).map_err(|n| AuthError::SerdeError(n, text))
 }
 
-async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
-    #[derive(Deserialize)]
-    struct Ownership {
-        items: Vec<Value>,
-    }
+// async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
+//     #[derive(Deserialize)]
+//     struct Ownership {
+//         items: Vec<Value>,
+//     }
 
-    let client = Client::new();
+//     let client = Client::new();
 
-    let response = client
-        .get("https://api.minecraftservices.com/entitlements/mcstore")
-        .bearer_auth(access_token)
-        .send()
-        .await?
-        .json::<Ownership>() // Deserialize response as JSON
-        .await?;
+//     let response = client
+//         .get("https://api.minecraftservices.com/entitlements/mcstore")
+//         .bearer_auth(access_token)
+//         .send()
+//         .await?
+//         .json::<Ownership>() // Deserialize response as JSON
+//         .await?;
 
-    Ok(!response.items.is_empty())
-}
+//     Ok(!response.items.is_empty())
+// }

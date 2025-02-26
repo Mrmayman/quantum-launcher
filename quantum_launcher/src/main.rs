@@ -135,48 +135,23 @@ impl Launcher {
         match message {
             Message::Nothing => {}
             Message::AccountSelected(account) => {
-                if account == NEW_ACCOUNT_NAME {
-                    self.state = State::GenericMessage("Loading Login...".to_owned());
-                    return Task::perform(
-                        ql_instances::login_1_link_w(),
-                        Message::AccountResponse1,
-                    );
-                } else {
-                    self.accounts_selected = Some(account);
-                }
+                return self.account_selected(account);
             }
             Message::AccountResponse1(result) => match result {
                 Ok(code) => {
-                    let (task, handle) = Task::perform(
-                        ql_instances::login_2_wait_w(code.clone()),
-                        Message::AccountResponse2,
-                    )
-                    .abortable();
-                    self.state = State::AccountLogin {
-                        url: code.verification_uri,
-                        code: code.user_code,
-                        cancel_handle: handle,
-                    };
-                    return task;
+                    return self.account_response_1(code);
                 }
                 Err(err) => self.set_error(err),
             },
             Message::AccountResponse2(result) => match result {
                 Ok(token) => {
-                    let (sender, receiver) = std::sync::mpsc::channel();
-                    self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
-                    return Task::perform(
-                        ql_instances::login_3_xbox_w(token, Some(sender)),
-                        Message::AccountResponse3,
-                    );
+                    return self.account_response_2(token);
                 }
                 Err(err) => self.set_error(err),
             },
             Message::AccountResponse3(result) => match result {
                 Ok(data) => {
-                    self.accounts_dropdown.push(data.username.clone());
-                    self.accounts.insert(data.username.clone(), data);
-                    return self.go_to_launch_screen(None);
+                    return self.account_response_3(data);
                 }
                 Err(err) => {
                     self.set_error(err);
@@ -198,8 +173,40 @@ impl Launcher {
                 } else {
                     None
                 };
+
+                // If the user is loading an existing login from disk
+                // then first refresh the tokens
+                if let Some(account) = &account_data {
+                    if account.access_token.is_none() || account.needs_refresh {
+                        return self.account_refresh(account);
+                    }
+                }
+
+                // Or, if the account is freshly added,
+                // just directly launch the game.
                 return self.launch_game(account_data);
             }
+            Message::AccountRefreshComplete(result) => match result {
+                Ok(data) => {
+                    self.accounts.insert(data.username.clone(), data);
+
+                    let account_data = if let Some(account) = &self.accounts_selected {
+                        if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
+                            None
+                        } else {
+                            self.accounts.get(account).cloned()
+                        }
+                    } else {
+                        None
+                    };
+
+                    return Task::batch([
+                        self.go_to_launch_screen(None),
+                        self.launch_game(account_data),
+                    ]);
+                }
+                Err(err) => self.set_error(err),
+            },
             Message::LaunchEnd(result) => {
                 return self.finish_launching(result);
             }

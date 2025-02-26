@@ -277,7 +277,10 @@ impl GameLauncher {
             replace_var(argument, "uuid", uuid);
 
             let access_token = if let Some(account_details) = account_details {
-                &account_details.access_token
+                account_details
+                    .access_token
+                    .as_ref()
+                    .ok_or(GameLaunchError::InvalidToken)?
             } else {
                 "0"
             };

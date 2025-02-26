@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{mpsc, Arc},
 };
@@ -18,12 +18,13 @@ use ql_mod_manager::{
 };
 
 use crate::{
+    config::ConfigAccount,
     get_entries,
     launcher_state::{
         ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
         MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditPresets, MenuEditPresetsInner,
         MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate,
-        MenuServerManage,
+        MenuServerManage, NEW_ACCOUNT_NAME,
     },
     Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
@@ -812,6 +813,77 @@ impl Launcher {
             iced::Event::Touch(_) => {}
         }
         Task::none()
+    }
+
+    pub fn account_selected(&mut self, account: String) -> Task<Message> {
+        if account == NEW_ACCOUNT_NAME {
+            self.state = State::GenericMessage("Loading Login...".to_owned());
+            Task::perform(ql_instances::login_1_link_w(), Message::AccountResponse1)
+        } else {
+            self.accounts_selected = Some(account);
+            Task::none()
+        }
+    }
+
+    pub fn account_refresh(&mut self, account: &ql_instances::AccountData) -> Task<Message> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
+
+        Task::perform(
+            ql_instances::login_refresh_w(
+                account.username.clone(),
+                account.refresh_token.clone(),
+                Some(sender),
+            ),
+            Message::AccountRefreshComplete,
+        )
+    }
+
+    pub fn account_response_3(&mut self, data: ql_instances::AccountData) -> Task<Message> {
+        self.accounts_dropdown.insert(0, data.username.clone());
+
+        if let Some(config) = &mut self.config {
+            if config.accounts.is_none() {
+                config.accounts = Some(HashMap::new());
+            }
+            let accounts = config.accounts.as_mut().unwrap();
+            accounts.insert(
+                data.username.clone(),
+                ConfigAccount {
+                    uuid: data.uuid.clone(),
+                    skin: None,
+                },
+            );
+        }
+
+        self.accounts_selected = Some(data.username.clone());
+        self.accounts.insert(data.username.clone(), data);
+
+        self.go_to_launch_screen(None)
+    }
+
+    pub fn account_response_2(&mut self, token: ql_instances::AuthTokenResponse) -> Task<Message> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
+        Task::perform(
+            ql_instances::login_3_xbox_w(token, Some(sender)),
+            Message::AccountResponse3,
+        )
+    }
+
+    pub fn account_response_1(&mut self, code: ql_instances::AuthCodeResponse) -> Task<Message> {
+        let (task, handle) = Task::perform(
+            ql_instances::login_2_wait_w(code.clone()),
+            Message::AccountResponse2,
+        )
+        .abortable();
+        self.state = State::AccountLogin {
+            url: code.verification_uri,
+            code: code.user_code,
+            cancel_handle: handle,
+        };
+        task
     }
 }
 

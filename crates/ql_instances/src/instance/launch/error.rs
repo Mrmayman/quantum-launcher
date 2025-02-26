@@ -36,6 +36,8 @@ pub enum GameLaunchError {
     ForgeInstallUpgradeStripPrefixError,
     #[error(transparent)]
     MsAuth(#[from] AuthError),
+    #[error("microsoft account token was not loaded")]
+    InvalidToken,
 }
 
 const FORGE_UPGRADE_MESSAGE: &str = r"outdated forge install. Please uninstall and reinstall.

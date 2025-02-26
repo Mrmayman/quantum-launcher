@@ -151,6 +151,7 @@ pub enum Message {
     LaunchInstanceSelected(String),
     LaunchUsernameSet(String),
     LaunchStart,
+    AccountRefreshComplete(Result<AccountData, String>),
     LaunchScreenOpen {
         message: Option<String>,
         clear_selection: bool,
@@ -596,6 +597,46 @@ impl Launcher {
             launch
         };
 
+        let mut accounts = HashMap::new();
+
+        let mut accounts_dropdown =
+            vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()];
+
+        if let Some(config) = &config {
+            if let Some(config_accounts) = &config.accounts {
+                for (username, account) in config_accounts {
+                    match ql_instances::read_refresh_token(username) {
+                        Ok(refresh_token) => {
+                            accounts_dropdown.insert(0, username.clone());
+                            accounts.insert(
+                                username.clone(),
+                                AccountData {
+                                    access_token: None,
+                                    uuid: account.uuid.clone(),
+                                    username: username.clone(),
+                                    refresh_token,
+                                    needs_refresh: true,
+                                },
+                            );
+                        }
+                        Err(err) => {
+                            err!("Could not load account: {err}");
+                        }
+                    }
+                }
+            }
+        }
+
+        let selected_account = if let Some(first) = accounts_dropdown.first() {
+            if first != OFFLINE_ACCOUNT_NAME {
+                first.clone()
+            } else {
+                OFFLINE_ACCOUNT_NAME.to_owned()
+            }
+        } else {
+            OFFLINE_ACCOUNT_NAME.to_owned()
+        };
+
         Ok(Self {
             dir: launcher_dir,
             client_list: None,
@@ -614,9 +655,9 @@ impl Launcher {
             server_logs: HashMap::new(),
             mouse_pos: (0.0, 0.0),
             window_size: (WINDOW_WIDTH, WINDOW_HEIGHT),
-            accounts: HashMap::new(),
-            accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
-            accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
+            accounts,
+            accounts_dropdown,
+            accounts_selected: Some(selected_account),
         })
     }
 

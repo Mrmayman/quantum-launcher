@@ -24,3 +24,9 @@ serde-xml-rs = "0.6"
 colored = { workspace = true }
 indicatif = "0.17"
 thiserror = { workspace = true }
+
+keyring = { version = "3", features = [
+    "apple-native",
+    "windows-native",
+    "linux-native-sync-persistent",
+] }
