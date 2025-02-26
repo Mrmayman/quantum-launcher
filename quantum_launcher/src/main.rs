@@ -85,7 +85,9 @@ use menu_renderer::{
     changelog::{changelog_0_4, welcome_msg},
     view_account_login, DISCORD,
 };
-use ql_core::{err, file_utils, info, open_file_explorer, InstanceSelection, SelectedMod};
+use ql_core::{
+    err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, SelectedMod,
+};
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{loaders, mod_manager::Loader};
 use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
@@ -338,7 +340,7 @@ impl Launcher {
             Message::UpdateCheckResult(update_check_info) => match update_check_info {
                 Ok(info) => match info {
                     UpdateCheckInfo::UpToDate => {
-                        info!("Launcher is latest version. No new updates");
+                        info_no_log!("Launcher is latest version. No new updates");
                     }
                     UpdateCheckInfo::NewVersion { url } => {
                         self.state = State::UpdateFound(MenuLauncherUpdate {
@@ -879,7 +881,7 @@ fn main() {
         arguments::print_intro();
     }
 
-    info!("Starting up the launcher...");
+    info_no_log!("Starting up the launcher...");
 
     let icon =
         iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico)).ok();

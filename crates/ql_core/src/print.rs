@@ -1,6 +1,7 @@
 use std::{
-    fs::OpenOptions,
+    fs::{File, OpenOptions},
     io::{BufWriter, Write},
+    sync::Mutex,
 };
 
 use chrono::{Datelike, Timelike};
@@ -8,12 +9,13 @@ use chrono::{Datelike, Timelike};
 use crate::file_utils;
 
 pub struct LoggingState {
-    _thread: std::thread::JoinHandle<()>,
-    sender: std::sync::mpsc::Sender<String>,
+    _thread: Option<std::thread::JoinHandle<()>>,
+    writer: Option<BufWriter<File>>,
+    sender: Option<std::sync::mpsc::Sender<String>>,
 }
 
 impl LoggingState {
-    pub fn create() -> Option<LoggingState> {
+    pub fn create() -> Option<Mutex<LoggingState>> {
         let launcher_dir = file_utils::get_launcher_dir_s().ok()?;
 
         let logs_dir = launcher_dir.join("logs");
@@ -38,37 +40,46 @@ impl LoggingState {
             .open(&log_file_path)
             .ok()?;
 
-        let (sender, receiver) = std::sync::mpsc::channel::<String>();
-
-        let thread = std::thread::spawn(move || {
-            let mut writer = BufWriter::new(file);
-
-            while let Ok(msg) = receiver.recv() {
-                _ = writer.write_all(msg.as_bytes());
-                _ = writer.flush();
-            }
-        });
-
-        Some(LoggingState {
-            _thread: thread,
-            sender,
-        })
+        Some(Mutex::new(LoggingState {
+            _thread: None,
+            writer: Some(BufWriter::new(file)),
+            sender: None,
+        }))
     }
 
-    pub fn write_str(&self, s: String) {
-        self.sender.send(s.to_string()).ok();
+    pub fn write_str(&mut self, s: String) {
+        if self.sender.is_none() {
+            let (sender, receiver) = std::sync::mpsc::channel::<String>();
+
+            if let Some(writer) = self.writer.take() {
+                let thread = std::thread::spawn(move || {
+                    let mut writer = writer;
+
+                    while let Ok(msg) = receiver.recv() {
+                        _ = writer.write_all(msg.as_bytes());
+                        _ = writer.flush();
+                    }
+                });
+                self._thread = Some(thread);
+            }
+
+            self.sender = Some(sender);
+        }
+
+        _ = self.sender.as_ref().unwrap().send(s.to_string());
     }
 }
 
 lazy_static::lazy_static! {
     #[allow(clippy::ref_option)]
-    pub static ref LOGGER: Option<LoggingState> =
+    pub static ref LOGGER: Option<Mutex<LoggingState>> =
         LoggingState::create();
 }
 
 pub fn print_to_file(msg: String) {
     if let Some(logger) = LOGGER.as_ref() {
-        logger.write_str(msg);
+        let mut lock = logger.lock().unwrap();
+        lock.write_str(msg);
     }
 }
 
@@ -86,6 +97,21 @@ macro_rules! info {
         }
 
         $crate::print::print_to_file(plain_text);
+    };
+}
+
+/// Print an informational message.
+/// Not saved to a log file.
+#[macro_export]
+macro_rules! info_no_log {
+    ($($arg:tt)*) => {
+        let plain_text = format!("[info] {}\n", format_args!($($arg)*));
+
+        if cfg!(windows) {
+            println!("{plain_text}")
+        } else {
+            println!("{} {}", colored::Colorize::yellow("[info]"), format_args!($($arg)*))
+        }
     };
 }
 

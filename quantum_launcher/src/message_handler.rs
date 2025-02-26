@@ -7,7 +7,7 @@ use std::{
 use chrono::Datelike;
 use iced::{keyboard::Key, Task};
 use ql_core::{
-    err, file_utils, info,
+    err, file_utils, info, info_no_log,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, JsonFileError,
 };
@@ -728,7 +728,7 @@ impl Launcher {
         match event {
             iced::Event::Window(event) => match event {
                 iced::window::Event::CloseRequested => {
-                    info!("Shutting down launcher (1)");
+                    info_no_log!("Shutting down launcher (1)");
                     std::process::exit(0);
                 }
                 iced::window::Event::Closed => {

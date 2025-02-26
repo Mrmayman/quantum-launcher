@@ -99,7 +99,7 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - [x] Instance renaming
 - [x] Java/Game args editing
 - [x] Memory allocation editing
-- [ ] Optional Microsoft login (in progress)
+- [x] Optional Microsoft login
 ## Mods
 ### Loaders
 - [x] Fabric
@@ -151,6 +151,8 @@ There are many ways you can help me out! I'm open to any contribution:
   that could help with some `///` doc comment? Go ahead!
 - Contribute to the website (repo: <https://github.com/Mrmayman/Mrmayman.github.io>)
 - Work on CI (github actions)
+
+There's a more in-depth guide on the codebase in [main.rs](quantum_launcher/src/main.rs) at the top.
 
 ## Contributors
 - [Mrmayman](https://github.com/Mrmayman) (lead developer)
