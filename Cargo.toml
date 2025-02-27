@@ -21,6 +21,7 @@ lazy_static = "1"
 chrono = "0.4"
 zip-extract = "0.2"
 thiserror = "2"
+rfd = "0.15"
 
 # [profile.dev]
 # opt-level = 1

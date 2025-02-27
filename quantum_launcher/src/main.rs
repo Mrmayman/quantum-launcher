@@ -835,17 +835,19 @@ fn main() {
         plugin.set_generic_progress(sender, "javaprog").unwrap();
         plugin
             .set_selected_instance(
-                InstanceSelection::Instance("1.21.4 quilt".to_owned()),
+                InstanceSelection::Instance("1.21.4 fabric".to_owned()),
                 "optifine_instance",
             )
             .unwrap();
-        plugin
-            .set_bytes(
-                include_bytes!("../../preview_OptiFine_1.21.4_HD_U_J3_pre15.jar"),
-                "optifine_installer_bytes",
-            )
-            .unwrap();
-        plugin.init().unwrap();
+        // plugin
+        //     .set_bytes(
+        //         include_bytes!("../../preview_OptiFine_1.21.4_HD_U_J3_pre15.jar"),
+        //         "optifine_installer_bytes",
+        //     )
+        //     .unwrap();
+        if let Err(err) = plugin.init() {
+            eprintln!("{err}")
+        }
     });
 
     while let Ok(msg) = recv.recv() {

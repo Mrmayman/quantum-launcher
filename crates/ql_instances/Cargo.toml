@@ -29,4 +29,5 @@ keyring = { version = "3", features = [
     "apple-native",
     "windows-native",
     "linux-native-sync-persistent",
+    "vendored",
 ] }

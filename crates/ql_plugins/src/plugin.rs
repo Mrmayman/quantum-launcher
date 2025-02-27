@@ -97,6 +97,7 @@ impl Plugin {
         if json.permissions.contains(&PluginPermission::Java) {
             plugin.fn_java(&globals)?;
         }
+        plugin.fn_file_pick(&globals)?;
 
         for file in &json.files {
             file.load(&plugin_root_dir, &mut plugin.mod_map)?;
@@ -257,6 +258,32 @@ impl Plugin {
         Ok(())
     }
 
+    fn fn_file_pick(&self, globals: &mlua::Table) -> Result<(), PluginError> {
+        let func = self.lua.create_function(
+            |lua, (name, filters, filter_name): (String, Vec<String>, String)| {
+                let file = rfd::FileDialog::new()
+                    .set_title(&name)
+                    .add_filter(&filter_name, &filters)
+                    .pick_file()
+                    .ok_or(mlua::Error::ExternalError(Arc::new(StrErr(format!(
+                        "Could not pick file: {name}",
+                    )))))?;
+
+                let file_bytes = std::fs::read(&file)
+                    .path(&file)
+                    .map_err(|n| mlua::Error::ExternalError(Arc::new(n)))?;
+
+                let lua_string = lua.create_string(&file_bytes)?;
+
+                Ok(lua_string)
+            },
+        )?;
+
+        globals.set("qlPickFile", func)?;
+
+        Ok(())
+    }
+
     fn resolve_deps(
         &mut self,
         json: &PluginJson,
@@ -354,7 +381,7 @@ fn fn_logging(globals: &mlua::Table, lua: &Lua) -> Result<(), PluginError> {
 }
 
 pub fn err_to_lua(err: impl std::fmt::Display) -> mlua::Error {
-    mlua::Error::ExternalError(Arc::new(StrErr(format!("{err}"))))
+    mlua::Error::ExternalError(Arc::new(StrErr(err.to_string())))
 }
 
 #[derive(Debug)]

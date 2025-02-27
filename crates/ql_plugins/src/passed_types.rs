@@ -1,12 +1,13 @@
 use std::{
+    fs::ReadDir,
     path::PathBuf,
-    sync::{mpsc::Sender, Arc},
+    sync::{mpsc::Sender, Arc, Mutex},
 };
 
 use mlua::{FromLua, Lua, MetaMethod, UserData, UserDataMethods, Value};
 use ql_core::{file_utils, GenericProgress, InstanceSelection, IntoIoError};
 
-use crate::plugin::err_to_lua;
+use crate::{plugin::err_to_lua, PluginError};
 
 #[derive(Clone)]
 pub struct LuaGenericProgress(pub Arc<Sender<GenericProgress>>);
@@ -139,5 +140,78 @@ impl UserData for SelectedInstance {
             let string = vm.create_string(&bytes)?;
             Ok(string)
         });
+
+        methods.add_method("read_dir", |_, instance, ()| {
+            let iterator = SelectedInstanceIterator::new(instance.clone()).map_err(err_to_lua)?;
+
+            Ok(iterator)
+        });
+
+        methods.add_function("read_dir_iter", |vm, instance: SelectedInstance| {
+            let func: mlua::Function = vm
+                .load(
+                    r"
+return function(path)
+    local iter = path:read_dir()
+    return function()
+        return iter:next()
+    end
+end",
+                )
+                .eval()?;
+
+            let ret: mlua::Function = func.call(instance)?;
+
+            Ok(ret)
+        });
+    }
+}
+
+#[derive(Clone)]
+pub struct SelectedInstanceIterator {
+    iter: Arc<Mutex<ReadDir>>,
+    instance: SelectedInstance,
+}
+
+impl UserData for SelectedInstanceIterator {
+    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
+        methods.add_method_mut("next", |_, instance: &mut SelectedInstanceIterator, ()| {
+            let Some(item) = instance
+                .iter
+                .lock()
+                .map_err(|n| err_to_lua(format!("Error locking dir reading mutex: {n}")))?
+                .next()
+            else {
+                return Ok(None);
+            };
+            let item = item.map_err(|n| mlua::Error::ExternalError(Arc::new(n)))?;
+
+            let path = item.path();
+            let stripped_path = path
+                .strip_prefix(instance.instance.get_path()?)
+                .map_err(|n| err_to_lua(format!("Error stripping dir reading path: {n}")))?;
+
+            let new = SelectedInstance {
+                instance: instance.instance.instance.clone(),
+                path: stripped_path.to_owned(),
+                dot_mc: instance.instance.dot_mc,
+            };
+
+            Ok(Some(new))
+        });
+    }
+}
+
+impl SelectedInstanceIterator {
+    fn new(instance: SelectedInstance) -> Result<Self, PluginError> {
+        let path = instance.get_path()?;
+        let iter = std::fs::read_dir(&path).path(path)?;
+
+        let this = Self {
+            iter: Arc::new(Mutex::new(iter)),
+            instance,
+        };
+
+        Ok(this)
     }
 }

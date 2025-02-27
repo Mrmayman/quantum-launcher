@@ -30,7 +30,7 @@ Logs something as an `[error]` message.
 Logs something as a bullet point message, ie.
 less important than an info or error message.
 
-# Java
+## Java
 
 ### `qlJavaExec(name: String, version: i32, progress: Option<LuaGenericProgress>, [args], current_dir: Option<String>)`
 Executes any specified Java binary with the specified Java version.
@@ -45,3 +45,17 @@ This automatically installs Java if not present. You can optionally supply a pro
 (`LuaGenericProgress` which wraps around `std::sync::Arc<std::sync::mpsc::Sender<GenericProgress>>`)
 
 This requires the `Java` permission as it can be **very** dangerous when untrusted.
+
+## File Picking
+
+### `qlPickFile(window_title: String, filters: [String], filter_name: String) -> String`
+Prompts the user to pick a file. A file browser window will open,
+the user will select a file and the file contents will be returned.
+
+If you want to filter for specific extensions use the filters.
+
+Example:
+```lua
+-- Prompts the user to select a jar file
+local file = qlPickFile("Select a jar file", {"jar"}, "Jar File")
+```
