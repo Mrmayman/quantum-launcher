@@ -52,10 +52,10 @@ jobs:
           cross: false
           final_name: linux_x86_64
         - build: aarch64-linux
-          os: ubuntu-22.04
+          os: ubuntu-22.04-arm
           rust: stable
           target: aarch64-unknown-linux-gnu
-          cross: true
+          cross: false
           final_name: linux_aarch64
         - build: x86_64-macos
           os: macos-latest
@@ -95,7 +95,7 @@ jobs:
           submodules: true
       
       - name: Install dependencies
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-22.04' || matrix.os == 'ubuntu-22.04-arm'
         run: |
           sudo apt-get update
           sudo apt-get install -y libdbus-1-dev pkg-config libdbus-1-3
