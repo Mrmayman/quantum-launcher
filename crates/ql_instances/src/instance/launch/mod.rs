@@ -24,30 +24,6 @@ use tokio::process::{Child, Command};
 
 pub(super) mod error;
 
-pub type GameLaunchResult = Result<Arc<Mutex<Child>>, String>;
-
-/// [`launch`] `_w` function
-pub async fn launch_w(
-    instance_name: String,
-    username: String,
-    java_install_progress_sender: Option<Sender<GenericProgress>>,
-    asset_redownload_progress: Option<Sender<GenericProgress>>,
-    auth: Option<AccountData>,
-) -> GameLaunchResult {
-    match launch(
-        instance_name,
-        username,
-        java_install_progress_sender,
-        asset_redownload_progress,
-        auth,
-    )
-    .await
-    {
-        Ok(child) => GameLaunchResult::Ok(Arc::new(Mutex::new(child))),
-        Err(err) => GameLaunchResult::Err(err.to_string()),
-    }
-}
-
 /// Launches the specified instance with the specified username.
 /// Will error if instance isn't created.
 ///
@@ -65,7 +41,7 @@ pub async fn launch(
     java_install_progress_sender: Option<Sender<GenericProgress>>,
     asset_redownload_progress: Option<Sender<GenericProgress>>,
     auth: Option<AccountData>,
-) -> Result<Child, GameLaunchError> {
+) -> Result<Arc<Mutex<Child>>, GameLaunchError> {
     if username.is_empty() {
         return Err(GameLaunchError::UsernameIsEmpty);
     }
@@ -167,7 +143,7 @@ pub async fn launch(
 
     let child = command.spawn().map_err(GameLaunchError::CommandError)?;
 
-    Ok(child)
+    Ok(Arc::new(Mutex::new(child)))
 }
 
 fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, code: F) {

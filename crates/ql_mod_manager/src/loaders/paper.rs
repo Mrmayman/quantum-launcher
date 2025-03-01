@@ -1,8 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, IntoIoError, IntoStringError, IoError,
-    JsonFileError, RequestError,
+    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, RequestError,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -60,14 +59,7 @@ async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     Ok(())
 }
 
-pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
-    uninstall(&instance_name)
-        .await
-        .strerr()
-        .map(|()| Loader::Paper)
-}
-
-pub async fn uninstall(instance_name: &str) -> Result<(), PaperInstallerError> {
+pub async fn uninstall(instance_name: String) -> Result<Loader, PaperInstallerError> {
     let server_dir = file_utils::get_launcher_dir()
         .await?
         .join("servers")
@@ -97,14 +89,10 @@ pub async fn uninstall(instance_name: &str) -> Result<(), PaperInstallerError> {
 
     change_instance_type(&server_dir, "Vanilla".to_owned()).await?;
 
-    Ok(())
+    Ok(Loader::Paper)
 }
 
-pub async fn install_w(instance_name: String) -> Result<(), String> {
-    install(&instance_name).await.strerr()
-}
-
-pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
+pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {
     info!("Installing Paper");
     pt!("Getting version list");
     let paper_versions = file_utils::download_file_to_string(PAPER_VERSIONS_URL, false).await?;
@@ -113,12 +101,9 @@ pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {
     let server_dir = file_utils::get_launcher_dir()
         .await?
         .join("servers")
-        .join(instance_name);
+        .join(&instance_name);
 
-    let json = VersionDetails::load(&ql_core::InstanceSelection::Server(
-        instance_name.to_owned(),
-    ))
-    .await?;
+    let json = VersionDetails::load(&ql_core::InstanceSelection::Server(instance_name)).await?;
 
     let url = paper_version
         .versions

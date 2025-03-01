@@ -8,7 +8,7 @@ use std::{
 use ql_core::{
     file_utils, info,
     json::{optifine::JsonOptifine, VersionDetails},
-    GenericProgress, IntoIoError, IntoStringError, IoError, JsonFileError, Progress, RequestError,
+    GenericProgress, IntoIoError, IoError, JsonFileError, Progress, RequestError,
     CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
@@ -20,22 +20,6 @@ use super::change_instance_type;
 
 // javac -cp OptiFine_1.21.1_HD_U_J1.jar OptifineInstaller.java -d .
 // java -cp OptiFine_1.21.1_HD_U_J1.jar:. OptifineInstaller
-
-pub async fn install_w(
-    instance_name: String,
-    path_to_installer: PathBuf,
-    progress_sender: Option<Sender<OptifineInstallProgress>>,
-    java_progress_sender: Option<Sender<GenericProgress>>,
-) -> Result<(), String> {
-    install_optifine(
-        &instance_name,
-        &path_to_installer,
-        progress_sender,
-        java_progress_sender,
-    )
-    .await
-    .strerr()
-}
 
 #[derive(Default)]
 pub enum OptifineInstallProgress {
@@ -86,9 +70,9 @@ impl Progress for OptifineInstallProgress {
     }
 }
 
-pub async fn install_optifine(
-    instance_name: &str,
-    path_to_installer: &Path,
+pub async fn install(
+    instance_name: String,
+    path_to_installer: PathBuf,
     progress_sender: Option<Sender<OptifineInstallProgress>>,
     java_progress_sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), OptifineError> {
@@ -102,7 +86,7 @@ pub async fn install_optifine(
     let instance_path = file_utils::get_launcher_dir()
         .await?
         .join("instances")
-        .join(instance_name);
+        .join(&instance_name);
 
     create_details_json(&instance_path).await?;
 
@@ -133,7 +117,12 @@ pub async fn install_optifine(
     send_progress(&progress_sender, OptifineInstallProgress::P3RunningHook);
     run_hook(&new_installer_path, &optifine_path).await?;
 
-    download_libraries(instance_name, &dot_minecraft_path, progress_sender.as_ref()).await?;
+    download_libraries(
+        &instance_name,
+        &dot_minecraft_path,
+        progress_sender.as_ref(),
+    )
+    .await?;
     change_instance_type(&instance_path, "OptiFine".to_owned()).await?;
     send_progress(&progress_sender, OptifineInstallProgress::P5Done);
     info!("Finished installing OptiFine");
@@ -150,18 +139,11 @@ fn send_progress(
     }
 }
 
-pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
-    uninstall(&instance_name)
-        .await
-        .strerr()
-        .map(|()| Loader::OptiFine)
-}
-
-pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
+pub async fn uninstall(instance_name: String) -> Result<Loader, OptifineError> {
     let instance_path = file_utils::get_launcher_dir()
         .await?
         .join("instances")
-        .join(instance_name);
+        .join(&instance_name);
 
     let optifine_path = instance_path.join("optifine");
 
@@ -193,7 +175,7 @@ pub async fn uninstall(instance_name: &str) -> Result<(), OptifineError> {
             }
         }
     }
-    Ok(())
+    Ok(Loader::OptiFine)
 }
 
 async fn create_hook_java_file(

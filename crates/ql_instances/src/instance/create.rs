@@ -7,19 +7,6 @@ use ql_core::{
 
 use crate::{download::GameDownloader, ListEntry};
 
-/// [`create_instance`] `_w` function
-pub async fn create_instance_w(
-    instance_name: String,
-    version: ListEntry,
-    progress_sender: Option<Sender<DownloadProgress>>,
-    download_assets: bool,
-) -> Result<String, String> {
-    create_instance(&instance_name, version, progress_sender, download_assets)
-        .await
-        .map_err(|n| n.to_string())
-        .map(|()| instance_name)
-}
-
 /// Creates a Minecraft instance.
 ///
 /// # Arguments
@@ -35,7 +22,7 @@ pub async fn create_instance_w(
 /// Check the [`DownloadError`] documentation (if there is, lol).
 /// This is crap code and you must have standards. (WTF: )
 pub async fn create_instance(
-    instance_name: &str,
+    instance_name: String,
     version: ListEntry,
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
@@ -50,7 +37,8 @@ pub async fn create_instance(
         .await
         .path(assets_dir)?;
 
-    let mut game_downloader = GameDownloader::new(instance_name, &version, progress_sender).await?;
+    let mut game_downloader =
+        GameDownloader::new(&instance_name, &version, progress_sender).await?;
 
     game_downloader.download_logging_config().await?;
     game_downloader.download_jar().await?;
@@ -83,7 +71,7 @@ pub async fn create_instance(
 
     let version_file_path = launcher_dir
         .join("instances")
-        .join(instance_name)
+        .join(&instance_name)
         .join("launcher_version.txt");
     tokio::fs::write(&version_file_path, LAUNCHER_VERSION_NAME)
         .await
@@ -91,7 +79,7 @@ pub async fn create_instance(
 
     let mods_dir = launcher_dir
         .join("instances")
-        .join(instance_name)
+        .join(&instance_name)
         .join(".minecraft/mods");
     tokio::fs::create_dir_all(&mods_dir).await.path(mods_dir)?;
 

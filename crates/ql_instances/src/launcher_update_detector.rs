@@ -7,9 +7,7 @@ use std::{
     },
 };
 
-use ql_core::{
-    err, file_utils, info, GenericProgress, IntoIoError, IntoStringError, IoError, RequestError,
-};
+use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -19,11 +17,6 @@ use crate::LAUNCHER_VERSION;
 pub enum UpdateCheckInfo {
     UpToDate,
     NewVersion { url: String },
-}
-
-/// [`check_for_launcher_updates`] `_w` function
-pub async fn check_for_launcher_updates_w() -> Result<UpdateCheckInfo, String> {
-    check_for_launcher_updates().await.strerr()
 }
 
 /// Checks for any launcher updates to be installed.
@@ -89,14 +82,6 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
             })
         }
     }
-}
-
-/// [`install_launcher_update`] `_w` function
-pub async fn install_launcher_update_w(
-    url: String,
-    progress: Sender<GenericProgress>,
-) -> Result<(), String> {
-    install_launcher_update(url, progress).await.strerr()
 }
 
 /// Installs a new version of the launcher.

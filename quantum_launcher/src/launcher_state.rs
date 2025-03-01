@@ -10,12 +10,12 @@ use iced::{widget::image::Handle, Task};
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, JsonFileError, Progress,
-    SelectedMod, LAUNCHER_VERSION_NAME,
+    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
+    JsonFileError, Progress, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
-    AccountData, AuthCodeResponse, AuthTokenResponse, GameLaunchResult, ListEntry, LogLine,
-    UpdateCheckInfo, CLIENT_ID,
+    AccountData, AuthCodeResponse, AuthTokenResponse, ListEntry, LogLine, UpdateCheckInfo,
+    CLIENT_ID,
 };
 use ql_mod_manager::{
     loaders::{
@@ -156,7 +156,7 @@ pub enum Message {
         message: Option<String>,
         clear_selection: bool,
     },
-    LaunchEnd(GameLaunchResult),
+    LaunchEnd(Result<Arc<Mutex<Child>>, String>),
     LaunchKill,
     LaunchKillEnd(Result<(), String>),
     DeleteInstanceMenu,
@@ -718,14 +718,6 @@ impl Launcher {
             Message::CoreListLoaded,
         )
     }
-
-    pub fn edit_instance_w(&mut self) {
-        let selected_instance = self.selected_instance.clone().unwrap();
-        match self.edit_instance(&selected_instance) {
-            Ok(()) => {}
-            Err(err) => self.set_error(err),
-        }
-    }
 }
 
 fn load_config_and_theme(
@@ -756,22 +748,19 @@ fn load_config_and_theme(
 }
 
 pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {
-    let dir_path = file_utils::get_launcher_dir()
-        .await
-        .map_err(|n| n.to_string())?
-        .join(path);
+    let dir_path = file_utils::get_launcher_dir().await.strerr()?.join(path);
     if !dir_path.exists() {
         tokio::fs::create_dir_all(&dir_path)
             .await
             .path(&dir_path)
-            .map_err(|n| n.to_string())?;
+            .strerr()?;
         return Ok((Vec::new(), is_server));
     }
 
     let mut dir = tokio::fs::read_dir(&dir_path)
         .await
         .path(dir_path)
-        .map_err(|n| n.to_string())?;
+        .strerr()?;
 
     let mut subdirectories = Vec::new();
 

@@ -1,5 +1,5 @@
 use iced::Task;
-use ql_core::{err, IntoIoError};
+use ql_core::{err, IntoIoError, IntoStringError};
 
 use crate::{
     launcher_state::{get_entries, EditInstanceMessage, Launcher, MenuLaunch, Message, State},
@@ -7,9 +7,15 @@ use crate::{
 };
 
 impl Launcher {
-    pub fn update_edit_instance(&mut self, message: EditInstanceMessage) -> Task<Message> {
+    pub fn update_edit_instance(
+        &mut self,
+        message: EditInstanceMessage,
+    ) -> Result<Task<Message>, String> {
         match message {
-            EditInstanceMessage::MenuOpen => self.edit_instance_w(),
+            EditInstanceMessage::MenuOpen => {
+                let selected_instance = self.selected_instance.clone().unwrap();
+                self.edit_instance(&selected_instance).strerr()?;
+            }
             EditInstanceMessage::JavaOverride(n) => {
                 if let State::Launch(MenuLaunch {
                     edit_instance: Some(menu),
@@ -79,22 +85,18 @@ impl Launcher {
                 }
             }
             EditInstanceMessage::RenameApply => return self.rename_instance(),
-            EditInstanceMessage::ConfigSaved(res) => {
-                if let Err(err) = res {
-                    self.set_error(err);
-                }
-            }
+            EditInstanceMessage::ConfigSaved(res) => res?,
         }
-        Task::none()
+        Ok(Task::none())
     }
 
-    fn rename_instance(&mut self) -> Task<Message> {
+    fn rename_instance(&mut self) -> Result<Task<Message>, String> {
         let State::Launch(MenuLaunch {
             edit_instance: Some(menu),
             ..
         }) = &mut self.state
         else {
-            return Task::none();
+            return Ok(Task::none());
         };
         let mut disallowed = vec![
             '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\'', '\0', '\u{7F}',
@@ -110,7 +112,7 @@ impl Launcher {
 
         if instance_name.is_empty() {
             err!("New name is empty or invalid");
-            return Task::none();
+            return Ok(Task::none());
         }
 
         if menu.old_instance_name != menu.instance_name {
@@ -129,11 +131,11 @@ impl Launcher {
             if let Some(n) = &mut self.selected_instance {
                 n.set_name(&menu.instance_name);
             }
-            if let Err(err) = std::fs::rename(&old_path, &new_path).path(&old_path) {
-                self.set_error(err);
-            }
+            std::fs::rename(&old_path, &new_path)
+                .path(&old_path)
+                .strerr()?;
 
-            Task::perform(
+            Ok(Task::perform(
                 get_entries(
                     match self.selected_instance.as_ref().unwrap() {
                         ql_core::InstanceSelection::Instance(_) => "instances",
@@ -143,9 +145,9 @@ impl Launcher {
                     false,
                 ),
                 Message::CoreListLoaded,
-            )
+            ))
         } else {
-            Task::none()
+            Ok(Task::none())
         }
     }
 

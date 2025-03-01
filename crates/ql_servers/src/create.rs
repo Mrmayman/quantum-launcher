@@ -4,27 +4,10 @@ use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
     file_utils, info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    GenericProgress, IntoIoError,
+    GenericProgress, IntoIoError, IntoStringError,
 };
 
 use crate::ServerError;
-
-/// [`create_server`] `_w` function
-///
-/// # Errors
-/// See the [`create_server`] function
-///
-/// (aah clippy is being annoying)
-pub async fn create_server_w(
-    name: String,
-    version: ListEntry,
-    sender: Option<Sender<GenericProgress>>,
-) -> Result<String, String> {
-    create_server(&name, version, sender)
-        .await
-        .map_err(|n| n.to_string())
-        .map(|()| name)
-}
 
 /// Creates a minecraft server with the given name and version.
 ///
@@ -62,15 +45,15 @@ pub async fn create_server_w(
 /// - ...couldn't be saved to `details.json`
 /// - ...doesn't have `downloads` field
 pub async fn create_server(
-    name: &str,
+    name: String,
     version: ListEntry,
     sender: Option<Sender<GenericProgress>>,
-) -> Result<(), ServerError> {
+) -> Result<String, ServerError> {
     info!("Creating server: Downloading Manifest");
     progress_manifest(sender.as_ref());
     let manifest = Manifest::download().await?;
 
-    let server_dir = get_server_dir(name).await?;
+    let server_dir = get_server_dir(&name).await?;
     let server_jar_path = server_dir.join("server.jar");
 
     let mut is_classic_server = false;
@@ -126,7 +109,7 @@ pub async fn create_server(
     let mods_dir = server_dir.join("mods");
     tokio::fs::create_dir(&mods_dir).await.path(mods_dir)?;
 
-    Ok(())
+    Ok(name)
 }
 
 async fn write_config(
@@ -303,11 +286,11 @@ fn progress_json(sender: Option<&Sender<GenericProgress>>) {
 /// - If the server directory couldn't be deleted.
 /// - If the launcher directory couldn't be found or created.
 pub fn delete_server(name: &str) -> Result<(), String> {
-    let launcher_dir = file_utils::get_launcher_dir_s().map_err(|n| n.to_string())?;
+    let launcher_dir = file_utils::get_launcher_dir_s().strerr()?;
     let server_dir = launcher_dir.join("servers").join(name);
     std::fs::remove_dir_all(&server_dir)
         .path(server_dir)
-        .map_err(|n| n.to_string())?;
+        .strerr()?;
 
     Ok(())
 }

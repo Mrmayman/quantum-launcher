@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Task};
-use ql_core::{err, InstanceSelection, IntoIoError, SelectedMod};
+use ql_core::{err, InstanceSelection, IntoIoError, IntoStringError, SelectedMod};
 use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
 
 mod edit_instance;
@@ -65,13 +65,19 @@ impl Launcher {
                     *progress = Some(ProgressBar::with_recv(receiver));
                     let loader_version = fabric_version.clone().unwrap();
 
+                    let instance_name = self.selected_instance.clone().unwrap();
+                    let is_quilt = *is_quilt;
                     return Task::perform(
-                        loaders::fabric::install_w(
-                            loader_version,
-                            self.selected_instance.clone().unwrap(),
-                            Some(sender),
-                            *is_quilt,
-                        ),
+                        async move {
+                            loaders::fabric::install(
+                                loader_version,
+                                instance_name,
+                                Some(sender),
+                                is_quilt,
+                            )
+                            .await
+                            .strerr()
+                        },
                         |m| Message::InstallFabric(InstallFabricMessage::End(m)),
                     );
                 }
@@ -79,11 +85,13 @@ impl Launcher {
             InstallFabricMessage::ScreenOpen { is_quilt } => {
                 self.state = State::InstallFabric(MenuInstallFabric::Loading(is_quilt));
 
+                let instance_name = self.selected_instance.clone().unwrap();
                 return Task::perform(
-                    loaders::fabric::get_list_of_versions_w(
-                        self.selected_instance.clone().unwrap(),
-                        is_quilt,
-                    ),
+                    async move {
+                        loaders::fabric::get_list_of_versions(instance_name, is_quilt)
+                            .await
+                            .strerr()
+                    },
                     |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m)),
                 );
             }
@@ -219,11 +227,13 @@ impl Launcher {
                             }
                         })
                         .collect();
+                    let instance_name = self.selected_instance.clone().unwrap();
                     return Task::perform(
-                        ql_mod_manager::mod_manager::toggle_mods_w(
-                            ids,
-                            self.selected_instance.clone().unwrap(),
-                        ),
+                        async move {
+                            ql_mod_manager::mod_manager::toggle_mods(ids, instance_name)
+                                .await
+                                .strerr()
+                        },
                         |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n)),
                     );
                 }
@@ -276,7 +286,7 @@ impl Launcher {
         selected_instance: InstanceSelection,
         menu: &crate::launcher_state::MenuEditMods,
     ) -> Task<Message> {
-        let ids = menu
+        let ids: Vec<String> = menu
             .selected_mods
             .iter()
             .filter_map(|s_mod| {
@@ -289,7 +299,14 @@ impl Launcher {
             .collect();
 
         Task::perform(
-            ql_mod_manager::mod_manager::delete_mods_w(ids, selected_instance),
+            async move {
+                let ids = ids;
+                let selected_instance = selected_instance;
+                ql_mod_manager::mod_manager::delete_mods(&ids, &selected_instance)
+                    .await
+                    .map(|()| ids)
+                    .strerr()
+            },
             |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n)),
         )
     }
@@ -345,10 +362,11 @@ impl Launcher {
                     if let Some(results) = &menu.results {
                         let hit = results.hits.get(i).unwrap();
                         if !menu.result_data.contains_key(&hit.project_id) {
-                            let task = ProjectInfo::download_w(hit.project_id.clone());
-                            return Task::perform(task, |n| {
-                                Message::InstallMods(InstallModsMessage::LoadData(n))
-                            });
+                            let id = hit.project_id.clone();
+                            return Task::perform(
+                                async move { ProjectInfo::download(id).await.strerr().map(Box::new) },
+                                |n| Message::InstallMods(InstallModsMessage::LoadData(n)),
+                            );
                         }
                     }
                 }
@@ -419,19 +437,25 @@ impl Launcher {
                         is_java_being_installed: false,
                     });
 
+                    let get_name = self
+                        .selected_instance
+                        .as_ref()
+                        .unwrap()
+                        .get_name()
+                        .to_owned();
                     return Task::perform(
                         // Note: OptiFine does not support servers
                         // so it's safe to assume we've selected an instance.
-                        ql_mod_manager::loaders::optifine::install_w(
-                            self.selected_instance
-                                .as_ref()
-                                .unwrap()
-                                .get_name()
-                                .to_owned(),
-                            path,
-                            Some(p_sender),
-                            Some(j_sender),
-                        ),
+                        async move {
+                            ql_mod_manager::loaders::optifine::install(
+                                get_name,
+                                path,
+                                Some(p_sender),
+                                Some(j_sender),
+                            )
+                            .await
+                            .strerr()
+                        },
                         |n| Message::InstallOptifine(InstallOptifineMessage::End(n)),
                     );
                 }
@@ -452,8 +476,5 @@ async fn delete_file_wrapper(path: PathBuf) -> Result<(), String> {
     if !path.exists() {
         return Ok(());
     }
-    tokio::fs::remove_file(&path)
-        .await
-        .path(path)
-        .map_err(|n| n.to_string())
+    tokio::fs::remove_file(&path).await.path(path).strerr()
 }

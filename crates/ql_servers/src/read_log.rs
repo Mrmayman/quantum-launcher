@@ -5,30 +5,11 @@ use std::{
         Arc, Mutex,
     },
 };
-
-use ql_core::IntoStringError;
 use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, ChildStderr, ChildStdout},
 };
-
-/// [`read_logs`] `_w` function
-///
-/// # Errors
-/// See [`read_logs`]
-pub async fn read_logs_w(
-    stdout: ChildStdout,
-    stderr: ChildStderr,
-    child: Arc<Mutex<Child>>,
-    sender: Sender<String>,
-    name: String,
-) -> Result<(ExitStatus, String), String> {
-    read_logs(stdout, stderr, child, sender)
-        .await
-        .strerr()
-        .map(|n| (n, name))
-}
 
 /// Reads logs from a child process (server) and sends them to a sender.
 ///
@@ -45,7 +26,8 @@ pub async fn read_logs(
     stderr: ChildStderr,
     child: Arc<Mutex<Child>>,
     sender: Sender<String>,
-) -> Result<ExitStatus, ReadError> {
+    name: String,
+) -> Result<(ExitStatus, String), ReadError> {
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
 
@@ -54,7 +36,7 @@ pub async fn read_logs(
             let mut child = child.lock().unwrap();
             if let Ok(Some(status)) = child.try_wait() {
                 // Game has exited.
-                return Ok(status);
+                return Ok((status, name));
             }
         }
 

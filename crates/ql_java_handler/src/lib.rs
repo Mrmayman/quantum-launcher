@@ -45,7 +45,7 @@ use zip_extract::ZipExtractError;
 /// # Example
 /// ```no_run
 /// # async fn get() -> Result<(), Box<dyn std::error::Error>> {
-/// use ql_core::{get_java_binary, json::JavaVersion};
+/// use ql_java_handler::{get_java_binary, JavaVersion};
 /// use std::path::PathBuf;
 ///
 /// let java_binary: PathBuf = get_java_binary(JavaVersion::Java16, "java", None).await?;

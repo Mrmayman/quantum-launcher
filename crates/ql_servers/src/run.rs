@@ -14,20 +14,6 @@ use tokio::process::{Child, Command};
 
 use crate::ServerError;
 
-/// [`run`] `_w` function
-///
-/// # Errors
-/// See [`run`]
-pub async fn run_w(
-    name: String,
-    java_install_progress: Sender<GenericProgress>,
-) -> Result<(Arc<Mutex<Child>>, bool), String> {
-    run(&name, java_install_progress)
-        .await
-        .map(|(n, b)| (Arc::new(Mutex::new(n)), b))
-        .map_err(|n| n.to_string())
-}
-
 /// Runs a server.
 ///
 /// # Arguments
@@ -52,9 +38,9 @@ pub async fn run_w(
 /// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
 /// - if the launcher directory could not be created (permissions issue)
 pub async fn run(
-    name: &str,
+    name: String,
     java_install_progress: Sender<GenericProgress>,
-) -> Result<(Child, bool), ServerError> {
+) -> Result<(Arc<Mutex<Child>>, bool), ServerError> {
     let launcher_dir = file_utils::get_launcher_dir().await?;
     let server_dir = launcher_dir.join("servers").join(name);
 
@@ -122,11 +108,11 @@ pub async fn run(
 
     let child = command.spawn().path(server_jar_path)?;
     info!("Started server");
-    Ok((child, is_classic_server))
+    Ok((Arc::new(Mutex::new(child)), is_classic_server))
 }
 
 async fn get_java(
-    server_dir: &PathBuf,
+    server_dir: &Path,
     config_json: &InstanceConfigJson,
     java_install_progress: Sender<GenericProgress>,
 ) -> Result<PathBuf, ServerError> {

@@ -5,7 +5,7 @@ use std::{
 };
 
 use iced::Task;
-use ql_core::{err, InstanceSelection};
+use ql_core::{err, InstanceSelection, IntoStringError};
 use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
 
@@ -43,12 +43,11 @@ impl Launcher {
                 let mut commands = Vec::new();
 
                 if let Some(edit) = edit_instance.as_ref() {
+                    let instance = self.selected_instance.clone().unwrap();
+                    let config = edit.config.clone();
+                    let dir = self.dir.clone();
                     let cmd = Task::perform(
-                        Launcher::save_config_w(
-                            self.selected_instance.clone().unwrap(),
-                            edit.config.clone(),
-                            self.dir.clone(),
-                        ),
+                        async move { Launcher::save_config(instance, config, dir).await.strerr() },
                         |n| Message::EditInstance(EditInstanceMessage::ConfigSaved(n)),
                     );
                     commands.push(cmd);
@@ -56,8 +55,9 @@ impl Launcher {
 
                 self.tick_processes_and_logs();
 
+                let launcher_config = self.config.clone();
                 commands.push(Task::perform(
-                    self.config.clone().save_w(),
+                    async move { launcher_config.save().await.strerr() },
                     Message::CoreTickConfigSaved,
                 ));
                 return Task::batch(commands);
@@ -109,8 +109,12 @@ impl Launcher {
                 }
             }
             State::ModsDownload(menu) => {
+                let selected_instance = self.selected_instance.clone().unwrap();
                 let index_cmd = Task::perform(
-                    ModIndex::get_w(self.selected_instance.clone().unwrap()),
+                    async move {
+                        let selected_instance = selected_instance;
+                        ModIndex::get(&selected_instance).await.strerr()
+                    },
                     |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n)),
                 );
 
@@ -138,7 +142,11 @@ impl Launcher {
                 return index_cmd;
             }
             State::LauncherSettings => {
-                return Task::perform(self.config.clone().save_w(), Message::CoreTickConfigSaved);
+                let launcher_config = self.config.clone();
+                return Task::perform(
+                    async move { launcher_config.save().await.strerr() },
+                    Message::CoreTickConfigSaved,
+                );
             }
             State::RedownloadAssets { progress } => {
                 progress.tick();

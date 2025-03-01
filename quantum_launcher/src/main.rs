@@ -116,7 +116,7 @@ const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 impl Launcher {
     fn new() -> (Self, iced::Task<Message>) {
         let check_for_updates_command = Task::perform(
-            ql_instances::check_for_launcher_updates_w(),
+            async move { ql_instances::check_for_launcher_updates().await.strerr() },
             Message::UpdateCheckResult,
         );
 
@@ -162,8 +162,12 @@ impl Launcher {
             },
             Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected(selected_instance) => {
-                self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
-                self.edit_instance_w();
+                let selected_instance = InstanceSelection::Instance(selected_instance);
+                self.selected_instance = Some(selected_instance.clone());
+                match self.edit_instance(&selected_instance) {
+                    Ok(()) => {}
+                    Err(err) => self.set_error(err),
+                }
             }
             Message::LaunchUsernameSet(username) => {
                 self.config.username = username;
@@ -243,7 +247,10 @@ impl Launcher {
                 }
                 return self.go_to_launch_screen(message);
             }
-            Message::EditInstance(message) => return self.update_edit_instance(message),
+            Message::EditInstance(message) => match self.update_edit_instance(message) {
+                Ok(n) => return n,
+                Err(err) => self.set_error(err),
+            },
             Message::InstallFabric(message) => return self.update_install_fabric(message),
             Message::CoreOpenDir(dir) => open_file_explorer(&dir),
             Message::CoreErrorCopy => {
@@ -258,28 +265,30 @@ impl Launcher {
                 return Task::batch(commands);
             }
             Message::UninstallLoaderForgeStart => {
+                let instance = self.selected_instance.clone().unwrap();
                 return Task::perform(
-                    loaders::forge::uninstall_w(self.selected_instance.clone().unwrap()),
+                    async move { loaders::forge::uninstall(instance).await.strerr() },
                     Message::UninstallLoaderEnd,
-                )
+                );
             }
             Message::UninstallLoaderOptiFineStart => {
+                let instance_name = self
+                    .selected_instance
+                    .as_ref()
+                    .unwrap()
+                    .get_name()
+                    .to_owned();
                 return Task::perform(
-                    loaders::optifine::uninstall_w(
-                        self.selected_instance
-                            .as_ref()
-                            .unwrap()
-                            .get_name()
-                            .to_owned(),
-                    ),
+                    async { loaders::optifine::uninstall(instance_name).await.strerr() },
                     Message::UninstallLoaderEnd,
                 );
             }
             Message::UninstallLoaderFabricStart => {
+                let instance_name = self.selected_instance.clone().unwrap();
                 return Task::perform(
-                    loaders::fabric::uninstall_w(self.selected_instance.clone().unwrap()),
+                    async move { loaders::fabric::uninstall(instance_name).await.strerr() },
                     Message::UninstallLoaderEnd,
-                )
+                );
             }
             Message::UninstallLoaderEnd(result) => match result {
                 Ok(loader) => {
@@ -366,8 +375,14 @@ impl Launcher {
                         "Starting Update".to_owned(),
                     ));
 
+                    let url = url.clone();
+
                     return Task::perform(
-                        ql_instances::install_launcher_update_w(url.clone(), sender),
+                        async move {
+                            ql_instances::install_launcher_update(url, sender)
+                                .await
+                                .strerr()
+                        },
                         Message::UpdateDownloadEnd,
                     );
                 }
@@ -463,8 +478,9 @@ impl Launcher {
                         progress_number: 0.0,
                     });
 
+                    let sender = Some(Arc::new(sender));
                     return Task::perform(
-                        ql_servers::list_w(Some(Arc::new(sender))),
+                        async move { ql_servers::list(sender).await.strerr() },
                         Message::ServerCreateVersionsLoaded,
                     );
                 }
@@ -498,7 +514,11 @@ impl Launcher {
                         progress: ProgressBar::with_recv(receiver),
                     });
                     return Task::perform(
-                        ql_servers::create_server_w(name, selected_version, Some(sender)),
+                        async move {
+                            ql_servers::create_server(name, selected_version, Some(sender))
+                                .await
+                                .strerr()
+                        },
                         Message::ServerCreateEnd,
                     );
                 }
@@ -556,7 +576,7 @@ impl Launcher {
                     err!("Server is already running");
                 } else {
                     return Task::perform(
-                        ql_servers::run_w(server, sender),
+                        async move { ql_servers::run(server, sender).await.strerr() },
                         Message::ServerManageStartServerFinish,
                     );
                 }
@@ -637,14 +657,14 @@ impl Launcher {
             }
             Message::InstallPaperStart => {
                 self.state = State::InstallPaper;
+                let instance_name = self
+                    .selected_instance
+                    .as_ref()
+                    .unwrap()
+                    .get_name()
+                    .to_owned();
                 return Task::perform(
-                    loaders::paper::install_w(
-                        self.selected_instance
-                            .as_ref()
-                            .unwrap()
-                            .get_name()
-                            .to_owned(),
-                    ),
+                    async move { loaders::paper::install(instance_name).await.strerr() },
                     Message::InstallPaperEnd,
                 );
             }
@@ -656,16 +676,16 @@ impl Launcher {
                 }
             }
             Message::UninstallLoaderPaperStart => {
+                let get_name = self
+                    .selected_instance
+                    .as_ref()
+                    .unwrap()
+                    .get_name()
+                    .to_owned();
                 return Task::perform(
-                    loaders::paper::uninstall_w(
-                        self.selected_instance
-                            .as_ref()
-                            .unwrap()
-                            .get_name()
-                            .to_owned(),
-                    ),
+                    async move { loaders::paper::uninstall(get_name).await.strerr() },
                     Message::UninstallLoaderEnd,
-                )
+                );
             }
             Message::CoreListLoaded(result) => match result {
                 Ok((list, is_server)) => {

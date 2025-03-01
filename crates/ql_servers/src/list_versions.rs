@@ -115,11 +115,3 @@ async fn add_omniarchive_versions(
     }
     Ok(())
 }
-
-/// [`list`] `_w` function.
-///
-/// # Errors
-/// See [`list`]
-pub async fn list_w(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, String> {
-    list(sender).await.map_err(|n| n.to_string())
-}

@@ -1,25 +1,17 @@
 use std::path::{Path, PathBuf};
 
-use ql_core::{file_utils, InstanceSelection, IntoIoError, IntoStringError};
+use ql_core::{file_utils, InstanceSelection, IntoIoError};
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 
 use super::error::ForgeInstallError;
 
-pub async fn uninstall_w(instance: InstanceSelection) -> Result<Loader, String> {
+pub async fn uninstall(instance: InstanceSelection) -> Result<Loader, ForgeInstallError> {
     match instance {
         InstanceSelection::Instance(instance) => uninstall_client(&instance).await,
         InstanceSelection::Server(instance) => uninstall_server(&instance).await,
     }
-    .strerr()
     .map(|()| Loader::Forge)
-}
-
-pub async fn uninstall_server_w(instance: String) -> Result<Loader, String> {
-    uninstall_server(&instance)
-        .await
-        .strerr()
-        .map(|()| Loader::Forge)
 }
 
 pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
@@ -32,13 +24,6 @@ pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
         .await
         .path(forge_dir)?;
     Ok(())
-}
-
-pub async fn uninstall_client_w(instance: String) -> Result<Loader, String> {
-    uninstall_client(&instance)
-        .await
-        .strerr()
-        .map(|()| Loader::Forge)
 }
 
 pub async fn uninstall_server(instance: &str) -> Result<(), ForgeInstallError> {

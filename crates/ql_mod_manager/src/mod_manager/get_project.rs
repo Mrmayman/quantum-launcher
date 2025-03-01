@@ -1,4 +1,4 @@
-use ql_core::{err, file_utils, IntoStringError};
+use ql_core::{err, file_utils};
 use serde::Deserialize;
 
 use crate::rate_limiter::RATE_LIMITER;
@@ -54,10 +54,6 @@ impl ProjectInfo {
             }
         };
         Ok(file)
-    }
-
-    pub async fn download_w(id: String) -> Result<Box<Self>, String> {
-        Self::download(id).await.strerr().map(Box::new)
     }
 }
 

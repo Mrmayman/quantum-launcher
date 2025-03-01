@@ -10,7 +10,7 @@
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
 
-use ql_core::{info, pt, GenericProgress, IntoStringError, RequestError, CLIENT};
+use ql_core::{info, pt, GenericProgress, RequestError, CLIENT};
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
@@ -111,19 +111,9 @@ impl From<reqwest::Error> for AuthError {
     }
 }
 
-pub async fn login_refresh_w(
+pub async fn login_refresh(
     username: String,
     refresh_token: String,
-    sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
-) -> Result<AccountData, String> {
-    login_refresh(&username, &refresh_token, sender)
-        .await
-        .strerr()
-}
-
-pub async fn login_refresh(
-    username: &str,
-    refresh_token: &str,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, AuthError> {
     info!("Refreshing account token...");
@@ -133,7 +123,7 @@ pub async fn login_refresh(
         .post("https://login.live.com/oauth20_token.srf")
         .form(&[
             ("client_id", CLIENT_ID),
-            ("refresh_token", refresh_token),
+            ("refresh_token", &refresh_token),
             ("grant_type", "refresh_token"),
             ("redirect_uri", "https://login.live.com/oauth20_desktop.srf"),
             ("scope", "XboxLive.signin offline_access"),
@@ -146,7 +136,7 @@ pub async fn login_refresh(
     let data: RefreshResponse =
         serde_json::from_str(&response).map_err(|n| AuthError::SerdeError(n, response))?;
 
-    let entry = keyring::Entry::new("QuantumLauncher", username)?;
+    let entry = keyring::Entry::new("QuantumLauncher", &username)?;
     entry.set_password(&data.refresh_token)?;
 
     let data = login_3_xbox(
@@ -159,17 +149,6 @@ pub async fn login_refresh(
     .await?;
 
     Ok(data)
-}
-
-pub async fn login_3_xbox_w(
-    data: AuthTokenResponse,
-    sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
-) -> Result<AccountData, String> {
-    login_3_xbox(data, sender).await.strerr()
-}
-
-pub async fn login_1_link_w() -> Result<AuthCodeResponse, String> {
-    login_1_link().await.strerr()
 }
 
 pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
@@ -197,10 +176,6 @@ pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
     );
 
     Ok(data)
-}
-
-pub async fn login_2_wait_w(data: AuthCodeResponse) -> Result<AuthTokenResponse, String> {
-    login_2_wait(&data).await.strerr()
 }
 
 pub fn read_refresh_token(username: &str) -> Result<String, AuthError> {
@@ -256,7 +231,7 @@ fn send_progress(
     }
 }
 
-pub async fn login_2_wait(response: &AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
+pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
     // This code is ugly but it's not my code :')
     // If the top comment wasn't clear enough this was taken from
     // https://github.com/minecraft-rs/auth

@@ -46,16 +46,6 @@ pub async fn download_mods_w(
     Ok(())
 }
 
-pub async fn download_mod_w(
-    id: String,
-    instance_name: InstanceSelection,
-) -> Result<String, String> {
-    download_mod(&id, &instance_name)
-        .await
-        .strerr()
-        .map(|()| id)
-}
-
 pub async fn download_mod(id: &str, instance_name: &InstanceSelection) -> Result<(), ModError> {
     // Download one mod at a time
     let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {

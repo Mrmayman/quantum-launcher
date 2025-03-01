@@ -1,4 +1,4 @@
-<div style="text-align: center;">
+<p align="center">
 
 # <img src="assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
 ## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5)
@@ -7,13 +7,13 @@ A minimalistic Minecraft launcher for Windows and Linux (and soon-to-be macOS).
 
 <img src="quantum_launcher.png" width="100%" />
 
-</div>
+</p>
 
 QuantumLauncher is written in *Rust* with the *iced* framework,
 offering a lightweight and responsive experience.
 It is designed to be simple and easy to use, with a focus on performance and features.
 
-<div style="text-align: center;">
+<p align="center">
 
 # Features
 
@@ -48,7 +48,7 @@ It is designed to be simple and easy to use, with a focus on performance and fea
 
 # Downloads and Building
 
-</div>
+</p>
 
 You can download the stable version from the website linked above, or from the *Releases* button
 
@@ -63,19 +63,23 @@ cargo run --release
 You can omit the `--release` flag for faster compile times, but *slightly* worse performance and MUCH larger build file size.
 
 # Why QuantumLauncher?
+- QuantumLauncher provides a feature rich, flexible, simple
+  and lightweight experience with plenty of modding features.
+
+What about the others? Well...
+
 - The official Minecraft launcher is slow, unstable, buggy and frustrating to use,
   with barely any modding features.
 - PrismLauncher is a great launcher overall, but it does not support
-  offline accounts (if ykyk)
-- MultiMC is rather outdated compared to PrismLauncher, also same issues
+  offline accounts. Same for MultiMC.
 - Legacy Launcher isn't as feature rich as this
 - TLauncher is *suspected* to be malware
 
-<div style="text-align: center;">
+<p align="center">
 
 # File Locations
 
-</div>
+</p>
 
 - On *Windows*, the launcher files are at `C:/Users/YOUR_USERNAME/AppData/Roaming/QuantumLauncher/`.
 - You probably won't see the `AppData` folder. Press Windows + R and paste this path, and hit enter.
@@ -86,11 +90,11 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 
 <br>
 
-<div style="text-align: center;">
+<p align="center">
 
 # To-do (in the future)
 
-</div>
+</p>
 
 ## Core
 - [x] Instance creation
@@ -119,22 +123,29 @@ You can omit the `--release` flag for faster compile times, but *slightly* worse
 - [x] Mod store
 - [x] Mod updater
 - [x] Mod presets
+## Instances
+- [ ] Import MultiMC instance
+- [ ] Migrate from other launchers (file locations)
+- [ ] Package QuantumLauncher instance
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
 - [x] Linux Aarch64 (WIP)
 - [ ] macOS (WIP)
+- [ ] Windows i686 (WIP)
+- [ ] Linux i686 (WIP)
+- [ ] Windows Aarch64 (WIP)
 - [ ] Android (distant future)
 ## Misc
 - [x] Integration with Omniarchive, old version support
 - [ ] A local server hosting system (without port forwarding, using proxy tunneling) (WIP)
 - [ ] Plugin system (with lua) (WIP)
 
-<div style="text-align: center;">
+<p align="center">
 
 # Contributing
 
-</div>
+</p>
 
 There are many ways you can help me out! I'm open to any contribution:
 
@@ -159,11 +170,11 @@ There's a more in-depth guide on the codebase in [main.rs](quantum_launcher/src/
 - [apicalshark](https://github.com/apicalshark) (github CI, packaging, distribution)
 - Aurlt (@exsclt_35289 on Discord) (icon design)
 
-<div style="text-align: center;">
+<p align="center">
 
 # Licensing and Credits
 
-</div>
+</p>
 
 A lot of this launcher's design, including the code for creating and launching the game,
 and installing forge, is inspired by https://github.com/alexivkin/minecraft-launcher/.
@@ -172,7 +183,7 @@ Nearly all of this launcher is licensed under the **GNU General Public License v
 however there are a few exceptions (such as github actions and assets).
 Visit [the assets README](assets/README.md) for more information.
 
-<div style="text-align: center;">
+<p align="center">
 
 # Note on Piracy
 
@@ -180,4 +191,4 @@ If you pirate the game, it's at your own risk. I am not responsible for any issu
 I recommend that you buy the game, but if you don't have the means, feel free to use this launcher.
 If anyone has any issues/complaints, just open an issue in the repo.
 
-</div>
+</p>

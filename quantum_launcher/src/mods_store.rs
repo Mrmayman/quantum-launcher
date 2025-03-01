@@ -29,7 +29,7 @@ impl Launcher {
             .strerr()?;
         let version: VersionDetails = serde_json::from_str(&version).strerr()?;
 
-        let mod_index = ModIndex::get_s(selection).map_err(|n| n.to_string())?;
+        let mod_index = ModIndex::get_s(selection).strerr()?;
 
         let mut menu = MenuModsDownload {
             config,
@@ -59,15 +59,15 @@ impl MenuModsDownload {
         };
 
         self.is_loading_search = true;
-        Task::perform(
-            Search::search_w(Query {
-                name: self.query.clone(),
-                versions: vec![self.json.id.clone()],
-                loaders: vec![loaders],
-                server_side: is_server,
-                open_source: false, // TODO: Add Open Source filter
-            }),
-            |n| Message::InstallMods(InstallModsMessage::SearchResult(n)),
-        )
+        let query = Query {
+            name: self.query.clone(),
+            versions: vec![self.json.id.clone()],
+            loaders: vec![loaders],
+            server_side: is_server,
+            open_source: false, // TODO: Add Open Source filter
+        };
+        Task::perform(async move { Search::search(query).await.strerr() }, |n| {
+            Message::InstallMods(InstallModsMessage::SearchResult(n))
+        })
     }
 }

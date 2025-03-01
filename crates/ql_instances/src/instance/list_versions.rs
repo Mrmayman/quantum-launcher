@@ -1,7 +1,7 @@
 use std::sync::{mpsc::Sender, Arc};
 
 use omniarchive_api::{ListEntry, ListError};
-use ql_core::{err, json::Manifest};
+use ql_core::{err, json::Manifest, IntoStringError};
 
 async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, ListError> {
     let manifest = Manifest::download().await?;
@@ -52,5 +52,5 @@ async fn add_omniarchive_versions(
 
 /// Returns a list of all available versions of the game.
 pub async fn list_versions(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, String> {
-    list(sender).await.map_err(|n| n.to_string())
+    list(sender).await.strerr()
 }

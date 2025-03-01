@@ -54,18 +54,16 @@ mod launcher_update_detector;
 mod mc_auth;
 
 pub use download::constants::OS_NAME;
-pub use instance::create::{create_instance, create_instance_w};
-pub use instance::launch::{launch, launch_w, GameLaunchResult};
+pub use instance::create::create_instance;
+pub use instance::launch::launch;
 pub use instance::list_versions::list_versions;
-pub use instance::read_log::{read_logs, read_logs_w, LogEvent, LogLine, LogMessage, ReadError};
+pub use instance::read_log::{read_logs, LogEvent, LogLine, LogMessage, ReadError};
 pub use launcher_update_detector::{
-    check_for_launcher_updates, check_for_launcher_updates_w, install_launcher_update,
-    install_launcher_update_w, UpdateCheckInfo, UpdateError,
+    check_for_launcher_updates, install_launcher_update, UpdateCheckInfo, UpdateError,
 };
 pub use mc_auth::{
-    login_1_link, login_1_link_w, login_2_wait, login_2_wait_w, login_3_xbox, login_3_xbox_w,
-    login_refresh, login_refresh_w, read_refresh_token, AccountData, AuthCodeResponse, AuthError,
-    AuthTokenResponse, CLIENT_ID,
+    login_1_link, login_2_wait, login_3_xbox, login_refresh, read_refresh_token, AccountData,
+    AuthCodeResponse, AuthError, AuthTokenResponse, CLIENT_ID,
 };
 pub use omniarchive_api::ListEntry;
 

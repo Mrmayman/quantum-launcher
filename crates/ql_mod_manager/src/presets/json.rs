@@ -29,27 +29,18 @@ pub struct PresetJson {
 }
 
 impl PresetJson {
-    pub async fn generate_w(
+    pub async fn generate(
         instance_name: InstanceSelection,
         selected_mods: HashSet<SelectedMod>,
-    ) -> Result<Vec<u8>, String> {
-        Self::generate(&instance_name, &selected_mods)
-            .await
-            .map_err(|n| n.to_string())
-    }
-
-    pub async fn generate(
-        instance_name: &InstanceSelection,
-        selected_mods: &HashSet<SelectedMod>,
     ) -> Result<Vec<u8>, ModError> {
-        let dot_minecraft = file_utils::get_dot_minecraft_dir(instance_name).await?;
+        let dot_minecraft = file_utils::get_dot_minecraft_dir(&instance_name).await?;
         let mods_dir = dot_minecraft.join("mods");
         let config_dir = dot_minecraft.join("config");
 
-        let minecraft_version = get_minecraft_version(instance_name).await?;
-        let instance_type = get_instance_type(instance_name).await?;
+        let minecraft_version = get_minecraft_version(&instance_name).await?;
+        let instance_type = get_instance_type(&instance_name).await?;
 
-        let index = ModIndex::get(instance_name).await?;
+        let index = ModIndex::get(&instance_name).await?;
 
         let mut entries_modrinth = HashMap::new();
         let mut entries_local: Vec<(String, Vec<u8>)> = Vec::new();
@@ -57,14 +48,14 @@ impl PresetJson {
         for entry in selected_mods {
             match entry {
                 SelectedMod::Downloaded { id, .. } => {
-                    add_mod_to_entries_modrinth(&mut entries_modrinth, &index, id);
+                    add_mod_to_entries_modrinth(&mut entries_modrinth, &index, &id);
                 }
                 SelectedMod::Local { file_name } => {
-                    if is_already_covered(&index, file_name) {
+                    if is_already_covered(&index, &file_name) {
                         continue;
                     }
 
-                    let entry = mods_dir.join(file_name);
+                    let entry = mods_dir.join(&file_name);
                     let mod_bytes = tokio::fs::read(&entry).await.path(&entry)?;
                     entries_local.push((file_name.clone(), mod_bytes));
                 }
@@ -104,27 +95,20 @@ impl PresetJson {
         Ok(file)
     }
 
-    pub async fn load_w(
+    pub async fn load(
         instance_name: InstanceSelection,
         zip: Vec<u8>,
-    ) -> Result<Vec<String>, String> {
-        Self::load(&instance_name, &zip).await.strerr()
-    }
-
-    pub async fn load(
-        instance_name: &InstanceSelection,
-        zip: &[u8],
     ) -> Result<Vec<String>, ModError> {
         info!("Importing mod preset");
 
-        let main_dir = file_utils::get_dot_minecraft_dir(instance_name).await?;
+        let main_dir = file_utils::get_dot_minecraft_dir(&instance_name).await?;
         let mods_dir = main_dir.join("mods");
 
         let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;
 
         let mut entries_modrinth = HashMap::new();
 
-        let version_json = VersionDetails::load(instance_name).await?;
+        let version_json = VersionDetails::load(&instance_name).await?;
         let mut sideloads = Vec::new();
         let mut should_sideload = true;
 
@@ -140,7 +124,7 @@ impl PresetJson {
                 let this: Self = serde_json::from_slice(&buf)?;
 
                 // Only sideload mods if the version is the same
-                let instance_type = get_instance_type(instance_name).await?;
+                let instance_type = get_instance_type(&instance_name).await?;
 
                 should_sideload = this.minecraft_version == version_json.id
                     && this.instance_type == instance_type;

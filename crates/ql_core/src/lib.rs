@@ -143,3 +143,22 @@ pub fn open_file_explorer(path: &str) {
         err!("Could not open link: {err}");
     }
 }
+
+// #[macro_export]
+// macro_rules! gen_w {
+//     ($fn_name:ident, $doc:literal, $ret:ty, ($($arg_name:ident: $arg_type:ty),*), ($($arg_pass:expr),*)) => {
+//         paste::paste! {
+//             #[doc = "[`"]
+//             #[doc = $doc]
+//             #[doc = "`] `_w` function\n\nSee [`quantum_launcher`] / `main.rs` documentation for more info on what `_w` function is"]
+//             #[allow(clippy::missing_errors_doc)]
+//             pub async fn [<$fn_name _w>] (
+//                 $($arg_name: $arg_type),*
+//             ) -> $ret {
+//                 $crate::IntoStringError::strerr($fn_name(
+//                     $($arg_pass),*
+//                 ).await)
+//             }
+//         }
+//     };
+// }

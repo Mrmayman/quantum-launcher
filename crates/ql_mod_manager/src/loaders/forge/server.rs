@@ -4,16 +4,6 @@ use crate::loaders::{change_instance_type, forge::ForgeInstaller};
 
 use super::{error::ForgeInstallError, ForgeInstallProgress};
 
-pub async fn install_server_w(
-    instance_name: String,
-    j_progress: Option<std::sync::mpsc::Sender<ql_core::GenericProgress>>,
-    f_progress: Option<std::sync::mpsc::Sender<ForgeInstallProgress>>,
-) -> Result<(), String> {
-    install_server(instance_name, j_progress, f_progress)
-        .await
-        .map_err(|e| e.to_string())
-}
-
 pub async fn install_server(
     instance_name: String,
     j_progress: Option<std::sync::mpsc::Sender<ql_core::GenericProgress>>,

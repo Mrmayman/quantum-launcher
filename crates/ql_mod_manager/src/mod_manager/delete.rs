@@ -1,28 +1,18 @@
 use crate::mod_manager::{ModError, ModIndex};
-use ql_core::{err, file_utils, info, pt, InstanceSelection, IntoStringError, IoError};
+use ql_core::{err, file_utils, info, pt, InstanceSelection, IoError};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
 };
 
-pub async fn delete_mods_w(
-    ids: Vec<String>,
-    instance_name: InstanceSelection,
-) -> Result<Vec<String>, String> {
-    if ids.is_empty() {
-        return Ok(ids);
-    }
-
-    delete_mods(&ids, &instance_name)
-        .await
-        .strerr()
-        .map(|()| ids)
-}
-
 pub async fn delete_mods(
     ids: &[String],
     instance_name: &InstanceSelection,
 ) -> Result<(), ModError> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
     info!("Deleting mods:");
     let mut index = ModIndex::get(instance_name).await?;
 

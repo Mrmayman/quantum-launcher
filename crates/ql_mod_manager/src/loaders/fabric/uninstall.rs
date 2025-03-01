@@ -1,20 +1,14 @@
-use ql_core::{
-    file_utils, info, json::FabricJSON, InstanceSelection, IntoIoError, IntoStringError,
-};
+use ql_core::{file_utils, info, json::FabricJSON, InstanceSelection, IntoIoError};
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 
 use super::error::FabricInstallError;
 
-pub async fn uninstall_server_w(server_name: String) -> Result<(), String> {
-    uninstall_server(&server_name).await.strerr()
-}
-
-pub async fn uninstall_server(server_name: &str) -> Result<(), FabricInstallError> {
+pub async fn uninstall_server(server_name: String) -> Result<(), FabricInstallError> {
     let server_dir = file_utils::get_launcher_dir()
         .await?
         .join("servers")
-        .join(server_name);
+        .join(&server_name);
 
     info!("Uninstalling fabric from server: {server_name}");
 
@@ -51,9 +45,9 @@ pub async fn uninstall_server(server_name: &str) -> Result<(), FabricInstallErro
     Ok(())
 }
 
-pub async fn uninstall_client(instance_name: &str) -> Result<(), FabricInstallError> {
+pub async fn uninstall_client(instance_name: String) -> Result<(), FabricInstallError> {
     let launcher_dir = file_utils::get_launcher_dir().await?;
-    let instance_dir = launcher_dir.join("instances").join(instance_name);
+    let instance_dir = launcher_dir.join("instances").join(&instance_name);
 
     let lock_path = instance_dir.join("fabric_uninstall.lock");
     tokio::fs::write(
@@ -88,18 +82,10 @@ pub async fn uninstall_client(instance_name: &str) -> Result<(), FabricInstallEr
     Ok(())
 }
 
-pub async fn uninstall_client_w(instance_name: String) -> Result<Loader, String> {
-    uninstall_client(&instance_name)
-        .await
-        .strerr()
-        .map(|()| Loader::Fabric)
-}
-
-pub async fn uninstall_w(instance_name: InstanceSelection) -> Result<Loader, String> {
+pub async fn uninstall(instance_name: InstanceSelection) -> Result<Loader, FabricInstallError> {
     match instance_name {
-        InstanceSelection::Instance(n) => uninstall_client(&n).await,
-        InstanceSelection::Server(n) => uninstall_server(&n).await,
+        InstanceSelection::Instance(n) => uninstall_client(n).await,
+        InstanceSelection::Server(n) => uninstall_server(n).await,
     }
-    .strerr()
     .map(|()| Loader::Fabric)
 }

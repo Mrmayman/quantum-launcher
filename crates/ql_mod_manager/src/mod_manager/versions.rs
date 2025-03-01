@@ -37,21 +37,11 @@ impl ModVersion {
         Ok(file)
     }
 
-    pub async fn get_compatible_mods_w(
+    pub async fn get_compatible_mods(
         ids: Vec<RecommendedMod>,
         version: String,
         loader: Loader,
         sender: Sender<GenericProgress>,
-    ) -> Result<Vec<RecommendedMod>, String> {
-        Self::get_compatible_mods(ids, &version, &loader, &sender)
-            .await
-            .map_err(|e| e.to_string())
-    }
-    pub async fn get_compatible_mods(
-        ids: Vec<RecommendedMod>,
-        version: &String,
-        loader: &Loader,
-        sender: &Sender<GenericProgress>,
     ) -> Result<Vec<RecommendedMod>, ModError> {
         info!("Checking compatibility");
         let mut mods = vec![];
@@ -70,7 +60,7 @@ impl ModVersion {
                 return Ok(Vec::new());
             }
 
-            let is_compatible = Self::is_compatible(id.id, version, loader).await?;
+            let is_compatible = Self::is_compatible(id.id, &version, &loader).await?;
             pt!("{} : {is_compatible}", id.name);
             if is_compatible {
                 mods.push(id);

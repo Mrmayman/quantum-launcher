@@ -374,6 +374,13 @@ pub fn read_plugins() -> Result<(PathBuf, HashMap<String, PluginJson>), PluginEr
 fn create_lua() -> Result<Lua, PluginError> {
     let lua = Lua::new();
     lua.load_std_libs(StdLib::MATH | StdLib::PACKAGE | StdLib::STRING | StdLib::TABLE)?;
+
+    let globals = lua.globals();
+    // WTF: The dumb std lib loader thing doesn't prevent this bruh
+    // Almost caused a CVE with this one.
+    globals.set("io", mlua::Nil)?;
+    globals.set("os", mlua::Nil)?;
+
     Ok(lua)
 }
 

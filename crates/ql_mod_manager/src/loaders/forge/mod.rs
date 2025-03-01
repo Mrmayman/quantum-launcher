@@ -11,8 +11,7 @@ use ql_core::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
         VersionDetails,
     },
-    pt, GenericProgress, InstanceSelection, IntoIoError, IntoStringError, IoError, Progress,
-    CLASSPATH_SEPARATOR,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress, CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -21,12 +20,10 @@ use crate::loaders::change_instance_type;
 
 mod error;
 mod server;
-pub use server::{install_server, install_server_w};
+pub use server::install_server;
 mod uninstall;
 
-pub use uninstall::{
-    uninstall_client, uninstall_client_w, uninstall_server, uninstall_server_w, uninstall_w,
-};
+pub use uninstall::{uninstall, uninstall_client, uninstall_server};
 
 struct ForgeInstaller {
     f_progress: Option<Sender<ForgeInstallProgress>>,
@@ -554,26 +551,15 @@ async fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInsta
     Ok(minecraft_version)
 }
 
-pub async fn install_w(
+pub async fn install(
     instance_name: InstanceSelection,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<GenericProgress>>,
-) -> Result<(), String> {
+) -> Result<(), ForgeInstallError> {
     match instance_name {
         InstanceSelection::Instance(name) => install_client(name, f_progress, j_progress).await,
         InstanceSelection::Server(name) => install_server(name, j_progress, f_progress).await,
     }
-    .strerr()
-}
-
-pub async fn install_client_w(
-    instance_name: String,
-    f_progress: Option<Sender<ForgeInstallProgress>>,
-    j_progress: Option<Sender<GenericProgress>>,
-) -> Result<(), String> {
-    install_client(instance_name, f_progress, j_progress)
-        .await
-        .strerr()
 }
 
 pub enum ForgeInstallProgress {

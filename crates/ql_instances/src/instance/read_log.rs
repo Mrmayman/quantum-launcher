@@ -14,26 +14,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use ql_core::{err, json::VersionDetails, IntoStringError, IoError, JsonFileError};
-
-/// [`read_logs`] `_w` function
-///
-/// # Errors
-/// See the [`read_logs`] function
-///
-/// (aah clippy is being annoying)
-pub async fn read_logs_w(
-    stdout: ChildStdout,
-    stderr: ChildStderr,
-    child: Arc<Mutex<Child>>,
-    sender: Sender<LogLine>,
-    instance_name: String,
-) -> Result<(ExitStatus, String), String> {
-    read_logs(stdout, stderr, child, sender, &instance_name)
-        .await
-        .strerr()
-        .map(|n| (n, instance_name))
-}
+use ql_core::{err, json::VersionDetails, IoError, JsonFileError};
 
 /// Reads log output from the given instance
 /// and sends it to the given sender.
@@ -63,9 +44,9 @@ pub async fn read_logs(
     stderr: ChildStderr,
     child: Arc<Mutex<Child>>,
     sender: Sender<LogLine>,
-    instance_name: &str,
-) -> Result<ExitStatus, ReadError> {
-    let uses_xml = is_xml(instance_name).await?;
+    instance_name: String,
+) -> Result<(ExitStatus, String), ReadError> {
+    let uses_xml = is_xml(&instance_name).await?;
 
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
@@ -85,7 +66,7 @@ pub async fn read_logs(
         };
         if let Ok(Some(status)) = status {
             // Game has exited.
-            return Ok(status);
+            return Ok((status, instance_name));
         }
 
         tokio::select! {

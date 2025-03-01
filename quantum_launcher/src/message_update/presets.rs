@@ -67,11 +67,14 @@ impl Launcher {
             EditPresetsMessage::BuildYourOwn => {
                 iflet_manage_preset!(self, Build, selected_mods, is_building, {
                     *is_building = true;
+                    let selected_instance = self.selected_instance.clone().unwrap();
+                    let selected_mods = selected_mods.clone();
                     return Ok(Task::perform(
-                        ql_mod_manager::PresetJson::generate_w(
-                            self.selected_instance.clone().unwrap(),
-                            selected_mods.clone(),
-                        ),
+                        async move {
+                            ql_mod_manager::PresetJson::generate(selected_instance, selected_mods)
+                                .await
+                                .strerr()
+                        },
                         |n| Message::EditPresets(EditPresetsMessage::BuildYourOwnEnd(n)),
                     ));
                 });

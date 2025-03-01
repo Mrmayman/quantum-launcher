@@ -7,13 +7,13 @@ mod toggle;
 mod update;
 mod versions;
 
-pub use delete::{delete_mods, delete_mods_w};
-pub use download::{download_mod, download_mod_w, download_mods_w};
+pub use delete::delete_mods;
+pub use download::{download_mod, download_mods_w};
 pub use get_project::{DonationLink, GalleryItem, License, ProjectInfo};
 pub use local_json::{ModConfig, ModIndex};
 pub use search::{Entry, ImageResult, Loader, ModError, Query, Search};
-pub use toggle::toggle_mods_w;
-pub use update::{apply_updates_w, check_for_updates};
+pub use toggle::toggle_mods;
+pub use update::{apply_updates, check_for_updates};
 pub use versions::{ModFile, ModHashes, ModVersion};
 
 pub(crate) use download::ModDownloader;

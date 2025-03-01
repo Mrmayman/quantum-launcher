@@ -9,10 +9,10 @@ mod read_log;
 mod run;
 mod server_properties;
 // mod ssh;
-pub use create::{create_server, create_server_w, delete_server};
-pub use list_versions::{list, list_w};
-pub use read_log::{read_logs, read_logs_w};
-pub use run::{run, run_w};
+pub use create::{create_server, delete_server};
+pub use list_versions::list;
+pub use read_log::read_logs;
+pub use run::run;
 pub use server_properties::ServerProperties;
 // pub use ssh::run_tunnel;
 

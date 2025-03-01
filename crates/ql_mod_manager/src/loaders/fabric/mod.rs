@@ -4,7 +4,7 @@ use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
     json::{FabricJSON, VersionDetails},
-    GenericProgress, InstanceSelection, IntoIoError, IntoStringError, RequestError,
+    GenericProgress, InstanceSelection, IntoIoError, RequestError,
 };
 use serde::Deserialize;
 use version_compare::compare_versions;
@@ -14,9 +14,7 @@ use super::change_instance_type;
 mod error;
 mod make_launch_jar;
 mod uninstall;
-pub use uninstall::{
-    uninstall_client, uninstall_client_w, uninstall_server, uninstall_server_w, uninstall_w,
-};
+pub use uninstall::{uninstall, uninstall_client, uninstall_server};
 mod version_compare;
 
 const FABRIC_URL: &str = "https://meta.fabricmc.net/v2";
@@ -30,20 +28,11 @@ async fn download_file_to_string(url: &str, is_quilt: bool) -> Result<String, Re
     .await
 }
 
-pub async fn get_list_of_versions_w(
+pub async fn get_list_of_versions(
     instance_name: InstanceSelection,
     is_quilt: bool,
-) -> Result<Vec<FabricVersionListItem>, String> {
-    get_list_of_versions(&instance_name, is_quilt)
-        .await
-        .strerr()
-}
-
-pub async fn get_list_of_versions(
-    instance_name: &InstanceSelection,
-    is_quilt: bool,
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
-    let version_json = VersionDetails::load(instance_name).await?;
+    let version_json = VersionDetails::load(&instance_name).await?;
 
     // The first one is the latest version.
     let version_list =
@@ -52,20 +41,9 @@ pub async fn get_list_of_versions(
     Ok(serde_json::from_str(&version_list)?)
 }
 
-pub async fn install_server_w(
+pub async fn install_server(
     loader_version: String,
     server_name: String,
-    progress: Option<Sender<GenericProgress>>,
-    is_quilt: bool,
-) -> Result<(), String> {
-    install_server(&loader_version, &server_name, progress, is_quilt)
-        .await
-        .strerr()
-}
-
-pub async fn install_server(
-    loader_version: &str,
-    server_name: &str,
     progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
@@ -123,7 +101,7 @@ pub async fn install_server(
             .path(library_path)?;
     }
 
-    let shade_libraries = compare_versions(loader_version, "0.12.5").is_le();
+    let shade_libraries = compare_versions(&loader_version, "0.12.5").is_le();
     let launch_jar = server_dir.join("fabric-server-launch.jar");
 
     info!("Making launch jar");
@@ -147,8 +125,8 @@ pub async fn install_server(
 }
 
 pub async fn install_client(
-    loader_version: &str,
-    instance_name: &str,
+    loader_version: String,
+    instance_name: String,
     progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
@@ -276,32 +254,19 @@ fn send_progress(
 ///
 /// Returns the `is_quilt` bool (so that the launcher can remember
 /// whether quilt or fabric was installed)
-pub async fn install_w(
+pub async fn install(
     loader_version: String,
     instance_name: InstanceSelection,
     progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
-) -> Result<bool, String> {
+) -> Result<bool, FabricInstallError> {
     match instance_name {
         InstanceSelection::Instance(n) => {
-            install_client_w(loader_version, n, progress, is_quilt).await
+            install_client(loader_version, n, progress, is_quilt).await
         }
-        InstanceSelection::Server(n) => {
-            install_server_w(loader_version, n, progress, is_quilt).await
-        }
+        InstanceSelection::Server(n) => install_server(loader_version, n, progress, is_quilt).await,
     }
     .map(|()| is_quilt)
-}
-
-pub async fn install_client_w(
-    loader_version: String,
-    instance_name: String,
-    progress: Option<Sender<GenericProgress>>,
-    is_quilt: bool,
-) -> Result<(), String> {
-    install_client(&loader_version, &instance_name, progress, is_quilt)
-        .await
-        .strerr()
 }
 
 #[derive(Deserialize, Clone, Debug)]

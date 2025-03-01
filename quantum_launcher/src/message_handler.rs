@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, Mutex},
 };
 
 use chrono::Datelike;
@@ -11,11 +11,12 @@ use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
 };
-use ql_instances::{AccountData, GameLaunchResult, ListEntry};
+use ql_instances::{AccountData, ListEntry};
 use ql_mod_manager::{
     loaders,
     mod_manager::{Loader, ModIndex, ModVersion, RECOMMENDED_MODS},
 };
+use tokio::process::Child;
 
 use crate::{
     config::ConfigAccount,
@@ -54,14 +55,19 @@ impl Launcher {
                 log.log.clear();
             }
 
+            let instance_name = selected_instance.to_owned();
             return Task::perform(
-                ql_instances::launch_w(
-                    selected_instance.to_owned(),
-                    username,
-                    Some(sender),
-                    Some(asset_sender),
-                    account_data,
-                ),
+                async move {
+                    ql_instances::launch(
+                        instance_name,
+                        username,
+                        Some(sender),
+                        Some(asset_sender),
+                        account_data,
+                    )
+                    .await
+                    .strerr()
+                },
                 Message::LaunchEnd,
             );
         }
@@ -81,13 +87,13 @@ impl Launcher {
         format!("{day} {month} {year}")
     }
 
-    pub fn finish_launching(&mut self, result: GameLaunchResult) -> Task<Message> {
+    pub fn finish_launching(&mut self, result: Result<Arc<Mutex<Child>>, String>) -> Task<Message> {
         self.java_recv = None;
         if let State::Launch(menu) = &mut self.state {
             menu.asset_recv = None;
         }
         match result {
-            GameLaunchResult::Ok(child) => {
+            Ok(child) => {
                 let Some(InstanceSelection::Instance(selected_instance)) =
                     self.selected_instance.clone()
                 else {
@@ -109,7 +115,17 @@ impl Launcher {
                     );
 
                     return Task::perform(
-                        ql_instances::read_logs_w(stdout, stderr, child, sender, selected_instance),
+                        async move {
+                            ql_instances::read_logs(
+                                stdout,
+                                stderr,
+                                child,
+                                sender,
+                                selected_instance,
+                            )
+                            .await
+                            .strerr()
+                        },
                         Message::LaunchEndedLog,
                     );
                 }
@@ -121,7 +137,7 @@ impl Launcher {
                     },
                 );
             }
-            GameLaunchResult::Err(err) => self.set_error(err),
+            Err(err) => self.set_error(err),
         }
         Task::none()
     }
@@ -201,14 +217,23 @@ impl Launcher {
                 progress: DownloadProgress::DownloadingJsonManifest,
             });
 
+            let instance_name = instance_name.clone();
+            let version = selected_version.clone().unwrap();
+            let download_assets = *download_assets;
+
             // Create Instance asynchronously using iced Command.
             return Task::perform(
-                ql_instances::create_instance_w(
-                    instance_name.clone(),
-                    selected_version.clone().unwrap(),
-                    Some(sender),
-                    *download_assets,
-                ),
+                async move {
+                    ql_instances::create_instance(
+                        instance_name.clone(),
+                        version,
+                        Some(sender),
+                        download_assets,
+                    )
+                    .await
+                    .strerr()
+                    .map(|()| instance_name)
+                },
                 |n| Message::CreateInstance(CreateInstanceMessage::End(n)),
             );
         }
@@ -258,16 +283,6 @@ impl Launcher {
             slider_text: format_memory(memory_mb),
         });
         Ok(())
-    }
-
-    pub async fn save_config_w(
-        instance: InstanceSelection,
-        config: InstanceConfigJson,
-        dir: PathBuf,
-    ) -> Result<(), String> {
-        Self::save_config(instance, config, dir)
-            .await
-            .map_err(|n| n.to_string())
     }
 
     pub async fn save_config(
@@ -383,8 +398,16 @@ impl Launcher {
 
         menu.mods_download_in_progress
             .insert(hit.project_id.clone());
+        let project_id = hit.project_id.clone();
         Some(Task::perform(
-            ql_mod_manager::mod_manager::download_mod_w(hit.project_id.clone(), selected_instance),
+            async move {
+                let project_id = project_id;
+                let selected_instance = selected_instance;
+                ql_mod_manager::mod_manager::download_mod(&project_id, &selected_instance)
+                    .await
+                    .map(|()| project_id)
+                    .strerr()
+            },
             |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n)),
         ))
     }
@@ -424,12 +447,17 @@ impl Launcher {
                 receiver,
                 "Deleting Mods".to_owned(),
             ));
+            let selected_instance = self.selected_instance.clone().unwrap();
             Task::perform(
-                ql_mod_manager::mod_manager::apply_updates_w(
-                    self.selected_instance.clone().unwrap(),
-                    updates,
-                    Some(sender),
-                ),
+                async move {
+                    ql_mod_manager::mod_manager::apply_updates(
+                        selected_instance,
+                        updates,
+                        Some(sender),
+                    )
+                    .await
+                    .strerr()
+                },
                 |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n)),
             )
         } else {
@@ -449,12 +477,13 @@ impl Launcher {
         let (f_sender, f_receiver) = std::sync::mpsc::channel();
         let (j_sender, j_receiver) = std::sync::mpsc::channel();
 
+        let instance_selection = self.selected_instance.clone().unwrap();
         let command = Task::perform(
-            loaders::forge::install_w(
-                self.selected_instance.clone().unwrap(),
-                Some(f_sender),
-                Some(j_sender),
-            ),
+            async move {
+                loaders::forge::install(instance_selection, Some(f_sender), Some(j_sender))
+                    .await
+                    .strerr()
+            },
             Message::InstallForgeEnd,
         );
 
@@ -493,8 +522,13 @@ impl Launcher {
                 },
             );
 
+            let selected_server = selected_server.clone();
             return Task::perform(
-                ql_servers::read_logs_w(stdout, stderr, child, sender, selected_server.clone()),
+                async move {
+                    ql_servers::read_logs(stdout, stderr, child, sender, selected_server)
+                        .await
+                        .strerr()
+                },
                 Message::ServerManageEndedLog,
             );
         }
@@ -539,7 +573,7 @@ impl Launcher {
 
         match tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(ql_mod_manager::PresetJson::load_w(
+            .block_on(ql_mod_manager::PresetJson::load(
                 self.selected_instance.clone().unwrap(),
                 file,
             )) {
@@ -610,13 +644,14 @@ impl Launcher {
             return Task::none();
         };
 
+        let version = json.id.clone();
+        let ids = RECOMMENDED_MODS.to_owned();
         Task::perform(
-            ModVersion::get_compatible_mods_w(
-                RECOMMENDED_MODS.to_owned(),
-                json.id.clone(),
-                loader,
-                sender,
-            ),
+            async move {
+                ModVersion::get_compatible_mods(ids, version, loader, sender)
+                    .await
+                    .strerr()
+            },
             |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n)),
         )
     }
@@ -810,7 +845,10 @@ impl Launcher {
     pub fn account_selected(&mut self, account: String) -> Task<Message> {
         if account == NEW_ACCOUNT_NAME {
             self.state = State::GenericMessage("Loading Login...".to_owned());
-            Task::perform(ql_instances::login_1_link_w(), Message::AccountResponse1)
+            Task::perform(
+                async move { ql_instances::login_1_link().await.strerr() },
+                Message::AccountResponse1,
+            )
         } else {
             self.accounts_selected = Some(account);
             Task::none()
@@ -822,12 +860,14 @@ impl Launcher {
 
         self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
 
+        let username = account.username.clone();
+        let refresh_token = account.refresh_token.clone();
         Task::perform(
-            ql_instances::login_refresh_w(
-                account.username.clone(),
-                account.refresh_token.clone(),
-                Some(sender),
-            ),
+            async move {
+                ql_instances::login_refresh(username, refresh_token, Some(sender))
+                    .await
+                    .strerr()
+            },
             Message::AccountRefreshComplete,
         )
     }
@@ -857,14 +897,21 @@ impl Launcher {
         let (sender, receiver) = std::sync::mpsc::channel();
         self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
         Task::perform(
-            ql_instances::login_3_xbox_w(token, Some(sender)),
+            async move {
+                ql_instances::login_3_xbox(token, Some(sender))
+                    .await
+                    .strerr()
+            },
             Message::AccountResponse3,
         )
     }
 
     pub fn account_response_1(&mut self, code: ql_instances::AuthCodeResponse) -> Task<Message> {
+        // I have no idea how many rustaceans will
+        // yell at me after they see this. (WTF: )
+        let code2 = code.clone();
         let (task, handle) = Task::perform(
-            ql_instances::login_2_wait_w(code.clone()),
+            async move { ql_instances::login_2_wait(code2).await.strerr() },
             Message::AccountResponse2,
         )
         .abortable();
