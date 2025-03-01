@@ -141,18 +141,43 @@ impl UserData for SelectedInstance {
             Ok(string)
         });
 
-        methods.add_method("read_dir", |_, instance, ()| {
+        methods.add_method("is_dir", |_, instance, ()| {
+            let path = instance.get_path()?;
+            Ok(path.is_dir())
+        });
+
+        methods.add_method("is_file", |_, instance, ()| {
+            let path = instance.get_path()?;
+            Ok(path.is_file())
+        });
+
+        methods.add_method("exists", |_, instance, ()| {
+            let path = instance.get_path()?;
+            Ok(path.exists())
+        });
+
+        methods.add_method("filename", |vm, instance, ()| {
+            let name = instance
+                .path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .and_then(|n| vm.create_string(n).ok());
+
+            Ok(name)
+        });
+
+        methods.add_method("iter_dir", |_, instance, ()| {
             let iterator = SelectedInstanceIterator::new(instance.clone()).map_err(err_to_lua)?;
 
             Ok(iterator)
         });
 
-        methods.add_function("read_dir_iter", |vm, instance: SelectedInstance| {
+        methods.add_function("read_dir", |vm, instance: SelectedInstance| {
             let func: mlua::Function = vm
                 .load(
                     r"
 return function(path)
-    local iter = path:read_dir()
+    local iter = path:iter_dir()
     return function()
         return iter:next()
     end
@@ -186,9 +211,19 @@ impl UserData for SelectedInstanceIterator {
             };
             let item = item.map_err(|n| mlua::Error::ExternalError(Arc::new(n)))?;
 
+            let instance_path = file_utils::get_launcher_dir_s().map_err(err_to_lua)?;
+            let instance_path = if instance.instance.dot_mc {
+                instance
+                    .instance
+                    .instance
+                    .get_dot_minecraft_path(&instance_path)
+            } else {
+                instance.instance.instance.get_instance_path(&instance_path)
+            };
+
             let path = item.path();
             let stripped_path = path
-                .strip_prefix(instance.instance.get_path()?)
+                .strip_prefix(instance_path)
                 .map_err(|n| err_to_lua(format!("Error stripping dir reading path: {n}")))?;
 
             let new = SelectedInstance {

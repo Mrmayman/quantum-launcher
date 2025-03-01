@@ -56,9 +56,10 @@ impl Launcher {
 
                 self.tick_processes_and_logs();
 
-                if let Some(config) = self.config.clone() {
-                    commands.push(Task::perform(config.save_w(), Message::CoreTickConfigSaved));
-                }
+                commands.push(Task::perform(
+                    self.config.clone().save_w(),
+                    Message::CoreTickConfigSaved,
+                ));
                 return Task::batch(commands);
             }
             State::Create(menu) => menu.tick(),
@@ -137,9 +138,7 @@ impl Launcher {
                 return index_cmd;
             }
             State::LauncherSettings => {
-                if let Some(config) = self.config.clone() {
-                    return Task::perform(config.save_w(), Message::CoreTickConfigSaved);
-                }
+                return Task::perform(self.config.clone().save_w(), Message::CoreTickConfigSaved);
             }
             State::RedownloadAssets { progress } => {
                 progress.tick();

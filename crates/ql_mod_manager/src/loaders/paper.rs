@@ -1,7 +1,8 @@
 use std::{collections::HashMap, path::Path};
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, RequestError,
+    file_utils, info, json::VersionDetails, pt, IntoIoError, IntoStringError, IoError,
+    JsonFileError, RequestError,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -62,7 +63,7 @@ async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
 pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| Loader::Paper)
 }
 
@@ -100,7 +101,7 @@ pub async fn uninstall(instance_name: &str) -> Result<(), PaperInstallerError> {
 }
 
 pub async fn install_w(instance_name: String) -> Result<(), String> {
-    install(&instance_name).await.map_err(|err| err.to_string())
+    install(&instance_name).await.strerr()
 }
 
 pub async fn install(instance_name: &str) -> Result<(), PaperInstallerError> {

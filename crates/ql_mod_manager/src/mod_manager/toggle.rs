@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_core::{err, file_utils, InstanceSelection, IoError};
+use ql_core::{err, file_utils, InstanceSelection, IntoStringError, IoError};
 
 use crate::mod_manager::ModIndex;
 
@@ -10,9 +10,7 @@ pub async fn toggle_mods_w(
     id: Vec<String>,
     instance_name: InstanceSelection,
 ) -> Result<(), String> {
-    toggle_mods(&id, &instance_name)
-        .await
-        .map_err(|err| err.to_string())
+    toggle_mods(&id, &instance_name).await.strerr()
 }
 
 async fn toggle_mods(id: &[String], instance_name: &InstanceSelection) -> Result<(), ModError> {

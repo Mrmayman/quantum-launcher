@@ -420,7 +420,7 @@ impl MenuLauncherUpdate {
 }
 
 impl MenuLauncherSettings {
-    pub fn view(config: Option<&LauncherConfig>) -> Element {
+    pub fn view(config: &LauncherConfig) -> Element {
         let themes = ["Dark".to_owned(), "Light".to_owned()];
         let styles = [
             "Brown".to_owned(),
@@ -428,36 +428,32 @@ impl MenuLauncherSettings {
             "Sky Blue".to_owned(),
         ];
 
-        let config_view = if let Some(config) = config {
-            widget::column!(
-                widget::container(
-                    widget::column!(
-                        "Select theme:",
-                        widget::pick_list(
-                            themes,
-                            config.theme.clone(),
-                            Message::LauncherSettingsThemePicked
-                        ),
+        let config_view = widget::column!(
+            widget::container(
+                widget::column!(
+                    "Select theme:",
+                    widget::pick_list(
+                        themes,
+                        config.theme.clone(),
+                        Message::LauncherSettingsThemePicked
+                    ),
+                )
+                .padding(10)
+                .spacing(10)
+            ),
+            widget::container(
+                widget::column!(
+                    "Select style:",
+                    widget::pick_list(
+                        styles,
+                        config.style.clone(),
+                        Message::LauncherSettingsStylePicked
                     )
-                    .padding(10)
-                    .spacing(10)
-                ),
-                widget::container(
-                    widget::column!(
-                        "Select style:",
-                        widget::pick_list(
-                            styles,
-                            config.style.clone(),
-                            Message::LauncherSettingsStylePicked
-                        )
-                    )
-                    .padding(10)
-                    .spacing(10)
-                ),
-            )
-        } else {
-            widget::column!()
-        }
+                )
+                .padding(10)
+                .spacing(10)
+            ),
+        )
         .spacing(10);
 
         widget::scrollable(

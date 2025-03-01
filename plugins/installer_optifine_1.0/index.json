@@ -24,6 +24,10 @@
   "permissions": [
     {
       "type": "Java"
+    },
+    {
+      "type": "Request",
+      "whitelist": ["https://libraries.minecraft.net/"]
     }
   ]
 }

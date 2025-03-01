@@ -15,7 +15,7 @@ use ql_core::{
 };
 use ql_instances::{
     AccountData, AuthCodeResponse, AuthTokenResponse, GameLaunchResult, ListEntry, LogLine,
-    UpdateCheckInfo,
+    UpdateCheckInfo, CLIENT_ID,
 };
 use ql_mod_manager::{
     loaders::{
@@ -498,7 +498,7 @@ pub struct Launcher {
     pub state: State,
     pub dir: PathBuf,
     pub selected_instance: Option<InstanceSelection>,
-    pub config: Option<LauncherConfig>,
+    pub config: LauncherConfig,
     pub theme: LauncherTheme,
     pub images: ImageState,
 
@@ -573,28 +573,22 @@ impl Launcher {
             MenuLaunch::default()
         };
 
-        if let Some(LauncherConfig {
-            sidebar_width: Some(sidebar_width),
-            ..
-        }) = &config
-        {
-            launch.sidebar_width = *sidebar_width as u16;
+        if let Some(sidebar_width) = config.sidebar_width {
+            launch.sidebar_width = sidebar_width as u16;
         }
 
         let launch = State::Launch(launch);
 
+        // The version field was added in 0.3
+        let version = config.version.as_deref().unwrap_or("0.3.0");
+
         let state = if is_new_user {
             State::Welcome
-        } else if let Some(config) = &mut config {
-            let version = config.version.as_deref().unwrap_or("0.3.0");
-            if version == LAUNCHER_VERSION_NAME {
-                launch
-            } else {
-                config.version = Some(LAUNCHER_VERSION_NAME.to_owned());
-                State::ChangeLog
-            }
-        } else {
+        } else if version == LAUNCHER_VERSION_NAME {
             launch
+        } else {
+            config.version = Some(LAUNCHER_VERSION_NAME.to_owned());
+            State::ChangeLog
         };
 
         let mut accounts = HashMap::new();
@@ -602,40 +596,33 @@ impl Launcher {
         let mut accounts_dropdown =
             vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()];
 
-        if let Some(config) = &config {
-            if let Some(config_accounts) = &config.accounts {
-                for (username, account) in config_accounts {
-                    match ql_instances::read_refresh_token(username) {
-                        Ok(refresh_token) => {
-                            accounts_dropdown.insert(0, username.clone());
-                            accounts.insert(
-                                username.clone(),
-                                AccountData {
-                                    access_token: None,
-                                    uuid: account.uuid.clone(),
-                                    username: username.clone(),
-                                    refresh_token,
-                                    needs_refresh: true,
-                                },
-                            );
-                        }
-                        Err(err) => {
-                            err!("Could not load account: {err}");
-                        }
+        if let Some(config_accounts) = &config.accounts {
+            for (username, account) in config_accounts {
+                match ql_instances::read_refresh_token(username) {
+                    Ok(refresh_token) => {
+                        accounts_dropdown.insert(0, username.clone());
+                        accounts.insert(
+                            username.clone(),
+                            AccountData {
+                                access_token: None,
+                                uuid: account.uuid.clone(),
+                                username: username.clone(),
+                                refresh_token,
+                                needs_refresh: true,
+                            },
+                        );
+                    }
+                    Err(err) => {
+                        err!("Could not load account: {err}");
                     }
                 }
             }
         }
 
-        let selected_account = if let Some(first) = accounts_dropdown.first() {
-            if first != OFFLINE_ACCOUNT_NAME {
-                first.clone()
-            } else {
-                OFFLINE_ACCOUNT_NAME.to_owned()
-            }
-        } else {
-            OFFLINE_ACCOUNT_NAME.to_owned()
-        };
+        let selected_account = accounts_dropdown
+            .first()
+            .cloned()
+            .unwrap_or_else(|| OFFLINE_ACCOUNT_NAME.to_owned());
 
         Ok(Self {
             dir: launcher_dir,
@@ -678,8 +665,14 @@ impl Launcher {
 
         let (config, theme) = launcher_dir
             .as_ref()
-            .and_then(|n| load_config_and_theme(n).ok())
-            .unwrap_or((None, LauncherTheme::default()));
+            .and_then(|n| match load_config_and_theme(n) {
+                Ok(n) => Some(n),
+                Err(err) => {
+                    err!("Error loading config: {err}");
+                    None
+                }
+            })
+            .unwrap_or((LauncherConfig::default(), LauncherTheme::default()));
 
         Self {
             dir: launcher_dir.unwrap_or_default(),
@@ -707,7 +700,7 @@ impl Launcher {
 
     pub fn set_error(&mut self, error: impl ToString) {
         self.state = State::Error {
-            error: error.to_string(),
+            error: error.to_string().replace(CLIENT_ID, "[CLIENT ID]"),
         }
     }
 
@@ -716,7 +709,7 @@ impl Launcher {
             Some(message) => MenuLaunch::with_message(message),
             None => MenuLaunch::default(),
         };
-        if let Some(width) = self.config.as_ref().unwrap().sidebar_width {
+        if let Some(width) = self.config.sidebar_width {
             menu_launch.sidebar_width = width as u16;
         }
         self.state = State::Launch(menu_launch);
@@ -737,7 +730,7 @@ impl Launcher {
 
 fn load_config_and_theme(
     launcher_dir: &Path,
-) -> Result<(Option<LauncherConfig>, LauncherTheme), JsonFileError> {
+) -> Result<(LauncherConfig, LauncherTheme), JsonFileError> {
     let config = LauncherConfig::load(launcher_dir)?;
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherThemeLightness::Dark,
@@ -759,7 +752,7 @@ fn load_config_and_theme(
         }
     };
     let theme = LauncherTheme::from_vals(style, theme);
-    Ok((Some(config), theme))
+    Ok((config, theme))
 }
 
 pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {

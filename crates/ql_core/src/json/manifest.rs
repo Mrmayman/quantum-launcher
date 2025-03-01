@@ -24,6 +24,7 @@ impl Manifest {
     }
 
     /// Looks up a version by its name.
+    #[must_use]
     pub fn find_name(&self, name: &str) -> Option<&Version> {
         self.versions.iter().find(|n| n.id == name)
     }
@@ -38,6 +39,7 @@ impl Manifest {
     /// # Returns
     /// - `Some(_)`: The version that is closest to the name
     /// - `None`: No version was found with the filter, or the manifest is empty.
+    #[must_use]
     pub fn find_fuzzy(&self, name: &str, filter: &str) -> Option<&Version> {
         self.versions
             .iter()

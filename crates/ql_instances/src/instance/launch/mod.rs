@@ -84,7 +84,7 @@ pub async fn launch(
     game_launcher.migrate_old_instances().await?;
     game_launcher.create_mods_dir().await?;
 
-    let mut game_arguments = game_launcher.init_game_arguments().await?;
+    let mut game_arguments = game_launcher.init_game_arguments()?;
     let mut java_arguments = game_launcher.init_java_arguments()?;
 
     let fabric_json = game_launcher
@@ -232,7 +232,7 @@ impl GameLauncher {
         })
     }
 
-    async fn init_game_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
+    fn init_game_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
         let game_arguments: Vec<String> =
             if let Some(arguments) = &self.version_json.minecraftArguments {
                 arguments.split(' ').map(ToOwned::to_owned).collect()

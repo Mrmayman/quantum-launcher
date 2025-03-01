@@ -9,7 +9,7 @@ use chrono::{Datelike, Timelike};
 use crate::file_utils;
 
 pub struct LoggingState {
-    _thread: Option<std::thread::JoinHandle<()>>,
+    thread: Option<std::thread::JoinHandle<()>>,
     writer: Option<BufWriter<File>>,
     sender: Option<std::sync::mpsc::Sender<String>>,
 }
@@ -41,13 +41,13 @@ impl LoggingState {
             .ok()?;
 
         Some(Mutex::new(LoggingState {
-            _thread: None,
+            thread: None,
             writer: Some(BufWriter::new(file)),
             sender: None,
         }))
     }
 
-    pub fn write_str(&mut self, s: String) {
+    pub fn write_str(&mut self, s: &str) {
         if self.sender.is_none() {
             let (sender, receiver) = std::sync::mpsc::channel::<String>();
 
@@ -60,12 +60,13 @@ impl LoggingState {
                         _ = writer.flush();
                     }
                 });
-                self._thread = Some(thread);
+                self.thread = Some(thread);
             }
 
             self.sender = Some(sender);
         }
 
+        // Will not panic as we just made our sender Some()
         _ = self.sender.as_ref().unwrap().send(s.to_string());
     }
 }
@@ -76,7 +77,7 @@ lazy_static::lazy_static! {
         LoggingState::create();
 }
 
-pub fn print_to_file(msg: String) {
+pub fn print_to_file(msg: &str) {
     if let Some(logger) = LOGGER.as_ref() {
         let mut lock = logger.lock().unwrap();
         lock.write_str(msg);
@@ -96,7 +97,7 @@ macro_rules! info {
             println!("{} {}", colored::Colorize::yellow("[info]"), format_args!($($arg)*))
         }
 
-        $crate::print::print_to_file(plain_text);
+        $crate::print::print_to_file(&plain_text);
     };
 }
 
@@ -130,7 +131,7 @@ macro_rules! err {
                 eprintln!("{} {}", colored::Colorize::red("[error]"), format_args!($($arg)*))
             }
 
-            $crate::print::print_to_file(plain_text);
+            $crate::print::print_to_file(&plain_text);
         }
     };
 }
@@ -148,6 +149,6 @@ macro_rules! pt {
             println!("{} {}", colored::Colorize::bold("-"), format_args!($($arg)*))
         }
 
-        $crate::print::print_to_file(plain_text);
+        $crate::print::print_to_file(&plain_text);
     };
 }

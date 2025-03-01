@@ -1,13 +1,13 @@
-use ql_core::{file_utils, info, json::FabricJSON, InstanceSelection, IntoIoError};
+use ql_core::{
+    file_utils, info, json::FabricJSON, InstanceSelection, IntoIoError, IntoStringError,
+};
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 
 use super::error::FabricInstallError;
 
 pub async fn uninstall_server_w(server_name: String) -> Result<(), String> {
-    uninstall_server(&server_name)
-        .await
-        .map_err(|err| err.to_string())
+    uninstall_server(&server_name).await.strerr()
 }
 
 pub async fn uninstall_server(server_name: &str) -> Result<(), FabricInstallError> {
@@ -91,7 +91,7 @@ pub async fn uninstall_client(instance_name: &str) -> Result<(), FabricInstallEr
 pub async fn uninstall_client_w(instance_name: String) -> Result<Loader, String> {
     uninstall_client(&instance_name)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| Loader::Fabric)
 }
 
@@ -100,6 +100,6 @@ pub async fn uninstall_w(instance_name: InstanceSelection) -> Result<Loader, Str
         InstanceSelection::Instance(n) => uninstall_client(&n).await,
         InstanceSelection::Server(n) => uninstall_server(&n).await,
     }
-    .map_err(|err| err.to_string())
+    .strerr()
     .map(|()| Loader::Fabric)
 }

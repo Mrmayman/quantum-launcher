@@ -4,7 +4,7 @@ use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
     json::{FabricJSON, VersionDetails},
-    GenericProgress, InstanceSelection, IntoIoError, RequestError,
+    GenericProgress, InstanceSelection, IntoIoError, IntoStringError, RequestError,
 };
 use serde::Deserialize;
 use version_compare::compare_versions;
@@ -36,7 +36,7 @@ pub async fn get_list_of_versions_w(
 ) -> Result<Vec<FabricVersionListItem>, String> {
     get_list_of_versions(&instance_name, is_quilt)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
 }
 
 pub async fn get_list_of_versions(
@@ -60,7 +60,7 @@ pub async fn install_server_w(
 ) -> Result<(), String> {
     install_server(&loader_version, &server_name, progress, is_quilt)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
 }
 
 pub async fn install_server(
@@ -301,7 +301,7 @@ pub async fn install_client_w(
 ) -> Result<(), String> {
     install_client(&loader_version, &instance_name, progress, is_quilt)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
 }
 
 #[derive(Deserialize, Clone, Debug)]

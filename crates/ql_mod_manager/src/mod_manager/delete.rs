@@ -1,5 +1,5 @@
 use crate::mod_manager::{ModError, ModIndex};
-use ql_core::{err, file_utils, info, pt, InstanceSelection, IoError};
+use ql_core::{err, file_utils, info, pt, InstanceSelection, IntoStringError, IoError};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -15,7 +15,7 @@ pub async fn delete_mods_w(
 
     delete_mods(&ids, &instance_name)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| ids)
 }
 

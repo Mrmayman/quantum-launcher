@@ -5,8 +5,6 @@ use thiserror::Error;
 pub enum PluginError {
     #[error(transparent)]
     Mlua(#[from] mlua::Error),
-    #[error("tokio runtime error: {0}")]
-    TokioRuntime(std::io::Error),
     #[error(transparent)]
     Io(#[from] IoError),
     #[error("json error: {0}")]

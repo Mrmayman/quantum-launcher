@@ -59,3 +59,11 @@ Example:
 -- Prompts the user to select a jar file
 local file = qlPickFile("Select a jar file", {"jar"}, "Jar File")
 ```
+
+## Requests
+
+### `qlDownload(url: String, user_agent: bool) -> String`
+Downloads the file at `url` and returns it as a lua string.
+
+If `user_agent` is true, this will use the quantumlauncher user agent.
+If it's false then this won't use any user agent.

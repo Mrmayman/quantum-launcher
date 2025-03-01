@@ -4,7 +4,7 @@ use chrono::DateTime;
 use ql_core::{
     err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, GenericProgress, InstanceSelection, IntoIoError,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
 };
 
 use crate::rate_limiter::MOD_DOWNLOAD_LOCK;
@@ -25,9 +25,7 @@ pub async fn download_mods_w(
         MOD_DOWNLOAD_LOCK.lock().await
     };
 
-    let mut downloader = ModDownloader::new(&instance_name)
-        .await
-        .map_err(|err| err.to_string())?;
+    let mut downloader = ModDownloader::new(&instance_name).await.strerr()?;
 
     let len = ids.len();
     for (i, id) in ids.iter().enumerate() {
@@ -38,19 +36,12 @@ pub async fn download_mods_w(
             has_finished: false,
         });
         pt!("Downloading: {} / {}", i + 1, len - 1);
-        downloader
-            .download_project(id, None, true)
-            .await
-            .map_err(|err| err.to_string())?;
+        downloader.download_project(id, None, true).await.strerr()?;
     }
 
     info!("Finished installing {len} mods");
 
-    downloader
-        .index
-        .save()
-        .await
-        .map_err(|err| err.to_string())?;
+    downloader.index.save().await.strerr()?;
 
     Ok(())
 }
@@ -61,7 +52,7 @@ pub async fn download_mod_w(
 ) -> Result<String, String> {
     download_mod(&id, &instance_name)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| id)
 }
 

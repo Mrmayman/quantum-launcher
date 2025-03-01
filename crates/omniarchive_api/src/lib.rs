@@ -3,7 +3,7 @@
 //!
 //! It supports both client and server versions of the following categories:
 //!
-//! - PreClassic
+//! - Pre-Classic
 //! - Classic
 //! - Indev
 //! - Infdev
@@ -80,7 +80,7 @@ impl MinecraftVersionCategory {
 
     /// Returns a list of all server versions.
     ///
-    /// Note: PreClassic, Indev, and Infdev do not have server versions.
+    /// Note: Pre-Classic, Indev, and Infdev do not have server versions.
     #[must_use]
     pub fn all_server() -> Vec<MinecraftVersionCategory> {
         vec![

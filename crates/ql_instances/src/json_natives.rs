@@ -19,7 +19,7 @@ pub enum NativesEntry {
 }
 
 impl NativesEntry {
-    pub fn get_file(&self) -> &'static str {
+    pub fn get_file(self) -> &'static str {
         match self {
             NativesEntry::Lwjgl => include_str!("../../../assets/minecraft_arm/org.lwjgl3.json"),
             NativesEntry::Log4J => {

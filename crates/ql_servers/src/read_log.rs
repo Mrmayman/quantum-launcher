@@ -6,6 +6,7 @@ use std::{
     },
 };
 
+use ql_core::IntoStringError;
 use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -13,6 +14,9 @@ use tokio::{
 };
 
 /// [`read_logs`] `_w` function
+///
+/// # Errors
+/// See [`read_logs`]
 pub async fn read_logs_w(
     stdout: ChildStdout,
     stderr: ChildStderr,
@@ -22,7 +26,7 @@ pub async fn read_logs_w(
 ) -> Result<(ExitStatus, String), String> {
     read_logs(stdout, stderr, child, sender)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|n| (n, name))
 }
 
@@ -30,6 +34,12 @@ pub async fn read_logs_w(
 ///
 /// Unlike the `read_logs` function in `ql_instances`
 /// this one does not deal with XML parsing.
+///
+/// # Errors
+/// - If an IO error was present when reading
+///   from `stdout` or `stderr`
+/// - If the `Receiver<String>` on the other
+///   end was dropped.
 pub async fn read_logs(
     stdout: ChildStdout,
     stderr: ChildStderr,

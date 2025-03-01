@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{err, file_utils};
+use crate::file_utils;
 use ql_core::json::version::JavaVersionJson;
 use serde::Deserialize;
 
@@ -18,7 +18,7 @@ pub enum JavaVersion {
 
 impl JavaVersion {
     #[must_use]
-    pub fn get_corretto_url(&self) -> &'static str {
+    pub(crate) fn get_corretto_url(&self) -> &'static str {
         if cfg!(target_arch = "aarch64") && cfg!(target_os = "linux") {
             match self {
                 JavaVersion::Java16 | JavaVersion::Java17 => {
@@ -136,12 +136,8 @@ impl JavaListJson {
                 &self.linux
             } else if cfg!(target_arch = "x86") {
                 &self.linux_i386
-            } else if cfg!(target_arch = "aarch64") {
-                return None;
             } else {
-                err!("Unsupported architecture!");
-                // TODO Unsupported architecture handling.
-                // Add ARM32, RISC-V, and PowerPC support.
+                // TODO: Add ARM32, RISC-V, and PowerPC support.
                 return None;
             }
         } else if cfg!(target_os = "macos") {
@@ -151,9 +147,7 @@ impl JavaListJson {
             } else if cfg!(target_arch = "x86_64") {
                 &self.mac_os
             } else {
-                err!("Unsupported architecture!");
-                // TODO Unsupported architecture handling.
-                // Add x86 and PowerPC support.
+                // TODO: Add x86 and PowerPC support.
                 return None;
             }
         } else if cfg!(target_os = "windows") {
@@ -164,15 +158,12 @@ impl JavaListJson {
             } else if cfg!(target_arch = "aarch64") {
                 &self.windows_arm64
             } else {
-                err!("Unsupported architecture!");
-                // TODO Unsupported architecture handling.
-                // What if Windows supports some other architecture
-                // in the future?
+                // What if Windows supports some
+                // other architecture in the future?
                 return None;
             }
         } else {
-            err!("Unsupported OS!");
-            // TODO Unsupported OS handling.
+            // TODO: Unsupported OS handling.
             // Some people might play this on Solaris/BSD/Haiku?
             return None;
         };

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use ql_core::{file_utils, InstanceSelection, IntoIoError};
+use ql_core::{file_utils, InstanceSelection, IntoIoError, IntoStringError};
 
 use crate::{loaders::change_instance_type, mod_manager::Loader};
 
@@ -11,14 +11,14 @@ pub async fn uninstall_w(instance: InstanceSelection) -> Result<Loader, String> 
         InstanceSelection::Instance(instance) => uninstall_client(&instance).await,
         InstanceSelection::Server(instance) => uninstall_server(&instance).await,
     }
-    .map_err(|err| err.to_string())
+    .strerr()
     .map(|()| Loader::Forge)
 }
 
 pub async fn uninstall_server_w(instance: String) -> Result<Loader, String> {
     uninstall_server(&instance)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| Loader::Forge)
 }
 
@@ -37,7 +37,7 @@ pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
 pub async fn uninstall_client_w(instance: String) -> Result<Loader, String> {
     uninstall_client(&instance)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| Loader::Forge)
 }
 

@@ -1,4 +1,6 @@
-use ql_core::{IoError, JsonDownloadError, RequestError};
+use std::path::PathBuf;
+
+use ql_core::{IoError, JsonDownloadError, JsonFileError, RequestError};
 use ql_java_handler::JavaInstallError;
 
 mod create;
@@ -8,7 +10,7 @@ mod run;
 mod server_properties;
 // mod ssh;
 pub use create::{create_server, create_server_w, delete_server};
-pub use list_versions::list_versions;
+pub use list_versions::{list, list_w};
 pub use read_log::{read_logs, read_logs_w};
 pub use run::{run, run_w};
 pub use server_properties::ServerProperties;
@@ -31,14 +33,25 @@ pub enum ServerError {
     Io(#[from] IoError),
     #[error("server error: {0}")]
     JavaInstall(#[from] JavaInstallError),
-    #[error("could not find server download field\n(details.json).downloads.server is null")]
+    #[error("couldn't find server download field\n(details.json).downloads.server is null")]
     NoServerDownload,
     #[error("server already exists")]
     ServerAlreadyExists,
     #[error("server error: zip extract: {0}")]
     ZipExtract(#[from] ZipExtractError),
-    #[error("server error: could not find forge shim file")]
+    #[error("server error: couldn't find forge shim file")]
     NoForgeShimFound,
     #[error("server error: unsupported CPU architecture for ssh")]
     UnsupportedSSHArchitecture,
+    #[error("server error: couldn't convert PathBuf to str: {0:?}")]
+    PathBufToStr(PathBuf),
+}
+
+impl From<JsonFileError> for ServerError {
+    fn from(value: JsonFileError) -> Self {
+        match value {
+            JsonFileError::SerdeError(error) => Self::SerdeJson(error),
+            JsonFileError::Io(error) => Self::Io(error),
+        }
+    }
 }

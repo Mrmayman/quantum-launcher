@@ -7,7 +7,9 @@ use std::{
     },
 };
 
-use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
+use ql_core::{
+    err, file_utils, info, GenericProgress, IntoIoError, IntoStringError, IoError, RequestError,
+};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -21,9 +23,7 @@ pub enum UpdateCheckInfo {
 
 /// [`check_for_launcher_updates`] `_w` function
 pub async fn check_for_launcher_updates_w() -> Result<UpdateCheckInfo, String> {
-    check_for_launcher_updates()
-        .await
-        .map_err(|err| err.to_string())
+    check_for_launcher_updates().await.strerr()
 }
 
 /// Checks for any launcher updates to be installed.
@@ -96,9 +96,7 @@ pub async fn install_launcher_update_w(
     url: String,
     progress: Sender<GenericProgress>,
 ) -> Result<(), String> {
-    install_launcher_update(url, progress)
-        .await
-        .map_err(|err| err.to_string())
+    install_launcher_update(url, progress).await.strerr()
 }
 
 /// Installs a new version of the launcher.

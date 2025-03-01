@@ -1,9 +1,17 @@
 use std::sync::{mpsc::Sender, Arc};
 
 use omniarchive_api::{ListEntry, ListError, MinecraftVersionCategory};
-use ql_core::{err, json::Manifest};
+use ql_core::{err, json::Manifest, JsonDownloadError};
 
-async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, ListError> {
+/// Retrieves a list of available server versions to download.
+///
+/// # Errors
+/// If Manifest (mojang's version list)
+/// - couldn't be downloaded (server error or bad internet)
+/// - couldn't be parsed into JSON.
+///
+/// Prints an error to log if Omniarchive versions couldn't be loaded.
+pub async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, JsonDownloadError> {
     let manifest = Manifest::download().await?;
     let mut version_list: Vec<ListEntry> = manifest
         .versions
@@ -108,7 +116,10 @@ async fn add_omniarchive_versions(
     Ok(())
 }
 
-/// Returns a list of all available versions of Minecraft servers.
-pub async fn list_versions(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, String> {
+/// [`list`] `_w` function.
+///
+/// # Errors
+/// See [`list`]
+pub async fn list_w(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, String> {
     list(sender).await.map_err(|n| n.to_string())
 }

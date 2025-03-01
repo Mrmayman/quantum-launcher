@@ -17,11 +17,17 @@ use crate::{
     passed_types::{LuaGenericProgress, SelectedInstance},
     PluginError,
 };
+use lazy_static::lazy_static;
+
+lazy_static! {
+    #[allow(clippy::ref_option)]
+    pub static ref RUNTIME: Arc<Runtime> =
+        Arc::new(Runtime::new().unwrap());
+}
 
 pub struct Plugin {
     lua: Lua,
     code: String,
-    runtime: Arc<Runtime>,
     mod_map: HashMap<String, String>,
 }
 
@@ -36,7 +42,6 @@ impl Plugin {
         let plugin = Self {
             lua,
             code,
-            runtime: Arc::new(Runtime::new().map_err(PluginError::TokioRuntime)?),
             mod_map: HashMap::new(),
         };
 
@@ -52,27 +57,7 @@ impl Plugin {
 
         fn_logging(&globals, &lua)?;
 
-        let plugins_top_dir = file_utils::get_launcher_dir_s()?.join("plugins");
-        std::fs::create_dir_all(&plugins_top_dir).path(&plugins_top_dir)?;
-        let plugins = std::fs::read_dir(&plugins_top_dir).path(&plugins_top_dir)?;
-
-        let mut plugins_map = HashMap::new();
-
-        for plugin in plugins {
-            let plugin = plugin.map_err(|n| IoError::ReadDir {
-                error: n,
-                parent: plugins_top_dir.clone(),
-            })?;
-            let path = plugin.path();
-            if path.is_file() {
-                continue;
-            }
-            let json_path = path.join("index.json");
-            let json = std::fs::read_to_string(&json_path).path(json_path)?;
-            let json: PluginJson = serde_json::from_str(&json)?;
-            let file_name = plugin.file_name();
-            plugins_map.insert(file_name.to_str().unwrap().to_owned(), json);
-        }
+        let (plugins_top_dir, plugins_map) = read_plugins()?;
 
         let Some((name, json)) = plugins_map.iter().find(|(_, j)| {
             (j.details.name == name) && (version.map_or(true, |v| j.details.version == v))
@@ -90,12 +75,18 @@ impl Plugin {
         let mut plugin = Self {
             lua,
             code: main_code,
-            runtime: Arc::new(Runtime::new().map_err(PluginError::TokioRuntime)?),
             mod_map: HashMap::new(),
         };
 
         if json.permissions.contains(&PluginPermission::Java) {
             plugin.fn_java(&globals)?;
+        }
+        if let Some(PluginPermission::Request { whitelist }) = json
+            .permissions
+            .iter()
+            .find(|n| matches!(n, PluginPermission::Request { .. }))
+        {
+            plugin.fn_download(whitelist.to_owned(), &globals)?;
         }
         plugin.fn_file_pick(&globals)?;
 
@@ -115,7 +106,7 @@ impl Plugin {
         globals.set("QL_MODULE_TABLE", table)?;
         globals.set("QL_MODULE_TABLE_CACHE", plugin.lua.create_table()?)?;
 
-        globals.set("CLASSPATH_SEPARATOR", CLASSPATH_SEPARATOR.to_string())?;
+        globals.set("QL_CLASSPATH_SEPARATOR", CLASSPATH_SEPARATOR.to_string())?;
 
         globals.set(
             "require",
@@ -188,8 +179,6 @@ impl Plugin {
     }
 
     fn fn_java(&self, globals: &mlua::Table) -> Result<(), PluginError> {
-        let runtime = self.runtime.clone();
-
         let func = self.lua.create_function(
             move |_,
                   (name, version, progress, args, current_dir): (
@@ -199,7 +188,6 @@ impl Plugin {
                 Vec<Value>,
                 Option<String>,
             )| {
-                let runtime = runtime.clone();
                 let version = match version {
                     8 => JavaVersion::Java8,
                     16 => JavaVersion::Java16,
@@ -212,7 +200,7 @@ impl Plugin {
                     }
                 };
                 let arc = progress.map(|n| n.0.clone());
-                let bin_path = runtime
+                let bin_path = RUNTIME
                     .block_on(get_java_binary(
                         version,
                         &name,
@@ -335,6 +323,52 @@ impl Plugin {
         }
         Ok(())
     }
+
+    fn fn_download(&self, whitelist: Vec<String>, globals: &Table) -> Result<(), PluginError> {
+        let func = self
+            .lua
+            .create_function(move |vm, (url, user_agent): (String, bool)| {
+                let is_whitelisted = whitelist.iter().any(|n| url.starts_with(n));
+                if is_whitelisted {
+                    let res = RUNTIME
+                        .block_on(file_utils::download_file_to_bytes(&url, user_agent))
+                        .map_err(|n| mlua::Error::ExternalError(Arc::new(n)))?;
+                    Ok(vm.create_string(&res))
+                } else {
+                    Err(err_to_lua(format!(
+                        "Url {url} is not in whitelist! This is a bug"
+                    )))
+                }
+            })?;
+        globals.set("qlDownload", func)?;
+        Ok(())
+    }
+}
+
+pub fn read_plugins() -> Result<(PathBuf, HashMap<String, PluginJson>), PluginError> {
+    let plugins_top_dir = file_utils::get_launcher_dir_s()?.join("plugins");
+    std::fs::create_dir_all(&plugins_top_dir).path(&plugins_top_dir)?;
+    let plugins = std::fs::read_dir(&plugins_top_dir).path(&plugins_top_dir)?;
+
+    let mut plugins_map = HashMap::new();
+
+    for plugin in plugins {
+        let plugin = plugin.map_err(|error| IoError::ReadDir {
+            error,
+            parent: plugins_top_dir.clone(),
+        })?;
+        let path = plugin.path();
+        if path.is_file() {
+            continue;
+        }
+        let json_path = path.join("index.json");
+        let json = std::fs::read_to_string(&json_path).path(json_path)?;
+        let json: PluginJson = serde_json::from_str(&json)?;
+        let file_name = plugin.file_name();
+        plugins_map.insert(file_name.to_str().unwrap().to_owned(), json);
+    }
+
+    Ok((plugins_top_dir, plugins_map))
 }
 
 fn create_lua() -> Result<Lua, PluginError> {

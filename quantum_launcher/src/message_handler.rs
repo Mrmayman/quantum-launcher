@@ -9,7 +9,7 @@ use iced::{keyboard::Key, Task};
 use ql_core::{
     err, file_utils, info, info_no_log,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, InstanceSelection, IntoIoError, JsonFileError,
+    DownloadProgress, InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
 };
 use ql_instances::{AccountData, GameLaunchResult, ListEntry};
 use ql_mod_manager::{
@@ -33,10 +33,6 @@ pub const SIDEBAR_DRAG_LEEWAY: f32 = 10.0;
 pub const SIDEBAR_SQUISH_LIMIT: u16 = 300;
 
 impl Launcher {
-    pub fn set_username(&mut self, username: String) {
-        self.config.as_mut().unwrap().username = username;
-    }
-
     pub fn launch_game(&mut self, account_data: Option<AccountData>) -> Task<Message> {
         if let State::Launch(ref mut menu_launch) = self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
@@ -45,7 +41,7 @@ impl Launcher {
                 account_data.username.clone()
             } else {
                 // Offline username
-                self.config.as_ref().unwrap().username.clone()
+                self.config.username.clone()
             };
 
             let (sender, receiver) = std::sync::mpsc::channel();
@@ -303,7 +299,7 @@ impl Launcher {
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
 
-        match ModIndex::get_s(selected_instance).map_err(|err| err.to_string()) {
+        match ModIndex::get_s(selected_instance).strerr() {
             Ok(idx) => {
                 let locally_installed_mods =
                     MenuEditMods::update_locally_installed_mods(&idx, selected_instance, &self.dir);
@@ -337,7 +333,7 @@ impl Launcher {
 
         let is_vanilla = config_json.mod_type == "Vanilla";
 
-        match ModIndex::get_s(selected_instance).map_err(|err| err.to_string()) {
+        match ModIndex::get_s(selected_instance).strerr() {
             Ok(idx) => {
                 let locally_installed_mods =
                     MenuEditMods::update_locally_installed_mods(&idx, selected_instance, &self.dir);
@@ -408,9 +404,7 @@ impl Launcher {
 
     pub fn update_mod_index(&mut self) {
         if let State::EditMods(menu) = &mut self.state {
-            match ModIndex::get_s(self.selected_instance.as_ref().unwrap())
-                .map_err(|err| err.to_string())
-            {
+            match ModIndex::get_s(self.selected_instance.as_ref().unwrap()).strerr() {
                 Ok(idx) => menu.mods = idx,
                 Err(err) => self.set_error(err),
             }
@@ -710,9 +704,7 @@ impl Launcher {
 
     pub fn iced_event(&mut self, event: iced::Event, status: iced::event::Status) -> Task<Message> {
         if let State::Launch(MenuLaunch { sidebar_width, .. }) = &mut self.state {
-            if let Some(config) = &mut self.config {
-                config.sidebar_width = Some(*sidebar_width as u32);
-            }
+            self.config.sidebar_width = Some(*sidebar_width as u32);
 
             if self.window_size.0 > SIDEBAR_SQUISH_LIMIT as f32
                 && *sidebar_width > self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT
@@ -843,19 +835,17 @@ impl Launcher {
     pub fn account_response_3(&mut self, data: ql_instances::AccountData) -> Task<Message> {
         self.accounts_dropdown.insert(0, data.username.clone());
 
-        if let Some(config) = &mut self.config {
-            if config.accounts.is_none() {
-                config.accounts = Some(HashMap::new());
-            }
-            let accounts = config.accounts.as_mut().unwrap();
-            accounts.insert(
-                data.username.clone(),
-                ConfigAccount {
-                    uuid: data.uuid.clone(),
-                    skin: None,
-                },
-            );
+        if self.config.accounts.is_none() {
+            self.config.accounts = Some(HashMap::new());
         }
+        let accounts = self.config.accounts.as_mut().unwrap();
+        accounts.insert(
+            data.username.clone(),
+            ConfigAccount {
+                uuid: data.uuid.clone(),
+                skin: None,
+            },
+        );
 
         self.accounts_selected = Some(data.username.clone());
         self.accounts.insert(data.username.clone(), data);

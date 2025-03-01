@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{info, json::VersionDetails, GenericProgress, InstanceSelection};
+use ql_core::{info, json::VersionDetails, GenericProgress, InstanceSelection, IntoStringError};
 
 use crate::mod_manager::{
     download::{get_loader_type, version_sort},
@@ -17,7 +17,7 @@ pub async fn apply_updates_w(
 ) -> Result<(), String> {
     apply_updates(selected_instance, updates, progress)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
 }
 
 async fn apply_updates(

@@ -37,6 +37,7 @@ pub enum PluginInvoke {
 #[serde(tag = "type")]
 pub enum PluginPermission {
     Java,
+    Request { whitelist: Vec<String> },
 }
 
 #[derive(Serialize, Deserialize)]

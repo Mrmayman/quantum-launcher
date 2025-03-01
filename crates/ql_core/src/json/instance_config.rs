@@ -1,4 +1,8 @@
+use std::path::Path;
+
 use serde::{Deserialize, Serialize};
+
+use crate::{IntoIoError, JsonFileError};
 
 /// Configuration for a specific instance.
 ///
@@ -59,5 +63,14 @@ impl InstanceConfigJson {
     #[must_use]
     pub fn get_ram_argument(&self) -> String {
         format!("-Xmx{}M", self.ram_in_mb)
+    }
+
+    pub async fn read(dir: &Path) -> Result<Self, JsonFileError> {
+        let config_json_path = dir.join("config.json");
+        let config_json = tokio::fs::read_to_string(&config_json_path)
+            .await
+            .path(config_json_path)?;
+        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+        Ok(config_json)
     }
 }

@@ -8,7 +8,8 @@ use std::{
 use ql_core::{
     err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, GenericProgress, InstanceSelection, IntoIoError, SelectedMod, LAUNCHER_VERSION_NAME,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IntoStringError, SelectedMod,
+    LAUNCHER_VERSION_NAME,
 };
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
@@ -107,9 +108,7 @@ impl PresetJson {
         instance_name: InstanceSelection,
         zip: Vec<u8>,
     ) -> Result<Vec<String>, String> {
-        Self::load(&instance_name, &zip)
-            .await
-            .map_err(|err| err.to_string())
+        Self::load(&instance_name, &zip).await.strerr()
     }
 
     pub async fn load(
@@ -207,9 +206,7 @@ impl PresetJson {
             MOD_DOWNLOAD_LOCK.lock().await
         };
 
-        let mut downloader = ModDownloader::new(&instance_name)
-            .await
-            .map_err(|err| err.to_string())?;
+        let mut downloader = ModDownloader::new(&instance_name).await.strerr()?;
 
         for (i, id) in ids.into_iter().enumerate() {
             _ = sender.send(GenericProgress {
@@ -224,18 +221,14 @@ impl PresetJson {
                 err!("Mod {id} is not compatible with this version. Skipping...");
                 continue;
             }
-            result.map_err(|err| err.to_string())?;
+            result.strerr()?;
 
             if let Some(config) = downloader.index.mods.get_mut(&id) {
                 config.manually_installed = true;
             }
         }
 
-        downloader
-            .index
-            .save()
-            .await
-            .map_err(|err| err.to_string())?;
+        downloader.index.save().await.strerr()?;
 
         _ = sender.send(GenericProgress::finished());
         Ok(())

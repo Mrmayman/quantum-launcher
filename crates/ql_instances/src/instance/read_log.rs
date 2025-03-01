@@ -14,7 +14,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use ql_core::{err, json::VersionDetails, IoError, JsonFileError};
+use ql_core::{err, json::VersionDetails, IntoStringError, IoError, JsonFileError};
 
 /// [`read_logs`] `_w` function
 ///
@@ -31,7 +31,7 @@ pub async fn read_logs_w(
 ) -> Result<(ExitStatus, String), String> {
     read_logs(stdout, stderr, child, sender, &instance_name)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|n| (n, instance_name))
 }
 

@@ -1,4 +1,6 @@
-use ql_core::{err, file_utils, IntoIoError, JsonFileError, LAUNCHER_VERSION_NAME};
+use ql_core::{
+    err, file_utils, IntoIoError, IntoStringError, JsonFileError, LAUNCHER_VERSION_NAME,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
@@ -13,6 +15,7 @@ pub struct LauncherConfig {
     pub version: Option<String>,
     pub sidebar_width: Option<u32>,
     pub accounts: Option<HashMap<String, ConfigAccount>>,
+    pub ui_scale: Option<f64>,
 }
 
 impl Default for LauncherConfig {
@@ -24,6 +27,7 @@ impl Default for LauncherConfig {
             version: Some(LAUNCHER_VERSION_NAME.to_owned()),
             sidebar_width: Some(200),
             accounts: None,
+            ui_scale: None,
         }
     }
 }
@@ -60,7 +64,7 @@ impl LauncherConfig {
 
     /// [`LauncherConfig::save`] `_w` function
     pub async fn save_w(self) -> Result<(), String> {
-        self.save().await.map_err(|err| err.to_string())
+        self.save().await.strerr()
     }
 
     fn create(path: &Path) -> Result<Self, JsonFileError> {

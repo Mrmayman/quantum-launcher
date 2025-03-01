@@ -10,7 +10,7 @@
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
 
-use ql_core::{info, pt, GenericProgress, RequestError, CLIENT};
+use ql_core::{info, pt, GenericProgress, IntoStringError, RequestError, CLIENT};
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
@@ -118,7 +118,7 @@ pub async fn login_refresh_w(
 ) -> Result<AccountData, String> {
     login_refresh(&username, &refresh_token, sender)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
 }
 
 pub async fn login_refresh(
@@ -165,13 +165,11 @@ pub async fn login_3_xbox_w(
     data: AuthTokenResponse,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, String> {
-    login_3_xbox(data, sender)
-        .await
-        .map_err(|err| err.to_string())
+    login_3_xbox(data, sender).await.strerr()
 }
 
 pub async fn login_1_link_w() -> Result<AuthCodeResponse, String> {
-    login_1_link().await.map_err(|err| err.to_string())
+    login_1_link().await.strerr()
 }
 
 pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
@@ -202,7 +200,7 @@ pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
 }
 
 pub async fn login_2_wait_w(data: AuthCodeResponse) -> Result<AuthTokenResponse, String> {
-    login_2_wait(&data).await.map_err(|err| err.to_string())
+    login_2_wait(&data).await.strerr()
 }
 
 pub fn read_refresh_token(username: &str) -> Result<String, AuthError> {

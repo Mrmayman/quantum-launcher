@@ -56,6 +56,16 @@ impl VersionDetails {
         Ok(details)
     }
 
+    pub async fn load_from_path(path: &Path) -> Result<Self, JsonFileError> {
+        let version_json_path = path.join("details.json");
+        let version_json = tokio::fs::read_to_string(&version_json_path)
+            .await
+            .path(version_json_path)?;
+        let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+        Ok(version_json)
+    }
+
+    #[must_use]
     pub fn load_s(instance_dir: &Path) -> Option<Self> {
         let path = instance_dir.join("details.json");
 

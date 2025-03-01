@@ -27,7 +27,7 @@ pub fn changelog_0_4<'a>() -> Element<'a> {
         "- The launcher menus have been redesigned",
         "- Select instances easily with a sidebar, and enjoy the simpler navigation with tabs!",
         "- The purple colour pallete has been changed to be more vibrant and punchy",
-        widget::text("Plugins:").size(20), // TODO: Implement this
+        widget::text("Plugins:").size(20), // TODO: Finish implementing this
         "- Added a lua-based plugin system. Tweak the launcher to your liking",
         "- There's now a plugin store too!",
         "- Plugins are safe. They are completely sandboxed and manually reviewed for security",

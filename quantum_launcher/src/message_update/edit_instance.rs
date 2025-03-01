@@ -78,63 +78,7 @@ impl Launcher {
                     menu.instance_name = n;
                 }
             }
-            EditInstanceMessage::RenameApply => {
-                if let State::Launch(MenuLaunch {
-                    edit_instance: Some(menu),
-                    ..
-                }) = &mut self.state
-                {
-                    let mut disallowed = vec![
-                        '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\'', '\0', '\u{7F}',
-                    ];
-
-                    disallowed.extend('\u{1}'..='\u{1F}');
-
-                    // Remove disallowed characters
-
-                    let mut instance_name = menu.instance_name.clone();
-                    instance_name.retain(|c| !disallowed.contains(&c));
-                    let instance_name = instance_name.trim();
-
-                    if instance_name.is_empty() {
-                        err!("New name is empty or invalid");
-                        return Task::none();
-                    }
-
-                    if menu.old_instance_name != menu.instance_name {
-                        let instances_dir = self.dir.join(
-                            if self.selected_instance.as_ref().unwrap().is_server() {
-                                "servers"
-                            } else {
-                                "instances"
-                            },
-                        );
-
-                        let old_path = instances_dir.join(&menu.old_instance_name);
-                        let new_path = instances_dir.join(&menu.instance_name);
-
-                        menu.old_instance_name = menu.instance_name.clone();
-                        if let Some(n) = &mut self.selected_instance {
-                            n.set_name(&menu.instance_name);
-                        }
-                        if let Err(err) = std::fs::rename(&old_path, &new_path).path(&old_path) {
-                            self.set_error(err);
-                        }
-
-                        return Task::perform(
-                            get_entries(
-                                match self.selected_instance.as_ref().unwrap() {
-                                    ql_core::InstanceSelection::Instance(_) => "instances",
-                                    ql_core::InstanceSelection::Server(_) => "servers",
-                                }
-                                .to_owned(),
-                                false,
-                            ),
-                            Message::CoreListLoaded,
-                        );
-                    }
-                }
-            }
+            EditInstanceMessage::RenameApply => return self.rename_instance(),
             EditInstanceMessage::ConfigSaved(res) => {
                 if let Err(err) = res {
                     self.set_error(err);
@@ -142,6 +86,67 @@ impl Launcher {
             }
         }
         Task::none()
+    }
+
+    fn rename_instance(&mut self) -> Task<Message> {
+        let State::Launch(MenuLaunch {
+            edit_instance: Some(menu),
+            ..
+        }) = &mut self.state
+        else {
+            return Task::none();
+        };
+        let mut disallowed = vec![
+            '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\'', '\0', '\u{7F}',
+        ];
+
+        disallowed.extend('\u{1}'..='\u{1F}');
+
+        // Remove disallowed characters
+
+        let mut instance_name = menu.instance_name.clone();
+        instance_name.retain(|c| !disallowed.contains(&c));
+        let instance_name = instance_name.trim();
+
+        if instance_name.is_empty() {
+            err!("New name is empty or invalid");
+            return Task::none();
+        }
+
+        if menu.old_instance_name != menu.instance_name {
+            let instances_dir =
+                self.dir
+                    .join(if self.selected_instance.as_ref().unwrap().is_server() {
+                        "servers"
+                    } else {
+                        "instances"
+                    });
+
+            let old_path = instances_dir.join(&menu.old_instance_name);
+            let new_path = instances_dir.join(&menu.instance_name);
+
+            menu.old_instance_name = menu.instance_name.clone();
+            if let Some(n) = &mut self.selected_instance {
+                n.set_name(&menu.instance_name);
+            }
+            if let Err(err) = std::fs::rename(&old_path, &new_path).path(&old_path) {
+                self.set_error(err);
+            }
+
+            Task::perform(
+                get_entries(
+                    match self.selected_instance.as_ref().unwrap() {
+                        ql_core::InstanceSelection::Instance(_) => "instances",
+                        ql_core::InstanceSelection::Server(_) => "servers",
+                    }
+                    .to_owned(),
+                    false,
+                ),
+                Message::CoreListLoaded,
+            )
+        } else {
+            Task::none()
+        }
     }
 
     fn e_java_arg_add(&mut self) {

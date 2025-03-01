@@ -11,7 +11,8 @@ use ql_core::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
         VersionDetails,
     },
-    pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress, CLASSPATH_SEPARATOR,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IntoStringError, IoError, Progress,
+    CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -562,7 +563,7 @@ pub async fn install_w(
         InstanceSelection::Instance(name) => install_client(name, f_progress, j_progress).await,
         InstanceSelection::Server(name) => install_server(name, j_progress, f_progress).await,
     }
-    .map_err(|err| err.to_string())
+    .strerr()
 }
 
 pub async fn install_client_w(
@@ -572,7 +573,7 @@ pub async fn install_client_w(
 ) -> Result<(), String> {
     install_client(instance_name, f_progress, j_progress)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
 }
 
 pub enum ForgeInstallProgress {

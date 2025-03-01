@@ -6,7 +6,7 @@ use std::{
 use iced::Task;
 use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    InstanceSelection, IntoIoError,
+    InstanceSelection, IntoIoError, IntoStringError,
 };
 use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
 
@@ -20,16 +20,14 @@ impl Launcher {
         let config_path = instances_dir.join("config.json");
         let config = std::fs::read_to_string(&config_path)
             .path(config_path)
-            .map_err(|err| err.to_string())?;
-        let config: InstanceConfigJson =
-            serde_json::from_str(&config).map_err(|err| err.to_string())?;
+            .strerr()?;
+        let config: InstanceConfigJson = serde_json::from_str(&config).strerr()?;
 
         let version_path = instances_dir.join("details.json");
         let version = std::fs::read_to_string(&version_path)
             .path(version_path)
-            .map_err(|err| err.to_string())?;
-        let version: VersionDetails =
-            serde_json::from_str(&version).map_err(|err| err.to_string())?;
+            .strerr()?;
+        let version: VersionDetails = serde_json::from_str(&version).strerr()?;
 
         let mod_index = ModIndex::get_s(selection).map_err(|n| n.to_string())?;
 

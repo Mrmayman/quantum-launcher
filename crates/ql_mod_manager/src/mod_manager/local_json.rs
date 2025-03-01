@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use ql_core::{file_utils, InstanceSelection, IntoIoError, JsonFileError};
+use ql_core::{file_utils, InstanceSelection, IntoIoError, IntoStringError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
 use super::{ModError, ModFile};
@@ -74,9 +74,7 @@ impl ModIndex {
     }
 
     pub async fn get_w(selected_instance: InstanceSelection) -> Result<Self, String> {
-        Self::get(&selected_instance)
-            .await
-            .map_err(|err| err.to_string())
+        Self::get(&selected_instance).await.strerr()
     }
 
     pub fn get_s(selected_instance: &InstanceSelection) -> Result<Self, ModError> {

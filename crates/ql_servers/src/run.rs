@@ -15,6 +15,9 @@ use tokio::process::{Child, Command};
 use crate::ServerError;
 
 /// [`run`] `_w` function
+///
+/// # Errors
+/// See [`run`]
 pub async fn run_w(
     name: String,
     java_install_progress: Sender<GenericProgress>,
@@ -35,6 +38,19 @@ pub async fn run_w(
 /// # Returns
 /// - `Ok((Child, bool))` - The child process and whether the server is a classic server.
 /// - `Err(ServerError)` - The error that occurred.
+///
+/// # Errors
+/// - Instance `config.json` couldn't be read or parsed
+/// - Instance `details.json` couldn't be read or parsed
+/// - Java binary path could not be obtained
+/// - Java could not be installed (if not found)
+/// - `Command` couldn't be spawned (IO Error)
+/// - Forge shim file (`forge-*-shim.jar`) couldn't be found
+/// - Other stuff I'm too dumb to see
+/// ## Launcher Dir
+/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
+/// - if the launcher directory could not be created (permissions issue)
 pub async fn run(
     name: &str,
     java_install_progress: Sender<GenericProgress>,
@@ -42,7 +58,7 @@ pub async fn run(
     let launcher_dir = file_utils::get_launcher_dir().await?;
     let server_dir = launcher_dir.join("servers").join(name);
 
-    let config_json = get_config_json(&server_dir).await?;
+    let config_json = InstanceConfigJson::read(&server_dir).await?;
 
     let server_jar_path = if config_json.mod_type == "Fabric" || config_json.mod_type == "Quilt" {
         server_dir.join("fabric-server-launch.jar")
@@ -56,19 +72,7 @@ pub async fn run(
         server_dir.join("server.jar")
     };
 
-    let version_json_path = server_dir.join("details.json");
-    let version_json = tokio::fs::read_to_string(&version_json_path)
-        .await
-        .path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
-
-    let version = if let Some(version) = version_json.javaVersion.clone() {
-        version.into()
-    } else {
-        JavaVersion::Java8
-    };
-
-    let java_path = get_java_path(&config_json, version, java_install_progress).await?;
+    let java_path = get_java(&server_dir, &config_json, java_install_progress).await?;
 
     let mut java_args: Vec<String> = if let Some(java_args) = &config_json.java_args {
         java_args
@@ -86,7 +90,12 @@ pub async fn run(
 
     let is_classic_server = config_json.is_classic_server.unwrap_or(false);
     java_args.push(if is_classic_server { "-cp" } else { "-jar" }.to_owned());
-    java_args.push(server_jar_path.to_str().unwrap().to_owned());
+    java_args.push(
+        server_jar_path
+            .to_str()
+            .ok_or(ServerError::PathBufToStr(server_jar_path.clone()))?
+            .to_owned(),
+    );
 
     if is_classic_server {
         java_args.push("com.mojang.minecraft.server.MinecraftServer".to_owned());
@@ -116,13 +125,19 @@ pub async fn run(
     Ok((child, is_classic_server))
 }
 
-async fn get_config_json(server_dir: &Path) -> Result<InstanceConfigJson, ServerError> {
-    let config_json_path = server_dir.join("config.json");
-    let config_json = tokio::fs::read_to_string(&config_json_path)
-        .await
-        .path(config_json_path)?;
-    let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
-    Ok(config_json)
+async fn get_java(
+    server_dir: &PathBuf,
+    config_json: &InstanceConfigJson,
+    java_install_progress: Sender<GenericProgress>,
+) -> Result<PathBuf, ServerError> {
+    let version_json = VersionDetails::load_from_path(server_dir).await?;
+    let version = if let Some(version) = version_json.javaVersion.clone() {
+        version.into()
+    } else {
+        JavaVersion::Java8
+    };
+    let java_path = get_java_path(config_json, version, java_install_progress).await?;
+    Ok(java_path)
 }
 
 async fn get_java_path(

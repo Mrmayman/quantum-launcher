@@ -1,7 +1,7 @@
 use std::{fmt::Display, time::Instant};
 
 use image::ImageReader;
-use ql_core::{err, file_utils, IoError, JsonFileError, RequestError};
+use ql_core::{err, file_utils, IntoStringError, IoError, JsonFileError, RequestError};
 use serde::Deserialize;
 use thiserror::Error;
 use zip_extract::ZipError;
@@ -120,7 +120,7 @@ impl Search {
     }
 
     pub async fn search_w(query: Query) -> Result<(Self, Instant), String> {
-        Self::search(query).await.map_err(|err| err.to_string())
+        Self::search(query).await.strerr()
     }
 
     pub async fn download_image(url: String, icon: bool) -> Result<ImageResult, String> {

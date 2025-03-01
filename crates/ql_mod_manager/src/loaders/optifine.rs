@@ -8,7 +8,7 @@ use std::{
 use ql_core::{
     file_utils, info,
     json::{optifine::JsonOptifine, VersionDetails},
-    GenericProgress, IntoIoError, IoError, JsonFileError, Progress, RequestError,
+    GenericProgress, IntoIoError, IntoStringError, IoError, JsonFileError, Progress, RequestError,
     CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
@@ -34,7 +34,7 @@ pub async fn install_w(
         java_progress_sender,
     )
     .await
-    .map_err(|err| err.to_string())
+    .strerr()
 }
 
 #[derive(Default)]
@@ -97,9 +97,7 @@ pub async fn install_optifine(
     }
 
     info!("Started installing OptiFine");
-    if let Some(progress) = &progress_sender {
-        progress.send(OptifineInstallProgress::P1Start).unwrap();
-    }
+    send_progress(&progress_sender, OptifineInstallProgress::P1Start);
 
     let instance_path = file_utils::get_launcher_dir()
         .await?
@@ -123,11 +121,7 @@ pub async fn install_optifine(
         .path(path_to_installer)?;
 
     info!("Compiling OptifineInstaller.java");
-    if let Some(progress) = &progress_sender {
-        progress
-            .send(OptifineInstallProgress::P2CompilingHook)
-            .unwrap();
-    }
+    send_progress(&progress_sender, OptifineInstallProgress::P2CompilingHook);
     compile_hook(
         &new_installer_path,
         &optifine_path,
@@ -136,27 +130,30 @@ pub async fn install_optifine(
     .await?;
 
     info!("Running OptifineInstaller.java");
-    if let Some(progress) = &progress_sender {
-        progress
-            .send(OptifineInstallProgress::P3RunningHook)
-            .unwrap();
-    }
+    send_progress(&progress_sender, OptifineInstallProgress::P3RunningHook);
     run_hook(&new_installer_path, &optifine_path).await?;
 
     download_libraries(instance_name, &dot_minecraft_path, progress_sender.as_ref()).await?;
     change_instance_type(&instance_path, "OptiFine".to_owned()).await?;
-    if let Some(progress) = &progress_sender {
-        progress.send(OptifineInstallProgress::P5Done).unwrap();
-    }
+    send_progress(&progress_sender, OptifineInstallProgress::P5Done);
     info!("Finished installing OptiFine");
 
     Ok(())
 }
 
+fn send_progress(
+    progress_sender: &Option<Sender<OptifineInstallProgress>>,
+    prog: OptifineInstallProgress,
+) {
+    if let Some(progress) = progress_sender {
+        _ = progress.send(prog);
+    }
+}
+
 pub async fn uninstall_w(instance_name: String) -> Result<Loader, String> {
     uninstall(&instance_name)
         .await
-        .map_err(|err| err.to_string())
+        .strerr()
         .map(|()| Loader::OptiFine)
 }
 
@@ -248,12 +245,10 @@ async fn download_libraries(
         let jar_path = libraries_path.join(&url_final_part);
 
         if let Some(progress) = progress_sender {
-            progress
-                .send(OptifineInstallProgress::P4DownloadingLibraries {
-                    done: i,
-                    total: len,
-                })
-                .unwrap();
+            _ = progress.send(OptifineInstallProgress::P4DownloadingLibraries {
+                done: i,
+                total: len,
+            });
         }
 
         if jar_path.exists() {

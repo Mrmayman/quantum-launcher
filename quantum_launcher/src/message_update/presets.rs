@@ -1,5 +1,5 @@
 use iced::Task;
-use ql_core::SelectedMod;
+use ql_core::{IntoStringError, SelectedMod};
 
 use crate::launcher_state::{
     EditPresetsMessage, Launcher, MenuEditPresets, MenuEditPresetsInner, Message, ProgressBar,
@@ -19,9 +19,12 @@ macro_rules! iflet_manage_preset {
 }
 
 impl Launcher {
-    pub fn update_edit_presets(&mut self, message: EditPresetsMessage) -> Task<Message> {
+    pub fn update_edit_presets(
+        &mut self,
+        message: EditPresetsMessage,
+    ) -> Result<Task<Message>, String> {
         match message {
-            EditPresetsMessage::Open => return self.go_to_edit_presets_menu(),
+            EditPresetsMessage::Open => return Ok(self.go_to_edit_presets_menu()),
             EditPresetsMessage::ToggleCheckbox((name, id), enable) => {
                 iflet_manage_preset!(self, Build, selected_mods, selected_state, {
                     if enable {
@@ -64,45 +67,22 @@ impl Launcher {
             EditPresetsMessage::BuildYourOwn => {
                 iflet_manage_preset!(self, Build, selected_mods, is_building, {
                     *is_building = true;
-                    return Task::perform(
+                    return Ok(Task::perform(
                         ql_mod_manager::PresetJson::generate_w(
                             self.selected_instance.clone().unwrap(),
                             selected_mods.clone(),
                         ),
                         |n| Message::EditPresets(EditPresetsMessage::BuildYourOwnEnd(n)),
-                    );
+                    ));
                 });
             }
-            EditPresetsMessage::BuildYourOwnEnd(result) => match result {
-                Ok(preset) => {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("QuantumLauncher Preset", &["qmp"])
-                        .set_file_name("my_preset.qmp")
-                        .set_title("Save your QuantumLauncher Preset")
-                        .save_file()
-                    {
-                        if let Err(err) = std::fs::write(path, preset) {
-                            self.set_error(err);
-                        } else {
-                            match self.go_to_edit_mods_menu() {
-                                Ok(n) => return n,
-                                Err(err) => self.set_error(err),
-                            }
-                        }
-                    }
-                }
+            EditPresetsMessage::BuildYourOwnEnd(result) => match self.build_end(result) {
+                Ok(task) => return Ok(task),
                 Err(err) => self.set_error(err),
             },
-            EditPresetsMessage::Load => return self.load_preset(),
+            EditPresetsMessage::Load => return Ok(self.load_preset()),
             EditPresetsMessage::LoadComplete(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    match self.go_to_edit_mods_menu() {
-                        Ok(cmd) => return cmd,
-                        Err(err) => self.set_error(err),
-                    }
-                }
+                return result.and_then(|()| self.go_to_edit_mods_menu().strerr());
             }
             EditPresetsMessage::RecommendedModCheck(result) => {
                 iflet_manage_preset!(self, Recommended, mods, error, {
@@ -142,7 +122,7 @@ impl Launcher {
 
                     *progress = Some(ProgressBar::with_recv(receiver));
 
-                    return Task::perform(
+                    return Ok(Task::perform(
                         ql_mod_manager::mod_manager::download_mods_w(
                             mods.iter()
                                 .filter(|n| n.0)
@@ -152,20 +132,28 @@ impl Launcher {
                             sender,
                         ),
                         |n| Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(n)),
-                    );
+                    ));
                 }
             }
             EditPresetsMessage::RecommendedDownloadEnd(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    match self.go_to_edit_mods_menu_without_update_check() {
-                        Ok(n) => return n,
-                        Err(err) => self.set_error(err),
-                    }
-                }
+                result?;
+                return self.go_to_edit_mods_menu_without_update_check().strerr();
             }
         }
-        Task::none()
+        Ok(Task::none())
+    }
+
+    fn build_end(&mut self, preset: Result<Vec<u8>, String>) -> Result<Task<Message>, String> {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("QuantumLauncher Preset", &["qmp"])
+            .set_file_name("my_preset.qmp")
+            .set_title("Save your QuantumLauncher Preset")
+            .save_file()
+        {
+            std::fs::write(path, preset?).strerr()?;
+            self.go_to_edit_mods_menu().strerr()
+        } else {
+            Ok(Task::none())
+        }
     }
 }

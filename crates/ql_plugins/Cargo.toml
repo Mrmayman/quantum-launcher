@@ -13,6 +13,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 rfd = { workspace = true }
+lazy_static = { workspace = true }
 
 include_dir = "0.7"
 mlua = { version = "0.10", features = ["vendored", "lua51"] }

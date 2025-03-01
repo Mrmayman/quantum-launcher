@@ -22,7 +22,9 @@ use std::{
     sync::Arc,
 };
 
-pub use error::{DownloadError, IntoIoError, IoError, JsonDownloadError, JsonFileError};
+pub use error::{
+    DownloadError, IntoIoError, IntoStringError, IoError, JsonDownloadError, JsonFileError,
+};
 pub use file_utils::RequestError;
 use futures::StreamExt;
 pub use progress::{DownloadProgress, GenericProgress, Progress};
@@ -106,7 +108,7 @@ impl InstanceSelection {
 
     pub fn set_name(&mut self, name: &str) {
         match self {
-            Self::Instance(ref mut n) | Self::Server(ref mut n) => *n = name.to_owned(),
+            Self::Instance(ref mut n) | Self::Server(ref mut n) => name.clone_into(n),
         }
     }
 }
@@ -126,21 +128,18 @@ pub enum SelectedMod {
 pub fn open_file_explorer(path: &str) {
     use std::process::Command;
 
-    #[cfg(target_os = "linux")]
+    if let Err(err) = Command::new(if cfg!(target_os = "linux") {
+        "xdg-open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        panic!("Opening file explorer not supported on this platform.")
+    })
+    .arg(path)
+    .spawn()
     {
-        _ = Command::new("xdg-open").arg(path).spawn().unwrap();
+        err!("Could not open link: {err}");
     }
-
-    #[cfg(target_os = "windows")]
-    {
-        _ = Command::new("explorer").arg(path).spawn().unwrap();
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        _ = Command::new("open").arg(path).spawn().unwrap();
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-    panic!("Opening file explorer not supported on this platform.")
 }

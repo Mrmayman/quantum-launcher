@@ -27,11 +27,9 @@ impl Launcher {
             None => None,
         };
 
-        let username = &self.config.as_ref().unwrap().username;
-
         widget::row!(
-            self.get_sidebar(username, selected_instance_s, menu),
-            self.get_tab(username, selected_instance_s, menu)
+            self.get_sidebar(selected_instance_s, menu),
+            self.get_tab(selected_instance_s, menu)
         )
         .spacing(2)
         .into()
@@ -39,7 +37,6 @@ impl Launcher {
 
     fn get_tab<'a>(
         &'a self,
-        username: &'a str,
         selected_instance_s: Option<&'a String>,
         menu: &'a MenuLaunch,
     ) -> Element<'a> {
@@ -99,7 +96,7 @@ impl Launcher {
                 LaunchTabId::Buttons => {
                     let (main_buttons, _) = dynamic_box(
                         [
-                            self.get_play_button(username, selected_instance_s).into(),
+                            self.get_play_button(selected_instance_s).into(),
                             mods_button.into(),
                             self.get_files_button(selected_instance_s).into(),
                         ],
@@ -200,7 +197,6 @@ impl Launcher {
 
     fn get_sidebar<'a>(
         &'a self,
-        username: &'a str,
         selected_instance_s: Option<&'a String>,
         menu: &'a MenuLaunch,
     ) -> Element<'a> {
@@ -210,7 +206,7 @@ impl Launcher {
             widget::row!(if let Some(instances) = self.client_list.as_deref() {
                 widget::column!(widget::scrollable(
                     widget::column!(
-                        self.get_accounts_bar(menu, username),
+                        self.get_accounts_bar(menu),
                         button_with_icon(icon_manager::create(), "New", 16)
                             .style(|n, status| n.style_button(status, StyleButton::Flat))
                             .on_press(Message::CreateInstance(CreateInstanceMessage::ScreenOpen))
@@ -251,7 +247,7 @@ impl Launcher {
         .into()
     }
 
-    fn get_accounts_bar(&self, menu: &MenuLaunch, username: &str) -> Element {
+    fn get_accounts_bar(&self, menu: &MenuLaunch) -> Element {
         let something_is_happening =
             self.java_recv.is_some() || menu.asset_recv.is_some() || menu.login_progress.is_some();
 
@@ -272,7 +268,7 @@ impl Launcher {
         widget::column!("Accounts", dropdown)
             .push_maybe(
                 (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME)).then_some(
-                    widget::text_input("Enter username...", username)
+                    widget::text_input("Enter username...", &self.config.username)
                         .on_input(Message::LaunchUsernameSet)
                         .width(menu.sidebar_width - 10),
                 ),
@@ -284,19 +280,18 @@ impl Launcher {
 
     fn get_play_button<'a>(
         &self,
-        username: &'a str,
         selected_instance: Option<&'a String>,
     ) -> widget::Column<'a, Message, LauncherTheme> {
         let play_button = button_with_icon(icon_manager::play(), "Play", 16).width(98);
 
-        let play_button = if username.is_empty() {
+        let play_button = if self.config.username.is_empty() {
             widget::column!(widget::tooltip(
                 play_button,
                 "Username is empty!",
                 widget::tooltip::Position::FollowCursor,
             )
             .style(|n| n.style_container_sharp_box(0.0, Color::Black)))
-        } else if username.contains(' ') {
+        } else if self.config.username.contains(' ') {
             widget::column!(widget::tooltip(
                 play_button,
                 "Username contains spaces!",

@@ -86,7 +86,8 @@ use menu_renderer::{
     view_account_login, DISCORD,
 };
 use ql_core::{
-    err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, SelectedMod,
+    err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
+    SelectedMod,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::{loaders, mod_manager::Loader};
@@ -164,7 +165,9 @@ impl Launcher {
                 self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
                 self.edit_instance_w();
             }
-            Message::LaunchUsernameSet(username) => self.set_username(username),
+            Message::LaunchUsernameSet(username) => {
+                self.config.username = username;
+            }
             Message::LaunchStart => {
                 let account_data = if let Some(account) = &self.accounts_selected {
                     if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
@@ -317,7 +320,7 @@ impl Launcher {
                         {
                             async move {
                                 let mut child = process.child.lock().unwrap();
-                                child.start_kill().map_err(|err| err.to_string())
+                                child.start_kill().strerr()
                             }
                         },
                         Message::LaunchKillEnd,
@@ -382,9 +385,8 @@ impl Launcher {
             }
             Message::LauncherSettingsThemePicked(theme) => {
                 info!("Setting color mode {theme}");
-                if let Some(config) = self.config.as_mut() {
-                    config.theme = Some(theme.clone());
-                }
+                self.config.theme = Some(theme.clone());
+
                 match theme.as_str() {
                     "Light" => self.theme.lightness = LauncherThemeLightness::Light,
                     "Dark" => self.theme.lightness = LauncherThemeLightness::Dark,
@@ -396,9 +398,8 @@ impl Launcher {
             }
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting color scheme {style}");
-                if let Some(config) = self.config.as_mut() {
-                    config.style = Some(style.clone());
-                }
+                self.config.style = Some(style.clone());
+
                 match style.as_str() {
                     "Purple" => self.theme.color = LauncherThemeColor::Purple,
                     "Brown" => self.theme.color = LauncherThemeColor::Brown,
@@ -463,7 +464,7 @@ impl Launcher {
                     });
 
                     return Task::perform(
-                        ql_servers::list_versions(Some(Arc::new(sender))),
+                        ql_servers::list_w(Some(Arc::new(sender))),
                         Message::ServerCreateVersionsLoaded,
                     );
                 }
@@ -683,7 +684,10 @@ impl Launcher {
             Message::CoreOpenChangeLog => {
                 self.state = State::ChangeLog;
             }
-            Message::EditPresets(msg) => return self.update_edit_presets(msg),
+            Message::EditPresets(msg) => match self.update_edit_presets(msg) {
+                Ok(n) => return n,
+                Err(err) => self.set_error(err),
+            },
             Message::UninstallLoaderConfirm(msg, name) => {
                 self.state = State::ConfirmAction {
                     msg1: format!("uninstall {name}?"),
@@ -772,7 +776,7 @@ impl Launcher {
                 .spacing(10)
                 .into(),
             State::ModsDownload(menu) => menu.view(&self.images),
-            State::LauncherSettings => MenuLauncherSettings::view(self.config.as_ref()),
+            State::LauncherSettings => MenuLauncherSettings::view(&self.config),
             State::RedownloadAssets { progress, .. } => widget::column!(
                 widget::text("Redownloading Assets").size(20),
                 progress.view()
@@ -817,7 +821,7 @@ impl Launcher {
     }
 
     fn scale_factor(&self) -> f64 {
-        1.0
+        self.config.ui_scale.unwrap_or(1.0)
     }
 }
 

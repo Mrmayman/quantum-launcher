@@ -3,7 +3,7 @@ use colored::Colorize;
 use ql_core::{
     err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    LAUNCHER_VERSION_NAME,
+    IntoStringError, LAUNCHER_VERSION_NAME,
 };
 use std::io::Write;
 
@@ -60,7 +60,7 @@ pub fn cmd_list_available_versions() {
     let versions = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(ql_instances::list_versions(None))
-        .map_err(|err| err.to_string())
+        .strerr()
     {
         Ok(n) => n,
         Err(err) => {
@@ -97,7 +97,7 @@ pub fn cmd_list_instances(cmds: Vec<PrintCmd>, dirname: &str) {
     let instances = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(get_entries(dirname.to_owned(), false))
-        .map_err(|err| err.to_string())
+        .strerr()
     {
         Ok(n) => n.0,
         Err(err) => {
