@@ -44,6 +44,11 @@ pub struct VersionDetails {
 }
 
 impl VersionDetails {
+    /// Loads a Minecraft instance JSON from disk.
+    ///
+    /// # Errors
+    /// - `details.json` file couldn't be loaded
+    /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
         let path = file_utils::get_instance_dir(instance)
             .await?

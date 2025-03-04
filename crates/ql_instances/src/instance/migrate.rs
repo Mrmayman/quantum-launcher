@@ -7,7 +7,7 @@ use ql_core::{
     info, json::version::LibraryDownloads, IntoIoError, CLASSPATH_SEPARATOR, LAUNCHER_VERSION_NAME,
 };
 
-use crate::download::GameDownloader;
+use crate::{download::GameDownloader, LAUNCHER_VERSION};
 
 use super::launch::{error::GameLaunchError, GameLauncher};
 
@@ -15,12 +15,33 @@ impl GameLauncher {
     pub async fn migrate_old_instances(&self) -> Result<(), GameLaunchError> {
         self.cleanup_junk_files().await?;
 
+        let version = self.migrate_get_version().await?;
+
+        self.migrate_natives(&version).await?;
+
+        Ok(())
+    }
+
+    /// Gets the `semver::Version` of the launcher from
+    /// the last time it was opened. Useful for migration.
+    ///
+    /// You can compare it with [`LAUNCHER_VERSION`] to
+    /// see if the user upgraded to a new version.
+    ///
+    /// Note: after this call, the old version is only
+    /// in-memory in the return value.
+    /// The version file will have been updated.
+    ///
+    /// Essentially, you can only call this once.
+    async fn migrate_get_version(&self) -> Result<semver::Version, GameLaunchError> {
         let launcher_version_path = self.instance_dir.join("launcher_version.txt");
         let mut version = if launcher_version_path.exists() {
             tokio::fs::read_to_string(&launcher_version_path)
                 .await
                 .path(&launcher_version_path)?
         } else {
+            // launcher_version.txt was added in v0.2
+            // so if it doesn't exist, this is v0.1
             tokio::fs::write(&launcher_version_path, "0.1")
                 .await
                 .path(&launcher_version_path)?;
@@ -29,24 +50,27 @@ impl GameLauncher {
         if version.split('.').count() == 2 {
             version.push_str(".0");
         }
-
         let version = semver::Version::parse(&version)?;
+        if version < LAUNCHER_VERSION {
+            tokio::fs::write(&launcher_version_path, LAUNCHER_VERSION_NAME)
+                .await
+                .path(launcher_version_path)?;
+        }
+        Ok(version)
+    }
 
-        let allowed_version = semver::Version {
+    /// Download missing native libraries (affects launcher version 0.1 and 0.2)
+    async fn migrate_natives(&self, version: &semver::Version) -> Result<(), GameLaunchError> {
+        let v0_3 = semver::Version {
             major: 0,
             minor: 3,
             patch: 0,
             pre: semver::Prerelease::EMPTY,
             build: semver::BuildMetadata::EMPTY,
         };
-
-        if version < allowed_version {
+        if version < &v0_3 {
             self.migrate_download_missing_native_libs().await?;
-            tokio::fs::write(&launcher_version_path, LAUNCHER_VERSION_NAME)
-                .await
-                .path(launcher_version_path)?;
         }
-
         Ok(())
     }
 

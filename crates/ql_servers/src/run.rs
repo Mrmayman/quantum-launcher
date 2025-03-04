@@ -44,7 +44,7 @@ pub async fn run(
     let launcher_dir = file_utils::get_launcher_dir().await?;
     let server_dir = launcher_dir.join("servers").join(name);
 
-    let config_json = InstanceConfigJson::read(&server_dir).await?;
+    let config_json = InstanceConfigJson::read_from_path(&server_dir).await?;
 
     let server_jar_path = if config_json.mod_type == "Fabric" || config_json.mod_type == "Quilt" {
         server_dir.join("fabric-server-launch.jar")

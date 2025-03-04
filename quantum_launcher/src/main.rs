@@ -210,7 +210,7 @@ impl Launcher {
                     };
 
                     return Task::batch([
-                        self.go_to_launch_screen(None),
+                        self.go_to_launch_screen::<String>(None),
                         self.launch_game(account_data),
                     ]);
                 }
@@ -300,7 +300,7 @@ impl Launcher {
                             loader.to_string()
                         }
                     );
-                    return self.go_to_main_menu_with_message(message);
+                    return self.go_to_main_menu_with_message(Some(message));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -309,7 +309,7 @@ impl Launcher {
             }
             Message::InstallForgeEnd(result) => match result {
                 Ok(()) => {
-                    return self.go_to_main_menu_with_message("Installed Forge");
+                    return self.go_to_main_menu_with_message(Some("Installed Forge"));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -977,8 +977,7 @@ fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<Pr
                 "version" => cmds.push(PrintCmd::Version),
                 "loader" => cmds.push(PrintCmd::Loader),
                 invalid => {
-                    err!("Invalid subcommand {invalid}! Use any combination of name, version and loader separated by hyphen '-'");
-                    std::process::exit(1);
+                    panic!("Invalid subcommand {invalid}! Use any combination of name, version and loader separated by hyphen '-'");
                 }
             }
         }

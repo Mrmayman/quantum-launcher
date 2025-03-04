@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Display,
     path::{Path, PathBuf},
     process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -704,9 +705,9 @@ impl Launcher {
         }
     }
 
-    pub fn go_to_launch_screen(&mut self, message: Option<String>) -> Task<Message> {
+    pub fn go_to_launch_screen<T: Display>(&mut self, message: Option<T>) -> Task<Message> {
         let mut menu_launch = match message {
-            Some(message) => MenuLaunch::with_message(message),
+            Some(message) => MenuLaunch::with_message(message.to_string()),
             None => MenuLaunch::default(),
         };
         if let Some(width) = self.config.sidebar_width {

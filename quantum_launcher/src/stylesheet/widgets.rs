@@ -176,7 +176,7 @@ impl widget::text::Catalog for LauncherTheme {
 
     fn default<'a>() -> Self::Class<'a> {}
 
-    fn style(&self, _: &()) -> widget::text::Style {
+    fn style(&self, (): &()) -> widget::text::Style {
         widget::text::Style { color: None }
     }
 }

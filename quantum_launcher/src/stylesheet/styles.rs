@@ -31,7 +31,7 @@ pub struct LauncherTheme {
 
 impl LauncherTheme {
     pub fn from_vals(color: LauncherThemeColor, lightness: LauncherThemeLightness) -> Self {
-        Self { color, lightness }
+        Self { lightness, color }
     }
 
     pub fn get(&self, color: Color, invert: bool) -> iced::Color {

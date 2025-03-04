@@ -64,6 +64,24 @@ pub const RECOMMENDED_MODS: &[RecommendedMod] = &[
         enabled_by_default: true,
     },
     RecommendedMod {
+        id: "kzwxhsjp",
+        name: "Accurate Block Placement Reborn",
+        description: "Makes placing blocks more accurate",
+        enabled_by_default: true,
+    },
+    RecommendedMod {
+        id: "aC3cM3Vq",
+        name: "Mouse Tweaks",
+        description: "Improves inventory controls",
+        enabled_by_default: true,
+    },
+    RecommendedMod {
+        id: "hvFnDODi",
+        name: "LazyDFU",
+        description: "Speeds up Minecraft start time",
+        enabled_by_default: true,
+    },
+    RecommendedMod {
         id: "YL57xq9U",
         name: "Iris Shaders",
         description: "Adds Shaders to Minecraft",
@@ -88,33 +106,27 @@ pub const RECOMMENDED_MODS: &[RecommendedMod] = &[
         enabled_by_default: false,
     },
     RecommendedMod {
-        id: "kzwxhsjp",
-        name: "Accurate Block Placement Reborn",
-        description: "Makes placing blocks more accurate",
-        enabled_by_default: false,
-    },
-    RecommendedMod {
-        id: "aC3cM3Vq",
-        name: "Mouse Tweaks",
-        description: "Improves inventory controls",
-        enabled_by_default: false,
-    },
-    RecommendedMod {
         id: "8shC1gFX",
         name: "BetterF3",
-        description: "Cleans up the debug screen",
+        description: "Cleans up the debug (F3) screen",
         enabled_by_default: false,
     },
     RecommendedMod {
         id: "EsAfCjCV",
         name: "AppleSkin",
-        description: "Shows food saturation values",
+        description: "Shows hunger and saturation values",
         enabled_by_default: false,
     },
     RecommendedMod {
         id: "1bokaNcj",
         name: "Xaero's Minimap",
         description: "Adds a minimap to the game",
+        enabled_by_default: false,
+    },
+    RecommendedMod {
+        id: "NcUtCpym",
+        name: "Xaero's World Map",
+        description: "Adds a world map to the game",
         enabled_by_default: false,
     },
 ];

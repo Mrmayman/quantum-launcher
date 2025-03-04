@@ -115,7 +115,11 @@ impl Launcher {
             return Ok(Task::none());
         }
 
-        if menu.old_instance_name != menu.instance_name {
+        if menu.old_instance_name == menu.instance_name {
+            // Don't waste time talking to OS
+            // and "renaming" instance if nothing has changed.
+            Ok(Task::none())
+        } else {
             let instances_dir =
                 self.dir
                     .join(if self.selected_instance.as_ref().unwrap().is_server() {
@@ -146,8 +150,6 @@ impl Launcher {
                 ),
                 Message::CoreListLoaded,
             ))
-        } else {
-            Ok(Task::none())
         }
     }
 

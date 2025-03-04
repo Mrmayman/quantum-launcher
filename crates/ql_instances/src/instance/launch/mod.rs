@@ -486,7 +486,22 @@ impl GameLauncher {
         let json = tokio::fs::read_to_string(&json_path)
             .await
             .path(json_path)?;
-        Ok(serde_json::from_str(&json)?)
+        let json_details: forge::JsonDetails = match serde_json::from_str(&json) {
+            Ok(n) => n,
+            Err(err) => {
+                if err.to_string().starts_with("invalid type: string") {
+                    // Sometimes the "JSON" is formatted like
+                    // "{\"hello\" : \"world\"}"
+                    // See those pesky backslashed quotes?
+                    // We fix that here.
+                    let json_details: String = serde_json::from_str(&json)?;
+                    serde_json::from_str(&json_details)?
+                } else {
+                    return Err(err.into());
+                }
+            }
+        };
+        Ok(json_details)
     }
 
     async fn setup_optifine(

@@ -5,13 +5,13 @@ use std::{
 };
 
 use iced::Task;
-use ql_core::{err, InstanceSelection, IntoStringError};
+use ql_core::{err, json::InstanceConfigJson, InstanceSelection, IntoStringError};
 use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
 
 use crate::launcher_state::{
-    get_entries, EditInstanceMessage, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
-    MenuCreateInstance, MenuEditMods, MenuEditPresetsInner, MenuInstallFabric, MenuLaunch,
+    EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance,
+    MenuEditMods, MenuEditPresetsInner, MenuInstallFabric, MenuLaunch, MenuModsDownload,
     MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
 };
 
@@ -42,17 +42,10 @@ impl Launcher {
 
                 let mut commands = Vec::new();
 
-                if let Some(edit) = edit_instance.as_ref() {
-                    let instance = self.selected_instance.clone().unwrap();
+                if let Some(edit) = &edit_instance {
                     let config = edit.config.clone();
-                    let dir = self.dir.clone();
-                    let cmd = Task::perform(
-                        async move { Launcher::save_config(instance, config, dir).await.strerr() },
-                        |n| Message::EditInstance(EditInstanceMessage::ConfigSaved(n)),
-                    );
-                    commands.push(cmd);
+                    self.tick_edit_instance(config, &mut commands);
                 }
-
                 self.tick_processes_and_logs();
 
                 let launcher_config = self.config.clone();
@@ -97,49 +90,11 @@ impl Launcher {
                 };
                 if has_finished {
                     self.java_recv = None;
-                    let message = "Installed Java".to_owned();
-                    match &self.selected_instance {
-                        Some(InstanceSelection::Instance(_)) | None => {
-                            return self.go_to_launch_screen(Some(message));
-                        }
-                        Some(InstanceSelection::Server(_)) => {
-                            return self.go_to_server_manage_menu(Some(message));
-                        }
-                    }
+                    return self.go_to_main_menu_with_message(Some("Installed Java"));
                 }
             }
             State::ModsDownload(menu) => {
-                let selected_instance = self.selected_instance.clone().unwrap();
-                let index_cmd = Task::perform(
-                    async move {
-                        let selected_instance = selected_instance;
-                        ModIndex::get(&selected_instance).await.strerr()
-                    },
-                    |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n)),
-                );
-
-                if let Some(results) = &menu.results {
-                    let mut commands = vec![index_cmd];
-                    for result in &results.hits {
-                        if commands.len() > 64 {
-                            break;
-                        }
-                        if !self.images.downloads_in_progress.contains(&result.title)
-                            && !result.icon_url.is_empty()
-                        {
-                            self.images
-                                .downloads_in_progress
-                                .insert(result.title.clone());
-                            commands.push(Task::perform(
-                                Search::download_image(result.icon_url.clone(), true),
-                                |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
-                            ));
-                        }
-                    }
-
-                    return Task::batch(commands);
-                }
-                return index_cmd;
+                return menu.tick(self.selected_instance.clone().unwrap(), &mut self.images)
             }
             State::LauncherSettings => {
                 let launcher_config = self.config.clone();
@@ -151,20 +106,7 @@ impl Launcher {
             State::RedownloadAssets { progress } => {
                 progress.tick();
                 if progress.progress.has_finished {
-                    let message = "Redownloaded Assets".to_owned();
-                    self.state = State::Launch(MenuLaunch {
-                        message,
-                        asset_recv: None,
-                        tab: LaunchTabId::default(),
-                        edit_instance: None,
-                        login_progress: None,
-                        sidebar_width: 200,
-                        sidebar_dragging: false,
-                    });
-                    return Task::perform(
-                        get_entries("instances".to_owned(), false),
-                        Message::CoreListLoaded,
-                    );
+                    return self.go_to_launch_screen(Some("Redownloaded Assets"));
                 }
             }
             State::InstallOptifine(menu) => {
@@ -178,36 +120,17 @@ impl Launcher {
                 }
             }
             State::ServerManage(_) => {
-                if self.java_recv.as_mut().map(|n| n.tick()).unwrap_or(false) {
+                if self.java_recv.as_mut().is_some_and(|n| n.tick()) {
                     self.state = State::InstallJava;
                     return Task::none();
                 }
-
                 self.tick_server_processes_and_logs();
             }
-            State::ServerCreate(menu) => match menu {
-                MenuServerCreate::LoadingList {
-                    progress_receiver,
-                    progress_number,
-                } => {
-                    while let Ok(()) = progress_receiver.try_recv() {
-                        *progress_number += 1.0;
-                        if *progress_number > 16.0 {
-                            err!("More than 16 indexes scraped: {progress_number}");
-                            *progress_number = 16.0;
-                        }
-                    }
-                }
-                MenuServerCreate::Loaded { .. } => {}
-                MenuServerCreate::Downloading { progress } => {
-                    progress.tick();
-                }
-            },
+            State::ServerCreate(menu) => menu.tick(),
             State::ManagePresets(menu) => {
                 if let Some(progress) = &mut menu.progress {
                     progress.tick();
                 }
-
                 if let MenuEditPresetsInner::Recommended { progress, .. } = &mut menu.inner {
                     progress.tick();
                 }
@@ -226,6 +149,16 @@ impl Launcher {
         }
 
         Task::none()
+    }
+
+    fn tick_edit_instance(&self, config: InstanceConfigJson, commands: &mut Vec<Task<Message>>) {
+        let instance = self.selected_instance.clone().unwrap();
+        let dir = self.dir.clone();
+        let cmd = Task::perform(
+            async move { Launcher::save_config(instance, config, dir).await.strerr() },
+            |n| Message::EditInstance(EditInstanceMessage::ConfigSaved(n)),
+        );
+        commands.push(cmd);
     }
 
     pub fn get_imgs_to_load(&mut self) -> Vec<Task<Message>> {
@@ -348,6 +281,67 @@ impl Launcher {
                     ));
                 }
                 log.log.push_str(&message);
+            }
+        }
+    }
+}
+
+impl MenuModsDownload {
+    pub fn tick(
+        &mut self,
+        selected_instance: InstanceSelection,
+        images: &mut ImageState,
+    ) -> Task<Message> {
+        let index_cmd = Task::perform(
+            async move {
+                let selected_instance = selected_instance;
+                ModIndex::get(&selected_instance).await.strerr()
+            },
+            |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n)),
+        );
+
+        if let Some(results) = &self.results {
+            let mut commands = vec![index_cmd];
+            for result in &results.hits {
+                if commands.len() > 64 {
+                    break;
+                }
+                if !images.downloads_in_progress.contains(&result.title)
+                    && !result.icon_url.is_empty()
+                {
+                    images.downloads_in_progress.insert(result.title.clone());
+                    commands.push(Task::perform(
+                        Search::download_image(result.icon_url.clone(), true),
+                        |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
+                    ));
+                }
+            }
+
+            Task::batch(commands)
+        } else {
+            index_cmd
+        }
+    }
+}
+
+impl MenuServerCreate {
+    pub fn tick(&mut self) {
+        match self {
+            MenuServerCreate::LoadingList {
+                progress_receiver,
+                progress_number,
+            } => {
+                while let Ok(()) = progress_receiver.try_recv() {
+                    *progress_number += 1.0;
+                    if *progress_number > 16.0 {
+                        err!("More than 16 indexes scraped: {progress_number}");
+                        *progress_number = 16.0;
+                    }
+                }
+            }
+            MenuServerCreate::Loaded { .. } => {}
+            MenuServerCreate::Downloading { progress } => {
+                progress.tick();
             }
         }
     }

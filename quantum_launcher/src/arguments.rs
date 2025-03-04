@@ -1,7 +1,7 @@
 use clap::Command;
 use colored::Colorize;
 use ql_core::{
-    err, file_utils,
+    file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     IntoStringError, LAUNCHER_VERSION_NAME,
 };
@@ -64,8 +64,7 @@ pub fn cmd_list_available_versions() {
     {
         Ok(n) => n,
         Err(err) => {
-            err!("Could not list versions: {err}");
-            std::process::exit(1);
+            panic!("Could not list versions: {err}");
         }
     };
 
@@ -101,8 +100,7 @@ pub fn cmd_list_instances(cmds: Vec<PrintCmd>, dirname: &str) {
     {
         Ok(n) => n.0,
         Err(err) => {
-            err!("Could not list instances: {err}");
-            std::process::exit(1);
+            panic!("Could not list instances: {err}");
         }
     };
 

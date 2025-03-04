@@ -18,11 +18,11 @@ impl Launcher {
         match message {
             InstallFabricMessage::End(result) => match result {
                 Ok(is_quilt) => {
-                    return self.go_to_main_menu_with_message(if is_quilt {
+                    return self.go_to_main_menu_with_message(Some(if is_quilt {
                         "Installed Quilt"
                     } else {
                         "Installed Fabric"
-                    });
+                    }));
                 }
                 Err(err) => self.set_error(err),
             },

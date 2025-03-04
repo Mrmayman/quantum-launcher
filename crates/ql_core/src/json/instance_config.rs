@@ -65,7 +65,7 @@ impl InstanceConfigJson {
         format!("-Xmx{}M", self.ram_in_mb)
     }
 
-    pub async fn read(dir: &Path) -> Result<Self, JsonFileError> {
+    pub async fn read_from_path(dir: &Path) -> Result<Self, JsonFileError> {
         let config_json_path = dir.join("config.json");
         let config_json = tokio::fs::read_to_string(&config_json_path)
             .await

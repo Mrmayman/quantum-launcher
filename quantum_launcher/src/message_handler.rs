@@ -159,9 +159,14 @@ impl Launcher {
                 progress_receiver: receiver,
                 progress_number: 0.0,
             });
-            Task::perform(ql_instances::list_versions(Some(Arc::new(sender))), |n| {
-                Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n))
-            })
+            Task::perform(
+                async move {
+                    ql_instances::list_versions(Some(Arc::new(sender)))
+                        .await
+                        .strerr()
+                },
+                |n| Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n)),
+            )
         }
     }
 
@@ -547,11 +552,14 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn go_to_main_menu_with_message(&mut self, message: impl ToString) -> Task<Message> {
-        let message = Some(message.to_string());
-        match self.selected_instance.as_ref().unwrap() {
-            InstanceSelection::Instance(_) => self.go_to_launch_screen(message),
-            InstanceSelection::Server(_) => self.go_to_server_manage_menu(message),
+    pub fn go_to_main_menu_with_message(
+        &mut self,
+        message: Option<impl ToString>,
+    ) -> Task<Message> {
+        let message = message.map(|n| n.to_string());
+        match &self.selected_instance {
+            None | Some(InstanceSelection::Instance(_)) => self.go_to_launch_screen(message),
+            Some(InstanceSelection::Server(_)) => self.go_to_server_manage_menu(message),
         }
     }
 
@@ -725,7 +733,7 @@ impl Launcher {
         }
 
         if should_return_to_main_screen {
-            return self.go_to_launch_screen(None);
+            return self.go_to_launch_screen::<String>(None);
         }
         if should_return_to_mods_screen {
             match self.go_to_edit_mods_menu_without_update_check() {
@@ -890,7 +898,7 @@ impl Launcher {
         self.accounts_selected = Some(data.username.clone());
         self.accounts.insert(data.username.clone(), data);
 
-        self.go_to_launch_screen(None)
+        self.go_to_launch_screen::<String>(None)
     }
 
     pub fn account_response_2(&mut self, token: ql_instances::AuthTokenResponse) -> Task<Message> {
