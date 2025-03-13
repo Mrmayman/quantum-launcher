@@ -6,10 +6,12 @@ use super::{
 };
 
 #[derive(Default, Clone, Copy)]
+#[allow(unused)]
 pub enum StyleScrollable {
     #[default]
     Round,
-    Flat,
+    FlatExtraDark,
+    FlatDark,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -39,7 +41,7 @@ impl IsFlat for StyleScrollable {
     fn is_flat(&self) -> bool {
         match self {
             StyleScrollable::Round => false,
-            StyleScrollable::Flat => true,
+            StyleScrollable::FlatExtraDark | StyleScrollable::FlatDark => true,
         }
     }
 }

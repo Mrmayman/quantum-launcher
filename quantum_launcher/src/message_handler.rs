@@ -749,7 +749,7 @@ impl Launcher {
         if let State::Launch(MenuLaunch { sidebar_width, .. }) = &mut self.state {
             self.config.sidebar_width = Some(*sidebar_width as u32);
 
-            if self.window_size.0 > SIDEBAR_SQUISH_LIMIT as f32
+            if self.window_size.0 > f32::from(SIDEBAR_SQUISH_LIMIT)
                 && *sidebar_width > self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT
             {
                 *sidebar_width = self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT;
@@ -814,7 +814,7 @@ impl Launcher {
                     {
                         if self.mouse_pos.0 < 100.0 {
                             *sidebar_width = 100;
-                        } else if (self.mouse_pos.0 + SIDEBAR_SQUISH_LIMIT as f32
+                        } else if (self.mouse_pos.0 + f32::from(SIDEBAR_SQUISH_LIMIT)
                             > self.window_size.0)
                             && self.window_size.0 as u16 > SIDEBAR_SQUISH_LIMIT
                         {
@@ -828,7 +828,7 @@ impl Launcher {
                     if let (State::Launch(menu), iced::mouse::Button::Left) =
                         (&mut self.state, button)
                     {
-                        let difference = self.mouse_pos.0 - menu.sidebar_width as f32;
+                        let difference = self.mouse_pos.0 - f32::from(menu.sidebar_width);
                         if difference > 0.0 && difference < SIDEBAR_DRAG_LEEWAY {
                             menu.sidebar_dragging = true;
                         }

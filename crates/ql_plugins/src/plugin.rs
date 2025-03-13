@@ -60,7 +60,7 @@ impl Plugin {
         let (plugins_top_dir, plugins_map) = read_plugins()?;
 
         let Some((name, json)) = plugins_map.iter().find(|(_, j)| {
-            (j.details.name == name) && (version.map_or(true, |v| j.details.version == v))
+            (j.details.name == name) && (version.is_none_or(|v| j.details.version == v))
         }) else {
             return Err(PluginError::PluginNotFound(
                 name.to_owned(),

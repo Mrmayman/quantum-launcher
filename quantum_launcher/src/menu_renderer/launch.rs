@@ -29,7 +29,7 @@ impl Launcher {
             None => None,
         };
 
-        let difference = self.mouse_pos.0 - menu.sidebar_width as f32;
+        let difference = self.mouse_pos.0 - f32::from(menu.sidebar_width);
         let hovered = difference < SIDEBAR_DRAG_LEEWAY && difference > 0.0;
 
         widget::row!(
@@ -200,7 +200,7 @@ impl Launcher {
         selected_instance_s: Option<&'a String>,
         menu: &'a MenuLaunch,
     ) -> Element<'a> {
-        let difference = self.mouse_pos.0 - menu.sidebar_width as f32;
+        let difference = self.mouse_pos.0 - f32::from(menu.sidebar_width);
 
         widget::container(
             widget::row!(if let Some(instances) = self.client_list.as_deref() {
@@ -241,7 +241,7 @@ impl Launcher {
                                 80.0
                             }
                     )
-                    .style(LauncherTheme::style_scrollable_flat),
+                    .style(LauncherTheme::style_scrollable_flat_extra_dark),
                     widget::vertical_space(),
                     self.get_accounts_bar(menu),
                 ]

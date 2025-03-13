@@ -9,7 +9,7 @@ use crate::{
         EditPresetsMessage, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage,
         ManageModsMessage, MenuEditMods, Message, ModListEntry, SelectedState,
     },
-    stylesheet::styles::LauncherTheme,
+    stylesheet::{color::Color, styles::LauncherTheme},
 };
 
 use super::{back_to_launch_screen, button_with_icon, Element};
@@ -28,25 +28,28 @@ impl MenuEditMods {
         }
 
         widget::row!(
-            widget::scrollable(
-                widget::column!(
-                    widget::button(
-                        widget::row![icon_manager::back(), "Back"]
-                            .spacing(10)
-                            .padding(5)
+            widget::container(widget::column!(
+                widget::scrollable(
+                    widget::column!(
+                        widget::button(
+                            widget::row![icon_manager::back(), "Back"]
+                                .spacing(10)
+                                .padding(5)
+                        )
+                        .on_press(back_to_launch_screen(selected_instance, None)),
+                        self.get_mod_installer_buttons(selected_instance),
+                        Self::open_mod_folder_button(selected_instance, launcher_dir),
+                        widget::container(self.get_mod_update_pane()),
                     )
-                    .on_press(back_to_launch_screen(selected_instance, None)),
-                    self.get_mod_installer_buttons(selected_instance),
-                    Self::open_mod_folder_button(selected_instance, launcher_dir),
-                    widget::container(self.get_mod_update_pane()),
+                    .padding(10)
+                    .spacing(20)
                 )
-                .padding(10)
-                .spacing(20),
-            ),
+                .style(LauncherTheme::style_scrollable_flat_dark),
+                widget::vertical_space()
+            ))
+            .style(|n| n.style_container_sharp_box(0.0, Color::Dark)),
             self.get_mod_list()
         )
-        .padding(10)
-        .spacing(10)
         .into()
     }
 
@@ -200,8 +203,6 @@ impl MenuEditMods {
                 widget::column!(
                     button_with_icon(icon_manager::download(), "Download Mods", 16)
                         .on_press(Message::InstallMods(InstallModsMessage::Open)),
-                    widget::text("Warning: the mod store is\nexperimental and may have bugs")
-                        .size(12),
                     button_with_icon(icon_manager::save(), "Mod Presets...", 16)
                         .on_press(Message::EditPresets(EditPresetsMessage::Open))
                 )
@@ -236,28 +237,36 @@ impl MenuEditMods {
                 .into();
         }
 
-        widget::column!(
-            "Select some mods to perform actions on them",
-            widget::row!(
-                button_with_icon(icon_manager::delete(), "Delete", 16)
-                    .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
-                button_with_icon(icon_manager::toggle(), "Toggle", 16)
-                    .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
-                button_with_icon(
-                    icon_manager::tick(),
-                    if matches!(self.selected_state, SelectedState::All) {
-                        "Unselect All"
-                    } else {
-                        "Select All"
-                    },
-                    16
-                )
-                .on_press(Message::ManageModsSelectAll)
+        widget::container(
+            widget::column!(
+                widget::column![
+                    widget::text("Select some mods to perform actions on them").size(14),
+                    widget::row![
+                        button_with_icon(icon_manager::delete(), "Delete", 14)
+                            .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
+                        button_with_icon(icon_manager::toggle(), "Toggle", 14)
+                            .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
+                        button_with_icon(
+                            icon_manager::tick(),
+                            if matches!(self.selected_state, SelectedState::All) {
+                                "Unselect All"
+                            } else {
+                                "Select All"
+                            },
+                            14
+                        )
+                        .on_press(Message::ManageModsSelectAll)
+                    ]
+                    .spacing(5)
+                    .wrap()
+                ]
+                .padding(10)
+                .spacing(5),
+                self.get_mod_list_contents(),
             )
-            .spacing(5),
-            self.get_mod_list_contents(),
+            .spacing(10),
         )
-        .spacing(10)
+        .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
         .into()
     }
 
@@ -311,6 +320,7 @@ impl MenuEditMods {
             .padding(10)
             .spacing(10),
         )
+        .style(LauncherTheme::style_scrollable_flat_extra_dark)
         .into()
     }
 }

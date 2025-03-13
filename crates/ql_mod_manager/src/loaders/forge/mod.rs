@@ -421,7 +421,7 @@ impl ForgeInstaller {
             .await
             .path(&extracted_pack_path)?
             .len();
-        let crop_len = full_len - sig_len as u64 - 8;
+        let crop_len = full_len - u64::from(sig_len) - 8;
 
         let extracted_pack = tokio::fs::File::open(&extracted_pack_path)
             .await

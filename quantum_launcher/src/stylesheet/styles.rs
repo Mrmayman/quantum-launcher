@@ -90,8 +90,8 @@ impl LauncherTheme {
         let border = self.get_border_style(
             &style,
             match style {
-                StyleScrollable::Round => Color::SecondDark,
-                StyleScrollable::Flat => Color::Dark,
+                StyleScrollable::Round | StyleScrollable::FlatDark => Color::SecondDark,
+                StyleScrollable::FlatExtraDark => Color::Dark,
             },
             true,
         );
@@ -107,8 +107,8 @@ impl LauncherTheme {
             container: widget::container::Style {
                 text_color: None,
                 background: match style {
-                    StyleScrollable::Round => None,
-                    StyleScrollable::Flat => Some(self.get_bg(Color::ExtraDark, true)),
+                    StyleScrollable::Round | StyleScrollable::FlatDark => None,
+                    StyleScrollable::FlatExtraDark => Some(self.get_bg(Color::ExtraDark, true)),
                 },
                 border,
                 shadow: iced::Shadow::default(),
@@ -129,7 +129,8 @@ impl LauncherTheme {
             &style,
             match style {
                 StyleScrollable::Round => Color::Mid,
-                StyleScrollable::Flat => Color::Dark,
+                StyleScrollable::FlatDark => Color::SecondDark,
+                StyleScrollable::FlatExtraDark => Color::Dark,
             },
             true,
         );
@@ -167,8 +168,8 @@ impl LauncherTheme {
             container: widget::container::Style {
                 text_color: None,
                 background: match style {
-                    StyleScrollable::Round => None,
-                    StyleScrollable::Flat => Some(self.get_bg(Color::ExtraDark, true)),
+                    StyleScrollable::Round | StyleScrollable::FlatDark => None,
+                    StyleScrollable::FlatExtraDark => Some(self.get_bg(Color::ExtraDark, true)),
                 },
                 border,
                 shadow: iced::Shadow::default(),
@@ -189,7 +190,8 @@ impl LauncherTheme {
             &style,
             match style {
                 StyleScrollable::Round => Color::Mid,
-                StyleScrollable::Flat => Color::Dark,
+                StyleScrollable::FlatDark => Color::SecondDark,
+                StyleScrollable::FlatExtraDark => Color::Dark,
             },
             true,
         );
@@ -227,8 +229,8 @@ impl LauncherTheme {
             container: widget::container::Style {
                 text_color: None,
                 background: match style {
-                    StyleScrollable::Round => None,
-                    StyleScrollable::Flat => Some(self.get_bg(Color::Dark, true)),
+                    StyleScrollable::Round | StyleScrollable::FlatDark => None,
+                    StyleScrollable::FlatExtraDark => Some(self.get_bg(Color::ExtraDark, true)),
                 },
                 border,
                 shadow: iced::Shadow::default(),
@@ -286,11 +288,18 @@ impl LauncherTheme {
         self.style_scrollable(status, StyleScrollable::Round)
     }
 
-    pub fn style_scrollable_flat(
+    pub fn style_scrollable_flat_extra_dark(
         &self,
         status: widget::scrollable::Status,
     ) -> widget::scrollable::Style {
-        self.style_scrollable(status, StyleScrollable::Flat)
+        self.style_scrollable(status, StyleScrollable::FlatExtraDark)
+    }
+
+    pub fn style_scrollable_flat_dark(
+        &self,
+        status: widget::scrollable::Status,
+    ) -> widget::scrollable::Style {
+        self.style_scrollable(status, StyleScrollable::FlatDark)
     }
 
     fn style_scrollable(

@@ -158,7 +158,7 @@ fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, co
     {
         let old_id = vec.get(index + 1).cloned();
         if let Some(n) = vec.get_mut(index + 1) {
-            *n = "[REDACTED]".to_owned();
+            "[REDACTED]".clone_into(n);
         }
 
         code(vec);

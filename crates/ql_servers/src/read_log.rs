@@ -33,6 +33,13 @@ pub async fn read_logs(
 
     loop {
         {
+            // # Panics
+            // If child fails to lock, that means the Mutex
+            // is poisoned. In that case, the main thread has
+            // panicked somewhere else, so something must be
+            // seriously wrong.
+            //
+            // Best to follow suit and panic as well.
             let mut child = child.lock().unwrap();
             if let Ok(Some(status)) = child.try_wait() {
                 // Game has exited.

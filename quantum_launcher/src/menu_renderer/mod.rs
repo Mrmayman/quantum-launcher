@@ -138,7 +138,7 @@ impl MenuEditInstance {
                     widget::horizontal_space(),
                 )).padding(10).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
             ]
-        ).style(LauncherTheme::style_scrollable_flat).into()
+        ).style(LauncherTheme::style_scrollable_flat_extra_dark).into()
     }
 
     fn get_java_args_list<'a>(
@@ -538,12 +538,13 @@ impl MenuEditPresets {
                         .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                     widget::tooltip(button_with_icon(icon_manager::folder(), "Import Preset", 16)
                         .on_press(Message::EditPresets(EditPresetsMessage::Load)), widget::column!(
-                            widget::text("Note: Sideloaded mods in imported presets (that anyone sends to you) could be untrusted (might have viruses)").size(12),
-                                widget::text("To get rid of them after installing, remove all the mods in the list ending in \".jar\"").size(12)
+                            widget::text("Note: Sideloaded .jar mods in untrusted presets could have viruses").size(12),
+                                widget::text("To get rid of them, after installing remove all mods in the list ending in \".jar\"").size(12)
                         ), widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 )
                 .spacing(5),
-                "Presets are small bundles of mods and their configuration that you can share with anyone. You can import presets, create them or download recommended mods (if you haven't installed any yet.",
+                "Presets are small bundles of mods and their configuration that you can share with anyone.",
+                "You can import presets, create them or download recommended mods (if you haven't installed any yet).",
                 self.get_create_preset_page()
             )
             .padding(10)

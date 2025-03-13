@@ -64,7 +64,7 @@ pub fn cmd_list_available_versions() {
     {
         Ok(n) => n,
         Err(err) => {
-            panic!("Could not list versions: {err}");
+            panic!("Could not list versions!\n{err}");
         }
     };
 
@@ -92,7 +92,7 @@ pub enum PrintCmd {
     Loader,
 }
 
-pub fn cmd_list_instances(cmds: Vec<PrintCmd>, dirname: &str) {
+pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
     let instances = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(get_entries(dirname.to_owned(), false))
@@ -106,7 +106,7 @@ pub fn cmd_list_instances(cmds: Vec<PrintCmd>, dirname: &str) {
 
     for instance in instances {
         let mut has_printed = false;
-        for cmd in &cmds {
+        for cmd in cmds {
             match cmd {
                 PrintCmd::Name => {
                     if has_printed {

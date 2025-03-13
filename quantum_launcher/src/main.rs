@@ -583,13 +583,19 @@ impl Launcher {
             }
             Message::ServerManageStartServerFinish(result) => match result {
                 Ok((child, is_classic_server)) => {
+                    self.java_recv = None;
                     return self.add_server_to_processes(child, is_classic_server);
                 }
                 Err(err) => self.set_error(err),
             },
             Message::ServerManageEndedLog(result) => match result {
                 Ok((status, name)) => {
-                    info!("Server exited with status: {status}");
+                    if status.success() {
+                        info!("Server {name} stopped.");
+                    } else {
+                        info!("Server {name} crashed with status: {status}");
+                    }
+
                     // TODO: Implement server crash handling
                     if let Some(log) = self.server_logs.get_mut(&name) {
                         log.has_crashed = !status.success();
@@ -637,8 +643,10 @@ impl Launcher {
                 ) {
                     let var_name = &format!("{}\n", log.command);
                     let future = stdin.write_all(var_name.as_bytes());
-                    log.command.clear();
+                    // Make the input command visible in the log
+                    log.log.push_str(&format!("> {}\n", log.command));
 
+                    log.command.clear();
                     tokio::runtime::Runtime::new()
                         .unwrap()
                         .block_on(future)
@@ -734,7 +742,7 @@ impl Launcher {
     }
 
     fn subscription(&self) -> iced::Subscription<Message> {
-        const UPDATES_PER_SECOND: u64 = 12;
+        const UPDATES_PER_SECOND: u64 = 5;
 
         let tick = iced::time::every(Duration::from_millis(1000 / UPDATES_PER_SECOND))
             .map(|_| Message::CoreTick);
@@ -886,12 +894,12 @@ fn main() {
         match subcommand.0 {
             "list-instances" => {
                 let command = get_list_instance_subcommand(subcommand);
-                cmd_list_instances(command, "instances");
+                cmd_list_instances(&command, "instances");
                 return;
             }
             "list-servers" => {
                 let command = get_list_instance_subcommand(subcommand);
-                cmd_list_instances(command, "servers");
+                cmd_list_instances(&command, "servers");
                 return;
             }
             "list-available-versions" => {

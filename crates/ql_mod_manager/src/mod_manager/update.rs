@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{info, json::VersionDetails, GenericProgress, InstanceSelection};
+use ql_core::{info, info_no_log, json::VersionDetails, GenericProgress, InstanceSelection};
 
 use crate::mod_manager::{
     download::{get_loader_type, version_sort},
@@ -39,6 +39,7 @@ pub async fn apply_updates(
 pub async fn check_for_updates(
     selected_instance: InstanceSelection,
 ) -> Option<Vec<(String, String)>> {
+    info_no_log!("Checking for mod updates");
     let index = ModIndex::get(&selected_instance).await.ok()?;
 
     let version_json = VersionDetails::load(&selected_instance).await.ok()?;

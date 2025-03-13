@@ -80,8 +80,10 @@ pub async fn install(
         return Err(OptifineError::InstallerDoesNotExist);
     }
 
+    let progress_sender = progress_sender.as_ref();
+
     info!("Started installing OptiFine");
-    send_progress(&progress_sender, OptifineInstallProgress::P1Start);
+    send_progress(progress_sender, OptifineInstallProgress::P1Start);
 
     let instance_path = file_utils::get_launcher_dir()
         .await?
@@ -105,7 +107,7 @@ pub async fn install(
         .path(path_to_installer)?;
 
     info!("Compiling OptifineInstaller.java");
-    send_progress(&progress_sender, OptifineInstallProgress::P2CompilingHook);
+    send_progress(progress_sender, OptifineInstallProgress::P2CompilingHook);
     compile_hook(
         &new_installer_path,
         &optifine_path,
@@ -114,24 +116,19 @@ pub async fn install(
     .await?;
 
     info!("Running OptifineInstaller.java");
-    send_progress(&progress_sender, OptifineInstallProgress::P3RunningHook);
+    send_progress(progress_sender, OptifineInstallProgress::P3RunningHook);
     run_hook(&new_installer_path, &optifine_path).await?;
 
-    download_libraries(
-        &instance_name,
-        &dot_minecraft_path,
-        progress_sender.as_ref(),
-    )
-    .await?;
+    download_libraries(&instance_name, &dot_minecraft_path, progress_sender).await?;
     change_instance_type(&instance_path, "OptiFine".to_owned()).await?;
-    send_progress(&progress_sender, OptifineInstallProgress::P5Done);
+    send_progress(progress_sender, OptifineInstallProgress::P5Done);
     info!("Finished installing OptiFine");
 
     Ok(())
 }
 
 fn send_progress(
-    progress_sender: &Option<Sender<OptifineInstallProgress>>,
+    progress_sender: Option<&Sender<OptifineInstallProgress>>,
     prog: OptifineInstallProgress,
 ) {
     if let Some(progress) = progress_sender {

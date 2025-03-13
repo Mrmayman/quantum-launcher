@@ -18,7 +18,7 @@ pub enum JavaVersion {
 
 impl JavaVersion {
     #[must_use]
-    pub(crate) fn get_corretto_url(&self) -> &'static str {
+    pub(crate) fn get_corretto_url(self) -> &'static str {
         if cfg!(target_arch = "aarch64") && cfg!(target_os = "linux") {
             match self {
                 JavaVersion::Java16 | JavaVersion::Java17 => {

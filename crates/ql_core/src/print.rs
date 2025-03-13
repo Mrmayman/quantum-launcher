@@ -15,6 +15,7 @@ pub struct LoggingState {
 }
 
 impl LoggingState {
+    #[must_use]
     pub fn create() -> Option<Mutex<LoggingState>> {
         let launcher_dir = file_utils::get_launcher_dir_s().ok()?;
 
@@ -141,7 +142,7 @@ macro_rules! err {
 #[macro_export]
 macro_rules! pt {
     ($($arg:tt)*) => {
-        let plain_text = format!("[plain] {}\n", format_args!($($arg)*));
+        let plain_text = format!("- {}\n", format_args!($($arg)*));
 
         if cfg!(windows) {
             println!("- {}", format_args!($($arg)*))

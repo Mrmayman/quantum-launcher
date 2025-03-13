@@ -120,7 +120,7 @@ impl Launcher {
                 }
             }
             State::ServerManage(_) => {
-                if self.java_recv.as_mut().is_some_and(|n| n.tick()) {
+                if self.java_recv.as_mut().is_some_and(ProgressBar::tick) {
                     self.state = State::InstallJava;
                     return Task::none();
                 }
