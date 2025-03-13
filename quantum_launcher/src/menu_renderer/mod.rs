@@ -17,13 +17,10 @@ use crate::{
 };
 
 pub mod changelog;
-mod dynamic_box;
 pub mod launch;
 pub mod mods_manage;
 pub mod mods_store;
 pub mod server_manager;
-
-pub use dynamic_box::dynamic_box;
 
 pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
 
@@ -61,7 +58,7 @@ impl MenuEditInstance {
                             InstanceSelection::Server(n) => format!("Editing {} server: {n}", self.config.mod_type),
                         }
                     ),
-                ).padding(10).spacing(10)).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
+                ).padding(10).spacing(10)).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
                     widget::column![
                         "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
@@ -88,12 +85,13 @@ impl MenuEditInstance {
                     ]
                     .padding(10)
                     .spacing(5),
-                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
                     widget::column![
                         widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
                             .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
-                        widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12)
+                        widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12),
+                        widget::horizontal_space(),
                     ]
                     .padding(10)
                     .spacing(10)
@@ -114,7 +112,7 @@ impl MenuEditInstance {
                         ),
                         widget::horizontal_space(),
                     ).padding(10).spacing(10)
-                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
+                ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
                     widget::column!(
                         "Game arguments:",
@@ -128,7 +126,8 @@ impl MenuEditInstance {
                             ),
                             button_with_icon(icon_manager::create(), "Add", 16)
                                 .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
-                        )
+                        ),
+                        widget::horizontal_space()
                     ).padding(10).spacing(10)
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
                 widget::container(widget::row!(
@@ -137,7 +136,7 @@ impl MenuEditInstance {
                             Message::DeleteInstanceMenu
                         ),
                     widget::horizontal_space(),
-                )).padding(10).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
+                )).padding(10).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
             ]
         ).style(LauncherTheme::style_scrollable_flat).into()
     }
@@ -280,7 +279,7 @@ impl MenuCreateInstance {
                         widget::tooltip(
                             widget::checkbox("Download assets?", *download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
                             widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
-                            widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
+                            widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                         widget::button(widget::row![icon_manager::create(), "Create Instance"]
                                 .spacing(10)
                                 .padding(5)
@@ -541,7 +540,7 @@ impl MenuEditPresets {
                         .on_press(Message::EditPresets(EditPresetsMessage::Load)), widget::column!(
                             widget::text("Note: Sideloaded mods in imported presets (that anyone sends to you) could be untrusted (might have viruses)").size(12),
                                 widget::text("To get rid of them after installing, remove all the mods in the list ending in \".jar\"").size(12)
-                        ), widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black)),
+                        ), widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 )
                 .spacing(5),
                 "Presets are small bundles of mods and their configuration that you can share with anyone. You can import presets, create them or download recommended mods (if you haven't installed any yet.",

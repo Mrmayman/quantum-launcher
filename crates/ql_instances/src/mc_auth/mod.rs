@@ -212,6 +212,8 @@ pub async fn login_3_xbox(
         needs_refresh: false,
     };
 
+    info!("Finished Microsoft Account login!");
+
     Ok(data)
 }
 

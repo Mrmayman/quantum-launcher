@@ -132,7 +132,7 @@ impl MenuServerManage {
                 "By starting the server, you agree to the EULA",
                 widget::tooltip::Position::FollowCursor,
             )
-            .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Black))
+            .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark))
             .into()
         }
     }

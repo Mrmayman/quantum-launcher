@@ -28,7 +28,7 @@ use ql_mod_manager::{
 use tokio::process::{Child, ChildStdin};
 
 use crate::{
-    config::LauncherConfig,
+    config::{LauncherConfig, SIDEBAR_WIDTH_DEFAULT},
     message_handler::get_locally_installed_mods,
     stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness},
     WINDOW_HEIGHT, WINDOW_WIDTH,
@@ -226,7 +226,7 @@ impl std::fmt::Display for LaunchTabId {
             f,
             "{}",
             match self {
-                LaunchTabId::Buttons => "Main",
+                LaunchTabId::Buttons => "Play",
                 LaunchTabId::Log => "Log",
                 LaunchTabId::Edit => "Edit",
             }
@@ -259,7 +259,7 @@ impl MenuLaunch {
             tab: LaunchTabId::default(),
             edit_instance: None,
             login_progress: None,
-            sidebar_width: 200,
+            sidebar_width: SIDEBAR_WIDTH_DEFAULT as u16,
             sidebar_dragging: false,
         }
     }

@@ -203,7 +203,14 @@ impl Display for LogEvent {
         writeln!(
             f,
             "[{date}:{}.{}] [{}] {}",
-            self.thread, self.logger, self.level, self.message.content
+            self.thread,
+            self.logger,
+            self.level,
+            if let Some(n) = &self.message.content {
+                &n
+            } else {
+                ""
+            }
         )
     }
 }
@@ -211,5 +218,5 @@ impl Display for LogEvent {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogMessage {
     #[serde(rename = "$value")]
-    pub content: String,
+    pub content: Option<String>,
 }

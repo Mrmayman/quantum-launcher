@@ -2,6 +2,8 @@ use ql_core::{err, file_utils, IntoIoError, JsonFileError, LAUNCHER_VERSION_NAME
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
+pub const SIDEBAR_WIDTH_DEFAULT: u32 = 190;
+
 /// The launcher configuration.
 ///
 /// This is stored in the launcher directory as `config.json`.
@@ -23,7 +25,7 @@ impl Default for LauncherConfig {
             theme: None,
             style: None,
             version: Some(LAUNCHER_VERSION_NAME.to_owned()),
-            sidebar_width: Some(200),
+            sidebar_width: Some(SIDEBAR_WIDTH_DEFAULT),
             accounts: None,
             ui_scale: None,
         }

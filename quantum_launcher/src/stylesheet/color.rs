@@ -1,7 +1,7 @@
 use super::styles::{BORDER_RADIUS, BORDER_WIDTH};
 
 pub struct Pallete {
-    black: [u8; 3],
+    extra_dark: [u8; 3],
     dark: [u8; 3],
     second_dark: [u8; 3],
     mid: [u8; 3],
@@ -11,7 +11,7 @@ pub struct Pallete {
 }
 
 pub const PURPLE: Pallete = Pallete {
-    black: [0x22, 0x19, 0x20],
+    extra_dark: [0x22, 0x19, 0x20],
     dark: [0x3a, 0x24, 0x36],
     second_dark: [0x66, 0x47, 0x69],
     mid: [0xcc, 0x76, 0xc5],
@@ -21,7 +21,7 @@ pub const PURPLE: Pallete = Pallete {
 };
 
 pub const BROWN: Pallete = Pallete {
-    black: [0x00, 0x00, 0x00],
+    extra_dark: [0x00, 0x00, 0x00],
     dark: [0x3d, 0x21, 0x1a],
     second_dark: [0x6f, 0x4d, 0x38],
     mid: [0xa0, 0x78, 0x56],
@@ -31,8 +31,8 @@ pub const BROWN: Pallete = Pallete {
 };
 
 pub const SKY_BLUE: Pallete = Pallete {
-    black: [0x0, 0x0, 0x0],
-    dark: [0x1f, 0x32, 0x42],
+    extra_dark: [0x1a, 0x1b, 0x26],
+    dark: [0x1a, 0x2f, 0x41],
     second_dark: [0x0f, 0x51, 0x73],
     mid: [0x48, 0x85, 0xa4],
     second_light: [0xa3, 0xd3, 0xfa],
@@ -42,7 +42,7 @@ pub const SKY_BLUE: Pallete = Pallete {
 
 #[derive(Clone, Copy)]
 pub enum Color {
-    Black,
+    ExtraDark,
     Dark,
     SecondDark,
     Light,
@@ -54,13 +54,13 @@ pub enum Color {
 impl Color {
     pub fn invert(self) -> Color {
         match self {
-            Color::Black => Color::White,
+            Color::ExtraDark => Color::White,
             Color::Dark => Color::Light,
             Color::SecondDark => Color::SecondLight,
             Color::Light => Color::Dark,
             Color::SecondLight => Color::SecondDark,
             Color::Mid => Color::Mid,
-            Color::White => Color::Black,
+            Color::White => Color::ExtraDark,
         }
     }
 }
@@ -83,7 +83,7 @@ impl Pallete {
             Color::SecondLight => self.second_light.into_color(),
             Color::Mid => self.mid.into_color(),
             Color::White => self.white.into_color(),
-            Color::Black => self.black.into_color(),
+            Color::ExtraDark => self.extra_dark.into_color(),
         }
     }
 

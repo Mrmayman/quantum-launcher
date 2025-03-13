@@ -73,7 +73,7 @@ impl LauncherTheme {
         let (palette, color) = self.get_base(invert, color);
         iced::Border {
             color: palette.get(color),
-            width: 1.0,
+            width: 0.0,
             radius: 0.0.into(),
         }
     }
@@ -108,7 +108,7 @@ impl LauncherTheme {
                 text_color: None,
                 background: match style {
                     StyleScrollable::Round => None,
-                    StyleScrollable::Flat => Some(self.get_bg(Color::Dark, true)),
+                    StyleScrollable::Flat => Some(self.get_bg(Color::ExtraDark, true)),
                 },
                 border,
                 shadow: iced::Shadow::default(),
@@ -134,7 +134,7 @@ impl LauncherTheme {
             true,
         );
         let rail_v = widget::scrollable::Rail {
-            background: Some(self.get_bg(Color::Dark, true)),
+            background: Some(self.get_bg(Color::ExtraDark, true)),
             border,
             scroller: widget::scrollable::Scroller {
                 color: self.get(
@@ -168,7 +168,7 @@ impl LauncherTheme {
                 text_color: None,
                 background: match style {
                     StyleScrollable::Round => None,
-                    StyleScrollable::Flat => Some(self.get_bg(Color::Dark, true)),
+                    StyleScrollable::Flat => Some(self.get_bg(Color::ExtraDark, true)),
                 },
                 border,
                 shadow: iced::Shadow::default(),
@@ -194,7 +194,7 @@ impl LauncherTheme {
             true,
         );
         let rail_v = widget::scrollable::Rail {
-            background: Some(self.get_bg(Color::Dark, true)),
+            background: Some(self.get_bg(Color::ExtraDark, true)),
             border,
             scroller: widget::scrollable::Scroller {
                 color: self.get(
@@ -333,7 +333,7 @@ impl LauncherTheme {
                 let color = match style {
                     StyleButton::Round | StyleButton::Flat => Color::SecondDark,
                     StyleButton::FlatDark => Color::Dark,
-                    StyleButton::FlatExtraDark => Color::Black,
+                    StyleButton::FlatExtraDark => Color::ExtraDark,
                 };
                 widget::button::Style {
                     background: Some(self.get_bg(color, true)),
@@ -371,7 +371,7 @@ impl LauncherTheme {
                     match style {
                         StyleButton::Round | StyleButton::Flat => Color::SecondDark,
                         StyleButton::FlatDark => Color::Dark,
-                        StyleButton::FlatExtraDark => Color::Black,
+                        StyleButton::FlatExtraDark => Color::ExtraDark,
                     },
                     true,
                 )),

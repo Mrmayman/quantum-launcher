@@ -277,7 +277,7 @@ impl widget::text_input::Catalog for LauncherTheme {
                 selection: self.get(Color::Light, true),
             },
             widget::text_input::Status::Disabled => widget::text_input::Style {
-                background: self.get_bg(Color::Black, true),
+                background: self.get_bg(Color::ExtraDark, true),
                 border: self.get_border(Color::Dark, true),
                 icon: self.get(Color::Light, true),
                 placeholder: self.get(Color::SecondLight, true),
@@ -364,7 +364,7 @@ impl widget::slider::Catalog for LauncherTheme {
 impl iced::application::DefaultStyle for LauncherTheme {
     fn default_style(&self) -> iced::application::Appearance {
         iced::application::Appearance {
-            background_color: self.get(Color::Black, true),
+            background_color: self.get(Color::Dark, true),
             text_color: self.get(Color::Light, true),
         }
     }
@@ -409,10 +409,10 @@ impl widget::checkbox::Catalog for LauncherTheme {
                 background: if is_checked {
                     self.get_bg(Color::SecondLight, true)
                 } else {
-                    self.get_bg(Color::Black, true)
+                    self.get_bg(Color::ExtraDark, true)
                 },
                 icon_color: if is_checked {
-                    self.get(Color::Black, true)
+                    self.get(Color::ExtraDark, true)
                 } else {
                     self.get(Color::SecondLight, true)
                 },
@@ -431,7 +431,7 @@ impl widget::text_editor::Catalog for LauncherTheme {
     fn style(&self, (): &(), status: widget::text_editor::Status) -> widget::text_editor::Style {
         match status {
             widget::text_editor::Status::Active => widget::text_editor::Style {
-                background: self.get_bg(Color::Black, true),
+                background: self.get_bg(Color::ExtraDark, true),
                 border: self.get_border(Color::SecondDark, true),
                 icon: self.get(Color::Light, true),
                 placeholder: self.get(Color::Light, true),
@@ -439,7 +439,7 @@ impl widget::text_editor::Catalog for LauncherTheme {
                 selection: self.get(Color::Dark, true),
             },
             widget::text_editor::Status::Hovered => widget::text_editor::Style {
-                background: self.get_bg(Color::Black, true),
+                background: self.get_bg(Color::ExtraDark, true),
                 border: self.get_border(Color::Mid, true),
                 icon: self.get(Color::Light, true),
                 placeholder: self.get(Color::Light, true),

@@ -131,6 +131,10 @@ pub async fn launch(
         DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
         DateTime::parse_from_rfc3339("2023-06-02T08:36:17+00:00"), // Minecraft 1.20 release date
     ) {
+        // On Raspberry Pi (aarch64 linux), the game crashes with some GL
+        // error. But adding this environment variable fixes it.
+        // I don't know if this is the perfect solution though,
+        // contact me if this solution sucks.
         (Ok(dt), Ok(v1_20)) => {
             if dt >= v1_20 {
                 command = command.env("MESA_GL_VERSION_OVERRIDE", "3.3")
