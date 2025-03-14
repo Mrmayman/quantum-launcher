@@ -39,28 +39,40 @@ impl MenuModsDownload {
     /// - `images`: A reference to `ImageState`.
     ///   This will pull any mentioned images from here
     ///   and add requests for loading missing ones to here.
-    pub fn render_markdown<'a>(markdown: &'a str, images: &'a ImageState) -> Element<'a> {
+    pub fn render_markdown<'a>(
+        markdown: &'a str,
+        images: &'a ImageState,
+        window_size: (f32, f32),
+    ) -> Element<'a> {
         let arena = comrak::Arena::new();
         let root = comrak::parse_document(&arena, markdown, &comrak::Options::default());
 
         let mut element = widget::column!().into();
 
-        Self::render_element(root, 0, &mut element, images);
+        _ = Self::render_element(root, 0, &mut element, images, window_size);
         element
     }
 
+    #[must_use]
     fn render_element<'arena, 'element: 'arena>(
         md: &'element comrak::arena_tree::Node<'arena, RefCell<comrak::nodes::Ast>>,
         heading_size: usize,
         element: &mut Element<'static>,
         images: &ImageState,
-    ) {
+        window_size: (f32, f32),
+    ) -> bool {
         let data = md.data.borrow();
+
+        let mut force_newline = false;
+
         *element = match &data.value {
-            NodeValue::Document => render_children(md, 0, images).spacing(10).into(),
+            NodeValue::Document => render_children(md, 0, images, window_size)
+                .spacing(10)
+                .into(),
             NodeValue::Heading(node_heading) => {
                 let heading_size = node_heading.level as usize;
-                render_children(md, heading_size, images).into()
+                force_newline = true;
+                render_children(md, heading_size, images, window_size).into()
             }
             NodeValue::Text(text) => widget::text(text.clone())
                 .size(if heading_size > 0 {
@@ -69,12 +81,20 @@ impl MenuModsDownload {
                     16
                 } as u16)
                 .into(),
-            NodeValue::Paragraph => render_children(md, 0, images).into(),
-            NodeValue::Link(node_link) => render_link(md, images, node_link),
+            NodeValue::Paragraph => render_children(md, 0, images, window_size).into(),
+            NodeValue::Link(node_link) => render_link(md, images, node_link, window_size),
             NodeValue::FrontMatter(_) => todoh!("front matter"),
             NodeValue::BlockQuote => todoh!("block quote"),
-            NodeValue::List(_list) => render_children(md, 0, images).spacing(10).into(),
-            NodeValue::Item(item) => render_list_item(md, item, images),
+            NodeValue::List(_list) => {
+                force_newline = true;
+                render_children(md, 0, images, window_size)
+                    .spacing(10)
+                    .into()
+            }
+            NodeValue::Item(item) => {
+                force_newline = true;
+                render_list_item(md, item, images, window_size)
+            }
             NodeValue::DescriptionList => todoh!("description list"),
             NodeValue::DescriptionItem(_) => todoh!("description item"),
             NodeValue::DescriptionTerm => todoh!("description term"),
@@ -89,7 +109,7 @@ impl MenuModsDownload {
             )
             .into(),
             NodeValue::HtmlBlock(node_html_block) => {
-                Self::render_html(&node_html_block.literal, images)
+                Self::render_html(&node_html_block.literal, images, window_size)
             }
             NodeValue::ThematicBreak => widget::row!(widget::text("_____").size(20))
                 .align_y(iced::Alignment::Center)
@@ -106,20 +126,18 @@ impl MenuModsDownload {
             ]
             .spacing(5)
             .into(),
-            NodeValue::HtmlInline(html) => Self::render_html(html, images),
-            NodeValue::Strong | NodeValue::Emph => widget::column(md.children().map(|n| {
-                let mut element = widget::column!().into();
-                Self::render_element(n, 4, &mut element, images);
-                element
-            }))
-            .into(),
+            NodeValue::HtmlInline(html) => Self::render_html(html, images, window_size),
+            NodeValue::Strong | NodeValue::Emph => render_children(md, 4, images, window_size)
+                .spacing(10)
+                .into(),
             NodeValue::Strikethrough => todoh!("strikethrough"),
             NodeValue::Superscript => todoh!("superscript"),
             NodeValue::Image(link) => {
                 if let Some(image) = images.bitmap.get(&link.url) {
-                    widget::image(image.clone()).width(300).into()
+                    // Image
+                    widget::image(image.clone()).into()
                 } else if let Some(image) = images.svg.get(&link.url) {
-                    widget::svg(image.clone()).width(300).into()
+                    widget::svg(image.clone()).into()
                 } else {
                     let mut images_to_load = images.to_load.lock().unwrap();
                     images_to_load.insert(link.url.clone());
@@ -134,26 +152,66 @@ impl MenuModsDownload {
             NodeValue::Underline => todoh!("underline"),
             NodeValue::SpoileredText => todoh!("spoilered text"),
             NodeValue::EscapedTag(_) => todoh!("escaped tag"),
+        };
+
+        // WTF: I am going to commit a crime. Get ready.
+        //
+        // last_line_blank is a debug field in the `comrak`
+        // library. However, we really, really need this.
+        //
+        // Luckily they have made the grave mistake of exposing
+        // the field when debug printing, so we debug-print
+        // the value and search for and find last_line_blank
+        let debug_text = format!("{data:?}");
+        force_newline | parse_last_line_blank(&debug_text)
+    }
+}
+
+fn parse_last_line_blank(input: &str) -> bool {
+    if let Some(pos) = input.find("last_line_blank:") {
+        let substring = &input[pos..];
+        if let Some(_) = substring.find("true") {
+            return true;
+        } else if let Some(_) = substring.find("false") {
+            return false;
         }
     }
+    false
 }
 
 fn render_children<'a>(
     md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
     heading_size: usize,
     images: &ImageState,
+    window_size: (f32, f32),
 ) -> widget::Column<'static, Message, crate::stylesheet::styles::LauncherTheme> {
-    widget::column(md.children().map(|n| {
+    let mut column = widget::column![];
+    let mut row = widget::row![];
+
+    let mut is_newline = false;
+
+    for item in md.children() {
+        if is_newline {
+            column = column.push(row.wrap());
+            row = widget::row![];
+        }
+
         let mut element = widget::column!().into();
-        MenuModsDownload::render_element(n, heading_size, &mut element, images);
-        element
-    }))
+        is_newline =
+            MenuModsDownload::render_element(item, heading_size, &mut element, images, window_size);
+        row = row.push(element);
+    }
+
+    column = column.push(row.wrap());
+
+    column.into()
 }
 
 fn render_list_item<'a>(
     md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
     item: &comrak::nodes::NodeList,
     images: &ImageState,
+    window_size: (f32, f32),
 ) -> Element<'static> {
     widget::column(md.children().map(|n| {
         let starting = match item.list_type {
@@ -161,7 +219,7 @@ fn render_list_item<'a>(
             comrak::nodes::ListType::Ordered => widget::text!("{}.", item.start),
         };
         let mut element = widget::column!().into();
-        MenuModsDownload::render_element(n, 0, &mut element, images);
+        _ = MenuModsDownload::render_element(n, 0, &mut element, images, window_size);
         widget::row!(starting, element).spacing(10).into()
     }))
     .spacing(10)
@@ -172,12 +230,14 @@ fn render_link<'a>(
     md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
     images: &ImageState,
     node_link: &comrak::nodes::NodeLink,
+    window_size: (f32, f32),
 ) -> Element<'static> {
     let mut i = 0;
     let mut children = widget::column(md.children().map(|n| {
         i += 1;
         let mut element = widget::column!().into();
-        MenuModsDownload::render_element(n, 0, &mut element, images);
+        // TODO
+        _ = MenuModsDownload::render_element(n, 0, &mut element, images, window_size);
         element
     }));
     if i == 0 {

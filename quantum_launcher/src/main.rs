@@ -803,7 +803,9 @@ impl Launcher {
                 .padding(10)
                 .spacing(10)
                 .into(),
-            State::ModsDownload(menu) => menu.view(&self.images),
+            // TODO: maybe remove window_size argument?
+            // It's not needed right now, but could be in the future.
+            State::ModsDownload(menu) => menu.view(&self.images, self.window_size),
             State::LauncherSettings => MenuLauncherSettings::view(&self.config),
             State::RedownloadAssets { progress, .. } => widget::column!(
                 widget::text("Redownloading Assets").size(20),

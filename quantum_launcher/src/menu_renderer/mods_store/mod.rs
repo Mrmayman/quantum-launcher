@@ -18,13 +18,18 @@ impl MenuModsDownload {
     /// back button and list of searched mods.
     fn view_main<'a>(&'a self, images: &'a ImageState) -> Element<'a> {
         let mods_list = match self.results.as_ref() {
-            Some(results) => widget::column(
-                results
-                    .hits
-                    .iter()
-                    .enumerate()
-                    .map(|(i, hit)| self.view_mod_entry(i, hit, images)),
-            ),
+            Some(results) => if results.hits.is_empty() {
+                widget::column!["No results found."]
+            } else {
+                widget::column(
+                    results
+                        .hits
+                        .iter()
+                        .enumerate()
+                        .map(|(i, hit)| self.view_mod_entry(i, hit, images)),
+                )
+            }
+            .push(widget::horizontal_space()),
             None => {
                 widget::column!(widget::text(if self.is_loading_search {
                     "Loading..."
@@ -55,10 +60,9 @@ impl MenuModsDownload {
             .padding(10)
             .spacing(10)
             .width(200),
-            widget::scrollable(mods_list.spacing(10).padding(10)),
+            widget::scrollable(mods_list.spacing(10).padding(10))
+                .style(|theme, status| theme.style_scrollable_flat_extra_dark(status)),
         )
-        .padding(10)
-        .spacing(10)
         .into()
     }
 
@@ -115,7 +119,7 @@ impl MenuModsDownload {
         .into()
     }
 
-    pub fn view<'a>(&'a self, images: &'a ImageState) -> Element<'a> {
+    pub fn view<'a>(&'a self, images: &'a ImageState, window_size: (f32, f32)) -> Element<'a> {
         // If we opened a mod (`self.opened_mod`) then
         // render the mod description page.
         // else render the main store page.
@@ -125,7 +129,7 @@ impl MenuModsDownload {
         let Some(hit) = results.hits.get(*selection) else {
             return self.view_main(images);
         };
-        self.view_project_description(hit, images)
+        self.view_project_description(hit, images, window_size)
     }
 
     /// Renders the mod description page.
@@ -133,10 +137,11 @@ impl MenuModsDownload {
         &'a self,
         hit: &'a Entry,
         images: &'a ImageState,
+        window_size: (f32, f32),
     ) -> Element<'a> {
         // Parses the markdown description of the mod.
         let markdown_description = if let Some(info) = self.result_data.get(&hit.project_id) {
-            widget::column!(Self::render_markdown(&info.body, images))
+            widget::column!(Self::render_markdown(&info.body, images, window_size))
         } else {
             widget::column!(widget::text("Loading..."))
         };

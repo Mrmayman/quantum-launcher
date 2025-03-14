@@ -21,7 +21,11 @@ impl MenuModsDownload {
     /// - `images`: A reference to `ImageState`.
     ///   This will pull any mentioned images from here
     ///   and add requests for loading missing ones to here.
-    pub fn render_html<'a>(input: &str, images: &ImageState) -> Element<'a> {
+    pub fn render_html<'a>(
+        input: &str,
+        images: &ImageState,
+        window_size: (f32, f32),
+    ) -> Element<'a> {
         let dom = parse_document(RcDom::default(), ParseOpts::default())
             .from_utf8()
             .read_from(&mut input.as_bytes())
@@ -29,17 +33,23 @@ impl MenuModsDownload {
             .unwrap();
 
         let mut element = widget::column!().into();
-        Self::traverse_node(&dom.document, &mut element, images, 0);
+        Self::traverse_node(&dom.document, &mut element, images, 0, window_size);
         element
     }
 
-    fn traverse_node(node: &Node, element: &mut Element, images: &ImageState, heading_size: usize) {
+    fn traverse_node(
+        node: &Node,
+        element: &mut Element,
+        images: &ImageState,
+        heading_size: usize,
+        window_size: (f32, f32),
+    ) {
         match &node.data {
             markup5ever_rcdom::NodeData::Document => {
                 let children = node.children.borrow();
                 *element = widget::column(children.iter().map(|node| {
                     let mut element = widget::column!().into();
-                    Self::traverse_node(node, &mut element, images, 0);
+                    Self::traverse_node(node, &mut element, images, 0, window_size);
                     element
                 }))
                 .into();
@@ -59,7 +69,7 @@ impl MenuModsDownload {
                 template_contents: _,
                 mathml_annotation_xml_integration_point: _,
             } => {
-                render_html(name, attrs, node, element, images);
+                render_html(name, attrs, node, element, images, window_size);
             }
             _ => {}
         }
@@ -72,21 +82,22 @@ fn render_html(
     node: &Node,
     element: &mut Element,
     images: &ImageState,
+    window_size: (f32, f32),
 ) {
     let name = name.local.to_string();
     let attrs = attrs.borrow();
     match name.as_str() {
         "html" | "body" | "p" | "center" | "i" | "kbd" | "b" => {
-            render_children(node, element, images, 0);
+            render_children(node, element, images, 0, window_size);
         }
         "h2" => {
-            render_children(node, element, images, 2);
+            render_children(node, element, images, 2, window_size);
         }
         "h3" => {
-            render_children(node, element, images, 3);
+            render_children(node, element, images, 3, window_size);
         }
         "details" | "summary" | "h1" => {
-            render_children(node, element, images, 1);
+            render_children(node, element, images, 1, window_size);
         }
         "a" => {
             if let Some(attr) = attrs
@@ -98,7 +109,7 @@ fn render_html(
 
                 let mut children = widget::column(children_nodes.iter().map(|node| {
                     let mut element = widget::column!().into();
-                    MenuModsDownload::traverse_node(node, &mut element, images, 3);
+                    MenuModsDownload::traverse_node(node, &mut element, images, 3, window_size);
                     element
                 }));
                 if children_nodes.is_empty() {
@@ -119,9 +130,10 @@ fn render_html(
             {
                 let url = attr.value.to_string();
                 *element = if let Some(image) = images.bitmap.get(&url) {
-                    widget::image(image.clone()).width(300).into()
+                    // Image
+                    widget::image(image.clone()).into()
                 } else if let Some(image) = images.svg.get(&url) {
-                    widget::svg(image.clone()).width(300).into()
+                    widget::svg(image.clone()).into()
                 } else {
                     let mut images_to_load = images.to_load.lock().unwrap();
                     images_to_load.insert(url);
@@ -135,11 +147,17 @@ fn render_html(
     }
 }
 
-fn render_children(node: &Node, element: &mut Element, images: &ImageState, heading_weight: usize) {
+fn render_children(
+    node: &Node,
+    element: &mut Element,
+    images: &ImageState,
+    heading_weight: usize,
+    window_size: (f32, f32),
+) {
     let children = node.children.borrow();
     *element = widget::column(children.iter().map(|node| {
         let mut element = widget::column!().into();
-        MenuModsDownload::traverse_node(node, &mut element, images, heading_weight);
+        MenuModsDownload::traverse_node(node, &mut element, images, heading_weight, window_size);
         element
     }))
     .into();

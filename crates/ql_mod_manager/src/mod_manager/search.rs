@@ -173,7 +173,7 @@ impl Search {
             .decode()
             .map_err(|err| format!("{url}: {err}"))?;
 
-        let img = img.thumbnail(if icon { 32 } else { 240 }, 426);
+        let img = img.thumbnail(if icon { 32 } else { 1000 }, 426);
         // let img = img.resize(32, 32, image::imageops::FilterType::Nearest);
 
         let mut buffer = Vec::new();
