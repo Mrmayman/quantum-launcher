@@ -19,6 +19,7 @@ mod resolve;
 pub use resolve::install_plugins;
 mod json;
 mod passed_types;
+pub use passed_types::InstancePath;
 
 #[cfg(test)]
 mod tests {

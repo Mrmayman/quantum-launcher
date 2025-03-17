@@ -87,10 +87,10 @@ use menu_renderer::{
 };
 use ql_core::{
     err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
-    SelectedMod,
+    Loader, SelectedMod,
 };
 use ql_instances::UpdateCheckInfo;
-use ql_mod_manager::{loaders, mod_manager::Loader};
+use ql_mod_manager::loaders;
 use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
 use tokio::io::AsyncWriteExt;
 
@@ -297,7 +297,9 @@ impl Launcher {
                         if let Loader::Fabric = loader {
                             "Fabric/Quilt".to_owned()
                         } else {
-                            loader.to_string()
+                            // TODO: If the debug printing gets a bit too debug-ey
+                            // in the future, this may scare off users.
+                            format!("{loader:?}")
                         }
                     );
                     return self.go_to_main_menu_with_message(Some(message));
@@ -541,36 +543,10 @@ impl Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
-            Message::ServerDeleteOpen => {
-                let selected_server = self.selected_instance.as_ref().unwrap().get_name();
-                self.state = State::ConfirmAction {
-                    msg1: format!("delete the server {selected_server}"),
-                    msg2: "All your data will be lost".to_owned(),
-                    yes: Message::ServerDeleteConfirm,
-                    no: Message::ServerManageOpen {
-                        selected_server: Some(selected_server.to_owned()),
-                        message: None,
-                    },
-                };
-            }
-            Message::ServerDeleteConfirm => {
-                if let Some(InstanceSelection::Server(selected_server)) = &self.selected_instance {
-                    match ql_servers::delete_server(selected_server) {
-                        Ok(()) => {
-                            self.selected_instance = None;
-                            return self
-                                .go_to_server_manage_menu(Some("Deleted Server".to_owned()));
-                        }
-                        Err(err) => self.set_error(err),
-                    }
-                }
-            }
             Message::ServerManageStartServer(server) => {
                 self.server_logs.remove(&server);
                 let (sender, receiver) = std::sync::mpsc::channel();
-                if let State::ServerManage(_) = &mut self.state {
-                    self.java_recv = Some(ProgressBar::with_recv(receiver));
-                }
+                self.java_recv = Some(ProgressBar::with_recv(receiver));
 
                 if self.server_processes.contains_key(&server) {
                     err!("Server is already running");
@@ -653,10 +629,6 @@ impl Launcher {
                         .unwrap();
                 }
             }
-            Message::ServerEditModsOpen => match self.go_to_edit_mods_menu() {
-                Ok(n) => return n,
-                Err(err) => self.set_error(err),
-            },
             Message::ServerManageCopyLog => {
                 let name = self.selected_instance.as_ref().unwrap().get_name();
                 if let Some(logs) = self.server_logs.get(name) {
@@ -815,13 +787,6 @@ impl Launcher {
             .spacing(10)
             .into(),
             State::InstallOptifine(menu) => menu.view(),
-            State::ServerManage(menu) => menu.view(
-                self.server_list.as_ref(),
-                self.selected_instance.as_ref(),
-                &self.server_logs,
-                &self.server_processes,
-                &self.dir,
-            ),
             State::ServerCreate(menu) => menu.view(),
             State::InstallPaper => widget::column!(widget::text("Installing Paper...").size(20))
                 .padding(10)

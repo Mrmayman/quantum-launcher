@@ -38,13 +38,21 @@ impl UserData for LuaGenericProgress {
 }
 
 #[derive(Clone)]
-pub struct SelectedInstance {
+pub struct InstancePath {
     pub instance: InstanceSelection,
     pub path: PathBuf,
     pub dot_mc: bool,
 }
 
-impl SelectedInstance {
+impl InstancePath {
+    pub fn from_instance_selection(instance: InstanceSelection) -> Self {
+        InstancePath {
+            instance,
+            path: PathBuf::new(),
+            dot_mc: false,
+        }
+    }
+
     pub fn get_path(&self) -> Result<PathBuf, mlua::Error> {
         let path = file_utils::get_launcher_dir_s().map_err(err_to_lua)?;
         let path = if self.dot_mc {
@@ -64,7 +72,7 @@ impl SelectedInstance {
     }
 }
 
-impl FromLua for SelectedInstance {
+impl FromLua for InstancePath {
     fn from_lua(value: Value, _: &Lua) -> Result<Self, mlua::Error> {
         match value {
             Value::UserData(ud) => {
@@ -76,7 +84,7 @@ impl FromLua for SelectedInstance {
     }
 }
 
-impl UserData for SelectedInstance {
+impl UserData for InstancePath {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         // methods.add_method("magnitude", |_, vec, ()| {
         //     let mag_squared = vec.0 * vec.0 + vec.1 * vec.1;
@@ -87,7 +95,7 @@ impl UserData for SelectedInstance {
         //     Ok(Vec2(vec1.0 + vec2.0, vec1.1 + vec2.1))
         // });
 
-        methods.add_meta_function(MetaMethod::ToString, |_, instance: SelectedInstance| {
+        methods.add_meta_function(MetaMethod::ToString, |_, instance: InstancePath| {
             let new_path = instance.get_path()?;
             let new_path = new_path.to_str().ok_or(err_to_lua(format!(
                 "Could not convert path to string: {new_path:?}"
@@ -172,7 +180,7 @@ impl UserData for SelectedInstance {
             Ok(iterator)
         });
 
-        methods.add_function("read_dir", |vm, instance: SelectedInstance| {
+        methods.add_function("read_dir", |vm, instance: InstancePath| {
             let func: mlua::Function = vm
                 .load(
                     r"
@@ -195,7 +203,7 @@ end",
 #[derive(Clone)]
 pub struct SelectedInstanceIterator {
     iter: Arc<Mutex<ReadDir>>,
-    instance: SelectedInstance,
+    instance: InstancePath,
 }
 
 impl UserData for SelectedInstanceIterator {
@@ -226,7 +234,7 @@ impl UserData for SelectedInstanceIterator {
                 .strip_prefix(instance_path)
                 .map_err(|n| err_to_lua(format!("Error stripping dir reading path: {n}")))?;
 
-            let new = SelectedInstance {
+            let new = InstancePath {
                 instance: instance.instance.instance.clone(),
                 path: stripped_path.to_owned(),
                 dot_mc: instance.instance.dot_mc,
@@ -238,7 +246,7 @@ impl UserData for SelectedInstanceIterator {
 }
 
 impl SelectedInstanceIterator {
-    fn new(instance: SelectedInstance) -> Result<Self, PluginError> {
+    fn new(instance: InstancePath) -> Result<Self, PluginError> {
         let path = instance.get_path()?;
         let iter = std::fs::read_dir(&path).path(path)?;
 

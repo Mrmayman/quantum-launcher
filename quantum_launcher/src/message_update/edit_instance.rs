@@ -12,10 +12,6 @@ impl Launcher {
         message: EditInstanceMessage,
     ) -> Result<Task<Message>, String> {
         match message {
-            EditInstanceMessage::MenuOpen => {
-                let selected_instance = self.selected_instance.clone().unwrap();
-                self.edit_instance(&selected_instance).strerr()?;
-            }
             EditInstanceMessage::JavaOverride(n) => {
                 if let State::Launch(MenuLaunch {
                     edit_instance: Some(menu),

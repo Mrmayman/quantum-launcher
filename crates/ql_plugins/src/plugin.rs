@@ -4,17 +4,17 @@ use std::{
     sync::{mpsc::Sender, Arc},
 };
 
-use mlua::{Function, Lua, StdLib, Table, Value, Variadic};
+use mlua::{Function, IntoLuaMulti, Lua, StdLib, Table, Value, Variadic};
 use ql_core::{
     err, file_utils, info, pt, GenericProgress, InstanceSelection, IntoIoError, IoError,
-    CLASSPATH_SEPARATOR,
+    CLASSPATH_SEPARATOR, LAUNCHER_VERSION_NAME,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::runtime::Runtime;
 
 use crate::{
     json::{PluginJson, PluginPermission},
-    passed_types::{LuaGenericProgress, SelectedInstance},
+    passed_types::{InstancePath, LuaGenericProgress},
     PluginError,
 };
 use lazy_static::lazy_static;
@@ -29,6 +29,7 @@ pub struct Plugin {
     lua: Lua,
     code: String,
     mod_map: HashMap<String, String>,
+    json: PluginJson,
 }
 
 impl Plugin {
@@ -43,6 +44,19 @@ impl Plugin {
             lua,
             code,
             mod_map: HashMap::new(),
+            json: PluginJson {
+                launcher_version: LAUNCHER_VERSION_NAME.to_owned(),
+                details: crate::json::PluginDetails::default(),
+                files: Vec::new(),
+                main_file: crate::json::PluginFile {
+                    filename: String::new(),
+                    import: String::new(),
+                },
+                includes: None,
+                invoke: crate::json::PluginInvoke::Library,
+                dependencies: None,
+                permissions: Vec::new(),
+            },
         };
 
         plugin.fn_java(&globals)?;
@@ -59,8 +73,9 @@ impl Plugin {
 
         let (plugins_top_dir, plugins_map) = read_plugins()?;
 
-        let Some((name, json)) = plugins_map.iter().find(|(_, j)| {
-            (j.details.name == name) && (version.is_none_or(|v| j.details.version == v))
+        let Some((name, json)) = plugins_map.iter().find_map(|(n, j)| {
+            ((j.details.name == name) && (version.is_none_or(|v| j.details.version == v)))
+                .then_some((n, j.clone()))
         }) else {
             return Err(PluginError::PluginNotFound(
                 name.to_owned(),
@@ -76,12 +91,14 @@ impl Plugin {
             lua,
             code: main_code,
             mod_map: HashMap::new(),
+            json,
         };
 
-        if json.permissions.contains(&PluginPermission::Java) {
+        if plugin.json.permissions.contains(&PluginPermission::Java) {
             plugin.fn_java(&globals)?;
         }
-        if let Some(PluginPermission::Request { whitelist }) = json
+        if let Some(PluginPermission::Request { whitelist }) = plugin
+            .json
             .permissions
             .iter()
             .find(|n| matches!(n, PluginPermission::Request { .. }))
@@ -90,14 +107,19 @@ impl Plugin {
         }
         plugin.fn_file_pick(&globals)?;
 
-        for file in &json.files {
+        for file in &plugin.json.files {
             file.load(&plugin_root_dir, &mut plugin.mod_map)?;
         }
 
-        plugin.resolve_include_file(json, &plugin_root_dir, &globals)?;
+        plugin.resolve_include_file(plugin.json.clone(), &plugin_root_dir, &globals)?;
 
         // TODO: semver loose check
-        plugin.resolve_deps(json, &plugins_map, &plugins_top_dir, &globals)?;
+        plugin.resolve_deps(
+            plugin.json.clone(),
+            &plugins_map,
+            &plugins_top_dir,
+            &globals,
+        )?;
 
         let table = plugin.lua.create_table()?;
         for (name, code) in &plugin.mod_map {
@@ -148,14 +170,7 @@ impl Plugin {
         name: &str,
     ) -> Result<(), PluginError> {
         let globals = self.lua.globals();
-        globals.set(
-            name,
-            SelectedInstance {
-                instance,
-                path: PathBuf::new(),
-                dot_mc: false,
-            },
-        )?;
+        globals.set(name, InstancePath::from_instance_selection(instance))?;
         Ok(())
     }
 
@@ -175,6 +190,17 @@ impl Plugin {
         let globals = self.lua.globals();
         let func: Function = globals.get(name)?;
         func.call::<()>(())?;
+        Ok(())
+    }
+
+    pub fn call_fn_with_args(
+        &self,
+        name: &str,
+        args: impl IntoLuaMulti,
+    ) -> Result<(), PluginError> {
+        let globals = self.lua.globals();
+        let func: Function = globals.get(name)?;
+        func.call::<()>(args)?;
         Ok(())
     }
 
@@ -274,7 +300,7 @@ impl Plugin {
 
     fn resolve_deps(
         &mut self,
-        json: &PluginJson,
+        json: PluginJson,
         plugins_map: &HashMap<String, PluginJson>,
         plugins_top_dir: &Path,
         globals: &Table,
@@ -299,16 +325,16 @@ impl Plugin {
             }
             json.main_file.load(&plugin_root_dir, &mut self.mod_map)?;
 
-            self.resolve_include_file(json, &plugin_root_dir, globals)?;
+            self.resolve_include_file(json.clone(), &plugin_root_dir, globals)?;
 
-            self.resolve_deps(json, plugins_map, plugins_top_dir, globals)?;
+            self.resolve_deps(json.clone(), plugins_map, plugins_top_dir, globals)?;
         }
         Ok(())
     }
 
     fn resolve_include_file(
         &mut self,
-        json: &PluginJson,
+        json: PluginJson,
         plugin_root_dir: &Path,
         globals: &Table,
     ) -> Result<(), PluginError> {

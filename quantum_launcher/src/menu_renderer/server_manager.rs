@@ -1,20 +1,13 @@
-use std::{collections::HashMap, path::Path};
-
 use iced::widget;
-use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    launcher_state::{
-        EditInstanceMessage, InstanceLog, Launcher, MenuServerCreate, MenuServerManage, Message,
-        ServerProcess,
-    },
-    stylesheet::{color::Color, styles::LauncherTheme},
+    launcher_state::{MenuServerCreate, Message},
 };
 
 use super::{button_with_icon, Element};
 
-impl MenuServerManage {
+/*impl MenuServerManage {
     pub fn view<'a>(
         &'a self,
         server_list: Option<&'a Vec<String>>,
@@ -61,7 +54,7 @@ impl MenuServerManage {
                         .spacing(5),
                         widget::row!(
                             button_files,
-                            button_with_icon(icon_manager::download(), "Mods", 16)
+                            button_with_icon(icon_manager::download(), "Mods", 15)
                                 .width(98)
                                 .on_press_maybe(selected_server.and_then(|n| {
                                     (!processes.contains_key(n))
@@ -69,7 +62,7 @@ impl MenuServerManage {
                                 })),
                         )
                         .spacing(5),
-                        widget::row!(button_with_icon(icon_manager::delete(), "Delete", 16)
+                        widget::row!(button_with_icon(icon_manager::delete(), "Delete", 14)
                             .width(97)
                             .on_press_maybe(
                                 (selected_server.is_some()).then(|| { Message::ServerDeleteOpen })
@@ -154,7 +147,7 @@ impl MenuServerManage {
                 )
             }))
     }
-}
+}*/
 
 impl MenuServerCreate {
     pub fn view(&self) -> Element {
@@ -166,7 +159,7 @@ impl MenuServerCreate {
                     widget::text("Loading version list...").size(20),
                     widget::progress_bar(0.0..=16.0, *progress_number),
                     widget::text(if *progress_number >= 1.0 {
-                        format!("Downloading Omniarchive list {progress_number} / 15")
+                        format!("Downloading Omniarchive list {progress_number} / 17")
                     } else {
                         "Downloading official version list".to_owned()
                     })

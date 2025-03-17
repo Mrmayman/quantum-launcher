@@ -1,11 +1,11 @@
 use std::sync::mpsc::Sender;
 
-use ql_core::{file_utils, info, pt, GenericProgress};
+use ql_core::{file_utils, info, pt, GenericProgress, Loader};
 use serde::{Deserialize, Serialize};
 
 use crate::rate_limiter::RATE_LIMITER;
 
-use super::{Loader, ModError, RecommendedMod};
+use super::{ModError, RecommendedMod};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ModVersion {
@@ -77,7 +77,8 @@ impl ModVersion {
         let versions = Self::download(project_id).await?;
         Ok(versions.iter().any(|n| {
             n.game_versions.contains(minecraft_version)
-                && n.loaders.contains(&instance_loader.to_string())
+                && n.loaders
+                    .contains(&instance_loader.to_modrinth_str().to_owned())
         }))
     }
 }

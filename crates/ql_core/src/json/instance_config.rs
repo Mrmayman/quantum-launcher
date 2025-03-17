@@ -9,7 +9,7 @@ use crate::{IntoIoError, JsonFileError};
 /// Stored in `QuantumLauncher/instances/<instance_name>/config.json`.
 ///
 /// See the documentation of each field for more information.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InstanceConfigJson {
     /// Can be one of:
     /// - `"Vanilla"`
@@ -50,7 +50,7 @@ pub struct InstanceConfigJson {
     pub is_classic_server: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OmniarchiveEntry {
     pub name: String,
     pub url: String,

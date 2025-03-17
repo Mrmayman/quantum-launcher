@@ -4,7 +4,7 @@ use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
     file_utils, info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    GenericProgress, IntoIoError, IntoStringError,
+    pt, GenericProgress, IntoIoError, IntoStringError,
 };
 
 use crate::ServerError;
@@ -49,7 +49,8 @@ pub async fn create_server(
     version: ListEntry,
     sender: Option<Sender<GenericProgress>>,
 ) -> Result<String, ServerError> {
-    info!("Creating server: Downloading Manifest");
+    info!("Creating server");
+    pt!("Downloading Manifest");
     progress_manifest(sender.as_ref());
     let manifest = Manifest::download().await?;
 
@@ -108,6 +109,8 @@ pub async fn create_server(
 
     let mods_dir = server_dir.join("mods");
     tokio::fs::create_dir(&mods_dir).await.path(mods_dir)?;
+
+    pt!("Finished");
 
     Ok(name)
 }
@@ -230,7 +233,7 @@ async fn download_from_mojang(
     let version = manifest
         .find_name(version)
         .ok_or(ServerError::VersionNotFoundInManifest(version.to_owned()))?;
-    info!("Downloading version JSON");
+    pt!("Downloading version JSON");
     progress_json(sender);
     let version_json = file_utils::download_file_to_string(&version.url, false).await?;
     let version_json: VersionDetails = serde_json::from_str(&version_json)?;
@@ -238,7 +241,7 @@ async fn download_from_mojang(
         return Err(ServerError::NoServerDownload);
     };
 
-    info!("Downloading server jar");
+    pt!("Downloading server jar");
     progress_server_jar(sender);
     let server_jar = file_utils::download_file_to_bytes(&server.url, false).await?;
     Ok((server_jar, version_json))

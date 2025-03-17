@@ -9,38 +9,62 @@ use super::error::FabricInstallError;
 
 const MANIFEST_PATH: &str = "META-INF/MANIFEST.MF";
 const SERVICES_DIR: &str = "META-INF/services/";
-const MAIN_CLASS_MANIFEST: &str = "net.fabricmc.loader.launch.server.FabricServerLauncher";
+const MAIN_CLASS_MANIFEST: &str = "net.fabricmc.loader.impl.launch.server.FabricServerLauncher";
 
+/// Makes a jar file that launches the Minecraft Fabric server,
+/// essentially acting as a glorified launch script.
+///
+/// You just do `java -jar this_generated_file.jar` and it
+/// automatically sets up the main class and the classpath
+/// via its `META-INF/MANIFEST.MF` file. So essentially
+/// this is done for ease of use.
+///
+/// # Errors
+/// - If the server installation (the directory) doesn't exist
+/// - If the user lacks permission to modify the server installation
+///
+/// # Panics
+/// This panics if the `file` argument isn't atleast two levels deep.
+/// This is not an error as it simply *will not happen* in my use case.
+///
+/// For example, `my_dir/launch.jar` won't panic. But `launch.jar`, `./launch.jar`
+/// and so on will panic.
 pub async fn make_launch_jar(
     file: &Path,
     launch_main_class: &str,
     library_files: &[PathBuf],
     shade_libraries: bool,
 ) -> Result<(), FabricInstallError> {
-    // Delete the output file if it already exists
     if file.exists() {
         tokio::fs::remove_file(file).await.path(file)?;
     }
 
-    // Create a new ZIP file
     let zip_file = File::create(file).path(file)?;
     let mut zip_writer = ZipWriter::new(BufWriter::new(zip_file));
     let mut added_entries = HashSet::new();
 
-    // Write the manifest file
     let mut manifest_content = ManifestBuilder::new();
 
     if !shade_libraries {
         let class_path = library_files
             .iter()
             .map(|n| {
-                let relative_path = file
-                    .parent()
-                    .unwrap_or_else(|| Path::new("."))
-                    .join(n)
-                    .to_string_lossy()
-                    .replace('\\', "/");
-                relative_path
+                // Note: best to have relative paths to
+                // libraries instead of absolute paths:
+                //
+                // - This avoids problems with spaces in paths
+                //   (real bug fixed in v0.4)
+                // - This makes the fabric server jar file cross platform
+
+                // # Panics
+                // See the function documentation for info.
+                let parent = file.parent().unwrap();
+                n.strip_prefix(parent)
+                    .unwrap_or(n)
+                    .to_str()
+                    .map(|n| n.to_owned())
+                    .unwrap_or(n.to_string_lossy().to_string())
+                    .replace('\\', "/")
             })
             .collect::<Vec<_>>()
             .join(" ");

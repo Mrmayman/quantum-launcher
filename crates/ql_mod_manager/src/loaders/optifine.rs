@@ -8,13 +8,11 @@ use std::{
 use ql_core::{
     file_utils, info,
     json::{optifine::JsonOptifine, VersionDetails},
-    GenericProgress, IntoIoError, IoError, JsonFileError, Progress, RequestError,
+    GenericProgress, IntoIoError, IoError, JsonFileError, Loader, Progress, RequestError,
     CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
-
-use crate::mod_manager::Loader;
 
 use super::change_instance_type;
 

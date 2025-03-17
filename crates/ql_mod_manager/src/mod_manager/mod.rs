@@ -9,9 +9,9 @@ mod versions;
 
 pub use delete::delete_mods;
 pub use download::{download_mod, download_mods_w};
-pub use get_project::{DonationLink, GalleryItem, License, ProjectInfo};
+pub use get_project::ProjectInfo;
 pub use local_json::{ModConfig, ModIndex};
-pub use search::{Entry, ImageResult, Loader, ModError, Query, Search};
+pub use search::{Entry, ImageResult, ModError, Query, Search};
 pub use toggle::toggle_mods;
 pub use update::{apply_updates, check_for_updates};
 pub use versions::{ModFile, ModHashes, ModVersion};

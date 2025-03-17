@@ -6,9 +6,9 @@ use std::{
 use iced::Task;
 use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    InstanceSelection, IntoIoError, IntoStringError,
+    InstanceSelection, IntoIoError, IntoStringError, Loader,
 };
-use ql_mod_manager::mod_manager::{Loader, ModIndex, Query, Search};
+use ql_mod_manager::mod_manager::{ModIndex, Query, Search};
 
 use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 

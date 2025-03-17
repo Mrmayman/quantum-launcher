@@ -13,6 +13,7 @@ mod error;
 pub mod file_utils;
 /// JSON structs for version, instance config, Fabric, Forge, OptiFine, etc.
 pub mod json;
+mod loader;
 /// Logging macros.
 pub mod print;
 mod progress;
@@ -27,6 +28,7 @@ pub use error::{
 };
 pub use file_utils::RequestError;
 use futures::StreamExt;
+pub use loader::Loader;
 pub use progress::{DownloadProgress, GenericProgress, Progress};
 
 pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
@@ -60,7 +62,7 @@ pub async fn do_jobs<ResultType>(
     outputs
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum InstanceSelection {
     Instance(String),
     Server(String),

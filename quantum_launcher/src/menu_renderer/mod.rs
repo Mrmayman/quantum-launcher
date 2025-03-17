@@ -247,7 +247,7 @@ impl MenuCreateInstance {
                 widget::text("Loading version list...").size(20),
                 widget::progress_bar(0.0..=24.0, *progress_number),
                 widget::text(if *progress_number >= 1.0 {
-                    format!("Downloading Omniarchive list {progress_number} / 24")
+                    format!("Downloading Omniarchive list {progress_number} / 26")
                 } else {
                     "Downloading official version list".to_owned()
                 })

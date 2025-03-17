@@ -12,7 +12,7 @@ use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
-    JsonFileError, Progress, SelectedMod, LAUNCHER_VERSION_NAME,
+    JsonFileError, Loader, Progress, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
     AccountData, AuthCodeResponse, AuthTokenResponse, ListEntry, LogLine, UpdateCheckInfo,
@@ -23,7 +23,7 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ImageResult, Loader, ModConfig, ModIndex, ProjectInfo, RecommendedMod, Search},
+    mod_manager::{ImageResult, ModConfig, ModIndex, ProjectInfo, RecommendedMod, Search},
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -60,7 +60,6 @@ pub enum CreateInstanceMessage {
 #[derive(Debug, Clone)]
 pub enum EditInstanceMessage {
     ConfigSaved(Result<(), String>),
-    MenuOpen,
     JavaOverride(String),
     MemoryChanged(f32),
     LoggingToggle(bool),
@@ -207,9 +206,6 @@ pub enum Message {
     ServerCreateVersionSelected(ListEntry),
     ServerCreateStart,
     ServerCreateEnd(Result<String, String>),
-    ServerDeleteOpen,
-    ServerDeleteConfirm,
-    ServerEditModsOpen,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default, Copy)]
@@ -243,6 +239,7 @@ pub struct MenuLaunch {
     pub edit_instance: Option<MenuEditInstance>,
     pub sidebar_width: u16,
     pub sidebar_dragging: bool,
+    pub is_viewing_server: bool,
 }
 
 impl Default for MenuLaunch {
@@ -261,6 +258,7 @@ impl MenuLaunch {
             login_progress: None,
             sidebar_width: SIDEBAR_WIDTH_DEFAULT as u16,
             sidebar_dragging: false,
+            is_viewing_server: false,
         }
     }
 }
@@ -458,13 +456,8 @@ pub enum State {
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(Box<MenuModsDownload>),
     LauncherSettings,
-    ServerManage(MenuServerManage),
     ServerCreate(MenuServerCreate),
     ManagePresets(MenuEditPresets),
-}
-
-pub struct MenuServerManage {
-    pub message: Option<String>,
 }
 
 pub enum MenuServerCreate {

@@ -10,9 +10,9 @@ use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
 
 use crate::launcher_state::{
-    EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, Launcher, MenuCreateInstance,
-    MenuEditMods, MenuEditPresetsInner, MenuInstallFabric, MenuLaunch, MenuModsDownload,
-    MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
+    EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
+    MenuCreateInstance, MenuEditMods, MenuEditPresetsInner, MenuInstallFabric, MenuLaunch,
+    MenuModsDownload, MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -21,6 +21,7 @@ impl Launcher {
             State::Launch(MenuLaunch {
                 asset_recv,
                 edit_instance,
+                tab,
                 ..
             }) => {
                 if let Some(receiver) = &mut self.java_recv {
@@ -42,11 +43,12 @@ impl Launcher {
 
                 let mut commands = Vec::new();
 
-                if let Some(edit) = &edit_instance {
+                if let (Some(edit), LaunchTabId::Edit) = (&edit_instance, tab) {
                     let config = edit.config.clone();
                     self.tick_edit_instance(config, &mut commands);
                 }
-                self.tick_processes_and_logs();
+                self.tick_client_processes_and_logs();
+                self.tick_server_processes_and_logs();
 
                 let launcher_config = self.config.clone();
                 commands.push(Task::perform(
@@ -119,13 +121,13 @@ impl Launcher {
                     }
                 }
             }
-            State::ServerManage(_) => {
-                if self.java_recv.as_mut().is_some_and(ProgressBar::tick) {
-                    self.state = State::InstallJava;
-                    return Task::none();
-                }
-                self.tick_server_processes_and_logs();
-            }
+            // State::ServerManage(_) => {
+            //     if self.java_recv.as_mut().is_some_and(ProgressBar::tick) {
+            //         self.state = State::InstallJava;
+            //         return Task::none();
+            //     }
+            //     self.tick_server_processes_and_logs();
+            // }
             State::ServerCreate(menu) => menu.tick(),
             State::ManagePresets(menu) => {
                 if let Some(progress) = &mut menu.progress {
@@ -180,7 +182,7 @@ impl Launcher {
         commands
     }
 
-    fn tick_processes_and_logs(&mut self) {
+    fn tick_client_processes_and_logs(&mut self) {
         let mut killed_processes = Vec::new();
         for (name, process) in &self.client_processes {
             if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
@@ -333,9 +335,9 @@ impl MenuServerCreate {
             } => {
                 while let Ok(()) = progress_receiver.try_recv() {
                     *progress_number += 1.0;
-                    if *progress_number > 16.0 {
-                        err!("More than 16 indexes scraped: {progress_number}");
-                        *progress_number = 16.0;
+                    if *progress_number > 17.0 {
+                        err!("More than 17 indexes scraped: {progress_number}");
+                        *progress_number = 17.0;
                     }
                 }
             }

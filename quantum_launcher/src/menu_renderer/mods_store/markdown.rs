@@ -156,14 +156,23 @@ impl MenuModsDownload {
 
         // WTF: I am going to commit a crime. Get ready.
         //
-        // last_line_blank is a debug field in the `comrak`
+        // last_line_blank is a private field in the `comrak`
         // library. However, we really, really need this.
         //
         // Luckily they have made the grave mistake of exposing
         // the field when debug printing, so we debug-print
         // the value and search for and find last_line_blank
+        //
+        // If this breaks in the future, every element will
+        // be on a newline which is suboptimal but... hey it's
+        // not that bad
         let debug_text = format!("{data:?}");
         force_newline | parse_last_line_blank(&debug_text)
+        // We need this to see if the markdown element ends with
+        // a newline or not. Those `comrak` people just had to add
+        // all the information and helpfully hide it from us
+        // (unless I'm being an idiot and it's obvious, but hey,
+        // open an issue or PR if there's a better way!)
     }
 }
 
@@ -176,7 +185,7 @@ fn parse_last_line_blank(input: &str) -> bool {
             return false;
         }
     }
-    false
+    true
 }
 
 fn render_children<'a>(

@@ -1,7 +1,7 @@
-use std::{fmt::Display, time::Instant};
+use std::time::Instant;
 
 use image::ImageReader;
-use ql_core::{err, file_utils, IoError, JsonFileError, RequestError};
+use ql_core::{file_utils, IoError, JsonFileError, Loader, RequestError};
 use serde::Deserialize;
 use thiserror::Error;
 use zip_extract::ZipError;
@@ -60,7 +60,7 @@ impl Search {
                 query
                     .loaders
                     .iter()
-                    .map(|loader| format!("categories:'{loader}'"))
+                    .map(|loader| format!("categories:'{}'", loader.to_modrinth_str()))
                     .collect(),
             );
         }
@@ -224,79 +224,29 @@ pub struct Query {
     pub open_source: bool,
 }
 
-#[derive(Debug, Clone)]
-pub enum Loader {
-    Forge,
-    Fabric,
-    Quilt,
-    Liteloader,
-    Modloader,
-    Rift,
-    Neoforge,
-    // Note: Modrinth doesn't support the below:
-    OptiFine,
-    Paper,
-}
-
-impl TryFrom<&str> for Loader {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "Forge" => Ok(Loader::Forge),
-            "Fabric" => Ok(Loader::Fabric),
-            "Quilt" => Ok(Loader::Quilt),
-            loader => {
-                err!("Unknown loader: {loader}");
-                Err(())
-            }
-        }
-    }
-}
-
-impl Display for Loader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Loader::Forge => "forge",
-                Loader::Fabric => "fabric",
-                Loader::Quilt => "quilt",
-                Loader::Liteloader => "liteloader",
-                Loader::Modloader => "modloader",
-                Loader::Rift => "rift",
-                Loader::Neoforge => "neoforge",
-                Loader::OptiFine => "optifine",
-                Loader::Paper => "paper",
-            }
-        )
-    }
-}
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct Entry {
-    pub project_id: String,
-    pub project_type: String,
-    pub slug: String,
-    pub author: String,
     pub title: String,
-    pub description: String,
-    pub categories: Vec<String>,
-    pub display_categories: Vec<String>,
-    pub versions: Vec<String>,
-    pub downloads: usize,
-    pub follows: usize,
+    pub project_id: String,
     pub icon_url: String,
-    pub date_created: String,
-    pub date_modified: String,
-    pub latest_version: String,
-    pub license: String,
-    pub client_side: String,
-    pub server_side: String,
-    pub gallery: Vec<String>,
-    pub featured_gallery: Option<String>,
-    pub color: Option<usize>,
-    pub thread_id: Option<String>,
-    pub monetization_status: Option<String>,
+    pub description: String,
+    pub downloads: usize,
+    pub slug: String,
+    // pub project_type: String,
+    // pub author: String,
+    // pub categories: Vec<String>,
+    // pub display_categories: Vec<String>,
+    // pub versions: Vec<String>,
+    // pub follows: usize,
+    // pub date_created: String,
+    // pub date_modified: String,
+    // pub latest_version: String,
+    // pub license: String,
+    // pub client_side: String,
+    // pub server_side: String,
+    // pub gallery: Vec<String>,
+    // pub featured_gallery: Option<String>,
+    // pub color: Option<usize>,
+    // pub thread_id: Option<String>,
+    // pub monetization_status: Option<String>,
 }

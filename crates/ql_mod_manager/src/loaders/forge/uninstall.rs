@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use ql_core::{file_utils, InstanceSelection, IntoIoError};
+use ql_core::{file_utils, InstanceSelection, IntoIoError, Loader};
 
-use crate::{loaders::change_instance_type, mod_manager::Loader};
+use crate::loaders::change_instance_type;
 
 use super::error::ForgeInstallError;
 

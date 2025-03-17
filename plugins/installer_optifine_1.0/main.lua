@@ -1,6 +1,3 @@
--- Defined:
---  optifine_instance (SelectedInstance)
-
 -- TODO: progress.send(Start)
 
 local json = require("json")
@@ -13,7 +10,7 @@ local function split_three(str, sep)
     return p1, p2, p3
 end
 
-local function copy_details_json(inst)
+local function copy_details_json(inst, optifine_instance)
     local details = inst:join("details.json"):read()
     local details_json = json.decode(details)
 
@@ -65,36 +62,43 @@ local function install_libraries(optifine_inst)
     end
 end
 
-qlLogInfo("Started installing OptiFine")
-local instance_dir = optifine_instance:to_instance_dir()
-copy_details_json(instance_dir)
+function Install(optifine_instance)
+    qlLogInfo("Started installing OptiFine")
+    local instance_dir = optifine_instance:to_instance_dir()
+    copy_details_json(instance_dir, optifine_instance)
 
-local optifine_path = instance_dir:join("optifine")
-optifine_path:create_dir()
+    local optifine_path = instance_dir:join("optifine")
+    optifine_path:create_dir()
 
-local mc_path = tostring(optifine_instance:to_dot_mc_dir()):gsub("\\", "\\\\")
-local hook = java_OptifineInstaller:gsub("REPLACE_WITH_MC_PATH", mc_path)
+    local mc_path = tostring(optifine_instance:to_dot_mc_dir()):gsub("\\", "\\\\")
+    local hook = java_OptifineInstaller:gsub("REPLACE_WITH_MC_PATH", mc_path)
 
-optifine_path:join("OptifineInstaller.java"):write(hook)
-local installer_path = optifine_path:join("OptiFine.jar")
-installer_path:write(qlPickFile("Select OptiFine installer jar file", { "jar" }, "Jar File"))
+    optifine_path:join("OptifineInstaller.java"):write(hook)
+    local installer_path = optifine_path:join("OptiFine.jar")
+    installer_path:write(qlPickFile("Select OptiFine installer jar file", { "jar" }, "Jar File"))
 
-qlLogInfo("Compiling OptifineInstaller.java")
+    qlLogInfo("Compiling OptifineInstaller.java")
 
--- TODO: Java install progress
--- TODO: progress.send(Compiling)
-qlJavaExec("javac", 21, nil, { "-cp", tostring(installer_path), "OptifineInstaller.java", "-d", "." },
-    tostring(optifine_path))
+    -- TODO: Java install progress
+    -- TODO: progress.send(Compiling)
+    qlJavaExec("javac", 21, nil, { "-cp", tostring(installer_path), "OptifineInstaller.java", "-d", "." },
+        tostring(optifine_path))
 
-qlLogInfo("Running OptifineInstaller.java")
--- TODO: progress.send(Running)
-qlJavaExec("java", 21, nil,
-    { "-cp", tostring(installer_path) .. QL_CLASSPATH_SEPARATOR .. ".", "OptifineInstaller" }, tostring(optifine_path))
+    qlLogInfo("Running OptifineInstaller.java")
+    -- TODO: progress.send(Running)
+    qlJavaExec("java", 21, nil,
+        { "-cp", tostring(installer_path) .. QL_CLASSPATH_SEPARATOR .. ".", "OptifineInstaller" },
+        tostring(optifine_path))
 
-install_libraries(optifine_instance)
+    install_libraries(optifine_instance)
 
-local config_path = optifine_instance:to_instance_dir():join("config.json")
-local config = json.decode(config_path:read())
-config.mod_type = "OptiFine"
-local config_txt = json.encode(config)
-config_path:write(config_txt)
+    local config_path = optifine_instance:to_instance_dir():join("config.json")
+    local config = json.decode(config_path:read())
+    config.mod_type = "OptiFine"
+    local config_txt = json.encode(config)
+    config_path:write(config_txt)
+end
+
+function Uninstall()
+    print("TODO: Implement Uninstall")
+end

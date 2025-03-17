@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path};
 use ql_core::{IntoIoError, IoError};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PluginJson {
     pub launcher_version: String,
     pub details: PluginDetails,
@@ -15,32 +15,32 @@ pub struct PluginJson {
     pub permissions: Vec<PluginPermission>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct PluginDetails {
     pub name: String,
     pub version: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PluginDependency {
     pub version: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum PluginInvoke {
     LoaderInstaller { software: String },
     Library,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[serde(tag = "type")]
 pub enum PluginPermission {
     Java,
     Request { whitelist: Vec<String> },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PluginFile {
     pub filename: String,
     pub import: String,

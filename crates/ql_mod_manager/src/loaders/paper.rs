@@ -1,12 +1,13 @@
 use std::{collections::HashMap, path::Path};
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, RequestError,
+    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, Loader,
+    RequestError,
 };
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::{loaders::change_instance_type, mod_manager::Loader};
+use crate::loaders::change_instance_type;
 
 #[derive(Deserialize)]
 pub struct PaperVersions {

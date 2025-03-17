@@ -9,12 +9,12 @@ use iced::{keyboard::Key, Task};
 use ql_core::{
     err, file_utils, info, info_no_log,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
+    DownloadProgress, InstanceSelection, IntoIoError, IntoStringError, JsonFileError, Loader,
 };
 use ql_instances::{AccountData, ListEntry};
 use ql_mod_manager::{
     loaders,
-    mod_manager::{Loader, ModIndex, ModVersion, RECOMMENDED_MODS},
+    mod_manager::{ModIndex, ModVersion, RECOMMENDED_MODS},
 };
 use tokio::process::Child;
 
@@ -25,7 +25,7 @@ use crate::{
         ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
         MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditPresets, MenuEditPresetsInner,
         MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate,
-        MenuServerManage, NEW_ACCOUNT_NAME,
+        NEW_ACCOUNT_NAME,
     },
     Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
@@ -471,7 +471,22 @@ impl Launcher {
     }
 
     pub fn go_to_server_manage_menu(&mut self, message: Option<String>) -> Task<Message> {
-        self.state = State::ServerManage(MenuServerManage { message });
+        if let State::Launch(menu) = &mut self.state {
+            menu.is_viewing_server = true;
+            if let Some(message) = message {
+                menu.message = message
+            }
+        } else {
+            let mut menu_launch = match message {
+                Some(message) => MenuLaunch::with_message(message),
+                None => MenuLaunch::default(),
+            };
+            menu_launch.is_viewing_server = true;
+            if let Some(width) = self.config.sidebar_width {
+                menu_launch.sidebar_width = width as u16;
+            }
+            self.state = State::Launch(menu_launch);
+        }
         Task::perform(
             get_entries("servers".to_owned(), true),
             Message::CoreListLoaded,
@@ -725,7 +740,6 @@ impl Launcher {
             | State::Create(_)
             | State::ManagePresets(_)
             | State::ModsDownload(_)
-            | State::ServerManage(_)
             | State::ServerCreate(_)
             | State::GenericMessage(_)
             | State::AccountLoginProgress(_)
