@@ -35,6 +35,7 @@ env:
   BIN_NAME: quantum_launcher
   PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
+  CARGO_TERM_COLOR: always # Tell cargo to always use colors
 
 jobs:
   dist:
