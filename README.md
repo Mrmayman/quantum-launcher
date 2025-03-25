@@ -96,6 +96,8 @@ What about the others? Well...
 
 </p>
 
+(note: WIP means work-in-progress)
+
 ## Core
 - [x] Instance creation
 - [x] Instance launching
@@ -121,8 +123,10 @@ What about the others? Well...
 - [ ] Curseforge modpacks
 ### Features
 - [x] Mod store
-- [x] Mod updater
 - [x] Mod presets
+- [x] Mod updater
+- [ ] Optimization for mod updater (it's super slow right now)
+- [ ] UI/UX overhaul of preset system
 ## Instances
 - [ ] Import MultiMC instance
 - [ ] Migrate from other launchers (file locations)
@@ -131,7 +135,7 @@ What about the others? Well...
 - [x] Windows x86_64
 - [x] Linux x86_64
 - [x] Linux Aarch64 (WIP)
-- [ ] macOS (WIP)
+- [x] macOS (WIP)
 - [ ] Windows i686 (WIP)
 - [ ] Linux i686 (WIP)
 - [ ] Windows Aarch64 (WIP)

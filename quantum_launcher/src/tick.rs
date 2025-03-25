@@ -418,13 +418,12 @@ impl MenuCreateInstance {
     pub fn tick(&mut self) {
         match self {
             MenuCreateInstance::Loading {
-                progress_receiver,
-                progress_number,
+                receiver, number, ..
             } => {
-                while let Ok(()) = progress_receiver.try_recv() {
-                    *progress_number += 1.0;
-                    if *progress_number > 26.0 {
-                        err!("More than 26 indexes scraped: {}", *progress_number);
+                while let Ok(()) = receiver.try_recv() {
+                    *number += 1.0;
+                    if *number > 26.0 {
+                        err!("More than 26 indexes scraped: {}", *number);
                     }
                 }
             }

@@ -18,6 +18,7 @@ use crate::{
 
 pub mod changelog;
 pub mod launch;
+pub mod log;
 pub mod mods_manage;
 pub mod mods_store;
 pub mod server_manager;
@@ -242,8 +243,10 @@ impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
             MenuCreateInstance::Loading {
-                progress_number, ..
+                number: progress_number, ..
             } => widget::column![
+                button_with_icon(icon_manager::back(), "Back", 16)
+                    .on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
                 widget::text("Loading version list...").size(20),
                 widget::progress_bar(0.0..=24.0, *progress_number),
                 widget::text(if *progress_number >= 1.0 {

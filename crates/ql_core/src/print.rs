@@ -8,10 +8,18 @@ use chrono::{Datelike, Timelike};
 
 use crate::file_utils;
 
+#[derive(Clone, Copy)]
+pub enum LogType {
+    Info,
+    Error,
+    Point,
+}
+
 pub struct LoggingState {
     thread: Option<std::thread::JoinHandle<()>>,
     writer: Option<BufWriter<File>>,
     sender: Option<std::sync::mpsc::Sender<String>>,
+    pub text: Vec<(String, LogType)>,
 }
 
 impl LoggingState {
@@ -45,10 +53,13 @@ impl LoggingState {
             thread: None,
             writer: Some(BufWriter::new(file)),
             sender: None,
+            text: Vec::new(),
         }))
     }
 
-    pub fn write_str(&mut self, s: &str) {
+    pub fn write_str(&mut self, s: &str, t: LogType) {
+        self.text.push((s.to_owned(), t));
+
         if self.sender.is_none() {
             let (sender, receiver) = std::sync::mpsc::channel::<String>();
 
@@ -78,10 +89,10 @@ lazy_static::lazy_static! {
         LoggingState::create();
 }
 
-pub fn print_to_file(msg: &str) {
+pub fn print_to_file(msg: &str, t: LogType) {
     if let Some(logger) = LOGGER.as_ref() {
         let mut lock = logger.lock().unwrap();
-        lock.write_str(msg);
+        lock.write_str(msg, t);
     }
 }
 
@@ -98,7 +109,7 @@ macro_rules! info {
             println!("{} {}", colored::Colorize::yellow("[info]"), format_args!($($arg)*))
         }
 
-        $crate::print::print_to_file(&plain_text);
+        $crate::print::print_to_file(&plain_text, $crate::print::LogType::Info);
     };
 }
 
@@ -132,7 +143,7 @@ macro_rules! err {
                 eprintln!("{} {}", colored::Colorize::red("[error]"), format_args!($($arg)*))
             }
 
-            $crate::print::print_to_file(&plain_text);
+            $crate::print::print_to_file(&plain_text, $crate::print::LogType::Error);
         }
     };
 }
@@ -150,6 +161,6 @@ macro_rules! pt {
             println!("{} {}", colored::Colorize::bold("-"), format_args!($($arg)*))
         }
 
-        $crate::print::print_to_file(&plain_text);
+        $crate::print::print_to_file(&plain_text, $crate::print::LogType::Point);
     };
 }

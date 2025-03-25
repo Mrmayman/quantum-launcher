@@ -55,6 +55,7 @@ pub enum CreateInstanceMessage {
     Start,
     End(Result<String, String>),
     ChangeAssetToggle(bool),
+    Cancel,
 }
 
 #[derive(Debug, Clone)]
@@ -171,23 +172,33 @@ pub enum Message {
     UninstallLoaderOptiFineStart,
     UninstallLoaderPaperStart,
     UninstallLoaderEnd(Result<Loader, String>),
+
     CoreErrorCopy,
+    CoreCopyText(String),
     CoreTick,
     CoreTickConfigSaved(Result<(), String>),
     CoreListLoaded(Result<(Vec<String>, bool), String>),
-    CoreCopyText(String),
     CoreOpenChangeLog,
     CoreEvent(iced::Event, iced::event::Status),
+
+    CoreLogToggle,
+    CoreLogScroll(i64),
+    CoreLogScrollAbsolute(i64),
+
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
     LaunchChangeTab(LaunchTabId),
+
     UpdateCheckResult(Result<UpdateCheckInfo, String>),
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
+
     ManageModsSelectAll,
+
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
+
     ServerManageOpen {
         selected_server: Option<String>,
         message: Option<String>,
@@ -200,6 +211,7 @@ pub enum Message {
     ServerManageEditCommand(String, String),
     ServerManageCopyLog,
     ServerManageSubmitCommand(String),
+
     ServerCreateScreenOpen,
     ServerCreateVersionsLoaded(Result<Vec<ListEntry>, String>),
     ServerCreateNameInput(String),
@@ -344,8 +356,9 @@ impl MenuEditMods {
 
 pub enum MenuCreateInstance {
     Loading {
-        progress_receiver: Receiver<()>,
-        progress_number: f32,
+        receiver: Receiver<()>,
+        number: f32,
+        _handle: iced::task::Handle,
     },
     Loaded {
         instance_name: String,
@@ -496,6 +509,9 @@ pub struct Launcher {
     pub theme: LauncherTheme,
     pub images: ImageState,
 
+    pub is_log_open: bool,
+    pub log_scroll: i64,
+
     pub java_recv: Option<ProgressBar<GenericProgress>>,
 
     pub accounts: HashMap<String, AccountData>,
@@ -623,6 +639,8 @@ impl Launcher {
             client_list: None,
             server_list: None,
             java_recv: None,
+            is_log_open: false,
+            log_scroll: 0,
             state,
             client_processes: HashMap::new(),
             config,
@@ -671,6 +689,8 @@ impl Launcher {
         Self {
             dir: launcher_dir.unwrap_or_default(),
             state: State::Error { error },
+            is_log_open: false,
+            log_scroll: 0,
             java_recv: None,
             client_list: None,
             server_list: None,

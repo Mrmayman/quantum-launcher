@@ -94,7 +94,15 @@ pub async fn launch(
     censor(&mut game_arguments, "--clientId", |args| {
         censor(args, "--accessToken", |args| {
             censor(args, "--uuid", |args| {
-                info!("Game args: {args:?}\n");
+                censor_string(
+                    args,
+                    auth.as_ref()
+                        .map(|n| n.access_token.as_deref().unwrap_or_default())
+                        .unwrap_or_default(),
+                    |args| {
+                        info!("Game args: {args:?}\n");
+                    },
+                )
             });
         });
     });
@@ -169,6 +177,17 @@ fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, co
     } else {
         code(vec);
     }
+}
+
+fn censor_string<F: FnOnce(&mut Vec<String>)>(vec: &Vec<String>, argument: &str, code: F) {
+    let mut new = vec.clone();
+    new.iter_mut().for_each(|s| {
+        if s == argument {
+            *s = "[REDACTED]".to_owned();
+        }
+    });
+
+    code(&mut new);
 }
 
 pub struct GameLauncher {

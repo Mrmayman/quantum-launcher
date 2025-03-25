@@ -155,11 +155,8 @@ impl Launcher {
             Task::none()
         } else {
             let (sender, receiver) = mpsc::channel();
-            self.state = State::Create(MenuCreateInstance::Loading {
-                progress_receiver: receiver,
-                progress_number: 0.0,
-            });
-            Task::perform(
+
+            let (task, handle) = Task::perform(
                 async move {
                     ql_instances::list_versions(Some(Arc::new(sender)))
                         .await
@@ -167,6 +164,15 @@ impl Launcher {
                 },
                 |n| Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n)),
             )
+            .abortable();
+
+            self.state = State::Create(MenuCreateInstance::Loading {
+                receiver,
+                number: 0.0,
+                _handle: handle.abort_on_drop(),
+            });
+
+            task
         }
     }
 

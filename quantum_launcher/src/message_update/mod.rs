@@ -125,6 +125,9 @@ impl Launcher {
                     *download_assets = t;
                 }
             }
+            CreateInstanceMessage::Cancel => {
+                return self.go_to_launch_screen(Option::<String>::None)
+            }
         }
         Task::none()
     }

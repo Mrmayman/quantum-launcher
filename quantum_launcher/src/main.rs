@@ -83,7 +83,7 @@ use launcher_state::{
 use menu_renderer::{
     button_with_icon,
     changelog::{changelog_0_4, welcome_msg},
-    view_account_login, DISCORD,
+    view_account_login, Element, DISCORD,
 };
 use ql_core::{
     err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
@@ -91,7 +91,11 @@ use ql_core::{
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
-use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
+use stylesheet::{
+    color::Color,
+    styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness},
+    widgets::StyleButton,
+};
 use tokio::io::AsyncWriteExt;
 
 mod arguments;
@@ -709,6 +713,18 @@ impl Launcher {
                     *tab = launch_tab_id;
                 }
             }
+            Message::CoreLogToggle => {
+                self.is_log_open = !self.is_log_open;
+            }
+            Message::CoreLogScroll(lines) => {
+                let new_scroll = self.log_scroll - lines;
+                if new_scroll >= 0 {
+                    self.log_scroll = new_scroll;
+                }
+            }
+            Message::CoreLogScrollAbsolute(lines) => {
+                self.log_scroll = lines;
+            }
         }
         Task::none()
     }
@@ -724,7 +740,58 @@ impl Launcher {
         iced::Subscription::batch(vec![tick, events])
     }
 
-    fn view(&self) -> iced::Element<'_, Message, LauncherTheme, iced::Renderer> {
+    fn view(&self) -> Element {
+        widget::column![
+            widget::column![self.view_menu()].height(
+                (self.window_size.1 / if self.is_log_open { 2.0 } else { 1.0 })
+                    - DEBUG_LOG_BUTTON_HEIGHT
+            ),
+            widget::tooltip(
+                widget::button(widget::row![
+                    widget::horizontal_space(),
+                    widget::text(if self.is_log_open { "v" } else { "^" }).size(10),
+                    widget::horizontal_space()
+                ])
+                .padding(0)
+                .height(DEBUG_LOG_BUTTON_HEIGHT)
+                .style(|n: &LauncherTheme, status| n.style_button(status, StyleButton::FlatDark))
+                .on_press(Message::CoreLogToggle),
+                widget::text(if self.is_log_open {
+                    "Close launcher log"
+                } else {
+                    "Open launcher debug log (troubleshooting)"
+                })
+                .size(12),
+                widget::tooltip::Position::Top
+            )
+            .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+        ]
+        .push_maybe(self.is_log_open.then(|| {
+            let (text_len, text_size, column) = self.view_launcher_log();
+
+            widget::mouse_area(
+                widget::container(widget::row![
+                    column.height(self.window_size.1 / 2.0),
+                    widget::vertical_slider(
+                        0.0..=text_len,
+                        text_len - self.log_scroll as f64,
+                        move |val| { Message::CoreLogScrollAbsolute(text_len as i64 - val as i64) }
+                    )
+                ])
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+            )
+            .on_scroll(move |n| {
+                let lines = match n {
+                    iced::mouse::ScrollDelta::Lines { y, .. } => y as i64,
+                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / text_size) as i64,
+                };
+                Message::CoreLogScroll(lines)
+            })
+        }))
+        .into()
+    }
+
+    fn view_menu(&self) -> Element {
         match &self.state {
             State::Launch(menu) => self.view_main_menu(menu),
             State::AccountLoginProgress(progress) => widget::column![
@@ -818,7 +885,22 @@ impl Launcher {
     fn scale_factor(&self) -> f64 {
         self.config.ui_scale.unwrap_or(1.0)
     }
+
+    fn split_string_at_intervals(input: &str, interval: usize) -> Vec<String> {
+        input
+            .chars()
+            .collect::<Vec<char>>()
+            .chunks(interval)
+            .map(|chunk| chunk.iter().collect())
+            .collect()
+    }
+
+    fn split_string_len(input: &str, interval: usize) -> f64 {
+        (input.len() as f64 / interval as f64).ceil()
+    }
 }
+
+const DEBUG_LOG_BUTTON_HEIGHT: f32 = 16.0;
 
 const WINDOW_HEIGHT: f32 = 400.0;
 const WINDOW_WIDTH: f32 = 600.0;

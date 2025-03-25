@@ -12,6 +12,7 @@ use crate::{
     menu_renderer::DISCORD,
     message_handler::SIDEBAR_DRAG_LEEWAY,
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
+    DEBUG_LOG_BUTTON_HEIGHT,
 };
 
 use super::{button_with_icon, Element};
@@ -229,6 +230,10 @@ impl Launcher {
             self.client_list.as_deref()
         };
 
+        let is_hovered = difference < SIDEBAR_DRAG_LEEWAY
+            && difference > 0.0
+            && (!self.is_log_open || (self.mouse_pos.1 < self.window_size.1 / 2.0));
+
         widget::container(
             widget::row!(if let Some(instances) = list {
                 widget::column![
@@ -268,13 +273,14 @@ impl Launcher {
                         }
                     })))
                     .height(
-                        self.window_size.1
+                        (self.window_size.1 / if self.is_log_open { 2.0 } else { 1.0 })
                             - TAB_HEIGHT
                             - if self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME) {
                                 115.0
                             } else {
                                 80.0
                             }
+                            - DEBUG_LOG_BUTTON_HEIGHT
                     )
                     .style(LauncherTheme::style_scrollable_flat_extra_dark),
                     widget::vertical_space(),
@@ -283,12 +289,11 @@ impl Launcher {
                 .spacing(5)
             } else {
                 widget::column!["Loading..."]
-            })
-            .push_maybe(
-                (difference < SIDEBAR_DRAG_LEEWAY && difference > 0.0).then_some(
-                    widget::vertical_rule(0).style(|n: &LauncherTheme| n.style_rule(Color::Mid, 4)),
-                ),
-            ),
+            }
+            .width(menu.sidebar_width))
+            .push_maybe(is_hovered.then_some(
+                widget::vertical_rule(0).style(|n: &LauncherTheme| n.style_rule(Color::Mid, 4)),
+            )),
         )
         .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
         .into()
@@ -325,7 +330,7 @@ impl Launcher {
             .into()
     }
 
-    fn get_client_play_button<'a>(&self, selected_instance: Option<&'a str>) -> Element {
+    fn get_client_play_button(&self, selected_instance: Option<&str>) -> Element {
         let play_button = button_with_icon(icon_manager::play(), "Play", 16).width(98);
 
         let play_button = if self.config.username.is_empty() {

@@ -321,7 +321,7 @@ impl widget::slider::Catalog for LauncherTheme {
                     border: self.get_border(Color::SecondDark, true),
                 },
                 handle: widget::slider::Handle {
-                    shape: widget::slider::HandleShape::Circle { radius: 8.0 },
+                    shape: widget::slider::HandleShape::Circle { radius: 4.0 },
                     background: self.get_bg(Color::SecondLight, true),
                     border_width: 2.0,
                     border_color: self.get(Color::Light, true),

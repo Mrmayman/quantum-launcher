@@ -178,10 +178,10 @@ impl MenuModsDownload {
 
 fn parse_last_line_blank(input: &str) -> bool {
     if let Some(pos) = input.find("last_line_blank:") {
-        let substring = &input[pos..];
-        if let Some(_) = substring.find("true") {
+        let substring = &input[pos..pos + 8];
+        if substring.contains("true") {
             return true;
-        } else if let Some(_) = substring.find("false") {
+        } else if substring.contains("false") {
             return false;
         }
     }
@@ -213,7 +213,7 @@ fn render_children<'a>(
 
     column = column.push(row.wrap());
 
-    column.into()
+    column
 }
 
 fn render_list_item<'a>(

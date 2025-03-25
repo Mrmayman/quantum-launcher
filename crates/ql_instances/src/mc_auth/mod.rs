@@ -116,7 +116,6 @@ pub async fn login_refresh(
     refresh_token: String,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, AuthError> {
-    info!("Refreshing account token...");
     send_progress(sender.as_ref(), 0, "Refreshing account token...");
 
     let response = CLIENT

@@ -260,8 +260,8 @@ impl LauncherTheme {
     pub fn style_container_selected_flat_button(&self) -> widget::container::Style {
         widget::container::Style {
             border: self.get_border_sharp(Color::Mid, true),
-            background: Some(self.get_bg(Color::Mid, true)),
-            text_color: Some(self.get(Color::Dark, true)),
+            background: Some(self.get_bg(Color::SecondDark, true)),
+            text_color: Some(self.get(Color::White, true)),
             ..Default::default()
         }
     }
