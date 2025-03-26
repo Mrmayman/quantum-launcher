@@ -1,7 +1,7 @@
 name: Build-macOS
 
 on:
-  workflow_dispatch: # allows manual triggering
+  workflow_dispatch:  # allows manual triggering
 
 env:
   BIN_NAME: quantum_launcher
@@ -9,26 +9,26 @@ env:
   REPO_NAME: Mrmayman/quantum-launcher
   FINAL_NAME: quantum_launcher
   APP_VERSION: 0.4.0
-  ICON_NAME: ql_logo # Base name for the icon (without extension)
+  CARGO_TERM_COLOR: always # Tell cargo to always use colors
 
 jobs:
   dist:
     name: Dist
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false # don't fail other jobs if one fails
+      fail-fast: false
       matrix:
         build: [x86_64-macos, aarch64-macos]
         include:
           - build: x86_64-macos
             os: macos-latest
-            rust: nightly
+            rust: stable
             target: x86_64-apple-darwin
             cross: false
             final_name: macos_x86_64
           - build: aarch64-macos
             os: macos-latest
-            rust: nightly
+            rust: stable
             target: aarch64-apple-darwin
             cross: false
             final_name: macos_aarch64
@@ -53,90 +53,23 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.cross }}" == "true" ]; then
-            cross build --release --target ${{ matrix.target }}
+            cross build --profile release-ql --target ${{ matrix.target }}
           else
-            cargo build --release --target ${{ matrix.target }}
+            cargo build --profile release-ql --target ${{ matrix.target }}
           fi
-
-      - name: Strip release binary
-        run: strip "target/${{ matrix.target }}/release/$BIN_NAME"
-
-      - name: Create App Bundle
-        shell: bash
-        run: |
-          # Define paths
-          APP_DIR="build/quantum-launcher.app" # Temporary build path
-          CONTENTS_DIR="$APP_DIR/Contents"
-          MACOS_DIR="$CONTENTS_DIR/MacOS"
-          RESOURCES_DIR="$CONTENTS_DIR/Resources"
-          ASSETS_DIR="assets"
-          ICON_PATH="$ASSETS_DIR/icon/${{ env.ICON_NAME }}.png"
-          ICON_BASE="${{ env.ICON_NAME }}"
-
-
-          # 1. Create Directory Structure
-          mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-
-          # 2. Copy Executable
-          cp "target/${{ matrix.target }}/release/$BIN_NAME" "$MACOS_DIR/$BIN_NAME"
-
-          # 3. Create Info.plist
-          cat <<EOF > "$CONTENTS_DIR/Info.plist"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>${{ env.BIN_NAME }}</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.mrmayman.quantumlauncher</string>
-            <key>CFBundleInfoDictionaryVersion</key>
-            <string>6.0</string>
-            <key>CFBundleName</key>
-            <string>${{ env.PROJECT_NAME }}</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>${{ env.APP_VERSION }}</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>NSPrincipalClass</key>
-            <string>NSApplication</string>
-             <key>CFBundleIconFile</key>
-            <string>${{ env.ICON_NAME }}</string>
-          </dict>
-          </plist>
-          EOF
-
-           # 4. Convert PNG to ICNS
-          sips -s format icns "$ICON_PATH" --out "$RESOURCES_DIR/${{ env.ICON_NAME }}.icns"
 
       - name: Create DMG
         shell: bash
         run: |
-          # Define paths
-          APP_DIR="build/quantum-launcher.app" # Use the app path that we created in previous step
-          DMG_NAME="${{ env.FINAL_NAME }}_${{ matrix.final_name }}.dmg"
-          DMG_PATH="dist/$DMG_NAME" # Path to the DMG in the dist directory
-          VOL_NAME="quantum_launcher" # The volume name when mounted
-
-          # Create dist directory
-          mkdir -p dist
-
-          # 1. Create DMG with hdiutil
-          hdiutil create -volname "$VOL_NAME" -srcfolder "$APP_DIR" -fs HFS+J -format UDRW -size 50m "$DMG_PATH"
-          # Note: -size 50m can increase if app is larger
-
-          # 2. Attach DMG
-          hdiutil attach -nobrowse "$DMG_PATH"
-          DMG_MOUNT=$(hdiutil attach -nobrowse "$DMG_PATH" | grep "/Volumes/" | awk '{print $3}')
-
-
-          # 3. Copy the app to mount directory
-          cp -r "$APP_DIR" "$DMG_MOUNT"
-
-           # 4. Detach DMG
-          hdiutil detach "$DMG_MOUNT"
+          mkdir dist
+          APP_DIR="build/quantum-launcher.app"
+          MACOS_DIR="$APP_DIR/Contents/MacOS"
+          RESOURCES_DIR="$APP_DIR/Contents/Resources"
+          mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+          cp "target/${{ matrix.target }}/release-ql/$BIN_NAME" "$MACOS_DIR/$BIN_NAME"
+          cp assets/freedesktop/Info.plist "$APP_DIR/Contents/Info.plist"
+          sips -s format icns "assets/icon/ql_logo.png" --out "$RESOURCES_DIR/ql_logo.icns"
+          hdiutil create -volname "${{ env.BIN_NAME}}" -srcfolder "$APP_DIR" -ov -format UDZO "dist/${{ env.BIN_NAME }}.dmg"
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4

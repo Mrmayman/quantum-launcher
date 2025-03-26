@@ -35,6 +35,7 @@ env:
   BIN_NAME: quantum_launcher
   PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
+  CARGO_TERM_COLOR: always # Tell cargo to always use colors
 
 jobs:
   dist:
@@ -118,13 +119,23 @@ jobs:
           else
             cargo build --profile release-ql --target ${{ matrix.target }}
           fi
-
+      
       - name: Build archive
         shell: bash
         run: |
           mkdir dist
+
           if [ "${{ matrix.build }}" = "x86_64-windows" ] || [ "${{ matrix.build }}" = "i686-windows" ]; then
             cp "target/${{ matrix.target }}/release-ql/$BIN_NAME.exe" "dist/"
+          elif [ "${{ matrix.build }}" = "aarch64-macos" ] || [ "${{ matrix.build }}" = "x86_64-macos" ]; then
+            APP_DIR="build/quantum-launcher.app"
+            MACOS_DIR="$APP_DIR/Contents/MacOS"
+            RESOURCES_DIR="$APP_DIR/Contents/Resources"
+            mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+            cp "target/${{ matrix.target }}/release-ql/$BIN_NAME" "$MACOS_DIR/$BIN_NAME"
+            cp assets/freedesktop/Info.plist "$APP_DIR/Contents/Info.plist"
+            sips -s format icns "assets/icon/ql_logo.png" --out "$RESOURCES_DIR/ql_logo.icns"
+            hdiutil create -volname "${{ env.BIN_NAME}}" -srcfolder "$APP_DIR" -ov -format UDZO "dist/${{ env.BIN_NAME }}.dmg"
           else
             cp "target/${{ matrix.target }}/release-ql/$BIN_NAME" "dist/"
           fi
@@ -213,6 +224,13 @@ jobs:
                   exe=""
               fi
 
+              unset dmg
+              if [[ $platform =~ "macos" ]]; then
+                  dmg=".dmg"
+              else
+                  dmg=""
+              fi
+
               unset flatpak
               if [[ $platform =~ "flatpak" ]]; then
                   flatpak=".flatpak"
@@ -225,7 +243,7 @@ jobs:
 
               echo "Package name: $pkgname"
 
-              binary_path=$dir/$BIN_NAME$exe$flatpak
+              binary_path=$dir/$BIN_NAME$exe$flatpak$dmg
               if [ ! -f "$binary_path" ]; then
                   echo "Error: Binary not found at $binary_path.  Check your setup!"
                   exit 1
