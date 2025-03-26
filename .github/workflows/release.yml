@@ -35,6 +35,7 @@ env:
   BIN_NAME: quantum_launcher
   PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
+  CARGO_TERM_COLOR: always # Tell cargo to always use colors
 
 jobs:
   dist:
@@ -118,13 +119,40 @@ jobs:
           else
             cargo build --profile release-ql --target ${{ matrix.target }}
           fi
-
+      
       - name: Build archive
         shell: bash
         run: |
           mkdir dist
+
           if [ "${{ matrix.build }}" = "x86_64-windows" ] || [ "${{ matrix.build }}" = "i686-windows" ]; then
             cp "target/${{ matrix.target }}/release-ql/$BIN_NAME.exe" "dist/"
+          elif [ "${{ matrix.build }}" = "aarch64-macos" ] || [ "${{ matrix.build }}" = "x86_64-macos" ]; then
+            APP_DIR="build/quantum-launcher.app"
+            CONTENTS_DIR="$APP_DIR/Contents"
+            MACOS_DIR="$CONTENTS_DIR/MacOS"
+            RESOURCES_DIR="$CONTENTS_DIR/Resources"
+            ASSETS_DIR="assets"
+            ICON_PATH="$ASSETS_DIR/icon/ql_logo.png"
+
+            mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+            cp "target/${{ matrix.target }}/release-ql/$BIN_NAME" "$MACOS_DIR/$BIN_NAME"
+            cp $ASSETS_DIR/freedesktop/Info.plist "$CONTENTS_DIR/Info.plist"
+            sips -s format icns "$ICON_PATH" --out "$RESOURCES_DIR/ql_logo.icns"
+
+            APP_DIR="build/quantum-launcher.app"
+            DMG_NAME="${{ env.BIN_NAME }}.dmg"
+            DMG_PATH="dist/$DMG_NAME"
+            VOL_NAME="quantum_launcher"
+            mkdir -p dist
+
+            SOURCE_SIZE_KB=$(du -sk "$APP_DIR" | awk '{print $1}')
+            TOTAL_SIZE_MB=$((($SOURCE_SIZE_KB + 512) / 1024 + 2))
+            hdiutil create -volname "$VOL_NAME" -srcfolder "$APP_DIR" -fs HFS+J -format UDRW -size "${TOTAL_SIZE_MB}m" "$DMG_PATH"
+            hdiutil attach -nobrowse "$DMG_PATH"
+            DMG_MOUNT=$(hdiutil attach -nobrowse "$DMG_PATH" | grep "/Volumes/" | awk '{print $3}')
+            cp -r "$APP_DIR" "$DMG_MOUNT"
+            hdiutil detach "$DMG_MOUNT"
           else
             cp "target/${{ matrix.target }}/release-ql/$BIN_NAME" "dist/"
           fi
@@ -213,6 +241,13 @@ jobs:
                   exe=""
               fi
 
+              unset dmg
+              if [[ $platform =~ "macos" ]]; then
+                  dmg=".dmg"
+              else
+                  dmg=""
+              fi
+
               unset flatpak
               if [[ $platform =~ "flatpak" ]]; then
                   flatpak=".flatpak"
@@ -225,7 +260,7 @@ jobs:
 
               echo "Package name: $pkgname"
 
-              binary_path=$dir/$BIN_NAME$exe$flatpak
+              binary_path=$dir/$BIN_NAME$exe$flatpak$dmg
               if [ ! -f "$binary_path" ]; then
                   echo "Error: Binary not found at $binary_path.  Check your setup!"
                   exit 1
