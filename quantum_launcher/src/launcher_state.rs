@@ -12,7 +12,7 @@ use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
-    JsonFileError, Loader, Progress, SelectedMod, LAUNCHER_VERSION_NAME,
+    JsonFileError, Loader, ModId, Progress, SelectedMod, StoreBackendType, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
     AccountData, AuthCodeResponse, AuthTokenResponse, ListEntry, LogLine, UpdateCheckInfo,
@@ -23,7 +23,7 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ImageResult, ModConfig, ModIndex, ProjectInfo, RecommendedMod, Search},
+    mod_manager::{ImageResult, ModConfig, ModIndex, ModInformation, RecommendedMod, SearchResult},
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -81,31 +81,31 @@ pub enum EditInstanceMessage {
 #[derive(Debug, Clone)]
 pub enum ManageModsMessage {
     ScreenOpen,
-    ToggleCheckbox((String, String), bool),
+    ToggleCheckbox((String, ModId), bool),
     ToggleCheckboxLocal(String, bool),
     DeleteSelected,
-    DeleteFinished(Result<Vec<String>, String>),
+    DeleteFinished(Result<Vec<ModId>, String>),
     LocalDeleteFinished(Result<(), String>),
     LocalIndexLoaded(HashSet<String>),
     ToggleSelected,
     ToggleFinished(Result<(), String>),
     UpdateMods,
     UpdateModsFinished(Result<(), String>),
-    UpdateCheckResult(Option<Vec<(String, String)>>),
+    UpdateCheckResult(Option<Vec<(ModId, String)>>),
     UpdateCheckToggle(usize, bool),
 }
 
 #[derive(Debug, Clone)]
 pub enum InstallModsMessage {
-    SearchResult(Result<(Search, Instant), String>),
+    SearchResult(Result<(SearchResult, Instant), String>),
     Open,
     SearchInput(String),
     ImageDownloaded(Result<ImageResult, String>),
     Click(usize),
     BackToMainScreen,
-    LoadData(Result<Box<ProjectInfo>, String>),
+    LoadData(Result<Box<ModInformation>, String>),
     Download(usize),
-    DownloadComplete(Result<String, String>),
+    DownloadComplete(Result<ModId, String>),
     IndexUpdated(Result<ModIndex, String>),
 }
 
@@ -120,7 +120,7 @@ pub enum InstallOptifineMessage {
 #[derive(Debug, Clone)]
 pub enum EditPresetsMessage {
     Open,
-    ToggleCheckbox((String, String), bool),
+    ToggleCheckbox((String, ModId), bool),
     ToggleCheckboxLocal(String, bool),
     SelectAll,
     BuildYourOwn,
@@ -292,7 +292,7 @@ pub enum SelectedState {
 
 #[derive(Debug, Clone)]
 pub enum ModListEntry {
-    Downloaded { id: String, config: Box<ModConfig> },
+    Downloaded { id: ModId, config: Box<ModConfig> },
     Local { file_name: String },
 }
 
@@ -331,7 +331,7 @@ pub struct MenuEditMods {
     pub selected_mods: HashSet<SelectedMod>,
     pub sorted_mods_list: Vec<ModListEntry>,
     pub selected_state: SelectedState,
-    pub available_updates: Vec<(String, String, bool)>,
+    pub available_updates: Vec<(ModId, String, bool)>,
     pub mod_update_progress: Option<ProgressBar<GenericProgress>>,
 }
 
@@ -403,15 +403,16 @@ pub struct MenuLauncherUpdate {
 
 pub struct MenuModsDownload {
     pub query: String,
-    pub results: Option<Search>,
-    pub result_data: HashMap<String, ProjectInfo>,
+    pub results: Option<SearchResult>,
+    pub result_data: HashMap<ModId, ModInformation>,
     pub config: InstanceConfigJson,
     pub json: VersionDetails,
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
     pub is_loading_search: bool,
-    pub mods_download_in_progress: HashSet<String>,
+    pub mods_download_in_progress: HashSet<ModId>,
     pub mod_index: ModIndex,
+    pub backend: StoreBackendType,
 }
 
 pub struct MenuLauncherSettings;

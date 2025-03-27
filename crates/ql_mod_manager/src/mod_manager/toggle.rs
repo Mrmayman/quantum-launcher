@@ -32,7 +32,7 @@ pub async fn toggle_mods(
         }
     }
 
-    index.save().await?;
+    index.save(&instance_name).await?;
     Ok(())
 }
 

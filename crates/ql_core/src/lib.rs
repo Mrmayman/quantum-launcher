@@ -121,9 +121,60 @@ pub const IS_ARM_LINUX: bool = cfg!(target_arch = "aarch64") && cfg!(target_os =
 
 pub const LAUNCHER_VERSION_NAME: &str = "0.4.0";
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ModId {
+    Modrinth(String),
+    Curseforge(String),
+}
+
+impl ModId {
+    pub fn get_internal_id(&self) -> &str {
+        match self {
+            ModId::Modrinth(n) | ModId::Curseforge(n) => &n,
+        }
+    }
+
+    pub fn get_index_str(&self) -> String {
+        match self {
+            ModId::Modrinth(n) => n.clone(),
+            ModId::Curseforge(n) => format!("CF:{n}"),
+        }
+    }
+
+    pub fn from_index_str(n: &str) -> Self {
+        if n.starts_with("CF:") {
+            ModId::Curseforge(n.strip_prefix("CF:").unwrap_or(n).to_owned())
+        } else {
+            ModId::Modrinth(n.to_owned())
+        }
+    }
+
+    pub fn from_pair(n: &str, t: StoreBackendType) -> Self {
+        match t {
+            StoreBackendType::Modrinth => Self::Modrinth(n.to_owned()),
+            StoreBackendType::Curseforge => Self::Curseforge(n.to_owned()),
+        }
+    }
+
+    pub fn to_pair(self) -> (String, StoreBackendType) {
+        let backend = match self {
+            ModId::Modrinth(_) => StoreBackendType::Modrinth,
+            ModId::Curseforge(_) => StoreBackendType::Curseforge,
+        };
+
+        (self.get_internal_id().to_owned(), backend)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum StoreBackendType {
+    Modrinth,
+    Curseforge,
+}
+
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub enum SelectedMod {
-    Downloaded { name: String, id: String },
+    Downloaded { name: String, id: ModId },
     Local { file_name: String },
 }
 

@@ -87,7 +87,7 @@ use menu_renderer::{
 };
 use ql_core::{
     err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
-    Loader, SelectedMod,
+    Loader, ModId, SelectedMod,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -445,7 +445,7 @@ impl Launcher {
                                         .manually_installed
                                         .then_some(SelectedMod::Downloaded {
                                             name: mod_info.name.clone(),
-                                            id: id.clone(),
+                                            id: ModId::from_index_str(&id),
                                         })
                                 })
                                 .chain(menu.locally_installed_mods.iter().map(|n| {

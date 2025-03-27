@@ -6,9 +6,9 @@ use std::{
 use iced::Task;
 use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    InstanceSelection, IntoIoError, IntoStringError, Loader,
+    InstanceSelection, IntoIoError, IntoStringError, Loader, StoreBackendType,
 };
-use ql_mod_manager::mod_manager::{ModIndex, Query, Search};
+use ql_mod_manager::mod_manager::{Backend, CurseforgeBackend, ModIndex, ModrinthBackend, Query};
 
 use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
@@ -42,8 +42,9 @@ impl Launcher {
             result_data: HashMap::new(),
             mods_download_in_progress: HashSet::new(),
             mod_index,
+            backend: StoreBackendType::Modrinth,
         };
-        let command = menu.search_modrinth(matches!(
+        let command = menu.search_store(matches!(
             &self.selected_instance,
             Some(InstanceSelection::Server(_))
         ));
@@ -53,7 +54,7 @@ impl Launcher {
 }
 
 impl MenuModsDownload {
-    pub fn search_modrinth(&mut self, is_server: bool) -> Task<Message> {
+    pub fn search_store(&mut self, is_server: bool) -> Task<Message> {
         let Ok(loaders) = Loader::try_from(self.config.mod_type.as_str()) else {
             return Task::none();
         };
@@ -61,13 +62,21 @@ impl MenuModsDownload {
         self.is_loading_search = true;
         let query = Query {
             name: self.query.clone(),
-            versions: vec![self.json.id.clone()],
-            loaders: vec![loaders],
+            version: self.json.id.clone(),
+            loader: loaders,
             server_side: is_server,
-            open_source: false, // TODO: Add Open Source filter
+            // open_source: false, // TODO: Add Open Source filter
         };
-        Task::perform(async move { Search::search(query).await.strerr() }, |n| {
-            Message::InstallMods(InstallModsMessage::SearchResult(n))
-        })
+        let backend = self.backend;
+        Task::perform(
+            async move {
+                match backend {
+                    ql_core::StoreBackendType::Modrinth => ModrinthBackend::search(query).await,
+                    ql_core::StoreBackendType::Curseforge => CurseforgeBackend::search(query).await,
+                }
+                .strerr()
+            },
+            |n| Message::InstallMods(InstallModsMessage::SearchResult(n)),
+        )
     }
 }

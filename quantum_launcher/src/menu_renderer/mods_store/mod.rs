@@ -1,11 +1,13 @@
 use iced::widget;
-use ql_mod_manager::mod_manager::Entry;
+use ql_core::{ModId, StoreBackendType};
+use ql_mod_manager::mod_manager::SearchMod;
 
 use crate::{
     icon_manager,
     launcher_state::{
         ImageState, InstallModsMessage, ManageModsMessage, MenuModsDownload, Message,
     },
+    stylesheet::styles::LauncherTheme,
 };
 
 use super::{button_with_icon, Element};
@@ -18,15 +20,15 @@ impl MenuModsDownload {
     /// back button and list of searched mods.
     fn view_main<'a>(&'a self, images: &'a ImageState) -> Element<'a> {
         let mods_list = match self.results.as_ref() {
-            Some(results) => if results.hits.is_empty() {
+            Some(results) => if results.mods.is_empty() {
                 widget::column!["No results found."]
             } else {
                 widget::column(
                     results
-                        .hits
+                        .mods
                         .iter()
                         .enumerate()
-                        .map(|(i, hit)| self.view_mod_entry(i, hit, images)),
+                        .map(|(i, hit)| self.view_mod_entry(i, hit, images, results.backend)),
                 )
             }
             .push(widget::horizontal_space()),
@@ -51,7 +53,10 @@ impl MenuModsDownload {
                     widget::column!("Installing:", {
                         widget::column(self.mods_download_in_progress.iter().filter_map(|id| {
                             let search = self.results.as_ref()?;
-                            let hit = search.hits.iter().find(|hit| &hit.project_id == id)?;
+                            let hit = search
+                                .mods
+                                .iter()
+                                .find(|hit| &hit.id == id.get_internal_id())?;
                             Some(widget::text!("- {}", hit.title).into())
                         }))
                     })
@@ -60,8 +65,9 @@ impl MenuModsDownload {
             .padding(10)
             .spacing(10)
             .width(200),
-            widget::scrollable(mods_list.spacing(10).padding(10))
-                .style(|theme, status| theme.style_scrollable_flat_extra_dark(status)),
+            widget::scrollable(mods_list.spacing(10).padding(10)).style(
+                |theme: &LauncherTheme, status| theme.style_scrollable_flat_extra_dark(status)
+            ),
         )
         .into()
     }
@@ -70,8 +76,9 @@ impl MenuModsDownload {
     fn view_mod_entry<'a>(
         &'a self,
         i: usize,
-        hit: &'a Entry,
+        hit: &'a SearchMod,
         images: &'a ImageState,
+        backend: StoreBackendType,
     ) -> Element<'a> {
         widget::row!(
             widget::button(
@@ -81,8 +88,10 @@ impl MenuModsDownload {
             )
             .height(70)
             .on_press_maybe(
-                (!self.mods_download_in_progress.contains(&hit.project_id)
-                    && !self.mod_index.mods.contains_key(&hit.project_id))
+                (!self
+                    .mods_download_in_progress
+                    .contains(&ModId::from_pair(&hit.id, backend))
+                    && !self.mod_index.mods.contains_key(&hit.id))
                 .then_some(Message::InstallMods(InstallModsMessage::Download(i)))
             ),
             widget::button(
@@ -126,25 +135,31 @@ impl MenuModsDownload {
         let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) else {
             return self.view_main(images);
         };
-        let Some(hit) = results.hits.get(*selection) else {
+        let Some(hit) = results.mods.get(*selection) else {
             return self.view_main(images);
         };
-        self.view_project_description(hit, images, window_size)
+        self.view_project_description(hit, images, window_size, results.backend)
     }
 
     /// Renders the mod description page.
     fn view_project_description<'a>(
         &'a self,
-        hit: &'a Entry,
+        hit: &'a SearchMod,
         images: &'a ImageState,
         window_size: (f32, f32),
+        backend: StoreBackendType,
     ) -> Element<'a> {
         // Parses the markdown description of the mod.
-        let markdown_description = if let Some(info) = self.result_data.get(&hit.project_id) {
-            widget::column!(Self::render_markdown(&info.body, images, window_size))
-        } else {
-            widget::column!(widget::text("Loading..."))
-        };
+        let markdown_description =
+            if let Some(info) = self.result_data.get(&ModId::from_pair(&hit.id, backend)) {
+                widget::column!(Self::render_markdown(
+                    &info.long_description,
+                    images,
+                    window_size
+                ))
+            } else {
+                widget::column!(widget::text("Loading..."))
+            };
 
         widget::scrollable(
             widget::column!(
@@ -152,10 +167,18 @@ impl MenuModsDownload {
                     button_with_icon(icon_manager::back(), "Back", 16)
                         .on_press(Message::InstallMods(InstallModsMessage::BackToMainScreen)),
                     button_with_icon(icon_manager::page(), "Open Mod Page", 16).on_press(
-                        Message::CoreOpenDir(format!("https://modrinth.com/mod/{}", hit.slug))
+                        Message::CoreOpenDir(format!(
+                            "{}{}",
+                            match self.backend {
+                                StoreBackendType::Modrinth => "https://modrinth.com/mod/",
+                                StoreBackendType::Curseforge =>
+                                    "https://www.curseforge.com/minecraft/mc-mods/",
+                            },
+                            hit.internal_name
+                        )) // TODO: add curseforge
                     ),
                     button_with_icon(icon_manager::save(), "Copy ID", 16)
-                        .on_press(Message::CoreCopyText(hit.project_id.clone())),
+                        .on_press(Message::CoreCopyText(hit.id.to_owned())),
                 )
                 .spacing(10),
                 widget::row!(

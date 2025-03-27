@@ -10,11 +10,14 @@ use ql_core::{
     err, file_utils, info, info_no_log,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, InstanceSelection, IntoIoError, IntoStringError, JsonFileError, Loader,
+    ModId,
 };
 use ql_instances::{AccountData, ListEntry};
 use ql_mod_manager::{
     loaders,
-    mod_manager::{ModIndex, ModVersion, RECOMMENDED_MODS},
+    mod_manager::{
+        Backend, CurseforgeBackend, ModIndex, ModrinthBackend, RecommendedMod, RECOMMENDED_MODS,
+    },
 };
 use tokio::process::Child;
 
@@ -402,22 +405,31 @@ impl Launcher {
             err!("Couldn't download mod: Search results empty");
             return None;
         };
-        let Some(hit) = results.hits.get(index) else {
+        let Some(hit) = results.mods.get(index) else {
             err!("Couldn't download mod: Not present in results");
             return None;
         };
 
         menu.mods_download_in_progress
-            .insert(hit.project_id.clone());
-        let project_id = hit.project_id.clone();
+            .insert(ModId::Modrinth(hit.id.clone()));
+        let project_id = hit.id.clone();
+
+        let backend = menu.backend;
+
         Some(Task::perform(
             async move {
                 let project_id = project_id;
                 let selected_instance = selected_instance;
-                ql_mod_manager::mod_manager::download_mod(&project_id, &selected_instance)
-                    .await
-                    .map(|()| project_id)
-                    .strerr()
+                match backend {
+                    ql_core::StoreBackendType::Modrinth => {
+                        ModrinthBackend::download(&project_id, &selected_instance).await
+                    }
+                    ql_core::StoreBackendType::Curseforge => {
+                        CurseforgeBackend::download(&project_id, &selected_instance).await
+                    }
+                }
+                .map(|()| ModId::Modrinth(project_id))
+                .strerr()
             },
             |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n)),
         ))
@@ -611,12 +623,17 @@ impl Launcher {
                 if let State::ManagePresets(menu) = &mut self.state {
                     menu.progress = Some(ProgressBar::with_recv(receiver));
                 }
+                let instance_name = self.selected_instance.clone().unwrap();
                 return Task::perform(
-                    ql_mod_manager::PresetJson::download_entries_w(
-                        mods,
-                        self.selected_instance.clone().unwrap(),
-                        sender,
-                    ),
+                    async move {
+                        ql_mod_manager::mod_manager::download_mods_bulk(
+                            mods,
+                            &instance_name,
+                            Some(sender),
+                        )
+                        .await
+                        .strerr()
+                    },
                     |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n)),
                 );
             }
@@ -677,7 +694,7 @@ impl Launcher {
         let ids = RECOMMENDED_MODS.to_owned();
         Task::perform(
             async move {
-                ModVersion::get_compatible_mods(ids, version, loader, sender)
+                RecommendedMod::get_compatible_mods(ids, version, loader, sender)
                     .await
                     .strerr()
             },

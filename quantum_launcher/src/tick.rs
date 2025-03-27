@@ -5,9 +5,9 @@ use std::{
 };
 
 use iced::Task;
-use ql_core::{err, json::InstanceConfigJson, InstanceSelection, IntoStringError};
+use ql_core::{err, json::InstanceConfigJson, InstanceSelection, IntoStringError, ModId};
 use ql_instances::LogLine;
-use ql_mod_manager::mod_manager::{ModConfig, ModIndex, Search};
+use ql_mod_manager::mod_manager::{ModConfig, ModIndex};
 
 use crate::launcher_state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
@@ -172,7 +172,7 @@ impl Launcher {
             if !self.images.downloads_in_progress.contains(url) {
                 self.images.downloads_in_progress.insert(url.to_owned());
                 commands.push(Task::perform(
-                    Search::download_image(url.to_owned(), false),
+                    ql_mod_manager::mod_manager::download_image(url.to_owned(), false),
                     |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                 ));
             }
@@ -304,7 +304,7 @@ impl MenuModsDownload {
 
         if let Some(results) = &self.results {
             let mut commands = vec![index_cmd];
-            for result in &results.hits {
+            for result in &results.mods {
                 if commands.len() > 64 {
                     break;
                 }
@@ -313,7 +313,7 @@ impl MenuModsDownload {
                 {
                     images.downloads_in_progress.insert(result.title.clone());
                     commands.push(Task::perform(
-                        Search::download_image(result.icon_url.clone(), true),
+                        ql_mod_manager::mod_manager::download_image(result.icon_url.clone(), true),
                         |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                     ));
                 }
@@ -356,7 +356,7 @@ pub fn sort_dependencies(
     let mut entries: Vec<ModListEntry> = downloaded_mods
         .iter()
         .map(|(k, v)| ModListEntry::Downloaded {
-            id: k.clone(),
+            id: ModId::from_index_str(k),
             config: Box::new(v.clone()),
         })
         .chain(locally_installed_mods.iter().map(|n| ModListEntry::Local {

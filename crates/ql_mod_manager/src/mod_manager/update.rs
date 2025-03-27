@@ -1,18 +1,17 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{info, info_no_log, json::VersionDetails, GenericProgress, InstanceSelection};
-
-use crate::mod_manager::{
-    download::{get_loader_type, version_sort},
-    ModVersion,
+use ql_core::{
+    info, info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader,
 };
 
-use super::{delete_mods, download_mod, ModError, ModIndex};
+use crate::mod_manager::{curseforge::CurseforgeBackend, get_loader, Backend, ModrinthBackend};
+
+use super::{delete_mods, download_mod, ModError, ModId, ModIndex};
 
 pub async fn apply_updates(
     selected_instance: InstanceSelection,
-    updates: Vec<String>,
+    updates: Vec<ModId>,
     progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ModError> {
     delete_mods(&updates, &selected_instance).await?;
@@ -38,49 +37,46 @@ pub async fn apply_updates(
 
 pub async fn check_for_updates(
     selected_instance: InstanceSelection,
-) -> Option<Vec<(String, String)>> {
+) -> Option<Vec<(ModId, String)>> {
     info_no_log!("Checking for mod updates");
     let index = ModIndex::get(&selected_instance).await.ok()?;
 
     let version_json = VersionDetails::load(&selected_instance).await.ok()?;
 
-    let loader = get_loader_type(&selected_instance).await.ok()?;
-    if loader.as_deref() == Some("optifine") {
+    let loader = get_loader(&selected_instance).await.ok()?;
+    if let Some(Loader::OptiFine) = loader {
         return None;
     }
 
     let mut updated_mods = Vec::new();
 
     for (id, installed_mod) in index.mods {
-        let download_info = ModVersion::download(&id).await.ok()?;
+        let mod_id = ModId::from_index_str(&id);
 
-        let mut download_versions: Vec<ModVersion> = download_info
-            .iter()
-            .filter(|v| v.game_versions.contains(&version_json.id))
-            .filter(|v| {
-                if let Some(loader) = &loader {
-                    v.loaders.contains(loader)
-                } else {
-                    true
-                }
-            })
-            .cloned()
-            .collect();
-
-        // Sort by date published
-        download_versions.sort_by(version_sort);
-
-        let Some(download_version) = download_versions.into_iter().last() else {
-            continue;
+        let (download_version_time, download_version) = match &mod_id {
+            ModId::Modrinth(n) => {
+                let Some(n) =
+                    ModrinthBackend::get_latest_version_date(n, &version_json.id, loader).await
+                else {
+                    continue;
+                };
+                n
+            }
+            ModId::Curseforge(n) => {
+                let Some(n) =
+                    CurseforgeBackend::get_latest_version_date(n, &version_json.id, loader).await
+                else {
+                    continue;
+                };
+                n
+            }
         };
 
         let installed_version_time =
             DateTime::parse_from_rfc3339(&installed_mod.version_release_time).ok()?;
-        let download_version_time =
-            DateTime::parse_from_rfc3339(&download_version.date_published).ok()?;
 
         if download_version_time > installed_version_time {
-            updated_mods.push((id, download_version.name));
+            updated_mods.push((mod_id, download_version));
         }
     }
 

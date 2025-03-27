@@ -2,22 +2,17 @@ use std::{
     collections::{HashMap, HashSet},
     io::{Cursor, Read, Write},
     path::{Path, PathBuf},
-    sync::mpsc::Sender,
 };
 
 use ql_core::{
     err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, GenericProgress, InstanceSelection, IntoIoError, IntoStringError, SelectedMod,
-    LAUNCHER_VERSION_NAME,
+    pt, InstanceSelection, IntoIoError, ModId, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
 
-use crate::{
-    mod_manager::{ModConfig, ModDownloader, ModError, ModIndex},
-    rate_limiter::MOD_DOWNLOAD_LOCK,
-};
+use crate::mod_manager::{ModConfig, ModError, ModIndex};
 
 /// A "Mod Preset"
 ///
@@ -77,7 +72,7 @@ impl PresetJson {
         for entry in selected_mods {
             match entry {
                 SelectedMod::Downloaded { id, .. } => {
-                    add_mod_to_entries_modrinth(&mut entries_modrinth, &index, &id);
+                    add_downloaded_mod_to_entries(&mut entries_modrinth, &index, &id);
                 }
                 SelectedMod::Local { file_name } => {
                     if is_already_covered(&index, &file_name) {
@@ -158,7 +153,7 @@ impl PresetJson {
     pub async fn load(
         instance_name: InstanceSelection,
         zip: Vec<u8>,
-    ) -> Result<Vec<String>, ModError> {
+    ) -> Result<Vec<ModId>, ModError> {
         info!("Importing mod preset");
 
         let main_dir = file_utils::get_dot_minecraft_dir(&instance_name).await?;
@@ -166,7 +161,7 @@ impl PresetJson {
 
         let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;
 
-        let mut entries_modrinth = HashMap::new();
+        let mut entries_downloaded = HashMap::new();
 
         let version_json = VersionDetails::load(&instance_name).await?;
         let mut sideloads = Vec::new();
@@ -196,7 +191,7 @@ impl PresetJson {
                         tokio::fs::remove_file(&path).await.path(&path)?;
                     }
                 }
-                entries_modrinth = this.entries_modrinth;
+                entries_downloaded = this.entries_modrinth;
             } else if name.starts_with("config/") || name.starts_with("config\\") {
                 pt!("Config file: {name}");
                 let path = main_dir.join(name.replace('\\', "/"));
@@ -228,54 +223,12 @@ impl PresetJson {
             }
         }
 
-        let mods = entries_modrinth
-            .into_values()
-            .filter_map(|n| n.manually_installed.then_some(n.project_id))
+        let mods = entries_downloaded
+            .into_iter()
+            .filter_map(|(k, n)| n.manually_installed.then_some(ModId::from_index_str(&k)))
             .collect();
 
         Ok(mods)
-    }
-
-    pub async fn download_entries_w(
-        ids: Vec<String>,
-        instance_name: InstanceSelection,
-        sender: Sender<GenericProgress>,
-    ) -> Result<(), String> {
-        let len = ids.len();
-
-        let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
-            g
-        } else {
-            info!("Another mod is already being installed... Waiting...");
-            MOD_DOWNLOAD_LOCK.lock().await
-        };
-
-        let mut downloader = ModDownloader::new(&instance_name).await.strerr()?;
-
-        for (i, id) in ids.into_iter().enumerate() {
-            _ = sender.send(GenericProgress {
-                done: i,
-                total: len,
-                message: None,
-                has_finished: false,
-            });
-
-            let result = downloader.download_project(&id, None, true).await;
-            if let Err(ModError::NoCompatibleVersionFound) = result {
-                err!("Mod {id} is not compatible with this version. Skipping...");
-                continue;
-            }
-            result.strerr()?;
-
-            if let Some(config) = downloader.index.mods.get_mut(&id) {
-                config.manually_installed = true;
-            }
-        }
-
-        downloader.index.save().await.strerr()?;
-
-        _ = sender.send(GenericProgress::finished());
-        Ok(())
     }
 }
 
@@ -285,20 +238,21 @@ async fn get_instance_type(instance_name: &InstanceSelection) -> Result<String, 
     Ok(config.mod_type)
 }
 
-fn add_mod_to_entries_modrinth(
+fn add_downloaded_mod_to_entries(
     entries_modrinth: &mut HashMap<String, ModConfig>,
     index: &ModIndex,
-    id: &str,
+    id: &ModId,
 ) {
-    let Some(config) = index.mods.get(id) else {
-        err!("Could not find id {id} in index!");
+    let id_str = id.get_index_str();
+    let Some(config) = index.mods.get(&id_str) else {
+        err!("Could not find id {id:?} in index!");
         return;
     };
 
-    entries_modrinth.insert(id.to_owned(), config.clone());
+    entries_modrinth.insert(id_str, config.clone());
 
     for dep in &config.dependencies {
-        add_mod_to_entries_modrinth(entries_modrinth, index, dep);
+        add_downloaded_mod_to_entries(entries_modrinth, index, &ModId::from_index_str(dep));
     }
 }
 

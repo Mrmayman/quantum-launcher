@@ -1,8 +1,11 @@
 use std::path::PathBuf;
 
 use iced::{widget::image::Handle, Task};
-use ql_core::{err, InstanceSelection, IntoIoError, IntoStringError, SelectedMod};
-use ql_mod_manager::{loaders, mod_manager::ProjectInfo};
+use ql_core::{err, InstanceSelection, IntoIoError, IntoStringError, ModId, SelectedMod};
+use ql_mod_manager::{
+    loaders,
+    mod_manager::{Backend, CurseforgeBackend, ModrinthBackend},
+};
 
 mod edit_instance;
 mod presets;
@@ -224,7 +227,7 @@ impl Launcher {
                         .iter()
                         .filter_map(|s_mod| {
                             if let SelectedMod::Downloaded { id, .. } = s_mod {
-                                Some(id.clone())
+                                Some(id.get_internal_id().to_owned())
                             } else {
                                 None
                             }
@@ -289,7 +292,7 @@ impl Launcher {
         selected_instance: InstanceSelection,
         menu: &crate::launcher_state::MenuEditMods,
     ) -> Task<Message> {
-        let ids: Vec<String> = menu
+        let ids: Vec<ModId> = menu
             .selected_mods
             .iter()
             .filter_map(|s_mod| {
@@ -338,7 +341,7 @@ impl Launcher {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.query = input;
 
-                    return menu.search_modrinth(matches!(
+                    return menu.search_store(matches!(
                         &self.selected_instance,
                         Some(InstanceSelection::Server(_))
                     ));
@@ -363,11 +366,26 @@ impl Launcher {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.opened_mod = Some(i);
                     if let Some(results) = &menu.results {
-                        let hit = results.hits.get(i).unwrap();
-                        if !menu.result_data.contains_key(&hit.project_id) {
-                            let id = hit.project_id.clone();
+                        let hit = results.mods.get(i).unwrap();
+                        if !menu
+                            .result_data
+                            .contains_key(&ModId::from_pair(&hit.id, results.backend))
+                        {
+                            let id = hit.id.clone();
+                            let backend = menu.backend;
                             return Task::perform(
-                                async move { ProjectInfo::download(id).await.strerr().map(Box::new) },
+                                async move {
+                                    match backend {
+                                        ql_core::StoreBackendType::Modrinth => {
+                                            ModrinthBackend::get_description(&id).await
+                                        }
+                                        ql_core::StoreBackendType::Curseforge => {
+                                            CurseforgeBackend::get_description(&id).await
+                                        }
+                                    }
+                                    .strerr()
+                                    .map(Box::new)
+                                },
                                 |n| Message::InstallMods(InstallModsMessage::LoadData(n)),
                             );
                         }

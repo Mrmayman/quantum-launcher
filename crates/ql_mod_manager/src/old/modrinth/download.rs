@@ -7,9 +7,12 @@ use ql_core::{
     pt, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
 };
 
-use crate::rate_limiter::MOD_DOWNLOAD_LOCK;
+use crate::{
+    mod_manager::{ModConfig, ModIndex},
+    rate_limiter::MOD_DOWNLOAD_LOCK,
+};
 
-use super::{ModConfig, ModError, ModIndex, ModVersion, ProjectInfo};
+use super::{info::ProjectInfo, ModError, ModVersion};
 
 pub const SOURCE_ID_MODRINTH: &str = "modrinth";
 
@@ -96,7 +99,7 @@ async fn get_config_json(instance: &InstanceSelection) -> Result<InstanceConfigJ
     Ok(config_json)
 }
 
-pub(crate) struct ModDownloader {
+pub struct ModDownloader {
     version: String,
     pub index: ModIndex,
     loader: Option<String>,

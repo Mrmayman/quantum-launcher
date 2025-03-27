@@ -50,4 +50,18 @@ impl Loader {
             Loader::Paper => "paper",
         }
     }
+
+    pub fn to_curseforge(&self) -> &'static str {
+        match self {
+            Loader::Forge => "1",
+            Loader::Fabric => "4",
+            Loader::Quilt => "5",
+            Loader::Neoforge => "6",
+            Loader::Liteloader => "3",
+            Loader::Rift | Loader::Paper | Loader::Modloader | Loader::OptiFine => {
+                err!("Unsupported loader for curseforge: {self:?}");
+                "0"
+            } // Not supported
+        }
+    }
 }

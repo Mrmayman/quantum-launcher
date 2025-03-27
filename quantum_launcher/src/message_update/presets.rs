@@ -1,5 +1,5 @@
 use iced::Task;
-use ql_core::{IntoStringError, SelectedMod};
+use ql_core::{IntoStringError, ModId, SelectedMod};
 
 use crate::launcher_state::{
     EditPresetsMessage, Launcher, MenuEditPresets, MenuEditPresetsInner, Message, ProgressBar,
@@ -125,16 +125,28 @@ impl Launcher {
 
                     *progress = Some(ProgressBar::with_recv(receiver));
 
+                    let ids: Vec<ModId> = mods
+                        .iter()
+                        .filter(|n| n.0)
+                        .map(|n| ModId::from_pair(&n.1.id, n.1.backend))
+                        .collect();
+
+                    let instance = self.selected_instance.clone().unwrap();
+
                     return Ok(Task::perform(
-                        ql_mod_manager::mod_manager::download_mods_w(
-                            mods.iter()
-                                .filter(|n| n.0)
-                                .map(|n| n.1.id.to_owned())
-                                .collect(),
-                            self.selected_instance.clone().unwrap(),
-                            sender,
-                        ),
-                        |n| Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(n)),
+                        async move {
+                            ql_mod_manager::mod_manager::download_mods_bulk(
+                                ids,
+                                &instance,
+                                Some(sender),
+                            )
+                            .await
+                        },
+                        |n| {
+                            Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(
+                                n.strerr(),
+                            ))
+                        },
                     ));
                 }
             }

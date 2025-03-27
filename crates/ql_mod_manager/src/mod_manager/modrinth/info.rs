@@ -42,7 +42,7 @@ pub struct ProjectInfo {
 }
 
 impl ProjectInfo {
-    pub async fn download(id: String) -> Result<Self, ModError> {
+    pub async fn download(id: &str) -> Result<Self, ModError> {
         let _lock = RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{id}");
         let file = file_utils::download_file_to_string(&url, true).await?;

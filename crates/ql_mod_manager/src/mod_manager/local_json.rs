@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ql_core::{file_utils, InstanceSelection, IntoIoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
-use super::{ModError, ModFile};
+use super::ModError;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModConfig {
@@ -27,7 +27,6 @@ pub struct ModConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModIndex {
     pub mods: HashMap<String, ModConfig>,
-    pub instance_name: String,
     pub is_server: Option<bool>,
 }
 
@@ -64,7 +63,7 @@ impl ModIndex {
 
             Ok(mod_index)
         } else {
-            let index = ModIndex::with_name(selected_instance);
+            let index = ModIndex::new(selected_instance);
             let index_str = serde_json::to_string(&index)?;
             tokio::fs::write(&index_path, &index_str)
                 .await
@@ -97,19 +96,15 @@ impl ModIndex {
 
             Ok(mod_index)
         } else {
-            let index = ModIndex::with_name(selected_instance);
+            let index = ModIndex::new(selected_instance);
             let index_str = serde_json::to_string(&index)?;
             std::fs::write(&index_path, &index_str).path(index_path)?;
             Ok(index)
         }
     }
 
-    pub async fn save(&self) -> Result<(), ModError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir(&InstanceSelection::new(
-            &self.instance_name,
-            self.is_server.unwrap_or(false),
-        ))
-        .await?;
+    pub async fn save(&self, instance_name: &InstanceSelection) -> Result<(), ModError> {
+        let dot_mc_dir = file_utils::get_dot_minecraft_dir(instance_name).await?;
 
         let index_dir = dot_mc_dir.join("mod_index.json");
 
@@ -120,11 +115,26 @@ impl ModIndex {
         Ok(())
     }
 
-    fn with_name(instance_name: &InstanceSelection) -> Self {
+    fn new(instance_name: &InstanceSelection) -> Self {
         Self {
             mods: HashMap::new(),
-            instance_name: instance_name.get_name().to_owned(),
             is_server: Some(instance_name.is_server()),
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModFile {
+    // pub hashes: ModHashes,
+    pub url: String,
+    pub filename: String,
+    pub primary: bool,
+    // pub size: usize,
+    // pub file_type: Option<String>,
+}
+
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct ModHashes {
+//     pub sha512: String,
+//     pub sha1: String,
+// }

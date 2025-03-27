@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use reqwest::Client;
+use reqwest::{header::InvalidHeaderValue, Client};
 use thiserror::Error;
 
 use crate::{error::IoError, InstanceSelection, IntoIoError, CLIENT};
@@ -267,6 +267,8 @@ pub enum RequestError {
     },
     #[error("reqwest error: {0}")]
     ReqwestError(#[from] reqwest::Error),
+    #[error("reqwest error: {0}")]
+    InvalidHeaderValue(#[from] InvalidHeaderValue),
 }
 
 /// Sets the executable bit on a file.
