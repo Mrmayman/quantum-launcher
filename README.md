@@ -3,7 +3,7 @@
 # <img src="assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
 ## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5)
 
-A minimalistic Minecraft launcher for Windows and Linux (and soon-to-be macOS).
+A minimalistic Minecraft launcher for Windows, macOS and Linux.
 
 <img src="quantum_launcher.png" width="100%" />
 
@@ -118,7 +118,7 @@ What about the others? Well...
 - [ ] Jar Mods
 ### Sources
 - [x] Modrinth mods
-- [ ] Curseforge mods
+- [x] Curseforge mods (WIP)
 - [ ] Modrinth modpacks
 - [ ] Curseforge modpacks
 ### Features

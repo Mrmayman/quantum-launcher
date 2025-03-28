@@ -114,7 +114,7 @@ async fn install_java(
     send_progress(java_install_progress_sender, GenericProgress::default());
 
     // Special case for linux aarch64
-    install_normal_java(version, java_install_progress_sender, install_dir).await?;
+    install_java_files(version, java_install_progress_sender, install_dir).await?;
 
     tokio::fs::remove_file(&lock_file)
         .await
@@ -127,12 +127,25 @@ async fn install_java(
     Ok(())
 }
 
-async fn install_normal_java(
-    version: JavaVersion,
+async fn install_java_files(
+    mut version: JavaVersion,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: PathBuf,
 ) -> Result<(), JavaInstallError> {
     let java_list_json = JavaListJson::download().await?;
+
+    if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
+        version = match version {
+            // Java 8 and 16 are unsupported on Windows Aarch64.
+
+            // 17 should be backwards compatible with 8 and 16
+            // for the most part, but some things like Beta ModLoader
+            // might break?
+            JavaVersion::Java8 | JavaVersion::Java16 | JavaVersion::Java17 => JavaVersion::Java17,
+            JavaVersion::Java21 => JavaVersion::Java21,
+        }
+    }
+
     let Some(java_files_url) = java_list_json.get_url(version) else {
         return install_amazon_corretto_java(version, java_install_progress_sender, &install_dir)
             .await;
