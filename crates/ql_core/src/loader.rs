@@ -37,6 +37,7 @@ impl TryFrom<&str> for Loader {
 }
 
 impl Loader {
+    #[must_use]
     pub fn to_modrinth_str(self) -> &'static str {
         match self {
             Loader::Forge => "forge",
@@ -51,6 +52,7 @@ impl Loader {
         }
     }
 
+    #[must_use]
     pub fn to_curseforge(&self) -> &'static str {
         match self {
             Loader::Forge => "1",
@@ -65,6 +67,7 @@ impl Loader {
         }
     }
 
+    #[must_use]
     pub fn to_curseforge_str(&self) -> Option<&'static str> {
         match self {
             Loader::Forge => Some("Forge"),

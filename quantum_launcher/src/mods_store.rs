@@ -74,9 +74,8 @@ impl MenuModsDownload {
                     ql_core::StoreBackendType::Modrinth => ModrinthBackend::search(query).await,
                     ql_core::StoreBackendType::Curseforge => CurseforgeBackend::search(query).await,
                 }
-                .strerr()
             },
-            |n| Message::InstallMods(InstallModsMessage::SearchResult(n)),
+            |n| Message::InstallMods(InstallModsMessage::SearchResult(n.strerr())),
         )
     }
 }

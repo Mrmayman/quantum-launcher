@@ -70,12 +70,8 @@ impl Launcher {
                     let selected_instance = self.selected_instance.clone().unwrap();
                     let selected_mods = selected_mods.clone();
                     return Ok(Task::perform(
-                        async move {
-                            ql_mod_manager::PresetJson::generate(selected_instance, selected_mods)
-                                .await
-                                .strerr()
-                        },
-                        |n| Message::EditPresets(EditPresetsMessage::BuildYourOwnEnd(n)),
+                        ql_mod_manager::PresetJson::generate(selected_instance, selected_mods),
+                        |n| Message::EditPresets(EditPresetsMessage::BuildYourOwnEnd(n.strerr())),
                     ));
                 });
             }
@@ -134,14 +130,11 @@ impl Launcher {
                     let instance = self.selected_instance.clone().unwrap();
 
                     return Ok(Task::perform(
-                        async move {
-                            ql_mod_manager::mod_manager::download_mods_bulk(
-                                ids,
-                                &instance,
-                                Some(sender),
-                            )
-                            .await
-                        },
+                        ql_mod_manager::mod_manager::download_mods_bulk(
+                            ids,
+                            instance,
+                            Some(sender),
+                        ),
                         |n| {
                             Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(
                                 n.strerr(),

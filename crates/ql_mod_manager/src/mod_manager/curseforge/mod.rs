@@ -4,8 +4,9 @@ use std::{
     time::Instant,
 };
 
+use chrono::DateTime;
 use ql_core::{
-    file_utils, json::VersionDetails, GenericProgress, JsonDownloadError, RequestError, CLIENT,
+    file_utils, json::VersionDetails, pt, GenericProgress, JsonDownloadError, RequestError, CLIENT,
 };
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
@@ -34,6 +35,25 @@ impl ModQuery {
         let response = send_request(&format!("mods/{id}"), &HashMap::new()).await?;
         let response: ModQuery = serde_json::from_str(&response)?;
         Ok(response)
+    }
+
+    async fn get_file(
+        &self,
+        id: &str,
+        version: &str,
+        loader: Option<&str>,
+    ) -> Result<CurseforgeFileQuery, ModError> {
+        let Some(file) = self.data.latestFilesIndexes.iter().find(|n| {
+            let is_loader_compatible = loader == n.modLoader.map(|n| n.to_string()).as_deref();
+            let is_version_compatible = n.gameVersion == version;
+            is_version_compatible && is_loader_compatible
+        }) else {
+            return Err(ModError::NoCompatibleVersionFound);
+        };
+
+        let file_query = CurseforgeFileQuery::load(id, file.fileId).await?;
+
+        Ok(file_query)
     }
 }
 
@@ -101,15 +121,15 @@ impl Backend for CurseforgeBackend {
     async fn search(
         query: super::Query,
     ) -> Result<(super::SearchResult, std::time::Instant), super::ModError> {
-        let _lock = RATE_LIMITER.lock().await;
-        let instant = Instant::now();
-
         #[derive(Deserialize)]
         struct SearchResult {
             data: Vec<Mod>,
         }
 
         const TOTAL_DOWNLOADS: &str = "6";
+
+        let _lock = RATE_LIMITER.lock().await;
+        let instant = Instant::now();
 
         let mut params = HashMap::from([
             ("gameId", get_mc_id().await?.to_string()),
@@ -172,8 +192,15 @@ impl Backend for CurseforgeBackend {
         id: &str,
         version: &str,
         loader: Option<ql_core::Loader>,
-    ) -> Option<(chrono::DateTime<chrono::FixedOffset>, String)> {
-        todo!()
+    ) -> Result<(DateTime<chrono::FixedOffset>, String), ModError> {
+        let response = ModQuery::load(id).await?;
+        let loader = loader.map(|n| n.to_curseforge());
+
+        let file_query = response.get_file(id, version, loader).await?;
+
+        let download_version_time = DateTime::parse_from_rfc3339(&file_query.data.fileDate)?;
+
+        Ok((download_version_time, response.data.name))
     }
 
     async fn download(
@@ -205,7 +232,53 @@ impl Backend for CurseforgeBackend {
         set_manually_installed: bool,
         sender: Option<&Sender<GenericProgress>>,
     ) -> Result<(), super::ModError> {
-        todo!()
+        let version = {
+            let version_json = VersionDetails::load(instance).await?;
+            version_json.id
+        };
+        let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
+        let mut index = ModIndex::get(instance).await?;
+
+        let mods_dir = file_utils::get_dot_minecraft_dir(instance)
+            .await?
+            .join("mods");
+
+        let len = ids.len();
+        for (i, id) in ids.iter().enumerate() {
+            if let Some(sender) = &sender {
+                _ = sender.send(GenericProgress {
+                    done: i,
+                    total: len,
+                    message: None,
+                    has_finished: false,
+                });
+            }
+
+            let result =
+                download::download(id, &version, loader, &mut index, &mods_dir, None).await;
+
+            if let Err(ModError::NoCompatibleVersionFound) = result {
+                if ignore_incompatible {
+                    pt!("No compatible version found for mod {id}, skipping...");
+                    continue;
+                }
+            }
+            result?;
+
+            if set_manually_installed {
+                if let Some(config) = index.mods.get_mut(id) {
+                    config.manually_installed = true;
+                }
+            }
+        }
+
+        index.save(instance).await?;
+        pt!("Finished");
+        if let Some(sender) = &sender {
+            _ = sender.send(GenericProgress::finished());
+        }
+
+        Ok(())
     }
 }
 

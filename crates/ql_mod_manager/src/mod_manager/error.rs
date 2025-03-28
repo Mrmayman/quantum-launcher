@@ -22,6 +22,8 @@ pub enum ModError {
     NoMinecraftInCurseForge,
     #[error("curseforge is blocking you from downloading the mod {0}\nGo to the official website at https://www.curseforge.com/minecraft/mc-mods/{1} and download from there")]
     CurseforgeModNotAllowedForDownload(String, String),
+    #[error("could not parse date when checking for mod update: {0}")]
+    Chrono(#[from] chrono::ParseError),
 }
 
 impl From<JsonFileError> for ModError {

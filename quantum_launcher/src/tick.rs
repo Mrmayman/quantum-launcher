@@ -156,10 +156,9 @@ impl Launcher {
     fn tick_edit_instance(&self, config: InstanceConfigJson, commands: &mut Vec<Task<Message>>) {
         let instance = self.selected_instance.clone().unwrap();
         let dir = self.dir.clone();
-        let cmd = Task::perform(
-            async move { Launcher::save_config(instance, config, dir).await.strerr() },
-            |n| Message::EditInstance(EditInstanceMessage::ConfigSaved(n)),
-        );
+        let cmd = Task::perform(Launcher::save_config(instance, config, dir), |n| {
+            Message::EditInstance(EditInstanceMessage::ConfigSaved(n.strerr()))
+        });
         commands.push(cmd);
     }
 
@@ -295,11 +294,8 @@ impl MenuModsDownload {
         images: &mut ImageState,
     ) -> Task<Message> {
         let index_cmd = Task::perform(
-            async move {
-                let selected_instance = selected_instance;
-                ModIndex::get(&selected_instance).await.strerr()
-            },
-            |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n)),
+            async move { ModIndex::get(&selected_instance).await },
+            |n| Message::InstallMods(InstallModsMessage::IndexUpdated(n.strerr())),
         );
 
         if let Some(results) = &self.results {

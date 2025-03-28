@@ -3,8 +3,7 @@ use std::{collections::HashSet, path::Path};
 use ql_core::{file_utils, info, pt, IntoIoError, ModId};
 
 use crate::mod_manager::{
-    curseforge::{CurseforgeFileQuery, ModQuery},
-    ModConfig, ModError, ModFile, ModIndex, SOURCE_ID_CURSEFORGE,
+    curseforge::ModQuery, ModConfig, ModError, ModFile, ModIndex, SOURCE_ID_CURSEFORGE,
 };
 
 pub async fn download(
@@ -19,7 +18,7 @@ pub async fn download(
     if let Some(config) = index.mods.get_mut(id) {
         // Is this mod a dependency of something else?
         if let Some(dependent) = dependent {
-            config.dependents.insert(format!("CF:{}", dependent));
+            config.dependents.insert(format!("CF:{dependent}"));
         } else {
             config.manually_installed = true;
         }
@@ -45,21 +44,11 @@ pub async fn download(
         return Ok(());
     }
 
-    // set to filter(|n| {}).last() for oldest version
-    // and .find(|n| {}) for latest version
-    let Some(file) = response.data.latestFilesIndexes.iter().find(|n| {
-        let is_loader_compatible = loader == n.modLoader.map(|n| n.to_string()).as_deref();
-        let is_version_compatible = n.gameVersion == version;
-        is_version_compatible && is_loader_compatible
-    }) else {
-        return Err(ModError::NoCompatibleVersionFound);
-    };
-
-    let file_query = CurseforgeFileQuery::load(id, file.fileId).await?;
+    let file_query = response.get_file(id, version, loader).await?;
     let Some(url) = file_query.data.downloadUrl.clone() else {
         return Err(ModError::CurseforgeModNotAllowedForDownload(
-            response.data.name,
-            response.data.slug,
+            response.data.name.clone(),
+            response.data.slug.clone(),
         ));
     };
 
@@ -85,8 +74,9 @@ pub async fn download(
         .await?;
     }
 
+    let id_index_str = id_mod.get_index_str();
     index.mods.insert(
-        id_mod.get_index_str(),
+        id_index_str.clone(),
         ModConfig {
             name: response.data.name.clone(),
             manually_installed: dependent.is_none(),
@@ -96,7 +86,7 @@ pub async fn download(
             description: response.data.summary.clone(),
             icon_url: response.data.logo.clone().map(|n| n.url),
             project_source: SOURCE_ID_CURSEFORGE.to_owned(),
-            project_id: id_str,
+            project_id: id_index_str.clone(),
             files: vec![ModFile {
                 url,
                 filename: file_query.data.fileName,
@@ -117,7 +107,7 @@ pub async fn download(
                 .collect(),
             dependents: if let Some(dependent) = dependent {
                 let mut set = HashSet::new();
-                set.insert(format!("CF:{}", dependent));
+                set.insert(format!("CF:{dependent}"));
                 set
             } else {
                 HashSet::new()

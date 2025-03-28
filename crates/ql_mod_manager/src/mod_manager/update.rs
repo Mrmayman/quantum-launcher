@@ -5,7 +5,7 @@ use ql_core::{
     info, info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader,
 };
 
-use crate::mod_manager::{curseforge::CurseforgeBackend, get_loader, Backend, ModrinthBackend};
+use crate::mod_manager::{get_latest_version_date, get_loader};
 
 use super::{delete_mods, download_mod, ModError, ModId, ModIndex};
 
@@ -37,15 +37,15 @@ pub async fn apply_updates(
 
 pub async fn check_for_updates(
     selected_instance: InstanceSelection,
-) -> Option<Vec<(ModId, String)>> {
+) -> Result<Vec<(ModId, String)>, ModError> {
     info_no_log!("Checking for mod updates");
-    let index = ModIndex::get(&selected_instance).await.ok()?;
+    let index = ModIndex::get(&selected_instance).await?;
 
-    let version_json = VersionDetails::load(&selected_instance).await.ok()?;
+    let version_json = VersionDetails::load(&selected_instance).await?;
 
-    let loader = get_loader(&selected_instance).await.ok()?;
+    let loader = get_loader(&selected_instance).await?;
     if let Some(Loader::OptiFine) = loader {
-        return None;
+        return Ok(Vec::new());
     }
 
     let mut updated_mods = Vec::new();
@@ -53,27 +53,12 @@ pub async fn check_for_updates(
     for (id, installed_mod) in index.mods {
         let mod_id = ModId::from_index_str(&id);
 
-        let (download_version_time, download_version) = match &mod_id {
-            ModId::Modrinth(n) => {
-                let Some(n) =
-                    ModrinthBackend::get_latest_version_date(n, &version_json.id, loader).await
-                else {
-                    continue;
-                };
-                n
-            }
-            ModId::Curseforge(n) => {
-                let Some(n) =
-                    CurseforgeBackend::get_latest_version_date(n, &version_json.id, loader).await
-                else {
-                    continue;
-                };
-                n
-            }
-        };
+        let version = &version_json.id;
+        let (download_version_time, download_version) =
+            get_latest_version_date(loader, &mod_id, version).await?;
 
         let installed_version_time =
-            DateTime::parse_from_rfc3339(&installed_mod.version_release_time).ok()?;
+            DateTime::parse_from_rfc3339(&installed_mod.version_release_time)?;
 
         if download_version_time > installed_version_time {
             updated_mods.push((mod_id, download_version));
@@ -86,5 +71,5 @@ pub async fn check_for_updates(
         info!("Found mod updates");
     }
 
-    Some(updated_mods)
+    Ok(updated_mods)
 }

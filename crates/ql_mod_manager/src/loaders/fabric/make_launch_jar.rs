@@ -62,7 +62,7 @@ pub async fn make_launch_jar(
                 n.strip_prefix(parent)
                     .unwrap_or(n)
                     .to_str()
-                    .map(|n| n.to_owned())
+                    .map(str::to_owned)
                     .unwrap_or(n.to_string_lossy().to_string())
                     .replace('\\', "/")
             })

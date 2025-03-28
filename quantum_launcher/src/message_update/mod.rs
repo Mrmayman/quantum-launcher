@@ -71,17 +71,13 @@ impl Launcher {
                     let instance_name = self.selected_instance.clone().unwrap();
                     let is_quilt = *is_quilt;
                     return Task::perform(
-                        async move {
-                            loaders::fabric::install(
-                                loader_version,
-                                instance_name,
-                                Some(sender),
-                                is_quilt,
-                            )
-                            .await
-                            .strerr()
-                        },
-                        |m| Message::InstallFabric(InstallFabricMessage::End(m)),
+                        loaders::fabric::install(
+                            loader_version,
+                            instance_name,
+                            Some(sender),
+                            is_quilt,
+                        ),
+                        |m| Message::InstallFabric(InstallFabricMessage::End(m.strerr())),
                     );
                 }
             }
@@ -238,12 +234,8 @@ impl Launcher {
                         .collect();
                     let instance_name = self.selected_instance.clone().unwrap();
                     return Task::perform(
-                        async move {
-                            ql_mod_manager::mod_manager::toggle_mods(ids, instance_name)
-                                .await
-                                .strerr()
-                        },
-                        |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n)),
+                        ql_mod_manager::mod_manager::toggle_mods(ids, instance_name),
+                        |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n.strerr())),
                     );
                 }
             }
@@ -267,12 +259,20 @@ impl Launcher {
                         ql_mod_manager::mod_manager::check_for_updates(
                             self.selected_instance.clone().unwrap(),
                         ),
-                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n)),
+                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
                     );
                 }
             }
             ManageModsMessage::UpdateCheckResult(updates) => {
-                if let (Some(updates), State::EditMods(menu)) = (updates, &mut self.state) {
+                let updates = match updates {
+                    Ok(n) => n,
+                    Err(err) => {
+                        err!("Could not check for updates: {err}");
+                        return Task::none();
+                    }
+                };
+
+                if let State::EditMods(menu) = &mut self.state {
                     menu.available_updates =
                         updates.into_iter().map(|(a, b)| (a, b, true)).collect();
                 }
@@ -314,9 +314,8 @@ impl Launcher {
                 ql_mod_manager::mod_manager::delete_mods(&ids, &selected_instance)
                     .await
                     .map(|()| ids)
-                    .strerr()
             },
-            |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n)),
+            |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n.strerr())),
         )
     }
 
@@ -386,10 +385,9 @@ impl Launcher {
                                             CurseforgeBackend::get_description(&id).await
                                         }
                                     }
-                                    .strerr()
                                     .map(Box::new)
                                 },
-                                |n| Message::InstallMods(InstallModsMessage::LoadData(n)),
+                                |n| Message::InstallMods(InstallModsMessage::LoadData(n.strerr())),
                             );
                         }
                     }
@@ -481,17 +479,13 @@ impl Launcher {
                     return Task::perform(
                         // Note: OptiFine does not support servers
                         // so it's safe to assume we've selected an instance.
-                        async move {
-                            ql_mod_manager::loaders::optifine::install(
-                                get_name,
-                                path,
-                                Some(p_sender),
-                                Some(j_sender),
-                            )
-                            .await
-                            .strerr()
-                        },
-                        |n| Message::InstallOptifine(InstallOptifineMessage::End(n)),
+                        ql_mod_manager::loaders::optifine::install(
+                            get_name,
+                            path,
+                            Some(p_sender),
+                            Some(j_sender),
+                        ),
+                        |n| Message::InstallOptifine(InstallOptifineMessage::End(n.strerr())),
                     );
                 }
             }

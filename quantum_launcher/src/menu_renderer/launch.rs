@@ -46,47 +46,7 @@ impl Launcher {
         selected_instance_s: Option<&'a str>,
         menu: &'a MenuLaunch,
     ) -> Element<'a> {
-        let tab_selector: Element = {
-            let tab_bar = widget::row(
-                [LaunchTabId::Buttons, LaunchTabId::Edit, LaunchTabId::Log]
-                    .into_iter()
-                    .map(|n| render_tab(n, menu)),
-            )
-            .wrap();
-
-            let n = widget::row!(
-                widget::button(
-                    widget::row![
-                        widget::horizontal_space(),
-                        icon_manager::settings(),
-                        widget::horizontal_space()
-                    ]
-                    .align_y(iced::Alignment::Center)
-                )
-                .height(TAB_HEIGHT)
-                .width(TAB_HEIGHT)
-                .style(|n, status| n.style_button(status, StyleButton::FlatExtraDark))
-                .on_press(Message::LauncherSettingsOpen),
-                tab_bar,
-                widget::horizontal_space()
-            );
-
-            let n = if let Some(select) = selected_instance_s {
-                n.push(
-                    widget::column!(
-                        widget::vertical_space(),
-                        widget::text!("{select}  ").size(14),
-                        widget::vertical_space()
-                    )
-                    .height(TAB_HEIGHT),
-                )
-            } else {
-                n
-            };
-            widget::container(n)
-                .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
-                .into()
-        };
+        let tab_selector = get_tab_selector(selected_instance_s, menu);
 
         let last_parts = widget::column![
             widget::horizontal_space(),
@@ -169,11 +129,13 @@ impl Launcher {
         is_server: bool,
     ) -> widget::Column<'element, Message, LauncherTheme> {
         const LOG_VIEW_LIMIT: usize = 10000;
+
         if let Some(Some(InstanceLog { log, has_crashed, command })) = selected_instance
             .as_ref()
             .map(|selection| logs.get(*selection))
         {
             let log_length = log.len();
+
             let slice = if log_length > LOG_VIEW_LIMIT {
                 &log[log_length - LOG_VIEW_LIMIT..log_length]
             } else {
@@ -409,6 +371,49 @@ impl Launcher {
             .into()
         }
     }
+}
+
+fn get_tab_selector<'a>(selected_instance_s: Option<&'a str>, menu: &'a MenuLaunch) -> Element<'a> {
+    let tab_bar = widget::row(
+        [LaunchTabId::Buttons, LaunchTabId::Edit, LaunchTabId::Log]
+            .into_iter()
+            .map(|n| render_tab(n, menu)),
+    )
+    .wrap();
+
+    let n = widget::row!(
+        widget::button(
+            widget::row![
+                widget::horizontal_space(),
+                icon_manager::settings(),
+                widget::horizontal_space()
+            ]
+            .align_y(iced::Alignment::Center)
+        )
+        .height(TAB_HEIGHT)
+        .width(TAB_HEIGHT)
+        .style(|n, status| n.style_button(status, StyleButton::FlatExtraDark))
+        .on_press(Message::LauncherSettingsOpen),
+        tab_bar,
+        widget::horizontal_space()
+    );
+
+    let n = if let Some(select) = selected_instance_s {
+        n.push(
+            widget::column!(
+                widget::vertical_space(),
+                widget::text!("{select}  ").size(14),
+                widget::vertical_space()
+            )
+            .height(TAB_HEIGHT),
+        )
+    } else {
+        n
+    };
+
+    widget::container(n)
+        .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
+        .into()
 }
 
 fn get_mods_button(

@@ -15,9 +15,7 @@ use ql_core::{
 use ql_instances::{AccountData, ListEntry};
 use ql_mod_manager::{
     loaders,
-    mod_manager::{
-        Backend, CurseforgeBackend, ModIndex, ModrinthBackend, RecommendedMod, RECOMMENDED_MODS,
-    },
+    mod_manager::{ModIndex, RecommendedMod, RECOMMENDED_MODS},
 };
 use tokio::process::Child;
 
@@ -159,15 +157,11 @@ impl Launcher {
         } else {
             let (sender, receiver) = mpsc::channel();
 
-            let (task, handle) = Task::perform(
-                async move {
-                    ql_instances::list_versions(Some(Arc::new(sender)))
-                        .await
-                        .strerr()
-                },
-                |n| Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n)),
-            )
-            .abortable();
+            let (task, handle) =
+                Task::perform(ql_instances::list_versions(Some(Arc::new(sender))), |n| {
+                    Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n.strerr()))
+                })
+                .abortable();
 
             self.state = State::Create(MenuCreateInstance::Loading {
                 receiver,
@@ -237,18 +231,13 @@ impl Launcher {
 
             // Create Instance asynchronously using iced Command.
             return Task::perform(
-                async move {
-                    ql_instances::create_instance(
-                        instance_name.clone(),
-                        version,
-                        Some(sender),
-                        download_assets,
-                    )
-                    .await
-                    .strerr()
-                    .map(|()| instance_name)
-                },
-                |n| Message::CreateInstance(CreateInstanceMessage::End(n)),
+                ql_instances::create_instance(
+                    instance_name.clone(),
+                    version,
+                    Some(sender),
+                    download_assets,
+                ),
+                |n| Message::CreateInstance(CreateInstanceMessage::End(n.strerr())),
             );
         }
         Task::none()
@@ -383,7 +372,7 @@ impl Launcher {
                 } else {
                     Task::perform(
                         ql_mod_manager::mod_manager::check_for_updates(selected_instance.clone()),
-                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n)),
+                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
                     )
                 };
 
@@ -412,26 +401,18 @@ impl Launcher {
 
         menu.mods_download_in_progress
             .insert(ModId::Modrinth(hit.id.clone()));
-        let project_id = hit.id.clone();
 
+        let project_id = hit.id.clone();
         let backend = menu.backend;
+        let id = ModId::from_pair(&project_id, backend);
 
         Some(Task::perform(
             async move {
-                let project_id = project_id;
-                let selected_instance = selected_instance;
-                match backend {
-                    ql_core::StoreBackendType::Modrinth => {
-                        ModrinthBackend::download(&project_id, &selected_instance).await
-                    }
-                    ql_core::StoreBackendType::Curseforge => {
-                        CurseforgeBackend::download(&project_id, &selected_instance).await
-                    }
-                }
-                .map(|()| ModId::Modrinth(project_id))
-                .strerr()
+                ql_mod_manager::mod_manager::download_mod(&id, &selected_instance)
+                    .await
+                    .map(|()| ModId::Modrinth(project_id))
             },
-            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n)),
+            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
         ))
     }
 
@@ -472,16 +453,12 @@ impl Launcher {
             ));
             let selected_instance = self.selected_instance.clone().unwrap();
             Task::perform(
-                async move {
-                    ql_mod_manager::mod_manager::apply_updates(
-                        selected_instance,
-                        updates,
-                        Some(sender),
-                    )
-                    .await
-                    .strerr()
-                },
-                |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n)),
+                ql_mod_manager::mod_manager::apply_updates(
+                    selected_instance,
+                    updates,
+                    Some(sender),
+                ),
+                |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n.strerr())),
             )
         } else {
             Task::none()
@@ -625,16 +602,12 @@ impl Launcher {
                 }
                 let instance_name = self.selected_instance.clone().unwrap();
                 return Task::perform(
-                    async move {
-                        ql_mod_manager::mod_manager::download_mods_bulk(
-                            mods,
-                            &instance_name,
-                            Some(sender),
-                        )
-                        .await
-                        .strerr()
-                    },
-                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n)),
+                    ql_mod_manager::mod_manager::download_mods_bulk(
+                        mods,
+                        instance_name,
+                        Some(sender),
+                    ),
+                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n.strerr())),
                 );
             }
             Err(err) => self.set_error(err),
@@ -693,12 +666,8 @@ impl Launcher {
         let version = json.id.clone();
         let ids = RECOMMENDED_MODS.to_owned();
         Task::perform(
-            async move {
-                RecommendedMod::get_compatible_mods(ids, version, loader, sender)
-                    .await
-                    .strerr()
-            },
-            |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n)),
+            RecommendedMod::get_compatible_mods(ids, version, loader, sender),
+            |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n.strerr())),
         )
     }
 

@@ -2,7 +2,7 @@ use std::{sync::mpsc::Sender, time::Instant};
 
 use chrono::DateTime;
 use download::version_sort;
-use ql_core::{err, info, pt, GenericProgress, InstanceSelection, Loader, ModId};
+use ql_core::{info, pt, GenericProgress, InstanceSelection, Loader, ModId};
 use versions::ModVersion;
 
 use crate::{
@@ -61,8 +61,8 @@ impl Backend for ModrinthBackend {
         id: &str,
         version: &str,
         loader: Option<Loader>,
-    ) -> Option<(chrono::DateTime<chrono::FixedOffset>, String)> {
-        let download_info = ModVersion::download(id).await.ok()?;
+    ) -> Result<(DateTime<chrono::FixedOffset>, String), ModError> {
+        let download_info = ModVersion::download(id).await?;
         let version = version.to_owned();
 
         // TODO: Add curseforge support
@@ -82,18 +82,14 @@ impl Backend for ModrinthBackend {
         // Sort by date published
         download_versions.sort_by(version_sort);
 
-        let download_version = download_versions.into_iter().last()?;
+        let download_version = download_versions
+            .into_iter()
+            .last()
+            .ok_or(ModError::NoCompatibleVersionFound)?;
 
-        let download_version_time =
-            match DateTime::parse_from_rfc3339(&download_version.date_published) {
-                Ok(n) => n,
-                Err(err) => {
-                    err!("Couldn't parse mod version date: {err}");
-                    return None;
-                }
-            };
+        let download_version_time = DateTime::parse_from_rfc3339(&download_version.date_published)?;
 
-        Some((download_version_time, download_version.name))
+        Ok((download_version_time, download_version.name))
     }
 
     async fn download(id: &str, instance: &InstanceSelection) -> Result<(), ModError> {

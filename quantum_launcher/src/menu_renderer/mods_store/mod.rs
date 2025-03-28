@@ -196,7 +196,7 @@ impl MenuModsDownload {
                         )) // TODO: add curseforge
                     ),
                     button_with_icon(icon_manager::save(), "Copy ID", 16)
-                        .on_press(Message::CoreCopyText(hit.id.to_owned())),
+                        .on_press(Message::CoreCopyText(hit.id.clone())),
                 )
                 .spacing(10),
                 widget::row!(

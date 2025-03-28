@@ -91,7 +91,7 @@ pub enum ManageModsMessage {
     ToggleFinished(Result<(), String>),
     UpdateMods,
     UpdateModsFinished(Result<(), String>),
-    UpdateCheckResult(Option<Vec<(ModId, String)>>),
+    UpdateCheckResult(Result<Vec<(ModId, String)>, String>),
     UpdateCheckToggle(usize, bool),
 }
 

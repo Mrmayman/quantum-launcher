@@ -18,6 +18,9 @@ use crate::{download::GameDownloader, ListEntry};
 ///   up the download or reduce file size. *Disabling this will make the game completely silent;
 ///   No sounds or music will play*
 ///
+/// # Returns
+/// Returns the instance name that you passed in.
+///
 /// # Errors
 /// Check the [`DownloadError`] documentation (if there is, lol).
 /// This is crap code and you must have standards. (WTF: )
@@ -26,7 +29,7 @@ pub async fn create_instance(
     version: ListEntry,
     progress_sender: Option<Sender<DownloadProgress>>,
     download_assets: bool,
-) -> Result<(), DownloadError> {
+) -> Result<String, DownloadError> {
     info!("Started creating instance.");
 
     // An empty asset directory.
@@ -85,5 +88,5 @@ pub async fn create_instance(
 
     info!("Finished creating instance: {instance_name}");
 
-    Ok(())
+    Ok(instance_name)
 }

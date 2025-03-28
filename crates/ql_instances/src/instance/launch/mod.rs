@@ -102,7 +102,7 @@ pub async fn launch(
                     |args| {
                         info!("Game args: {args:?}\n");
                     },
-                )
+                );
             });
         });
     });
@@ -181,11 +181,11 @@ fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, co
 
 fn censor_string<F: FnOnce(&mut Vec<String>)>(vec: &[String], argument: &str, code: F) {
     let mut new = vec.to_owned();
-    new.iter_mut().for_each(|s| {
+    for s in &mut new {
         if s == argument {
-            *s = "[REDACTED]".to_owned();
+            "[REDACTED]".clone_into(s);
         }
-    });
+    }
 
     code(&mut new);
 }

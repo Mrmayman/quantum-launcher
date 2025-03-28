@@ -128,12 +128,14 @@ pub enum ModId {
 }
 
 impl ModId {
+    #[must_use]
     pub fn get_internal_id(&self) -> &str {
         match self {
             ModId::Modrinth(n) | ModId::Curseforge(n) => n,
         }
     }
 
+    #[must_use]
     pub fn get_index_str(&self) -> String {
         match self {
             ModId::Modrinth(n) => n.clone(),
@@ -141,6 +143,7 @@ impl ModId {
         }
     }
 
+    #[must_use]
     pub fn from_index_str(n: &str) -> Self {
         if n.starts_with("CF:") {
             ModId::Curseforge(n.strip_prefix("CF:").unwrap_or(n).to_owned())
@@ -149,6 +152,7 @@ impl ModId {
         }
     }
 
+    #[must_use]
     pub fn from_pair(n: &str, t: StoreBackendType) -> Self {
         match t {
             StoreBackendType::Modrinth => Self::Modrinth(n.to_owned()),
@@ -156,6 +160,7 @@ impl ModId {
         }
     }
 
+    #[must_use]
     pub fn to_pair(self) -> (String, StoreBackendType) {
         let backend = match self {
             ModId::Modrinth(_) => StoreBackendType::Modrinth,
@@ -178,6 +183,18 @@ pub enum SelectedMod {
     Local { file_name: String },
 }
 
+/// Opens the file explorer or browser
+/// (depending on path/link) to the corresponding link.
+///
+/// If you input a url (starting with `https://` for example),
+/// this will open the link with your default browser.
+///
+/// If you input a path (for example, `C:\Users\Mrmayman\Documents\`)
+/// this will open it in the file explorer.
+///
+/// # Panics
+/// Only supported on windows, macOS and linux,
+/// other platforms will **panic**.
 #[allow(clippy::zombie_processes)]
 pub fn open_file_explorer(path: &str) {
     use std::process::Command;

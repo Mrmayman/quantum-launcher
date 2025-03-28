@@ -64,9 +64,9 @@ impl ModDownloader {
         if self.is_already_installed(id, dependent, &project_info.title) {
             pt!("Already installed mod {id}, skipping.");
             return Ok(());
-        } else {
-            info!("Getting project info (id: {id})");
         }
+
+        info!("Getting project info (id: {id})");
 
         if !self.has_compatible_loader(&project_info) {
             if let Some(loader) = &self.loader {

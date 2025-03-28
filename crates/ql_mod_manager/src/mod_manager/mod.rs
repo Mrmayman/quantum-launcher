@@ -1,6 +1,6 @@
 use std::{sync::mpsc::Sender, time::Instant};
 
-use chrono::{DateTime, FixedOffset};
+use chrono::DateTime;
 use ql_core::{
     err, file_utils, json::InstanceConfigJson, GenericProgress, InstanceSelection, Loader, ModId,
     StoreBackendType,
@@ -37,7 +37,7 @@ pub trait Backend {
         id: &str,
         version: &str,
         loader: Option<Loader>,
-    ) -> Option<(DateTime<FixedOffset>, String)>;
+    ) -> Result<(DateTime<chrono::FixedOffset>, String), ModError>;
 
     async fn download(id: &str, instance: &InstanceSelection) -> Result<(), ModError>;
     async fn download_bulk(
@@ -58,7 +58,7 @@ pub async fn download_mod(id: &ModId, instance: &InstanceSelection) -> Result<()
 
 pub async fn download_mods_bulk(
     ids: Vec<ModId>,
-    instance_name: &InstanceSelection,
+    instance_name: InstanceSelection,
     sender: Option<Sender<GenericProgress>>,
 ) -> Result<(), ModError> {
     let (modrinth, other): (Vec<ModId>, Vec<ModId>) = ids.into_iter().partition(|n| match n {
@@ -80,12 +80,25 @@ pub async fn download_mods_bulk(
     //     err!("Unimplemented downloading for mods: {other:#?}");
     // }
 
-    ModrinthBackend::download_bulk(&modrinth, instance_name, true, true, sender.as_ref()).await?;
+    ModrinthBackend::download_bulk(&modrinth, &instance_name, true, true, sender.as_ref()).await?;
 
-    CurseforgeBackend::download_bulk(&curseforge, instance_name, true, true, sender.as_ref())
+    CurseforgeBackend::download_bulk(&curseforge, &instance_name, true, true, sender.as_ref())
         .await?;
 
     Ok(())
+}
+
+pub async fn get_latest_version_date(
+    loader: Option<Loader>,
+    mod_id: &ModId,
+    version: &str,
+) -> Result<(DateTime<chrono::FixedOffset>, String), ModError> {
+    Ok(match mod_id {
+        ModId::Modrinth(n) => ModrinthBackend::get_latest_version_date(n, version, loader).await?,
+        ModId::Curseforge(n) => {
+            CurseforgeBackend::get_latest_version_date(n, version, loader).await?
+        }
+    })
 }
 
 #[derive(Clone, Debug)]

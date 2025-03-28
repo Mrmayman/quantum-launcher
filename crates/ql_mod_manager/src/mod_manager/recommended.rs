@@ -1,8 +1,8 @@
 use std::sync::mpsc::Sender;
 
-use ql_core::{info, pt, GenericProgress, Loader, StoreBackendType};
+use ql_core::{info, pt, GenericProgress, Loader, ModId, StoreBackendType};
 
-use crate::mod_manager::{curseforge::CurseforgeBackend, Backend, ModrinthBackend};
+use crate::mod_manager::get_latest_version_date;
 
 use super::ModError;
 
@@ -39,15 +39,10 @@ impl RecommendedMod {
                 return Ok(Vec::new());
             }
 
-            let is_compatible = match id.backend {
-                StoreBackendType::Modrinth => {
-                    ModrinthBackend::get_latest_version_date(id.id, &version, Some(loader)).await
-                }
-                StoreBackendType::Curseforge => {
-                    CurseforgeBackend::get_latest_version_date(id.id, &version, Some(loader)).await
-                }
-            }
-            .is_some();
+            let mod_id = ModId::from_pair(id.id, id.backend);
+            let is_compatible = get_latest_version_date(Some(loader), &mod_id, &version)
+                .await
+                .is_ok();
             pt!("{} : {is_compatible}", id.name);
             if is_compatible {
                 mods.push(id);
