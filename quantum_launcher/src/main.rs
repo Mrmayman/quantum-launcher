@@ -445,7 +445,7 @@ impl Launcher {
                                         .manually_installed
                                         .then_some(SelectedMod::Downloaded {
                                             name: mod_info.name.clone(),
-                                            id: ModId::from_index_str(&id),
+                                            id: ModId::from_index_str(id),
                                         })
                                 })
                                 .chain(menu.locally_installed_mods.iter().map(|n| {

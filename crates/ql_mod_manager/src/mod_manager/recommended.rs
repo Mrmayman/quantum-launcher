@@ -41,10 +41,10 @@ impl RecommendedMod {
 
             let is_compatible = match id.backend {
                 StoreBackendType::Modrinth => {
-                    ModrinthBackend::get_latest_version_date(&id.id, &version, Some(loader)).await
+                    ModrinthBackend::get_latest_version_date(id.id, &version, Some(loader)).await
                 }
                 StoreBackendType::Curseforge => {
-                    CurseforgeBackend::get_latest_version_date(&id.id, &version, Some(loader)).await
+                    CurseforgeBackend::get_latest_version_date(id.id, &version, Some(loader)).await
                 }
             }
             .is_some();

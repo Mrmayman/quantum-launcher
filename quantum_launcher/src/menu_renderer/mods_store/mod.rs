@@ -45,8 +45,25 @@ impl MenuModsDownload {
                 widget::text_input("Search...", &self.query)
                     .on_input(|n| Message::InstallMods(InstallModsMessage::SearchInput(n))),
                 if self.mods_download_in_progress.is_empty() {
-                    widget::column!(button_with_icon(icon_manager::back(), "Back", 16)
-                        .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)))
+                    widget::column!(
+                        button_with_icon(icon_manager::back(), "Back", 16)
+                            .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+                        widget::Space::with_height(5.0),
+                        widget::text("Select store:").size(20),
+                        widget::radio(
+                            "Modrinth",
+                            StoreBackendType::Modrinth,
+                            Some(self.backend),
+                            |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
+                        ),
+                        widget::radio(
+                            "CurseForge",
+                            StoreBackendType::Curseforge,
+                            Some(self.backend),
+                            |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
+                        ),
+                    )
+                    .spacing(5)
                 } else {
                     // Mods are being installed. Can't back out.
                     // Show list of mods being installed.
@@ -56,7 +73,7 @@ impl MenuModsDownload {
                             let hit = search
                                 .mods
                                 .iter()
-                                .find(|hit| &hit.id == id.get_internal_id())?;
+                                .find(|hit| hit.id == id.get_internal_id())?;
                             Some(widget::text!("- {}", hit.title).into())
                         }))
                     })
@@ -91,7 +108,8 @@ impl MenuModsDownload {
                 (!self
                     .mods_download_in_progress
                     .contains(&ModId::from_pair(&hit.id, backend))
-                    && !self.mod_index.mods.contains_key(&hit.id))
+                    && !self.mod_index.mods.contains_key(&hit.id)
+                    && !self.mod_index.mods.values().any(|n| n.name == hit.title))
                 .then_some(Message::InstallMods(InstallModsMessage::Download(i)))
             ),
             widget::button(
@@ -101,7 +119,7 @@ impl MenuModsDownload {
                     } else if let Some(icon) = images.svg.get(&hit.icon_url) {
                         widget::column!(widget::svg(icon.clone()).width(32))
                     } else {
-                        widget::column!(widget::text(""))
+                        widget::column!(widget::text("..."))
                     },
                     widget::column!(
                         icon_manager::download_with_size(20),

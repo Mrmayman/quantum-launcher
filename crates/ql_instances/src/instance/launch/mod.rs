@@ -179,8 +179,8 @@ fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, co
     }
 }
 
-fn censor_string<F: FnOnce(&mut Vec<String>)>(vec: &Vec<String>, argument: &str, code: F) {
-    let mut new = vec.clone();
+fn censor_string<F: FnOnce(&mut Vec<String>)>(vec: &[String], argument: &str, code: F) {
+    let mut new = vec.to_owned();
     new.iter_mut().for_each(|s| {
         if s == argument {
             *s = "[REDACTED]".to_owned();

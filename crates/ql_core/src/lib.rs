@@ -130,7 +130,7 @@ pub enum ModId {
 impl ModId {
     pub fn get_internal_id(&self) -> &str {
         match self {
-            ModId::Modrinth(n) | ModId::Curseforge(n) => &n,
+            ModId::Modrinth(n) | ModId::Curseforge(n) => n,
         }
     }
 
@@ -166,7 +166,7 @@ impl ModId {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StoreBackendType {
     Modrinth,
     Curseforge,

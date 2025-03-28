@@ -62,7 +62,7 @@ impl Backend for ModrinthBackend {
         version: &str,
         loader: Option<Loader>,
     ) -> Option<(chrono::DateTime<chrono::FixedOffset>, String)> {
-        let download_info = ModVersion::download(&id).await.ok()?;
+        let download_info = ModVersion::download(id).await.ok()?;
         let version = version.to_owned();
 
         // TODO: Add curseforge support
@@ -82,9 +82,7 @@ impl Backend for ModrinthBackend {
         // Sort by date published
         download_versions.sort_by(version_sort);
 
-        let Some(download_version) = download_versions.into_iter().last() else {
-            return None;
-        };
+        let download_version = download_versions.into_iter().last()?;
 
         let download_version_time =
             match DateTime::parse_from_rfc3339(&download_version.date_published) {
@@ -136,7 +134,7 @@ impl Backend for ModrinthBackend {
 
         let len = ids.len();
 
-        for (i, id) in ids.into_iter().enumerate() {
+        for (i, id) in ids.iter().enumerate() {
             if let Some(sender) = &sender {
                 _ = sender.send(GenericProgress {
                     done: i,

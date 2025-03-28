@@ -20,6 +20,8 @@ pub enum ModError {
     Zip(#[from] ZipError),
     #[error("no minecraft entry found in curseforge API")]
     NoMinecraftInCurseForge,
+    #[error("curseforge is blocking you from downloading the mod {0}\nGo to the official website at https://www.curseforge.com/minecraft/mc-mods/{1} and download from there")]
+    CurseforgeModNotAllowedForDownload(String, String),
 }
 
 impl From<JsonFileError> for ModError {

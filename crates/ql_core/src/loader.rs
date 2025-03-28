@@ -64,4 +64,18 @@ impl Loader {
             } // Not supported
         }
     }
+
+    pub fn to_curseforge_str(&self) -> Option<&'static str> {
+        match self {
+            Loader::Forge => Some("Forge"),
+            Loader::Fabric => Some("Fabric"),
+            Loader::Quilt => Some("Quilt"),
+            Loader::Neoforge => Some("NeoForge"),
+            Loader::Liteloader => Some("LiteLoader"),
+            Loader::Rift | Loader::Paper | Loader::Modloader | Loader::OptiFine => {
+                err!("Unsupported loader for curseforge: {self:?}");
+                None
+            } // Not supported
+        }
+    }
 }

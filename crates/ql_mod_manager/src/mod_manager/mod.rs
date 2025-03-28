@@ -27,6 +27,7 @@ pub use toggle::toggle_mods;
 pub use update::{apply_updates, check_for_updates};
 
 pub const SOURCE_ID_MODRINTH: &str = "modrinth";
+pub const SOURCE_ID_CURSEFORGE: &str = "curseforge";
 
 #[allow(async_fn_in_trait)]
 pub trait Backend {
@@ -79,9 +80,9 @@ pub async fn download_mods_bulk(
     //     err!("Unimplemented downloading for mods: {other:#?}");
     // }
 
-    ModrinthBackend::download_bulk(&modrinth, &instance_name, true, true, sender.as_ref()).await?;
+    ModrinthBackend::download_bulk(&modrinth, instance_name, true, true, sender.as_ref()).await?;
 
-    CurseforgeBackend::download_bulk(&curseforge, &instance_name, true, true, sender.as_ref())
+    CurseforgeBackend::download_bulk(&curseforge, instance_name, true, true, sender.as_ref())
         .await?;
 
     Ok(())

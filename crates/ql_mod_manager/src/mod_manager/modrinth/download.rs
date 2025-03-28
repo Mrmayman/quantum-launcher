@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, collections::HashSet, path::PathBuf};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use chrono::DateTime;
 use ql_core::{
@@ -20,6 +24,7 @@ pub struct ModDownloader {
     pub index: ModIndex,
     loader: Option<String>,
     currently_installing_mods: HashSet<String>,
+    info: HashMap<String, ProjectInfo>,
     mods_dir: PathBuf,
 }
 
@@ -38,6 +43,7 @@ impl ModDownloader {
             loader,
             currently_installing_mods,
             mods_dir,
+            info: HashMap::new(),
         })
     }
 
@@ -47,14 +53,20 @@ impl ModDownloader {
         dependent: Option<&str>,
         manually_installed: bool,
     ) -> Result<(), ModError> {
-        if self.is_already_installed(id, dependent) {
+        let project_info = if let Some(n) = self.info.get(id) {
+            n.clone()
+        } else {
+            let info = ProjectInfo::download(id).await?;
+            self.info.insert(id.to_owned(), info.clone());
+            info
+        };
+
+        if self.is_already_installed(id, dependent, &project_info.title) {
             pt!("Already installed mod {id}, skipping.");
             return Ok(());
         } else {
             info!("Getting project info (id: {id})");
         }
-
-        let project_info = ProjectInfo::download(&id).await?;
 
         if !self.has_compatible_loader(&project_info) {
             if let Some(loader) = &self.loader {
@@ -102,13 +114,26 @@ impl ModDownloader {
         Ok(())
     }
 
-    fn is_already_installed(&mut self, id: &str, dependent: Option<&str>) -> bool {
+    fn is_already_installed(&mut self, id: &str, dependent: Option<&str>, name: &str) -> bool {
         if let Some(mod_info) = self.index.mods.get_mut(id) {
             if let Some(dependent) = dependent {
                 mod_info.dependents.insert(dependent.to_owned());
+            } else {
+                mod_info.manually_installed = true;
             }
+            return true;
         }
-        !self.currently_installing_mods.insert(id.to_owned()) || self.index.mods.contains_key(id)
+
+        if let Some(mod_info) = self.index.mods.values_mut().find(|n| n.name == name) {
+            if let Some(dependent) = dependent {
+                mod_info.dependents.insert(dependent.to_owned());
+            } else {
+                mod_info.manually_installed = true;
+            }
+            return true;
+        }
+
+        !self.currently_installing_mods.insert(id.to_owned())
     }
 
     fn has_compatible_loader(&self, project_info: &ProjectInfo) -> bool {

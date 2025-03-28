@@ -128,7 +128,7 @@ impl Launcher {
                     let ids: Vec<ModId> = mods
                         .iter()
                         .filter(|n| n.0)
-                        .map(|n| ModId::from_pair(&n.1.id, n.1.backend))
+                        .map(|n| ModId::from_pair(n.1.id, n.1.backend))
                         .collect();
 
                     let instance = self.selected_instance.clone().unwrap();

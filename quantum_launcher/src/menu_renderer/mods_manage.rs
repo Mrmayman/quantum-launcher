@@ -234,6 +234,7 @@ impl MenuEditMods {
         if self.sorted_mods_list.is_empty() {
             return widget::column!("Download some mods to get started")
                 .spacing(10)
+                .padding(10)
                 .into();
         }
 

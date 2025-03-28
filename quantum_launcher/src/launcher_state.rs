@@ -107,6 +107,7 @@ pub enum InstallModsMessage {
     Download(usize),
     DownloadComplete(Result<ModId, String>),
     IndexUpdated(Result<ModIndex, String>),
+    ChangeBackend(StoreBackendType),
 }
 
 #[derive(Debug, Clone)]

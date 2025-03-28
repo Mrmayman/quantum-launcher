@@ -206,6 +206,9 @@ impl Launcher {
             }
             ManageModsMessage::DeleteFinished(result) => match result {
                 Ok(_) => {
+                    if let State::EditMods(menu) = &mut self.state {
+                        menu.selected_mods.clear();
+                    }
                     self.update_mod_index();
                 }
                 Err(err) => self.set_error(err),
@@ -425,6 +428,17 @@ impl Launcher {
                         Ok(idx) => menu.mod_index = idx,
                         Err(err) => self.set_error(err),
                     }
+                }
+            }
+            InstallModsMessage::ChangeBackend(backend) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.backend = backend;
+                    menu.results = None;
+
+                    return menu.search_store(matches!(
+                        &self.selected_instance,
+                        Some(InstanceSelection::Server(_))
+                    ));
                 }
             }
         }
