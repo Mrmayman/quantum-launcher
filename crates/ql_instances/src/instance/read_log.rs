@@ -150,6 +150,16 @@ pub enum LogLine {
     Error(String),
 }
 
+impl Display for LogLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogLine::Info(event) => write!(f, "{event}"),
+            LogLine::Error(error) => write!(f, "! {error}"),
+            LogLine::Message(message) => write!(f, "{message}"),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ReadError {
     #[error("error reading log: (io): {0}")]
@@ -204,7 +214,7 @@ impl Display for LogEvent {
         let date = self.get_time().unwrap_or_else(|| self.timestamp.clone());
         writeln!(
             f,
-            "[{date}:{}.{}] [{}] {}",
+            "[{date}:{}:{}] [{}] {}",
             self.thread,
             self.logger,
             self.level,

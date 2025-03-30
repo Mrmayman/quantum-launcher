@@ -150,8 +150,7 @@ impl Launcher {
             const TEXT_SIZE: f32 = 12.0;
 
             let log_new: Vec<(String, LogType)> = log.iter().map(|n| (n.clone(), LogType::Point)).collect();
-            let height_reduction = 150.0 + if self.is_log_open { self.window_size.1 / 2.0 } else { 0.0 };
-
+            let height_reduction = self.window_size.1 / 3.0 /*+ if self.is_log_open { self.window_size.1 / 2.0 } else { 0.0 }*/;
 
             let (text_len, column) =
                 self.view_launcher_log(&log_new,
@@ -161,6 +160,7 @@ impl Launcher {
                     height_reduction
                 );
 
+            // TODO: Make scrolling precise when bottom launcher log bar is open
             let screen_height_lines = (self.window_size.1 - height_reduction - 70.0) as f64 / 18.0;
             let new_text_len = text_len - screen_height_lines;
 

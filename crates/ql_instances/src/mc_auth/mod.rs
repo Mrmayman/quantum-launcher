@@ -10,7 +10,7 @@
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
 
-use ql_core::{info, pt, GenericProgress, RequestError, CLIENT};
+use ql_core::{err, info, pt, GenericProgress, IntoStringError, RequestError, CLIENT};
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
@@ -109,6 +109,14 @@ impl From<reqwest::Error> for AuthError {
     fn from(value: reqwest::Error) -> Self {
         Self::RequestError(RequestError::ReqwestError(value))
     }
+}
+
+pub fn logout(username: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new("QuantumLauncher", &username).strerr()?;
+    if let Err(err) = entry.delete_credential() {
+        err!("Couldn't remove account credential: {err}");
+    }
+    Ok(())
 }
 
 pub async fn login_refresh(

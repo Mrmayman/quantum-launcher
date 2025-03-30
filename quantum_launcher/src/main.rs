@@ -623,7 +623,7 @@ impl Launcher {
                     self.server_logs.get_mut(&selected_server),
                     self.server_processes.get_mut(&selected_server),
                 ) {
-                    let log_cloned = &log.command.clone();
+                    let log_cloned = format!("{}\n", log.command);
                     let future = stdin.write_all(log_cloned.as_bytes());
                     // Make the input command visible in the log
                     log.log.push(format!("> {}", log.command));
@@ -805,7 +805,7 @@ impl Launcher {
 
             widget::mouse_area(
                 widget::container(widget::row![
-                    column.height(self.window_size.1 / 2.0),
+                    widget::column!(column).height(self.window_size.1 / 2.0),
                     widget::vertical_slider(
                         0.0..=text_len,
                         text_len - self.log_scroll as f64,

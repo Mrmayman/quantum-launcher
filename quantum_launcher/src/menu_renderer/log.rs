@@ -6,6 +6,8 @@ use crate::{
     stylesheet::{styles::LauncherTheme, widgets::StyleButton},
 };
 
+use super::Element;
+
 impl Launcher {
     pub fn view_launcher_log(
         &self,
@@ -14,9 +16,9 @@ impl Launcher {
         scroll: i64,
         width_reduction: f32,
         height_reduction: f32,
-    ) -> (f64, widget::Column<'_, Message, LauncherTheme>) {
+    ) -> (f64, Element) {
         let screen_width = ((self.window_size.0 - width_reduction) / 7.4) as usize - 5;
-        let height_limit = self.window_size.1 - height_reduction;
+        let height_limit = (self.window_size.1 - height_reduction) - 50.0;
 
         let text_len: f64 = text
             .iter()
@@ -72,7 +74,7 @@ impl Launcher {
         }))
         .push(widget::horizontal_space())
         .spacing(4);
-        (text_len, column)
+        (text_len, column.into())
     }
 
     fn split_string_len(input: &str, interval: usize) -> f64 {

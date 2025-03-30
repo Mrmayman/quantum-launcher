@@ -6,7 +6,6 @@ use std::{
 
 use iced::Task;
 use ql_core::{err, json::InstanceConfigJson, InstanceSelection, IntoStringError, ModId};
-use ql_instances::LogLine;
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex};
 
 use crate::launcher_state::{
@@ -254,14 +253,7 @@ impl Launcher {
             return;
         };
         while let Ok(message) = receiver.try_recv() {
-            let message = match message {
-                LogLine::Info(event) => {
-                    println!("info: {event}");
-                    event.to_string()
-                }
-                LogLine::Error(error) => format!("! {error}"),
-                LogLine::Message(message) => message,
-            };
+            let message = message.to_string();
 
             let mut log_start = vec![
                 format!(

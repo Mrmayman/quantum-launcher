@@ -62,8 +62,8 @@ pub use launcher_update_detector::{
     check_for_launcher_updates, install_launcher_update, UpdateCheckInfo, UpdateError,
 };
 pub use mc_auth::{
-    login_1_link, login_2_wait, login_3_xbox, login_refresh, read_refresh_token, AccountData,
-    AuthCodeResponse, AuthError, AuthTokenResponse, CLIENT_ID,
+    login_1_link, login_2_wait, login_3_xbox, login_refresh, logout, read_refresh_token,
+    AccountData, AuthCodeResponse, AuthError, AuthTokenResponse, CLIENT_ID,
 };
 pub use omniarchive_api::ListEntry;
 
