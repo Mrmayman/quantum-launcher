@@ -293,7 +293,14 @@ impl MenuCreateInstance {
                         } else {
                             widget::column![].into()
                         },
-                    ]
+                    ].push_maybe(
+                        (cfg!(target_os = "linux") && cfg!(target_arch = "x86"))
+                            .then_some(
+                                widget::column![
+                                    widget::text("Warning: On your platform (Linux 32 bit) only Minecraft 1.16.5 and below are supported.").size(20),
+                                    "If your computer isn't outdated, you might have wanted to download QuantumLauncher 64 bit (x86_64)",
+                                ]
+                            ))
                     .spacing(10)
                     .padding(10),
                 )
@@ -679,10 +686,10 @@ pub fn view_account_login<'a>(url: &'a str, code: &'a str) -> Element<'a> {
             widget::vertical_space(),
             widget::text("Login to Microsoft").size(20),
             "Open this link and enter the code:",
-            widget::text(url),
-            widget::button("Open").on_press(Message::CoreOpenDir(url.to_owned())),
-            widget::text(code),
+            widget::text!("Code: {code}"),
             widget::button("Copy").on_press(Message::CoreCopyText(code.to_owned())),
+            widget::text!("Link: {url}"),
+            widget::button("Open").on_press(Message::CoreOpenDir(url.to_owned())),
             widget::vertical_space(),
         )
         .spacing(5)

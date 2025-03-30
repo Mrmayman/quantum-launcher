@@ -7,7 +7,7 @@ use crate::{
     icon_manager,
     launcher_state::{
         CreateInstanceMessage, InstanceLog, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch,
-        Message, State, OFFLINE_ACCOUNT_NAME,
+        Message, State, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
     },
     menu_renderer::DISCORD,
     message_handler::SIDEBAR_DRAG_LEEWAY,
@@ -316,17 +316,42 @@ impl Launcher {
             .into()
         };
 
-        widget::column![widget::text(" Accounts:").size(14), dropdown]
+        widget::column![
+            widget::row![
+                widget::text(" Accounts:").size(14),
+                widget::horizontal_space(),
+            ]
             .push_maybe(
-                (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME)).then_some(
-                    widget::text_input("Enter username...", &self.config.username)
-                        .on_input(Message::LaunchUsernameSet)
-                        .width(menu.sidebar_width - 10),
-                ),
+                self.is_account_selected().then_some(
+                    widget::button(widget::text("Logout").size(11))
+                        .padding(iced::Padding {
+                            top: 3.0,
+                            right: 8.0,
+                            bottom: 3.0,
+                            left: 8.0
+                        })
+                        .on_press(Message::AccountLogoutCheck)
+                )
             )
-            .padding(5)
-            .spacing(5)
-            .into()
+            .width(menu.sidebar_width - 10),
+            dropdown
+        ]
+        .push_maybe(
+            (self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME)).then_some(
+                widget::text_input("Enter username...", &self.config.username)
+                    .on_input(Message::LaunchUsernameSet)
+                    .width(menu.sidebar_width - 10),
+            ),
+        )
+        .padding(5)
+        .spacing(5)
+        .into()
+    }
+
+    pub fn is_account_selected(&self) -> bool {
+        !(self.accounts_selected.is_none()
+            || self.accounts_selected.as_deref() == Some(NEW_ACCOUNT_NAME)
+            || self.accounts_selected.as_deref() == Some(OFFLINE_ACCOUNT_NAME))
     }
 
     fn get_client_play_button(&self, selected_instance: Option<&str>) -> Element {
@@ -490,12 +515,16 @@ fn render_tab(n: LaunchTabId, menu: &MenuLaunch) -> Element {
 fn get_no_instance_message<'a>() -> widget::Column<'a, Message, LauncherTheme> {
     const BASE_MESSAGE: &str = "No logs found";
 
-    if IS_ARM_LINUX || cfg!(target_os = "macos") {
+    if IS_ARM_LINUX
+        || cfg!(target_os = "macos")
+        || cfg!(target_arch = "aarch64")
+        || cfg!(target_arch = "x86")
+    {
         let arm_message = widget::column!(
             widget::text(
-                "Note: This version is VERY experimental. If you want to get help join our discord"
+                "Note: This version is experimental. If you want to get help join our discord"
             ),
-            button_with_icon(icon_manager::chat(), "Join our Discord", 16)
+            button_with_icon(icon_manager::chat(), "Join Discord", 16)
                 .on_press(Message::CoreOpenDir(DISCORD.to_owned())),
         );
         widget::column!(BASE_MESSAGE, arm_message)

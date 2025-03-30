@@ -138,10 +138,14 @@ pub enum EditPresetsMessage {
 pub enum Message {
     #[allow(unused)]
     Nothing,
+
     AccountSelected(String),
     AccountResponse1(Result<AuthCodeResponse, String>),
     AccountResponse2(Result<AuthTokenResponse, String>),
     AccountResponse3(Result<AccountData, String>),
+    AccountLogoutCheck,
+    AccountLogoutConfirm,
+
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
     ManageMods(ManageModsMessage),

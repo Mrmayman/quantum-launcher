@@ -112,7 +112,7 @@ impl From<reqwest::Error> for AuthError {
 }
 
 pub fn logout(username: &str) -> Result<(), String> {
-    let entry = keyring::Entry::new("QuantumLauncher", &username).strerr()?;
+    let entry = keyring::Entry::new("QuantumLauncher", username).strerr()?;
     if let Err(err) = entry.delete_credential() {
         err!("Couldn't remove account credential: {err}");
     }

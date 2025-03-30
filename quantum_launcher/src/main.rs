@@ -164,6 +164,44 @@ impl Launcher {
                     self.set_error(err);
                 }
             },
+            Message::AccountLogoutCheck => {
+                let username = self.accounts_selected.as_ref().unwrap();
+                self.state = State::ConfirmAction {
+                    msg1: format!("log out of your account: {username}"),
+                    msg2: "You can always log in later".to_owned(),
+                    yes: Message::AccountLogoutConfirm,
+                    no: Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: false,
+                    },
+                }
+            }
+            Message::AccountLogoutConfirm => {
+                let username = self.accounts_selected.clone().unwrap();
+                if let Err(err) = ql_instances::logout(&username) {
+                    self.set_error(err);
+                }
+                if let Some(accounts) = &mut self.config.accounts {
+                    accounts.remove(&username);
+                }
+                self.accounts.remove(&username);
+                if let Some(idx) = self
+                    .accounts_dropdown
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, n)| (*n == username).then_some(i))
+                {
+                    self.accounts_dropdown.remove(idx);
+                }
+                let selected_account = self
+                    .accounts_dropdown
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| OFFLINE_ACCOUNT_NAME.to_owned());
+                self.accounts_selected = Some(selected_account);
+
+                return self.go_to_launch_screen(Option::<String>::None);
+            }
             Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected(selected_instance) => {
                 let selected_instance = InstanceSelection::Instance(selected_instance);

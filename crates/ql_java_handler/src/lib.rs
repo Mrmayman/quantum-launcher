@@ -110,18 +110,15 @@ async fn install_java(
     .path(lock_file.clone())?;
 
     info!("Started installing {}", version.to_string());
-
     send_progress(java_install_progress_sender, GenericProgress::default());
 
-    // Special case for linux aarch64
+    // This is the main logic
     install_java_files(version, java_install_progress_sender, install_dir).await?;
 
     tokio::fs::remove_file(&lock_file)
         .await
         .path(lock_file.clone())?;
-
     send_progress(java_install_progress_sender, GenericProgress::finished());
-
     info!("Finished installing {}", version.to_string());
 
     Ok(())
@@ -147,6 +144,38 @@ async fn install_java_files(
     }
 
     let Some(java_files_url) = java_list_json.get_url(version) else {
+        // # Here is a table representing java platform support.
+        //
+        // In this, any entry with numbers filled in represents "official"
+        // mojang support, ie. they provide the java install files
+        // for these platforms.
+        //
+        // Any entry with __ represents a version not supported by
+        // mojang, but supported through *Amazon Corretto Java*
+        // which we provide an alternate installer for.
+        //
+        // Any entry with !! represents a version not supported at all.
+        //
+        // linux x64 :  8 16 17 21
+        // linux x32 :  8 !! !! !!  <- only java 8; MC 1.16.5 and below
+        // linux a64 : __ __ __ __  <- corretto
+        //
+        // macos x64 :  8 16 17 21
+        // macos a64 : __ __ 17 21  <- corretto
+        //
+        // windw x64 :  8 16 17 21
+        // windw x32 :  8 16 17 __  <- corretto
+        // windw a64 : !! !! 17 21  <- only java 17+; mostly fine,
+        //                             but some things like ModLoader might break
+        //
+        // -------------------
+        // windw means Windows
+        // x64   means x86_64 (64 bit)
+        // x32   means x86    (32 bit)
+        // a64   means aarch64 or ARM (64 bit)
+        // -------------------
+        //
+        // So... yeah, enjoy this mess (WTF: )
         return install_amazon_corretto_java(version, java_install_progress_sender, &install_dir)
             .await;
     };
