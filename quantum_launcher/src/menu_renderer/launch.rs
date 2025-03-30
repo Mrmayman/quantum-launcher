@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use iced::widget;
-use ql_core::{IS_ARM_LINUX, LAUNCHER_VERSION_NAME};
+use ql_core::{LogType, IS_ARM_LINUX, LAUNCHER_VERSION_NAME};
 
 use crate::{
     icon_manager,
     launcher_state::{
         CreateInstanceMessage, InstanceLog, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch,
-        Message, OFFLINE_ACCOUNT_NAME,
+        Message, State, OFFLINE_ACCOUNT_NAME,
     },
     menu_renderer::DISCORD,
     message_handler::SIDEBAR_DRAG_LEEWAY,
@@ -95,16 +95,17 @@ impl Launcher {
                     .spacing(5)
                     .into()
                 }
-                LaunchTabId::Log => Self::get_log_pane(
-                    if menu.is_viewing_server {
-                        &self.server_logs
-                    } else {
-                        &self.client_logs
-                    },
-                    selected_instance_s,
-                    menu.is_viewing_server,
-                )
-                .into(),
+                LaunchTabId::Log => self
+                    .get_log_pane(
+                        if menu.is_viewing_server {
+                            &self.server_logs
+                        } else {
+                            &self.client_logs
+                        },
+                        selected_instance_s,
+                        menu.is_viewing_server,
+                    )
+                    .into(),
                 LaunchTabId::Edit => {
                     if let Some(menu) = &menu.edit_instance {
                         menu.view(selected)
@@ -124,28 +125,64 @@ impl Launcher {
     }
 
     pub fn get_log_pane<'element>(
+        &'element self,
         logs: &'element HashMap<String, InstanceLog>,
         selected_instance: Option<&'element str>,
         is_server: bool,
     ) -> widget::Column<'element, Message, LauncherTheme> {
-        const LOG_VIEW_LIMIT: usize = 10000;
+        // const LOG_VIEW_LIMIT: usize = 20000;
+
+        let (scroll, sidebar_width) = if let State::Launch(MenuLaunch {
+            log_scroll,
+            sidebar_width,
+            ..
+        }) = &self.state
+        {
+            (*log_scroll, *sidebar_width)
+        } else {
+            (0, 0)
+        };
 
         if let Some(Some(InstanceLog { log, has_crashed, command })) = selected_instance
             .as_ref()
             .map(|selection| logs.get(*selection))
         {
-            let log_length = log.len();
+            const TEXT_SIZE: f32 = 12.0;
 
-            let slice = if log_length > LOG_VIEW_LIMIT {
-                &log[log_length - LOG_VIEW_LIMIT..log_length]
-            } else {
-                log
-            };
-            let log = widget::scrollable(
-                widget::text(slice)
-                    .size(12)
-                    .font(iced::Font::with_name("JetBrains Mono"))
-            );
+            let log_new: Vec<(String, LogType)> = log.iter().map(|n| (n.clone(), LogType::Point)).collect();
+            let height_reduction = 150.0 + if self.is_log_open { self.window_size.1 / 2.0 } else { 0.0 };
+
+
+            let (text_len, column) =
+                self.view_launcher_log(&log_new,
+                    TEXT_SIZE,
+                    scroll,
+                    sidebar_width as f32 + 16.0,
+                    height_reduction
+                );
+
+            let screen_height_lines = (self.window_size.1 - height_reduction - 70.0) as f64 / 18.0;
+            let new_text_len = text_len - screen_height_lines;
+
+            let log = widget::mouse_area(
+                widget::container(widget::row![
+                    column,
+                    widget::vertical_slider(
+                        0.0..=new_text_len,
+                        new_text_len - scroll as f64,
+                        move |val| { Message::LaunchLogScrollAbsolute(new_text_len.ceil() as i64 - val as i64) }
+                    )
+                ])
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+            )
+            .on_scroll(move |n| {
+                let lines = match n {
+                    iced::mouse::ScrollDelta::Lines { y, .. } => y as i64,
+                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as i64,
+                };
+                Message::LaunchLogScroll(lines)
+            });
+
             widget::column!(
                 widget::row!(
                     widget::button("Copy Log").on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),

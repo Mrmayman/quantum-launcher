@@ -75,13 +75,13 @@ pub async fn read_logs(
                     if uses_xml {
                         read_stdout(&sender, &mut xml_cache, &line)?;
                     } else {
-                        sender.send(LogLine::Message(format!("{line}\n")))?;
+                        sender.send(LogLine::Message(line))?;
                     }
                 } // else EOF
             },
             line = stderr_reader.next_line() => {
                 if let Some(line) = line? {
-                    sender.send(LogLine::Error(format!("{line}\n")))?;
+                    sender.send(LogLine::Error(line))?;
                 }
             }
         }
@@ -94,7 +94,7 @@ fn read_stdout(
     line: &str,
 ) -> Result<(), ReadError> {
     if !line.starts_with("  </log4j:Event>") {
-        xml_cache.push_str(&format!("{line}\n"));
+        xml_cache.push_str(line);
         return Ok(());
     }
 
@@ -104,8 +104,10 @@ fn read_stdout(
 
     let text = match start {
         Some(start) if start > 0 => {
-            let other_text = &xml[..start];
-            sender.send(LogLine::Message(other_text.to_owned()))?;
+            let other_text = xml[..start].trim();
+            if !other_text.is_empty() {
+                sender.send(LogLine::Message(other_text.to_owned()))?;
+            }
             &xml[start..]
         }
         _ => &xml,

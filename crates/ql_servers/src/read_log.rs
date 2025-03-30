@@ -49,14 +49,12 @@ pub async fn read_logs(
 
         tokio::select! {
             line = stdout_reader.next_line() => {
-                if let Some(mut line) = line? {
-                    line.push('\n');
+                if let Some(line) = line? {
                     sender.send(line)?;
                 }
             }
             line = stderr_reader.next_line() => {
-                if let Some(mut line) = line? {
-                    line.push('\n');
+                if let Some(line) = line? {
                     sender.send(line)?;
                 }
             }

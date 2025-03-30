@@ -186,6 +186,9 @@ pub enum Message {
     CoreLogScroll(i64),
     CoreLogScrollAbsolute(i64),
 
+    LaunchLogScroll(i64),
+    LaunchLogScrollAbsolute(i64),
+
     LaunchEndedLog(Result<(ExitStatus, String), String>),
     LaunchCopyLog,
     LaunchChangeTab(LaunchTabId),
@@ -253,6 +256,7 @@ pub struct MenuLaunch {
     pub sidebar_width: u16,
     pub sidebar_dragging: bool,
     pub is_viewing_server: bool,
+    pub log_scroll: i64,
 }
 
 impl Default for MenuLaunch {
@@ -272,6 +276,7 @@ impl MenuLaunch {
             sidebar_width: SIDEBAR_WIDTH_DEFAULT as u16,
             sidebar_dragging: false,
             is_viewing_server: false,
+            log_scroll: 0,
         }
     }
 }
@@ -498,7 +503,7 @@ pub struct MenuInstallOptifine {
 }
 
 pub struct InstanceLog {
-    pub log: String,
+    pub log: Vec<String>,
     pub has_crashed: bool,
     pub command: String,
 }

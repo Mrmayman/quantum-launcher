@@ -87,7 +87,7 @@ use menu_renderer::{
 };
 use ql_core::{
     err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
-    Loader, ModId, SelectedMod,
+    Loader, ModId, SelectedMod, LOGGER,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -352,7 +352,9 @@ impl Launcher {
                     .client_logs
                     .get(self.selected_instance.as_ref().unwrap().get_name())
                 {
-                    return iced::clipboard::write(log.log.clone());
+                    return iced::clipboard::write(
+                        log.log.iter().fold(String::new(), |n, v| n + v + "\n"),
+                    );
                 }
             }
             Message::UpdateCheckResult(update_check_info) => match update_check_info {
@@ -621,10 +623,10 @@ impl Launcher {
                     self.server_logs.get_mut(&selected_server),
                     self.server_processes.get_mut(&selected_server),
                 ) {
-                    let var_name = &format!("{}\n", log.command);
-                    let future = stdin.write_all(var_name.as_bytes());
+                    let log_cloned = &log.command.clone();
+                    let future = stdin.write_all(log_cloned.as_bytes());
                     // Make the input command visible in the log
-                    log.log.push_str(&format!("> {}\n", log.command));
+                    log.log.push(format!("> {}", log.command));
 
                     log.command.clear();
                     tokio::runtime::Runtime::new()
@@ -636,7 +638,9 @@ impl Launcher {
             Message::ServerManageCopyLog => {
                 let name = self.selected_instance.as_ref().unwrap().get_name();
                 if let Some(logs) = self.server_logs.get(name) {
-                    return iced::clipboard::write(logs.log.clone());
+                    return iced::clipboard::write(
+                        logs.log.iter().fold(String::new(), |n, v| n + v + "\n"),
+                    );
                 }
             }
             Message::InstallPaperStart => {
@@ -725,6 +729,19 @@ impl Launcher {
             Message::CoreLogScrollAbsolute(lines) => {
                 self.log_scroll = lines;
             }
+            Message::LaunchLogScroll(lines) => {
+                if let State::Launch(MenuLaunch { log_scroll, .. }) = &mut self.state {
+                    let new_scroll = *log_scroll - lines;
+                    if new_scroll >= 0 {
+                        *log_scroll = new_scroll;
+                    }
+                }
+            }
+            Message::LaunchLogScrollAbsolute(lines) => {
+                if let State::Launch(MenuLaunch { log_scroll, .. }) = &mut self.state {
+                    *log_scroll = lines;
+                }
+            }
         }
         Task::none()
     }
@@ -767,7 +784,24 @@ impl Launcher {
             .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark)),
         ]
         .push_maybe(self.is_log_open.then(|| {
-            let (text_len, text_size, column) = self.view_launcher_log();
+            const TEXT_SIZE: f32 = 12.0;
+
+            let text = {
+                if let Some(logger) = LOGGER.as_ref() {
+                    let logger = logger.lock().unwrap();
+                    logger.text.clone()
+                } else {
+                    Vec::new()
+                }
+            };
+
+            let (text_len, column) = self.view_launcher_log(
+                &text,
+                TEXT_SIZE,
+                self.log_scroll,
+                0.0,
+                self.window_size.1 / 2.0,
+            );
 
             widget::mouse_area(
                 widget::container(widget::row![
@@ -783,7 +817,7 @@ impl Launcher {
             .on_scroll(move |n| {
                 let lines = match n {
                     iced::mouse::ScrollDelta::Lines { y, .. } => y as i64,
-                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / text_size) as i64,
+                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as i64,
                 };
                 Message::CoreLogScroll(lines)
             })
@@ -893,10 +927,6 @@ impl Launcher {
             .chunks(interval)
             .map(|chunk| chunk.iter().collect())
             .collect()
-    }
-
-    fn split_string_len(input: &str, interval: usize) -> f64 {
-        (input.len() as f64 / interval as f64).ceil()
     }
 }
 

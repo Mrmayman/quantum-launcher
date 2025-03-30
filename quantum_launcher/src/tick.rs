@@ -217,25 +217,26 @@ impl Launcher {
         server_logs: &mut HashMap<String, InstanceLog>,
     ) {
         while let Some(message) = process.receiver.as_ref().and_then(|n| n.try_recv().ok()) {
+            let mut log_start = vec![
+                format!(
+                    "Starting Minecraft Server ({})",
+                    Self::get_current_date_formatted()
+                ),
+                format!("OS: {}\n", ql_instances::OS_NAME),
+            ];
+
             if let Some(log) = server_logs.get_mut(name) {
                 if log.log.is_empty() {
-                    log.log.push_str(&format!(
-                        "Starting Minecraft Server ({})\nOS: {}\n\n",
-                        Self::get_current_date_formatted(),
-                        ql_instances::OS_NAME
-                    ));
+                    log.log = log_start;
                 }
-                log.log.push_str(&message);
+                log.log.push(message);
             } else {
+                log_start.push(message);
+
                 server_logs.insert(
                     name.to_owned(),
                     InstanceLog {
-                        log: format!(
-                            "Starting Minecraft Server ({})\nOS: {}\n\n{}",
-                            Self::get_current_date_formatted(),
-                            ql_instances::OS_NAME,
-                            message
-                        ),
+                        log: log_start,
                         has_crashed: false,
                         command: String::new(),
                     },
@@ -254,34 +255,38 @@ impl Launcher {
         };
         while let Ok(message) = receiver.try_recv() {
             let message = match message {
-                LogLine::Info(event) => event.to_string(),
+                LogLine::Info(event) => {
+                    println!("info: {event}");
+                    event.to_string()
+                }
                 LogLine::Error(error) => format!("! {error}"),
                 LogLine::Message(message) => message,
             };
 
+            let mut log_start = vec![
+                format!(
+                    "Launching Minecraft ({})",
+                    Self::get_current_date_formatted()
+                ),
+                format!("OS: {}\n", ql_instances::OS_NAME),
+            ];
+
             if !logs.contains_key(name) {
+                log_start.push(message);
+
                 logs.insert(
                     name.to_owned(),
                     InstanceLog {
-                        log: format!(
-                            "Launching Minecraft ({})\nOS: {}\n\n{}",
-                            Self::get_current_date_formatted(),
-                            ql_instances::OS_NAME,
-                            message
-                        ),
+                        log: log_start,
                         has_crashed: false,
                         command: String::new(),
                     },
                 );
             } else if let Some(log) = logs.get_mut(name) {
                 if log.log.is_empty() {
-                    log.log.push_str(&format!(
-                        "Launching Minecraft ({})\nOS: {}\n\n",
-                        Self::get_current_date_formatted(),
-                        ql_instances::OS_NAME
-                    ));
+                    log.log = log_start;
                 }
-                log.log.push_str(&message);
+                log.log.push(message);
             }
         }
     }
