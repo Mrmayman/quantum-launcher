@@ -1,9 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{
-    info, info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader,
-};
+use ql_core::{info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader};
 
 use crate::mod_manager::{get_latest_version_date, get_loader};
 
@@ -66,9 +64,9 @@ pub async fn check_for_updates(
     }
 
     if updated_mods.is_empty() {
-        info!("No mod updates found");
+        info_no_log!("No mod updates found");
     } else {
-        info!("Found mod updates");
+        info_no_log!("Found mod updates");
     }
 
     Ok(updated_mods)

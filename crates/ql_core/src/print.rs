@@ -57,8 +57,12 @@ impl LoggingState {
         }))
     }
 
-    pub fn write_str(&mut self, s: &str, t: LogType) {
+    pub fn write_to_storage(&mut self, s: &str, t: LogType) {
         self.text.push((s.to_owned(), t));
+    }
+
+    pub fn write_str(&mut self, s: &str, t: LogType) {
+        self.write_to_storage(s, t);
 
         if self.sender.is_none() {
             let (sender, receiver) = std::sync::mpsc::channel::<String>();
@@ -96,6 +100,13 @@ pub fn print_to_file(msg: &str, t: LogType) {
     }
 }
 
+pub fn print_to_storage(msg: &str, t: LogType) {
+    if let Some(logger) = LOGGER.as_ref() {
+        let mut lock = logger.lock().unwrap();
+        lock.write_to_storage(msg, t);
+    }
+}
+
 /// Print an informational message.
 /// Saved to a log file.
 #[macro_export]
@@ -103,9 +114,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         let plain_text = format!("[info] {}\n", format_args!($($arg)*));
 
-        if cfg!(windows) {
-            println!("{plain_text}")
-        } else {
+        if !cfg!(windows) {
             println!("{} {}", colored::Colorize::yellow("[info]"), format_args!($($arg)*))
         }
 
@@ -120,11 +129,11 @@ macro_rules! info_no_log {
     ($($arg:tt)*) => {
         let plain_text = format!("[info] {}\n", format_args!($($arg)*));
 
-        if cfg!(windows) {
-            println!("{plain_text}")
-        } else {
+        if !cfg!(windows) {
             println!("{} {}", colored::Colorize::yellow("[info]"), format_args!($($arg)*))
         }
+
+        $crate::print::print_to_storage(&plain_text, $crate::print::LogType::Info);
     };
 }
 
@@ -137,9 +146,7 @@ macro_rules! err {
         if true {
             let plain_text = format!("[error] {}\n", format_args!($($arg)*));
 
-            if cfg!(windows) {
-                eprintln!("{plain_text}")
-            } else {
+            if !cfg!(windows) {
                 eprintln!("{} {}", colored::Colorize::red("[error]"), format_args!($($arg)*))
             }
 
@@ -155,9 +162,7 @@ macro_rules! pt {
     ($($arg:tt)*) => {
         let plain_text = format!("- {}\n", format_args!($($arg)*));
 
-        if cfg!(windows) {
-            println!("- {}", format_args!($($arg)*))
-        } else {
+        if !cfg!(windows) {
             println!("{} {}", colored::Colorize::bold("-"), format_args!($($arg)*))
         }
 

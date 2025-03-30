@@ -59,7 +59,6 @@ pub async fn download(
     let id_str = response.data.id.to_string();
     let id_mod = ModId::Curseforge(id_str.clone());
 
-    println!("{:?}", file_query.data.dependencies);
     for dependency in &file_query.data.dependencies {
         let dep_id = dependency.modId.to_string();
         pt!("Installing dependency {dep_id}");
