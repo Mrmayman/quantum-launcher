@@ -348,12 +348,12 @@ impl Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
-            Message::InstallForgeStart => {
-                return self.install_forge();
+            Message::InstallForgeStart { is_neoforge } => {
+                return self.install_forge(is_neoforge);
             }
             Message::InstallForgeEnd(result) => match result {
                 Ok(()) => {
-                    return self.go_to_main_menu_with_message(Some("Installed Forge"));
+                    return self.go_to_main_menu_with_message(Some("Installed Forge/NeoForge"));
                 }
                 Err(err) => self.set_error(err),
             },
@@ -883,7 +883,7 @@ impl Launcher {
                 yes,
                 no,
             } => widget::column![
-                widget::text!("Are you SURE you want to {msg1}?"),
+                widget::text!("Are you SURE you want to {msg1}?").size(20),
                 msg2.as_str(),
                 widget::button("Yes").on_press(yes.clone()),
                 widget::button("No").on_press(no.clone()),

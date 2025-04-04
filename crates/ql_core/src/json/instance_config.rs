@@ -48,6 +48,37 @@ pub struct InstanceConfigJson {
     /// - Cannot be stopped by sending a `stop` command.
     ///   (need to kill the process)
     pub is_classic_server: Option<bool>,
+    /// **Client Only**
+    ///
+    /// If true, then the Java Garbage Collector
+    /// will be modified through launch arguments,
+    /// for *different* performance.
+    ///
+    /// **Default: `false`**
+    ///
+    /// This doesn't specifically improve performance,
+    /// in fact from my testing it worsens them?:
+    ///
+    /// - Without these args I got 110-115 FPS average on vanilla
+    /// Minecraft 1.20 in a new world.
+    ///
+    /// - With these args I got 105-110 FPS. So... yeah they aren't
+    /// doing the job for me.
+    ///
+    /// But in different workloads this might improve performance.
+    ///
+    /// # Arguments
+    ///
+    /// The G1 garbage collector will be used.
+    /// Here are the specific arguments.
+    ///
+    /// - `-XX:+UnlockExperimentalVMOptions`
+    /// - `-XX:+UseG1GC`
+    /// - `-XX:G1NewSizePercent=20`
+    /// - `-XX:G1ReservePercent=20`
+    /// - `-XX:MaxGCPauseMillis=50`
+    /// - `-XX:G1HeapRegionSize=32M`
+    pub do_gc_tuning: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

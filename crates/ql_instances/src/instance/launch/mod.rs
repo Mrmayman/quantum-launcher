@@ -137,7 +137,10 @@ pub async fn launch(
     #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
     match (
         DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
-        DateTime::parse_from_rfc3339("2023-06-02T08:36:17+00:00"), // Minecraft 1.20 release date
+        // Minecraft 21w19a release date (1.17 snapshot)
+        // Not sure if this is the right place to start,
+        // but the env var started being required sometime between 1.16.5 and 1.17
+        DateTime::parse_from_rfc3339("2021-05-12T11:19:15+00:00"),
     ) {
         // On Raspberry Pi (aarch64 linux), the game crashes with some GL
         // error. But adding this environment variable fixes it.
@@ -402,7 +405,6 @@ impl GameLauncher {
 
         // TODO: deal with self.version_json.arguments.jvm (currently ignored)
         let mut args = vec![
-            "-Xss1M".to_owned(),
             "-Dminecraft.launcher.brand=minecraft-launcher".to_owned(),
             "-Dminecraft.launcher.version=2.1.1349".to_owned(),
             format!("-Djava.library.path={natives_path}"),
@@ -411,6 +413,33 @@ impl GameLauncher {
             format!("-Dio.netty.native.workdir={natives_path}"),
             self.config_json.get_ram_argument(),
         ];
+
+        // I've disabled these for now because they make the
+        // FPS slightly worse (!) from my testing?
+        //
+        // These arguments are taken from
+        // https://github.com/alexivkin/minecraft-launcher/
+        //
+        // They mainly tune the garbage collector for better performance
+        // which I haven't felt anyway.
+        //
+        // Without these args I got 110-115 FPS average on vanilla
+        // Minecraft 1.20 in a new world.
+        //
+        // With these args I got 105-110 FPS. So... yeah they aren't
+        // doing the job for me.
+        if self.config_json.do_gc_tuning.unwrap_or(false) {
+            args.push("-XX:+UnlockExperimentalVMOptions".to_owned());
+            args.push("-XX:+UseG1GC".to_owned());
+            args.push("-XX:G1NewSizePercent=20".to_owned());
+            args.push("-XX:G1ReservePercent=20".to_owned());
+            args.push("-XX:MaxGCPauseMillis=50".to_owned());
+            args.push("-XX:G1HeapRegionSize=32M".to_owned());
+        }
+
+        if cfg!(target_pointer_width = "32") {
+            args.push("-Xss1M".to_owned());
+        }
 
         if cfg!(target_os = "macos") {
             args.push("-XstartOnFirstThread".to_owned());
@@ -479,7 +508,7 @@ impl GameLauncher {
         java_arguments: &mut Vec<String>,
         game_arguments: &mut Vec<String>,
     ) -> Result<Option<forge::JsonDetails>, GameLaunchError> {
-        if self.config_json.mod_type != "Forge" {
+        if self.config_json.mod_type != "Forge" && self.config_json.mod_type != "NeoForge" {
             return Ok(None);
         }
 

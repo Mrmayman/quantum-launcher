@@ -28,6 +28,7 @@ impl TryFrom<&str> for Loader {
             "Quilt" => Ok(Loader::Quilt),
             "OptiFine" => Ok(Loader::OptiFine),
             "Paper" => Ok(Loader::Paper),
+            "NeoForge" => Ok(Loader::Neoforge),
             loader => {
                 err!("Unknown loader: {loader}");
                 Err(())

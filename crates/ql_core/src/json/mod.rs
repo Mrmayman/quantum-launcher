@@ -1,8 +1,9 @@
 pub mod fabric;
 pub mod forge;
+pub mod optifine;
+
 pub mod instance_config;
 pub mod manifest;
-pub mod optifine;
 pub mod version;
 
 pub use fabric::FabricJSON;

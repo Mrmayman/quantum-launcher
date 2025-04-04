@@ -174,7 +174,7 @@ impl ModDownloader {
 
         let download_version = download_versions
             .into_iter()
-            .last()
+            .next_back()
             .ok_or(ModError::NoCompatibleVersionFound)?;
 
         Ok(download_version)

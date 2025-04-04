@@ -37,6 +37,10 @@ pub enum ForgeInstallError {
     NoInstallJson,
     #[error("error installing forge: zip extract: {0}")]
     ZipExtract(#[from] ZipExtractError),
+    #[error("while installing neoforge: while checking if NeoForge supports the current version: could not parse version release date: {0}")]
+    ChronoTime(#[from] chrono::ParseError),
+    #[error("neoforge only supports Minecraft 1.20.2 and above, your version is outdated")]
+    OutdatedMinecraft,
 }
 
 impl From<JsonFileError> for ForgeInstallError {

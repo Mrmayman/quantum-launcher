@@ -129,6 +129,10 @@ async fn write_config(
         game_args: None,
         omniarchive: get_omniarchive(version),
         is_classic_server: is_classic_server.then_some(true),
+        // Doesn't affect servers
+        // I could add GC tuning to servers too, but I can't find
+        // a way to measure performance on a server.
+        do_gc_tuning: None,
     };
     let server_config_path = server_dir.join("config.json");
     tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)

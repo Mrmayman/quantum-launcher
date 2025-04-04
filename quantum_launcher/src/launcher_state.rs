@@ -167,7 +167,9 @@ pub enum Message {
     LaunchKillEnd(Result<(), String>),
     DeleteInstanceMenu,
     DeleteInstance,
-    InstallForgeStart,
+    InstallForgeStart {
+        is_neoforge: bool,
+    },
     InstallForgeEnd(Result<(), String>),
     InstallPaperStart,
     InstallPaperEnd(Result<(), String>),

@@ -384,7 +384,7 @@ impl LauncherTheme {
                     },
                     true,
                 )),
-                text_color: self.get(Color::SecondLight, true),
+                text_color: self.get(Color::Mid, true),
                 border: self.get_border_style(&style, Color::SecondDark, true),
                 ..Default::default()
             },

@@ -84,7 +84,7 @@ impl Backend for ModrinthBackend {
 
         let download_version = download_versions
             .into_iter()
-            .last()
+            .next_back()
             .ok_or(ModError::NoCompatibleVersionFound)?;
 
         let download_version_time = DateTime::parse_from_rfc3339(&download_version.date_published)?;

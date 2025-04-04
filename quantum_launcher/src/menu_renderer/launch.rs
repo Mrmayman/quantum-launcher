@@ -331,6 +331,8 @@ impl Launcher {
                             left: 8.0
                         })
                         .on_press(Message::AccountLogoutCheck)
+                        .style(|n: &LauncherTheme, status| n
+                            .style_button(status, StyleButton::FlatExtraDark))
                 )
             )
             .width(menu.sidebar_width - 10),
@@ -357,14 +359,16 @@ impl Launcher {
     fn get_client_play_button(&self, selected_instance: Option<&str>) -> Element {
         let play_button = button_with_icon(icon_manager::play(), "Play", 16).width(98);
 
-        let play_button = if self.config.username.is_empty() {
+        let is_account_selected = self.is_account_selected();
+
+        let play_button = if self.config.username.is_empty() && !is_account_selected {
             widget::column![widget::tooltip(
                 play_button,
                 "Username is empty!",
                 widget::tooltip::Position::FollowCursor,
             )
             .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))]
-        } else if self.config.username.contains(' ') {
+        } else if self.config.username.contains(' ') && !is_account_selected {
             widget::column![widget::tooltip(
                 play_button,
                 "Username contains spaces!",

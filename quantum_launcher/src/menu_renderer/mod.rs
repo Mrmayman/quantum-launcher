@@ -385,7 +385,7 @@ impl MenuInstallFabric {
 impl MenuInstallForge {
     pub fn view(&self) -> Element {
         let main_block = widget::column!(
-            widget::text("Installing forge...").size(20),
+            widget::text("Installing Forge/NeoForge...").size(20),
             self.forge_progress.view()
         )
         .spacing(10);

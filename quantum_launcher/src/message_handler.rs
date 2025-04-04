@@ -488,16 +488,21 @@ impl Launcher {
         )
     }
 
-    pub fn install_forge(&mut self) -> Task<Message> {
+    pub fn install_forge(&mut self, is_neoforge: bool) -> Task<Message> {
         let (f_sender, f_receiver) = std::sync::mpsc::channel();
         let (j_sender, j_receiver) = std::sync::mpsc::channel();
 
         let instance_selection = self.selected_instance.clone().unwrap();
         let command = Task::perform(
             async move {
-                loaders::forge::install(instance_selection, Some(f_sender), Some(j_sender))
-                    .await
-                    .strerr()
+                if is_neoforge {
+                    loaders::neoforge::install(instance_selection, Some(f_sender), Some(j_sender))
+                        .await
+                } else {
+                    loaders::forge::install(instance_selection, Some(f_sender), Some(j_sender))
+                        .await
+                }
+                .strerr()
             },
             Message::InstallForgeEnd,
         );

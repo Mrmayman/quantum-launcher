@@ -42,7 +42,7 @@ impl Launcher {
             result_data: HashMap::new(),
             mods_download_in_progress: HashSet::new(),
             mod_index,
-            backend: StoreBackendType::Curseforge,
+            backend: StoreBackendType::Modrinth,
         };
         let command = menu.search_store(matches!(
             &self.selected_instance,

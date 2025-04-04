@@ -4,7 +4,7 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use error::{ForgeInstallError, Is404NotFound};
+use error::Is404NotFound;
 use ql_core::{
     err, file_utils, info,
     json::{
@@ -23,6 +23,7 @@ mod server;
 pub use server::install_server;
 mod uninstall;
 
+pub use error::ForgeInstallError;
 pub use uninstall::{uninstall, uninstall_client, uninstall_server};
 
 struct ForgeInstaller {
@@ -293,13 +294,13 @@ impl ForgeInstaller {
         let lib = parts[1];
         let ver = parts[2];
 
-        clean_classpath.push_str(&format!("{}:{}\n", parts[0], parts[1]));
+        clean_classpath.push_str(&format!("{class}:{lib}\n"));
 
         let (file, path) = Self::get_filename_and_path(lib, ver, library, class)?;
 
         if class == "net.minecraftforge" && lib == "forge" {
             if self.major_version > 48 {
-                Self::add_to_classpath(libraries_dir, classpath, &path, &file)?;
+                Self::add_to_classpath(classpath, &path, &file)?;
             }
             info!("Built in forge library, skipping...");
             return Ok(());
@@ -360,24 +361,19 @@ impl ForgeInstaller {
             };
         }
 
-        Self::add_to_classpath(libraries_dir, classpath, &path, &file)?;
+        Self::add_to_classpath(classpath, &path, &file)?;
 
         Ok(())
     }
 
     fn add_to_classpath(
-        libraries_dir: &Path,
         classpath: &mut String,
         path: &str,
         file: &str,
     ) -> Result<(), ForgeInstallError> {
-        let classpath_item = libraries_dir.join(format!("{path}/{file}{CLASSPATH_SEPARATOR}"));
+        let classpath_item = format!("../forge/libraries/{path}/{file}{CLASSPATH_SEPARATOR}");
         // println!("adding library to classpath {classpath_item:?}");
-        classpath.push_str(
-            classpath_item
-                .to_str()
-                .ok_or(ForgeInstallError::PathBufToStr(classpath_item.clone()))?,
-        );
+        classpath.push_str(&classpath_item);
         Ok(())
     }
 
@@ -596,7 +592,9 @@ impl Progress for ForgeInstallProgress {
             ForgeInstallProgress::P1Start => "Installing forge...".to_owned(),
             ForgeInstallProgress::P2DownloadingJson => "Downloading JSON".to_owned(),
             ForgeInstallProgress::P3DownloadingInstaller => "Downloading installer".to_owned(),
-            ForgeInstallProgress::P4RunningInstaller => "Running Installer".to_owned(),
+            ForgeInstallProgress::P4RunningInstaller => {
+                "Running Installer (this might take a while)".to_owned()
+            }
             ForgeInstallProgress::P5DownloadingLibrary { num, out_of } => {
                 format!("Downloading Library ({num}/{out_of})")
             }

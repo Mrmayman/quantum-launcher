@@ -130,7 +130,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
                         serde_json::from_str(&config_json).unwrap();
 
                     if let Some(omniarchive) = config_json.omniarchive {
-                        print!("{}", omniarchive.name.split('/').last().unwrap());
+                        print!("{}", omniarchive.name.split('/').next_back().unwrap());
                     } else {
                         print!("{}", json.id);
                     }

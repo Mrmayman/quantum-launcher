@@ -18,6 +18,7 @@ impl GameLauncher {
         let version = self.migrate_get_version().await?;
 
         self.migrate_natives(&version).await?;
+        self.migrate_classpath_to_relative(&version).await?;
 
         Ok(())
     }
@@ -71,6 +72,55 @@ impl GameLauncher {
         if version < &v0_3 {
             self.migrate_download_missing_native_libs().await?;
         }
+        Ok(())
+    }
+
+    async fn migrate_classpath_to_relative(
+        &self,
+        version: &semver::Version,
+    ) -> Result<(), GameLaunchError> {
+        let v0_3_1 = semver::Version {
+            major: 0,
+            minor: 3,
+            patch: 1,
+            pre: semver::Prerelease::EMPTY,
+            build: semver::BuildMetadata::EMPTY,
+        };
+        if version > &v0_3_1 {
+            return Ok(());
+        }
+
+        let c_path = self.instance_dir.join("forge/classpath.txt");
+        if !c_path.exists() {
+            return Ok(()); // Forge isn't installed
+        }
+
+        info!("Migrating Forge Classpath");
+        let classpath = tokio::fs::read_to_string(&c_path).await.path(&c_path)?;
+
+        let new_classpath = classpath
+            .split(":")
+            .map(|item| {
+                // migrate the absolute paths to relative paths, to fix renaming instances
+                if let Some(index) = item.find("forge/libraries") {
+                    let substring = &item[index..];
+                    format!("../{}", substring)
+                } else {
+                    item.to_string() // Or handle the case where the substring isn't found
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(":");
+
+        tokio::fs::write(&c_path, &new_classpath)
+            .await
+            .path(&c_path)?;
+
+        let bak_path = self.instance_dir.join("forge/classpath.txt.bak");
+        tokio::fs::write(&bak_path, &classpath)
+            .await
+            .path(&bak_path)?;
+
         Ok(())
     }
 

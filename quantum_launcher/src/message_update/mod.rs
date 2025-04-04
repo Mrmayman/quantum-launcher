@@ -42,9 +42,10 @@ impl Launcher {
                         if list_of_versions.is_empty() {
                             *menu = MenuInstallFabric::Unsupported(menu.is_quilt());
                         } else {
+                            let first = list_of_versions.first().map(|n| n.loader.version.clone());
                             *menu = MenuInstallFabric::Loaded {
                                 is_quilt: menu.is_quilt(),
-                                fabric_version: None,
+                                fabric_version: first,
                                 fabric_versions: list_of_versions
                                     .iter()
                                     .map(|ver| ver.loader.version.clone())

@@ -4,6 +4,7 @@ use ql_core::{json::InstanceConfigJson, IntoIoError, JsonFileError};
 
 pub mod fabric;
 pub mod forge;
+pub mod neoforge;
 pub mod optifine;
 pub mod paper;
 

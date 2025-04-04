@@ -102,9 +102,11 @@ impl MenuEditMods {
                     .spacing(5),
                     widget::row!(
                         widget::button("Forge")
-                            .on_press(Message::InstallForgeStart)
+                            .on_press(Message::InstallForgeStart { is_neoforge: false })
                             .width(97),
-                        widget::button("NeoForge").width(98),
+                        widget::button("NeoForge")
+                            .on_press(Message::InstallForgeStart { is_neoforge: true })
+                            .width(98),
                     )
                     .spacing(5),
                     widget::row!(widget::button("OptiFine")
@@ -129,9 +131,11 @@ impl MenuEditMods {
                     .spacing(5),
                     widget::row!(
                         widget::button("Forge")
-                            .on_press(Message::InstallForgeStart)
+                            .on_press(Message::InstallForgeStart { is_neoforge: false })
                             .width(97),
-                        widget::button("NeoForge").width(98)
+                        widget::button("NeoForge")
+                            .on_press(Message::InstallForgeStart { is_neoforge: true })
+                            .width(98)
                     )
                     .spacing(5),
                     widget::row!(
@@ -154,6 +158,11 @@ impl MenuEditMods {
                     )
                 )
             }
+            "NeoForge" => Self::get_uninstall_panel(
+                &self.config.mod_type,
+                Message::UninstallLoaderForgeStart,
+                true,
+            ),
             "OptiFine" => {
                 widget::column!(
                     widget::button("Install Forge"),
