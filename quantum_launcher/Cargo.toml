@@ -22,7 +22,6 @@ ql_instances = { path = "../crates/ql_instances" }
 ql_mod_manager = { path = "../crates/ql_mod_manager" }
 ql_core = { path = "../crates/ql_core" }
 ql_servers = { path = "../crates/ql_servers" }
-ql_plugins = { path = "../crates/ql_plugins" }
 
 # For the GUI
 iced = { version = "0.13", features = ["tokio", "image", "svg"] }

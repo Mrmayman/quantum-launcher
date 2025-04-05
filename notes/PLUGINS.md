@@ -1,3 +1,25 @@
+# Lua Plugin System (scrapped)
+
+I initially made a lua-based plugin system for QuantumLauncher but ended up scrapping it due to many reasons:
+- Code complexity and bloat
+- Compile times, binary size
+- Lack of use; In this small community who would be making plugins? Besides if anyone wants a feature, I can just add it for them.
+
+## Where to find it
+
+Commits `867e539f0495f8ef11bef38ae7b5ba1cad821939` (6 February 2025) to `16e02b1e36a736fadb3214b84de908eb21635a55` (4 April 2025) have the removed plugin system, if anyone's interested.
+The code is in `crates/ql_plugins` as well as a commented-out snippet in the `main` function in `quantum_launcher/src/main.rs`
+
+If anyone's interested, feel free to create a fork and fix this messy implementation. I personally am not interested in developing a plugin system though.
+
+## Implementation
+
+The plugin system used the `mlua` library with Lua 5.1.
+
+Here is the old, scrapped documentation.
+
+---
+
 # QuantumLauncher Plugins Guide
 
 Plugins extend the functionality of QuantumLauncher.

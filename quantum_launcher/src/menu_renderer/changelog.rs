@@ -27,22 +27,16 @@ pub fn changelog_0_4<'a>() -> Element<'a> {
         "- The launcher menus have been redesigned",
         "- Select instances easily with a sidebar, and enjoy the simpler navigation with tabs!",
         "- The purple colour pallete has been changed to be more vibrant and punchy",
-        widget::text("Plugins:").size(20), // TODO: Finish implementing this
-        "- Added a lua-based plugin system. Tweak the launcher to your liking",
-        "- There's now a plugin store too!",
-        "- Plugins are safe. They are completely sandboxed and manually reviewed for security",
         widget::text("Servers").size(20),
         "- Added a server management system",
         "- You can create, edit, delete, launch and install mods for servers",
-        "- Extensive configuration and server plugin management!", // TODO: Implement this too and stop yapping
+        "- Extensive configuration and server plugin management!", // TODO: Implement this
         widget::text("Microsoft Account").size(20),
         "- Added optional Microsoft login for those with a paid account",
         "- Normal users can continue using the launcher, this is entirely optional",
         widget::text("Other").size(20),
         "- Redesigned the command-line experience with the \"clap\" library",
         "- Updated \"iced\" to 0.13.1 from 0.12.1",
-        // Look, these aren't false promises. By the time the update releases
-        // I will either have finished these or removed them from changelog
     )
     .spacing(10)
     .into()

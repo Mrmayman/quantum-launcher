@@ -143,7 +143,6 @@ What about the others? Well...
 ## Misc
 - [x] Integration with Omniarchive, old version support
 - [ ] A local server hosting system (without port forwarding, using proxy tunneling) (WIP)
-- [ ] Plugin system (with lua) (WIP)
 
 <p align="center">
 

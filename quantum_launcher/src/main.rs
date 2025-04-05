@@ -27,7 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! - `quantum_launcher` - The GUI frontend
 //! - `ql_instances` - Instance management, updating and launching
 //! - `ql_mod_manager` - Mod management and installation
-//! - `ql_plugins` - A lua-based plugin system (incomplete)
 //! - `ql_servers` - A self-hosted server management system (incomplete)
 //! - `ql_core` - Core utilities and shared code
 //! - `ql_java_handler` - A library to auto-install and provide java runtimes
@@ -974,39 +973,9 @@ const WINDOW_HEIGHT: f32 = 400.0;
 const WINDOW_WIDTH: f32 = 600.0;
 
 fn main() {
-    /*let (sender, recv) = std::sync::mpsc::channel();
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(ql_plugins::install_plugins())
-        .unwrap();
-    let handle = std::thread::spawn(|| {
-        let plugin = ql_plugins::Plugin::new("OptiFine Installer", Some("1.0")).unwrap();
-        plugin.set_generic_progress(sender, "javaprog").unwrap();
-        plugin
-            .set_selected_instance(
-                InstanceSelection::Instance("1.21.4 fabric".to_owned()),
-                "optifine_instance",
-            )
-            .unwrap();
-        // plugin
-        //     .set_bytes(
-        //         include_bytes!("../../preview_OptiFine_1.21.4_HD_U_J3_pre15.jar"),
-        //         "optifine_installer_bytes",
-        //     )
-        //     .unwrap();
-        if let Err(err) = plugin.init() {
-            eprintln!("{err}")
-        }
-    });
-
-    while let Ok(msg) = recv.recv() {
-        println!("msg: {msg:?}")
-    }
-    handle.join().unwrap();
-    return;*/
-
     let command = arguments::command();
     let matches = command.clone().get_matches();
+
     if let Some(subcommand) = matches.subcommand() {
         match subcommand.0 {
             "list-instances" => {
