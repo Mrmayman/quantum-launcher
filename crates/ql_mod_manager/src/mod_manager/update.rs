@@ -5,31 +5,16 @@ use ql_core::{info_no_log, json::VersionDetails, GenericProgress, InstanceSelect
 
 use crate::mod_manager::{get_latest_version_date, get_loader};
 
-use super::{delete_mods, download_mod, ModError, ModId, ModIndex};
+use super::{delete_mods, download_mods_bulk, ModError, ModId, ModIndex};
 
 pub async fn apply_updates(
     selected_instance: InstanceSelection,
     updates: Vec<ModId>,
     progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ModError> {
+    // It's as simple as that!
     delete_mods(&updates, &selected_instance).await?;
-    let updates_len = updates.len();
-    for (i, id) in updates.into_iter().enumerate() {
-        if let Some(progress) = &progress {
-            progress
-                .send(GenericProgress {
-                    done: i,
-                    total: updates_len,
-                    message: None,
-                    has_finished: false,
-                })
-                .ok();
-        }
-        download_mod(&id, &selected_instance).await?;
-    }
-    if let Some(progress) = &progress {
-        progress.send(GenericProgress::finished()).ok();
-    }
+    download_mods_bulk(updates, selected_instance, progress).await?;
     Ok(())
 }
 

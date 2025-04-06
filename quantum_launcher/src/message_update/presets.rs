@@ -1,9 +1,12 @@
+use std::collections::HashSet;
+
 use iced::Task;
-use ql_core::{IntoStringError, ModId, SelectedMod};
+use ql_core::{err, json::VersionDetails, IntoStringError, Loader, ModId, SelectedMod};
+use ql_mod_manager::mod_manager::{RecommendedMod, RECOMMENDED_MODS};
 
 use crate::launcher_state::{
     EditPresetsMessage, Launcher, MenuEditPresets, MenuEditPresetsInner, Message, ProgressBar,
-    SelectedState, State,
+    SelectedState, State, PRESET_INNER_BUILD, PRESET_INNER_RECOMMENDED,
 };
 
 macro_rules! iflet_manage_preset {
@@ -25,6 +28,68 @@ impl Launcher {
     ) -> Result<Task<Message>, String> {
         match message {
             EditPresetsMessage::Open => return Ok(self.go_to_edit_presets_menu()),
+            EditPresetsMessage::TabChange(tab) => {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner,
+                    config,
+                    sorted_mods_list,
+                    recommended_mods,
+                    ..
+                }) = &mut self.state
+                {
+                    let selected_mods = sorted_mods_list
+                        .iter()
+                        .filter_map(|n| n.is_manually_installed().then_some(n.id()))
+                        .collect::<HashSet<_>>();
+
+                    match tab.as_str() {
+                        PRESET_INNER_BUILD => {
+                            *inner = MenuEditPresetsInner::Build {
+                                selected_mods,
+                                selected_state: SelectedState::All,
+                                is_building: false,
+                            };
+                        }
+                        PRESET_INNER_RECOMMENDED => {
+                            let mod_type = config.mod_type.clone();
+
+                            let (sender, receiver) = std::sync::mpsc::channel();
+
+                            *inner = MenuEditPresetsInner::Recommended {
+                                progress: ProgressBar::with_recv(receiver),
+                                error: None,
+                            };
+
+                            if recommended_mods.is_some() {
+                                return Ok(Task::none());
+                            }
+
+                            let Some(json) =
+                                VersionDetails::load_s(&self.get_selected_instance_dir().unwrap())
+                            else {
+                                return Ok(Task::none());
+                            };
+                            let Ok(loader) = Loader::try_from(mod_type.as_str()) else {
+                                return Ok(Task::none());
+                            };
+
+                            let version = json.id.clone();
+                            let ids = RECOMMENDED_MODS.to_owned();
+                            return Ok(Task::perform(
+                                RecommendedMod::get_compatible_mods(ids, version, loader, sender),
+                                |n| {
+                                    Message::EditPresets(EditPresetsMessage::RecommendedModCheck(
+                                        n.strerr(),
+                                    ))
+                                },
+                            ));
+                        }
+                        _ => {
+                            err!("Invalid mod preset tab: {tab}");
+                        }
+                    }
+                }
+            }
             EditPresetsMessage::ToggleCheckbox((name, id), enable) => {
                 iflet_manage_preset!(self, Build, selected_mods, selected_state, {
                     if enable {
@@ -46,14 +111,24 @@ impl Launcher {
                 });
             }
             EditPresetsMessage::SelectAll => {
-                iflet_manage_preset!(self, Build, selected_mods, selected_state, mods, {
+                if let State::ManagePresets(MenuEditPresets {
+                    inner:
+                        MenuEditPresetsInner::Build {
+                            selected_mods,
+                            selected_state,
+                            ..
+                        },
+                    sorted_mods_list,
+                    ..
+                }) = &mut self.state
+                {
                     match selected_state {
                         SelectedState::All => {
                             selected_mods.clear();
                             *selected_state = SelectedState::None;
                         }
                         SelectedState::Some | SelectedState::None => {
-                            *selected_mods = mods
+                            *selected_mods = sorted_mods_list
                                 .iter()
                                 .filter_map(|mod_info| {
                                     mod_info.is_manually_installed().then_some(mod_info.id())
@@ -62,7 +137,7 @@ impl Launcher {
                             *selected_state = SelectedState::All;
                         }
                     }
-                });
+                };
             }
             EditPresetsMessage::BuildYourOwn => {
                 iflet_manage_preset!(self, Build, selected_mods, is_building, {
@@ -84,35 +159,34 @@ impl Launcher {
                 return result.and_then(|()| self.go_to_edit_mods_menu().strerr());
             }
             EditPresetsMessage::RecommendedModCheck(result) => {
-                iflet_manage_preset!(self, Recommended, mods, error, {
-                    match result {
-                        Ok(n) => {
-                            *mods = Some(n.into_iter().map(|n| (true, n)).collect());
-                        }
-                        Err(err) => *error = Some(err),
-                    }
-                });
-            }
-            EditPresetsMessage::RecommendedToggle(idx, toggle) => {
                 if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Recommended {
-                            mods: Some(mods), ..
-                        },
+                    inner: MenuEditPresetsInner::Recommended { error, .. },
+                    recommended_mods,
                     ..
                 }) = &mut self.state
                 {
-                    if let Some((t, _)) = mods.get_mut(idx) {
+                    match result {
+                        Ok(n) => {
+                            *recommended_mods = Some(n.into_iter().map(|n| (true, n)).collect());
+                        }
+                        Err(err) => *error = Some(err),
+                    }
+                };
+            }
+            EditPresetsMessage::RecommendedToggle(idx, toggle) => {
+                if let State::ManagePresets(MenuEditPresets {
+                    recommended_mods: Some(recommended_mods),
+                    ..
+                }) = &mut self.state
+                {
+                    if let Some((t, _)) = recommended_mods.get_mut(idx) {
                         *t = toggle;
                     }
                 }
             }
             EditPresetsMessage::RecommendedDownload => {
                 if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Recommended {
-                            mods: Some(mods), ..
-                        },
+                    recommended_mods: Some(recommended_mods),
                     progress,
                     ..
                 }) = &mut self.state
@@ -121,7 +195,7 @@ impl Launcher {
 
                     *progress = Some(ProgressBar::with_recv(receiver));
 
-                    let ids: Vec<ModId> = mods
+                    let ids: Vec<ModId> = recommended_mods
                         .iter()
                         .filter(|n| n.0)
                         .map(|n| ModId::from_pair(n.1.id, n.1.backend))

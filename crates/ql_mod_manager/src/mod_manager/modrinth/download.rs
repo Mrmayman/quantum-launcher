@@ -24,7 +24,7 @@ pub struct ModDownloader {
     pub index: ModIndex,
     loader: Option<String>,
     currently_installing_mods: HashSet<String>,
-    info: HashMap<String, ProjectInfo>,
+    pub info: HashMap<String, ProjectInfo>,
     mods_dir: PathBuf,
 }
 

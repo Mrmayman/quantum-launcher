@@ -121,6 +121,7 @@ pub enum InstallOptifineMessage {
 #[derive(Debug, Clone)]
 pub enum EditPresetsMessage {
     Open,
+    TabChange(String),
     ToggleCheckbox((String, ModId), bool),
     ToggleCheckboxLocal(String, bool),
     SelectAll,
@@ -431,21 +432,35 @@ pub struct MenuLauncherSettings;
 
 pub struct MenuEditPresets {
     pub inner: MenuEditPresetsInner,
+    pub recommended_mods: Option<Vec<(bool, RecommendedMod)>>,
     pub progress: Option<ProgressBar<GenericProgress>>,
+    pub config: InstanceConfigJson,
+    pub sorted_mods_list: Vec<ModListEntry>,
 }
 
 pub enum MenuEditPresetsInner {
     Build {
-        mods: Vec<ModListEntry>,
         selected_mods: HashSet<SelectedMod>,
         selected_state: SelectedState,
         is_building: bool,
     },
     Recommended {
-        mods: Option<Vec<(bool, RecommendedMod)>>,
         error: Option<String>,
         progress: ProgressBar<GenericProgress>,
     },
+}
+
+pub const PRESET_INNER_BUILD: &str = "Create";
+pub const PRESET_INNER_RECOMMENDED: &str = "Recommended";
+
+impl MenuEditPresetsInner {
+    #[must_use]
+    pub const fn id(&self) -> &'static str {
+        match self {
+            MenuEditPresetsInner::Build { .. } => PRESET_INNER_BUILD,
+            MenuEditPresetsInner::Recommended { .. } => PRESET_INNER_RECOMMENDED,
+        }
+    }
 }
 
 /// The enum that represents which menu is opened currently.

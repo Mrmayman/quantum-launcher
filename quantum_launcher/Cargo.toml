@@ -51,15 +51,10 @@ image = "0.24"
 # We be implementing a full blown HTML renderer in iced with this one
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
+# Look, I could just have used the
+# built in markdown widget in iced,
+# but it doesn't have inline HTML support
 
-# Look, I could just have upgraded iced and used the
-# built in markdown widget in the new version.
-# But the whole process of migration is a giant
-# hassle with lots of breaking changes
-
-# Shenanigans to get Reqwest building on ARM64
-[target.aarch64-unknown-linux-gnu.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
-
-[target.aarch64-unknown-linux-musl.dependencies]
+# Shenanigans to get Reqwest building everywhere
+# this is probably not a good idea but whatever.
 openssl = { version = "0.10", features = ["vendored"] }

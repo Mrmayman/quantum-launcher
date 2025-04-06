@@ -258,14 +258,12 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn edit_instance(
-        &mut self,
-        selected_instance: &InstanceSelection,
-    ) -> Result<(), JsonFileError> {
+    pub fn edit_instance(&mut self) -> Result<(), JsonFileError> {
         let State::Launch(MenuLaunch { edit_instance, .. }) = &mut self.state else {
             return Ok(());
         };
 
+        let selected_instance = self.selected_instance.as_ref().unwrap();
         let config_path = selected_instance
             .get_instance_path(&self.dir)
             .join("config.json");
@@ -641,19 +639,20 @@ impl Launcher {
         self.state = State::ManagePresets(MenuEditPresets {
             inner: if is_empty {
                 MenuEditPresetsInner::Recommended {
-                    mods: None,
                     progress: ProgressBar::with_recv(receiver),
                     error: None,
                 }
             } else {
                 MenuEditPresetsInner::Build {
-                    mods: menu.sorted_mods_list.clone(),
                     selected_mods,
                     selected_state: SelectedState::All,
                     is_building: false,
                 }
             },
+            recommended_mods: None,
             progress: None,
+            config: menu.config.clone(),
+            sorted_mods_list: menu.sorted_mods_list.clone(),
         });
 
         if !is_empty {

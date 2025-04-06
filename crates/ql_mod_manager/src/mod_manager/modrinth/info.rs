@@ -55,6 +55,24 @@ impl ProjectInfo {
         };
         Ok(file)
     }
+
+    pub async fn download_bulk(ids: &[String]) -> Result<Vec<Self>, ModError> {
+        let _lock = RATE_LIMITER.lock().await;
+        let mut url = "https://api.modrinth.com/v2/projects?ids=[".to_owned();
+        let len = ids.len();
+        for (i, id) in ids.iter().enumerate() {
+            url.push_str(&format!("{id:?}"));
+            if i + 1 < len {
+                url.push_str(", ");
+            }
+        }
+        url.push(']');
+
+        let response = file_utils::download_file_to_string(&url, false).await?;
+        let response: Vec<Self> = serde_json::from_str(&response)?;
+
+        Ok(response)
+    }
 }
 
 /*#[derive(Deserialize, Debug, Clone)]

@@ -60,10 +60,10 @@ pub struct InstanceConfigJson {
     /// in fact from my testing it worsens them?:
     ///
     /// - Without these args I got 110-115 FPS average on vanilla
-    /// Minecraft 1.20 in a new world.
+    ///   Minecraft 1.20 in a new world.
     ///
     /// - With these args I got 105-110 FPS. So... yeah they aren't
-    /// doing the job for me.
+    ///   doing the job for me.
     ///
     /// But in different workloads this might improve performance.
     ///

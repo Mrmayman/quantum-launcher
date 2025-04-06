@@ -2,6 +2,7 @@ use std::{sync::mpsc::Sender, time::Instant};
 
 use chrono::DateTime;
 use download::version_sort;
+use info::ProjectInfo;
 use ql_core::{info, pt, GenericProgress, InstanceSelection, Loader, ModId};
 use versions::ModVersion;
 
@@ -127,6 +128,9 @@ impl Backend for ModrinthBackend {
         };
 
         let mut downloader = download::ModDownloader::new(instance).await?;
+        let bulk_info = ProjectInfo::download_bulk(ids).await?;
+
+        downloader.info.extend(ids.iter().cloned().zip(bulk_info));
 
         let len = ids.len();
 
@@ -135,7 +139,10 @@ impl Backend for ModrinthBackend {
                 _ = sender.send(GenericProgress {
                     done: i,
                     total: len,
-                    message: None,
+                    message: downloader
+                        .info
+                        .get(id)
+                        .map(|n| format!("Downloading mod: {}", n.title)),
                     has_finished: false,
                 });
             }
