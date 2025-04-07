@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{IntoIoError, JsonFileError};
+use crate::{file_utils, InstanceSelection, IntoIoError, JsonFileError};
 
 /// Configuration for a specific instance.
 ///
@@ -103,5 +103,11 @@ impl InstanceConfigJson {
             .path(config_json_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
         Ok(config_json)
+    }
+
+    pub async fn read(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
+        let config_path = file_utils::get_instance_dir(instance).await?;
+        let config = Self::read_from_path(&config_path).await?;
+        Ok(config)
     }
 }

@@ -158,11 +158,6 @@ impl MenuEditMods {
                     )
                 )
             }
-            "NeoForge" => Self::get_uninstall_panel(
-                &self.config.mod_type,
-                Message::UninstallLoaderForgeStart,
-                true,
-            ),
             "OptiFine" => {
                 widget::column!(
                     widget::button("Install Forge"),
@@ -173,6 +168,11 @@ impl MenuEditMods {
                     ),
                 )
             }
+            "NeoForge" => Self::get_uninstall_panel(
+                &self.config.mod_type,
+                Message::UninstallLoaderForgeStart,
+                true,
+            ),
             "Fabric" | "Quilt" => Self::get_uninstall_panel(
                 &self.config.mod_type,
                 Message::UninstallLoaderFabricStart,
@@ -265,7 +265,7 @@ impl MenuEditMods {
                             },
                             14
                         )
-                        .on_press(Message::ManageModsSelectAll)
+                        .on_press(Message::ManageMods(ManageModsMessage::SelectAll))
                     ]
                     .spacing(5)
                     .wrap()

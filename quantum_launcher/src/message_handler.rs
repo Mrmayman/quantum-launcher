@@ -1,32 +1,25 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::PathBuf,
-    sync::{mpsc, Arc, Mutex},
+    process::ExitStatus,
+    sync::{Arc, Mutex},
 };
 
-use chrono::Datelike;
 use iced::{keyboard::Key, Task};
 use ql_core::{
-    err, file_utils, info, info_no_log,
-    json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    DownloadProgress, InstanceSelection, IntoIoError, IntoStringError, JsonFileError, Loader,
-    ModId,
+    err, file_utils, info, info_no_log, json::instance_config::InstanceConfigJson,
+    InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
 };
-use ql_instances::{AccountData, ListEntry};
-use ql_mod_manager::{
-    loaders,
-    mod_manager::{ModIndex, RecommendedMod, RECOMMENDED_MODS},
-};
+use ql_instances::{AccountData, ReadError};
+use ql_mod_manager::{loaders, mod_manager::ModIndex};
 use tokio::process::Child;
 
 use crate::{
-    config::ConfigAccount,
     get_entries,
     launcher_state::{
-        ClientProcess, CreateInstanceMessage, EditPresetsMessage, InstallModsMessage,
-        MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuEditPresets, MenuEditPresetsInner,
-        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate,
-        NEW_ACCOUNT_NAME,
+        ClientProcess, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric,
+        MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, NEW_ACCOUNT_NAME,
+        OFFLINE_ACCOUNT_NAME,
     },
     Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
@@ -75,19 +68,6 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn get_current_date_formatted() -> String {
-        // Get the current date and time in UTC
-        let now = chrono::Local::now();
-
-        // Extract the day, month, and year
-        let day = now.day();
-        let month = now.format("%B").to_string(); // Full month name (e.g., "September")
-        let year = now.year();
-
-        // Return the formatted string
-        format!("{day} {month} {year}")
-    }
-
     pub fn finish_launching(&mut self, result: Result<Arc<Mutex<Child>>, String>) -> Task<Message> {
         self.java_recv = None;
         if let State::Launch(menu) = &mut self.state {
@@ -117,15 +97,24 @@ impl Launcher {
 
                     return Task::perform(
                         async move {
-                            ql_instances::read_logs(
+                            let result = ql_instances::read_logs(
                                 stdout,
                                 stderr,
                                 child,
                                 sender,
-                                selected_instance,
+                                selected_instance.clone(),
                             )
-                            .await
-                            .strerr()
+                            .await;
+
+                            match result {
+                                Err(ReadError::Io(io))
+                                    if io.kind() == std::io::ErrorKind::InvalidData =>
+                                {
+                                    err!("Minecraft log contains invalid unicode! Stopping the logging...\n(note: the game will continue to run despite the next message)");
+                                    Ok((ExitStatus::default(), selected_instance))
+                                }
+                                _ => result.strerr(),
+                            }
                         },
                         Message::LaunchEndedLog,
                     );
@@ -143,107 +132,7 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn go_to_create_screen(&mut self) -> Task<Message> {
-        if let Some(versions) = self.client_version_list_cache.clone() {
-            let combo_state = iced::widget::combo_box::State::new(versions.clone());
-            self.state = State::Create(MenuCreateInstance::Loaded {
-                instance_name: String::new(),
-                selected_version: None,
-                progress: None,
-                download_assets: true,
-                combo_state: Box::new(combo_state),
-            });
-            Task::none()
-        } else {
-            let (sender, receiver) = mpsc::channel();
-
-            let (task, handle) =
-                Task::perform(ql_instances::list_versions(Some(Arc::new(sender))), |n| {
-                    Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n.strerr()))
-                })
-                .abortable();
-
-            self.state = State::Create(MenuCreateInstance::Loading {
-                receiver,
-                number: 0.0,
-                _handle: handle.abort_on_drop(),
-            });
-
-            task
-        }
-    }
-
-    pub fn create_instance_finish_loading_versions_list(
-        &mut self,
-        result: Result<Vec<ListEntry>, String>,
-    ) {
-        match result {
-            Ok(versions) => {
-                self.client_version_list_cache = Some(versions.clone());
-                let combo_state = iced::widget::combo_box::State::new(versions.clone());
-                self.state = State::Create(MenuCreateInstance::Loaded {
-                    instance_name: String::new(),
-                    selected_version: None,
-                    progress: None,
-                    download_assets: true,
-                    combo_state: Box::new(combo_state),
-                });
-            }
-            Err(n) => self.set_error(n),
-        }
-    }
-
-    pub fn select_created_instance_version(&mut self, entry: ListEntry) {
-        if let State::Create(MenuCreateInstance::Loaded {
-            selected_version, ..
-        }) = &mut self.state
-        {
-            *selected_version = Some(entry);
-        }
-    }
-
-    pub fn update_created_instance_name(&mut self, name: String) {
-        if let State::Create(MenuCreateInstance::Loaded { instance_name, .. }) = &mut self.state {
-            *instance_name = name;
-        }
-    }
-
-    pub fn create_instance(&mut self) -> Task<Message> {
-        if let State::Create(MenuCreateInstance::Loaded {
-            progress,
-            instance_name,
-            download_assets,
-            selected_version,
-            ..
-        }) = &mut self.state
-        {
-            let (sender, receiver) = mpsc::channel::<DownloadProgress>();
-            *progress = Some(ProgressBar {
-                num: 0.0,
-                message: Some("Started download".to_owned()),
-                receiver,
-                progress: DownloadProgress::DownloadingJsonManifest,
-            });
-
-            let instance_name = instance_name.clone();
-            let version = selected_version.clone().unwrap();
-            let download_assets = *download_assets;
-
-            // Create Instance asynchronously using iced Command.
-            return Task::perform(
-                ql_instances::create_instance(
-                    instance_name.clone(),
-                    version,
-                    Some(sender),
-                    download_assets,
-                ),
-                |n| Message::CreateInstance(CreateInstanceMessage::End(n.strerr())),
-            );
-        }
-        Task::none()
-    }
-
-    pub fn delete_selected_instance(&mut self) -> Task<Message> {
+    pub fn delete_instance_confirm(&mut self) -> Task<Message> {
         if let State::ConfirmAction { .. } = &self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap();
             let deleted_instance_dir = selected_instance.get_instance_path(&self.dir);
@@ -283,24 +172,6 @@ impl Launcher {
             old_instance_name: instance_name.to_owned(),
             slider_text: format_memory(memory_mb),
         });
-        Ok(())
-    }
-
-    pub async fn save_config(
-        instance: InstanceSelection,
-        config: InstanceConfigJson,
-        dir: PathBuf,
-    ) -> Result<(), JsonFileError> {
-        let mut config = config.clone();
-        if config.enable_logger.is_none() {
-            config.enable_logger = Some(true);
-        }
-        let config_path = instance.get_instance_path(&dir).join("config.json");
-
-        let config_json = serde_json::to_string(&config)?;
-        tokio::fs::write(&config_path, config_json)
-            .await
-            .path(config_path)?;
         Ok(())
     }
 
@@ -383,37 +254,6 @@ impl Launcher {
         Ok(Task::none())
     }
 
-    pub fn mod_download(&mut self, index: usize) -> Option<Task<Message>> {
-        let selected_instance = self.selected_instance.clone()?;
-        let State::ModsDownload(menu) = &mut self.state else {
-            return None;
-        };
-        let Some(results) = &menu.results else {
-            err!("Couldn't download mod: Search results empty");
-            return None;
-        };
-        let Some(hit) = results.mods.get(index) else {
-            err!("Couldn't download mod: Not present in results");
-            return None;
-        };
-
-        menu.mods_download_in_progress
-            .insert(ModId::Modrinth(hit.id.clone()));
-
-        let project_id = hit.id.clone();
-        let backend = menu.backend;
-        let id = ModId::from_pair(&project_id, backend);
-
-        Some(Task::perform(
-            async move {
-                ql_mod_manager::mod_manager::download_mod(&id, &selected_instance)
-                    .await
-                    .map(|()| ModId::Modrinth(project_id))
-            },
-            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
-        ))
-    }
-
     pub fn set_game_crashed(&mut self, status: std::process::ExitStatus, name: &str) {
         if let State::Launch(MenuLaunch { message, .. }) = &mut self.state {
             let has_crashed = !status.success();
@@ -423,15 +263,6 @@ impl Launcher {
             }
             if let Some(log) = self.client_logs.get_mut(name) {
                 log.has_crashed = has_crashed;
-            }
-        }
-    }
-
-    pub fn update_mod_index(&mut self) {
-        if let State::EditMods(menu) = &mut self.state {
-            match ModIndex::get_s(self.selected_instance.as_ref().unwrap()).strerr() {
-                Ok(idx) => menu.mods = idx,
-                Err(err) => self.set_error(err),
             }
         }
     }
@@ -467,7 +298,7 @@ impl Launcher {
         if let State::Launch(menu) = &mut self.state {
             menu.is_viewing_server = true;
             if let Some(message) = message {
-                menu.message = message
+                menu.message = message;
             }
         } else {
             let mut menu_launch = match message {
@@ -576,105 +407,6 @@ impl Launcher {
         }
     }
 
-    pub fn load_preset(&mut self) -> Task<Message> {
-        let Some(file) = rfd::FileDialog::new()
-            .add_filter("QuantumLauncher Mod Preset", &["qmp"])
-            .set_title("Select Mod Preset to Load")
-            .pick_file()
-        else {
-            return Task::none();
-        };
-        let file = match std::fs::read(&file).path(&file) {
-            Ok(n) => n,
-            Err(err) => {
-                self.set_error(err);
-                return Task::none();
-            }
-        };
-
-        match tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(ql_mod_manager::PresetJson::load(
-                self.selected_instance.clone().unwrap(),
-                file,
-            )) {
-            Ok(mods) => {
-                let (sender, receiver) = std::sync::mpsc::channel();
-                if let State::ManagePresets(menu) = &mut self.state {
-                    menu.progress = Some(ProgressBar::with_recv(receiver));
-                }
-                let instance_name = self.selected_instance.clone().unwrap();
-                return Task::perform(
-                    ql_mod_manager::mod_manager::download_mods_bulk(
-                        mods,
-                        instance_name,
-                        Some(sender),
-                    ),
-                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n.strerr())),
-                );
-            }
-            Err(err) => self.set_error(err),
-        }
-
-        Task::none()
-    }
-
-    pub fn go_to_edit_presets_menu(&mut self) -> Task<Message> {
-        let State::EditMods(menu) = &self.state else {
-            return Task::none();
-        };
-
-        let selected_mods = menu
-            .sorted_mods_list
-            .iter()
-            .filter_map(|n| n.is_manually_installed().then_some(n.id()))
-            .collect::<HashSet<_>>();
-
-        let is_empty = menu.sorted_mods_list.is_empty();
-
-        let mod_type = menu.config.mod_type.clone();
-
-        let (sender, receiver) = std::sync::mpsc::channel();
-
-        self.state = State::ManagePresets(MenuEditPresets {
-            inner: if is_empty {
-                MenuEditPresetsInner::Recommended {
-                    progress: ProgressBar::with_recv(receiver),
-                    error: None,
-                }
-            } else {
-                MenuEditPresetsInner::Build {
-                    selected_mods,
-                    selected_state: SelectedState::All,
-                    is_building: false,
-                }
-            },
-            recommended_mods: None,
-            progress: None,
-            config: menu.config.clone(),
-            sorted_mods_list: menu.sorted_mods_list.clone(),
-        });
-
-        if !is_empty {
-            return Task::none();
-        }
-
-        let Some(json) = VersionDetails::load_s(&self.get_selected_instance_dir().unwrap()) else {
-            return Task::none();
-        };
-
-        let Ok(loader) = Loader::try_from(mod_type.as_str()) else {
-            return Task::none();
-        };
-
-        let version = json.id.clone();
-        let ids = RECOMMENDED_MODS.to_owned();
-        Task::perform(
-            RecommendedMod::get_compatible_mods(ids, version, loader, sender),
-            |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n.strerr())),
-        )
-    }
-
     pub fn get_selected_instance_dir(&self) -> Option<PathBuf> {
         Some(
             self.selected_instance
@@ -757,7 +489,7 @@ impl Launcher {
 
     pub fn iced_event(&mut self, event: iced::Event, status: iced::event::Status) -> Task<Message> {
         if let State::Launch(MenuLaunch { sidebar_width, .. }) = &mut self.state {
-            self.config.sidebar_width = Some(*sidebar_width as u32);
+            self.config.sidebar_width = Some(u32::from(*sidebar_width));
 
             if self.window_size.0 > f32::from(SIDEBAR_SQUISH_LIMIT)
                 && *sidebar_width > self.window_size.0 as u16 - SIDEBAR_SQUISH_LIMIT
@@ -860,85 +592,85 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn account_selected(&mut self, account: String) -> Task<Message> {
-        if account == NEW_ACCOUNT_NAME {
-            self.state = State::GenericMessage("Loading Login...".to_owned());
+    pub fn update_download_start(&mut self) -> Task<Message> {
+        if let State::UpdateFound(MenuLauncherUpdate { url, progress, .. }) = &mut self.state {
+            let (sender, update_receiver) = std::sync::mpsc::channel();
+            *progress = Some(ProgressBar::with_recv_and_msg(
+                update_receiver,
+                "Starting Update".to_owned(),
+            ));
+
+            let url = url.clone();
+
             Task::perform(
-                async move { ql_instances::login_1_link().await.strerr() },
-                Message::AccountResponse1,
+                async move {
+                    ql_instances::install_launcher_update(url, sender)
+                        .await
+                        .strerr()
+                },
+                Message::UpdateDownloadEnd,
             )
         } else {
-            self.accounts_selected = Some(account);
             Task::none()
         }
     }
 
-    pub fn account_refresh(&mut self, account: &ql_instances::AccountData) -> Task<Message> {
-        let (sender, receiver) = std::sync::mpsc::channel();
-
-        self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
-
-        let username = account.username.clone();
-        let refresh_token = account.refresh_token.clone();
-        Task::perform(
-            async move {
-                ql_instances::login_refresh(username, refresh_token, Some(sender))
-                    .await
-                    .strerr()
-            },
-            Message::AccountRefreshComplete,
-        )
-    }
-
-    pub fn account_response_3(&mut self, data: ql_instances::AccountData) -> Task<Message> {
-        self.accounts_dropdown.insert(0, data.username.clone());
-
-        if self.config.accounts.is_none() {
-            self.config.accounts = Some(HashMap::new());
+    pub fn kill_selected_instance(&mut self) -> Task<Message> {
+        if let Some(process) = self
+            .client_processes
+            .remove(self.selected_instance.as_ref().unwrap().get_name())
+        {
+            Task::perform(
+                {
+                    async move {
+                        let mut child = process.child.lock().unwrap();
+                        child.start_kill().strerr()
+                    }
+                },
+                Message::LaunchKillEnd,
+            )
+        } else {
+            Task::none()
         }
-        let accounts = self.config.accounts.as_mut().unwrap();
-        accounts.insert(
-            data.username.clone(),
-            ConfigAccount {
-                uuid: data.uuid.clone(),
-                skin: None,
-            },
-        );
-
-        self.accounts_selected = Some(data.username.clone());
-        self.accounts.insert(data.username.clone(), data);
-
-        self.go_to_launch_screen::<String>(None)
     }
 
-    pub fn account_response_2(&mut self, token: ql_instances::AuthTokenResponse) -> Task<Message> {
-        let (sender, receiver) = std::sync::mpsc::channel();
-        self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
-        Task::perform(
-            async move {
-                ql_instances::login_3_xbox(token, Some(sender))
-                    .await
-                    .strerr()
+    pub fn go_to_delete_instance_menu(&mut self) {
+        self.state = State::ConfirmAction {
+            msg1: format!(
+                "delete the instance {}",
+                self.selected_instance.as_ref().unwrap().get_name()
+            ),
+            msg2: "All your data, including worlds, will be lost".to_owned(),
+            yes: Message::DeleteInstance,
+            no: Message::LaunchScreenOpen {
+                message: None,
+                clear_selection: false,
             },
-            Message::AccountResponse3,
-        )
-    }
-
-    pub fn account_response_1(&mut self, code: ql_instances::AuthCodeResponse) -> Task<Message> {
-        // I have no idea how many rustaceans will
-        // yell at me after they see this. (WTF: )
-        let code2 = code.clone();
-        let (task, handle) = Task::perform(
-            async move { ql_instances::login_2_wait(code2).await.strerr() },
-            Message::AccountResponse2,
-        )
-        .abortable();
-        self.state = State::AccountLogin {
-            url: code.verification_uri,
-            code: code.user_code,
-            cancel_handle: handle,
         };
-        task
+    }
+
+    pub fn launch_start(&mut self) -> Task<Message> {
+        let account_data = if let Some(account) = &self.accounts_selected {
+            if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
+                None
+            } else {
+                self.accounts.get(account).cloned()
+            }
+        } else {
+            None
+        };
+        if let Some(account) = &account_data {
+            if account.access_token.is_none() || account.needs_refresh {
+                return self.account_refresh(account);
+            }
+        }
+
+        // If the user is loading an existing login from disk
+        // then first refresh the tokens
+
+        // Or, if the account is freshly added,
+        // just directly launch the game.
+        self.launch_game(account_data)
     }
 }
 

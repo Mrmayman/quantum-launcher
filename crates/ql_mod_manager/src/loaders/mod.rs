@@ -20,15 +20,12 @@ async fn change_instance_type(
     instance_dir: &Path,
     instance_type: String,
 ) -> Result<(), JsonFileError> {
-    let config_path = instance_dir.join("config.json");
-    let config = tokio::fs::read_to_string(&config_path)
-        .await
-        .path(&config_path)?;
-    let mut config: InstanceConfigJson = serde_json::from_str(&config)?;
+    let mut config = InstanceConfigJson::read_from_path(instance_dir).await?;
 
     config.mod_type = instance_type;
 
     let config = serde_json::to_string(&config)?;
+    let config_path = instance_dir.join("config.json");
     tokio::fs::write(&config_path, config)
         .await
         .path(config_path)?;

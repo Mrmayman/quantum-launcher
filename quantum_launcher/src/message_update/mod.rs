@@ -1,19 +1,16 @@
-use std::path::PathBuf;
-
 use iced::{widget::image::Handle, Task};
-use ql_core::{err, InstanceSelection, IntoIoError, IntoStringError, ModId, SelectedMod};
-use ql_mod_manager::{
-    loaders,
-    mod_manager::{Backend, CurseforgeBackend, ModrinthBackend},
-};
+use ql_core::{err, InstanceSelection, IntoStringError, ModId};
+use ql_mod_manager::{loaders, mod_manager::get_description};
 
+mod accounts;
+mod create_instance;
 mod edit_instance;
+mod manage_mods;
 mod presets;
 
 use crate::launcher_state::{
-    CreateInstanceMessage, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage,
-    Launcher, ManageModsMessage, MenuCreateInstance, MenuEditMods, MenuInstallFabric,
-    MenuInstallOptifine, Message, ProgressBar, SelectedState, State,
+    InstallFabricMessage, InstallModsMessage, InstallOptifineMessage, Launcher, MenuInstallFabric,
+    MenuInstallOptifine, Message, ProgressBar, State,
 };
 
 impl Launcher {
@@ -99,240 +96,23 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn update_create_instance(&mut self, message: CreateInstanceMessage) -> Task<Message> {
-        match message {
-            CreateInstanceMessage::ScreenOpen => return self.go_to_create_screen(),
-            CreateInstanceMessage::VersionsLoaded(result) => {
-                self.create_instance_finish_loading_versions_list(result);
-            }
-            CreateInstanceMessage::VersionSelected(selected_version) => {
-                self.select_created_instance_version(selected_version);
-            }
-            CreateInstanceMessage::NameInput(name) => self.update_created_instance_name(name),
-            CreateInstanceMessage::Start => return self.create_instance(),
-            CreateInstanceMessage::End(result) => match result {
-                Ok(instance) => {
-                    self.selected_instance = Some(InstanceSelection::Instance(instance));
-                    return self.go_to_launch_screen(Some("Created Instance".to_owned()));
-                }
-                Err(n) => self.state = State::Error { error: n },
-            },
-            CreateInstanceMessage::ChangeAssetToggle(t) => {
-                if let State::Create(MenuCreateInstance::Loaded {
-                    download_assets, ..
-                }) = &mut self.state
-                {
-                    *download_assets = t;
-                }
-            }
-            CreateInstanceMessage::Cancel => {
-                return self.go_to_launch_screen(Option::<String>::None)
-            }
-        }
-        Task::none()
-    }
-
-    pub fn update_manage_mods(&mut self, msg: ManageModsMessage) -> Task<Message> {
-        match msg {
-            ManageModsMessage::ScreenOpen => match self.go_to_edit_mods_menu() {
-                Ok(command) => return command,
-                Err(err) => self.set_error(err),
-            },
-            ManageModsMessage::ToggleCheckbox((name, id), enable) => {
-                if let State::EditMods(menu) = &mut self.state {
-                    if enable {
-                        menu.selected_mods
-                            .insert(SelectedMod::Downloaded { name, id });
-                        menu.selected_state = SelectedState::Some;
-                    } else {
-                        menu.selected_mods
-                            .remove(&SelectedMod::Downloaded { name, id });
-                        menu.selected_state = if menu.selected_mods.is_empty() {
-                            SelectedState::None
-                        } else {
-                            SelectedState::Some
-                        };
-                    }
-                }
-            }
-            ManageModsMessage::ToggleCheckboxLocal(name, enable) => {
-                if let State::EditMods(menu) = &mut self.state {
-                    if enable {
-                        menu.selected_mods
-                            .insert(SelectedMod::Local { file_name: name });
-                        menu.selected_state = SelectedState::Some;
-                    } else {
-                        menu.selected_mods
-                            .remove(&SelectedMod::Local { file_name: name });
-                        menu.selected_state = if menu.selected_mods.is_empty() {
-                            SelectedState::None
-                        } else {
-                            SelectedState::Some
-                        };
-                    }
-                }
-            }
-            ManageModsMessage::DeleteSelected => {
-                if let State::EditMods(menu) = &self.state {
-                    let command = Self::get_delete_mods_command(
-                        self.selected_instance.clone().unwrap(),
-                        menu,
-                    );
-                    let mods_dir = self.get_selected_dot_minecraft_dir().unwrap().join("mods");
-                    let file_paths = menu
-                        .selected_mods
-                        .iter()
-                        .filter_map(|s_mod| {
-                            if let SelectedMod::Local { file_name } = s_mod {
-                                Some(file_name.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .map(|n| mods_dir.join(n))
-                        .map(delete_file_wrapper)
-                        .map(|n| {
-                            Task::perform(n, |n| {
-                                Message::ManageMods(ManageModsMessage::LocalDeleteFinished(n))
-                            })
-                        });
-                    let delete_local_command = Task::batch(file_paths);
-
-                    return Task::batch([command, delete_local_command]);
-                }
-            }
-            ManageModsMessage::DeleteFinished(result) => match result {
-                Ok(_) => {
-                    if let State::EditMods(menu) = &mut self.state {
-                        menu.selected_mods.clear();
-                    }
-                    self.update_mod_index();
-                }
-                Err(err) => self.set_error(err),
-            },
-            ManageModsMessage::LocalDeleteFinished(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                }
-            }
-            ManageModsMessage::LocalIndexLoaded(hash_set) => {
-                if let State::EditMods(menu) = &mut self.state {
-                    menu.locally_installed_mods = hash_set;
-                }
-            }
-            ManageModsMessage::ToggleSelected => {
-                if let State::EditMods(menu) = &self.state {
-                    let ids = menu
-                        .selected_mods
-                        .iter()
-                        .filter_map(|s_mod| {
-                            if let SelectedMod::Downloaded { id, .. } = s_mod {
-                                Some(id.get_internal_id().to_owned())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    let instance_name = self.selected_instance.clone().unwrap();
-                    return Task::perform(
-                        ql_mod_manager::mod_manager::toggle_mods(ids, instance_name),
-                        |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n.strerr())),
-                    );
-                }
-            }
-            ManageModsMessage::ToggleFinished(err) => {
-                if let Err(err) = err {
-                    self.set_error(err);
-                } else {
-                    self.update_mod_index();
-                }
-            }
-            ManageModsMessage::UpdateMods => return self.update_mods(),
-            ManageModsMessage::UpdateModsFinished(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                } else {
-                    self.update_mod_index();
-                    if let State::EditMods(menu) = &mut self.state {
-                        menu.available_updates.clear();
-                    }
-                    return Task::perform(
-                        ql_mod_manager::mod_manager::check_for_updates(
-                            self.selected_instance.clone().unwrap(),
-                        ),
-                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
-                    );
-                }
-            }
-            ManageModsMessage::UpdateCheckResult(updates) => {
-                let updates = match updates {
-                    Ok(n) => n,
-                    Err(err) => {
-                        err!("Could not check for updates: {err}");
-                        return Task::none();
-                    }
-                };
-
-                if let State::EditMods(menu) = &mut self.state {
-                    menu.available_updates =
-                        updates.into_iter().map(|(a, b)| (a, b, true)).collect();
-                }
-            }
-            ManageModsMessage::UpdateCheckToggle(idx, t) => {
-                if let State::EditMods(MenuEditMods {
-                    available_updates, ..
-                }) = &mut self.state
-                {
-                    if let Some((_, _, b)) = available_updates.get_mut(idx) {
-                        *b = t;
-                    }
-                }
-            }
-        }
-        Task::none()
-    }
-
-    fn get_delete_mods_command(
-        selected_instance: InstanceSelection,
-        menu: &crate::launcher_state::MenuEditMods,
-    ) -> Task<Message> {
-        let ids: Vec<ModId> = menu
-            .selected_mods
-            .iter()
-            .filter_map(|s_mod| {
-                if let SelectedMod::Downloaded { id, .. } = s_mod {
-                    Some(id.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        Task::perform(
-            async move {
-                let ids = ids;
-                let selected_instance = selected_instance;
-                ql_mod_manager::mod_manager::delete_mods(&ids, &selected_instance)
-                    .await
-                    .map(|()| ids)
-            },
-            |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n.strerr())),
-        )
-    }
-
     pub fn update_install_mods(&mut self, message: InstallModsMessage) -> Task<Message> {
+        let is_server = matches!(&self.selected_instance, Some(InstanceSelection::Server(_)));
+
         match message {
-            InstallModsMessage::SearchResult(search) => {
+            InstallModsMessage::LoadData(Err(err))
+            | InstallModsMessage::DownloadComplete(Err(err))
+            | InstallModsMessage::SearchResult(Err(err))
+            | InstallModsMessage::IndexUpdated(Err(err)) => {
+                self.set_error(err);
+            }
+
+            InstallModsMessage::SearchResult(Ok((search, time))) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.is_loading_search = false;
-                    match search {
-                        Ok((search, time)) => {
-                            if time > menu.latest_load {
-                                menu.results = Some(search);
-                                menu.latest_load = time;
-                            }
-                        }
-                        Err(err) => self.set_error(err),
+                    if time > menu.latest_load {
+                        menu.results = Some(search);
+                        menu.latest_load = time;
                     }
                 }
             }
@@ -343,23 +123,12 @@ impl Launcher {
             InstallModsMessage::SearchInput(input) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.query = input;
-
-                    return menu.search_store(matches!(
-                        &self.selected_instance,
-                        Some(InstanceSelection::Server(_))
-                    ));
+                    return menu.search_store(is_server);
                 }
             }
             InstallModsMessage::ImageDownloaded(image) => match image {
                 Ok(image) => {
-                    if image.is_svg {
-                        let handle = iced::widget::svg::Handle::from_memory(image.image);
-                        self.images.svg.insert(image.url, handle);
-                    } else {
-                        self.images
-                            .bitmap
-                            .insert(image.url, Handle::from_bytes(image.image));
-                    }
+                    self.insert_image(image);
                 }
                 Err(err) => {
                     err!("Could not download image: {err}");
@@ -376,20 +145,11 @@ impl Launcher {
                         {
                             let id = hit.id.clone();
                             let backend = menu.backend;
-                            return Task::perform(
-                                async move {
-                                    match backend {
-                                        ql_core::StoreBackendType::Modrinth => {
-                                            ModrinthBackend::get_description(&id).await
-                                        }
-                                        ql_core::StoreBackendType::Curseforge => {
-                                            CurseforgeBackend::get_description(&id).await
-                                        }
-                                    }
-                                    .map(Box::new)
-                                },
-                                |n| Message::InstallMods(InstallModsMessage::LoadData(n.strerr())),
-                            );
+                            let id = ModId::from_pair(&id, backend);
+
+                            return Task::perform(get_description(id), |n| {
+                                Message::InstallMods(InstallModsMessage::LoadData(n.strerr()))
+                            });
                         }
                     }
                 }
@@ -399,49 +159,78 @@ impl Launcher {
                     menu.opened_mod = None;
                 }
             }
-            InstallModsMessage::LoadData(project_info) => match project_info {
-                Ok(info) => {
-                    if let State::ModsDownload(menu) = &mut self.state {
-                        let id = info.id.clone();
-                        menu.result_data.insert(id, *info);
-                    }
+            InstallModsMessage::LoadData(Ok(info)) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    let id = info.id.clone();
+                    menu.result_data.insert(id, *info);
                 }
-                Err(err) => self.set_error(err),
-            },
+            }
             InstallModsMessage::Download(index) => {
                 if let Some(value) = self.mod_download(index) {
                     return value;
                 }
             }
-            InstallModsMessage::DownloadComplete(result) => match result {
-                Ok(id) => {
-                    if let State::ModsDownload(menu) = &mut self.state {
-                        menu.mods_download_in_progress.remove(&id);
-                    }
-                }
-                Err(err) => self.set_error(err),
-            },
-            InstallModsMessage::IndexUpdated(result) => {
+            InstallModsMessage::DownloadComplete(Ok(id)) => {
                 if let State::ModsDownload(menu) = &mut self.state {
-                    match result {
-                        Ok(idx) => menu.mod_index = idx,
-                        Err(err) => self.set_error(err),
-                    }
+                    menu.mods_download_in_progress.remove(&id);
+                }
+            }
+            InstallModsMessage::IndexUpdated(Ok(idx)) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.mod_index = idx
                 }
             }
             InstallModsMessage::ChangeBackend(backend) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.backend = backend;
                     menu.results = None;
-
-                    return menu.search_store(matches!(
-                        &self.selected_instance,
-                        Some(InstanceSelection::Server(_))
-                    ));
+                    return menu.search_store(is_server);
                 }
             }
         }
         Task::none()
+    }
+
+    fn insert_image(&mut self, image: ql_mod_manager::mod_manager::ImageResult) {
+        if image.is_svg {
+            let handle = iced::widget::svg::Handle::from_memory(image.image);
+            self.images.svg.insert(image.url, handle);
+        } else {
+            self.images
+                .bitmap
+                .insert(image.url, Handle::from_bytes(image.image));
+        }
+    }
+
+    fn mod_download(&mut self, index: usize) -> Option<Task<Message>> {
+        let selected_instance = self.selected_instance.clone()?;
+        let State::ModsDownload(menu) = &mut self.state else {
+            return None;
+        };
+        let Some(results) = &menu.results else {
+            err!("Couldn't download mod: Search results empty");
+            return None;
+        };
+        let Some(hit) = results.mods.get(index) else {
+            err!("Couldn't download mod: Not present in results");
+            return None;
+        };
+
+        menu.mods_download_in_progress
+            .insert(ModId::Modrinth(hit.id.clone()));
+
+        let project_id = hit.id.clone();
+        let backend = menu.backend;
+        let id = ModId::from_pair(&project_id, backend);
+
+        Some(Task::perform(
+            async move {
+                ql_mod_manager::mod_manager::download_mod(&id, &selected_instance)
+                    .await
+                    .map(|()| ModId::Modrinth(project_id))
+            },
+            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
+        ))
     }
 
     pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Task<Message> {
@@ -500,11 +289,4 @@ impl Launcher {
         }
         Task::none()
     }
-}
-
-async fn delete_file_wrapper(path: PathBuf) -> Result<(), String> {
-    if !path.exists() {
-        return Ok(());
-    }
-    tokio::fs::remove_file(&path).await.path(path).strerr()
 }

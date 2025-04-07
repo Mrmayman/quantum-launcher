@@ -76,6 +76,7 @@ impl Default for GenericProgress {
 }
 
 impl GenericProgress {
+    #[must_use]
     pub fn finished() -> Self {
         Self {
             has_finished: true,

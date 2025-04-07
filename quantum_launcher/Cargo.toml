@@ -36,8 +36,6 @@ tokio = { workspace = true }
 chrono = { workspace = true }
 # For the icon widget macro
 paste = "1"
-# For the global style variable
-lazy_static = { workspace = true }
 # For the file picker
 rfd = { workspace = true }
 

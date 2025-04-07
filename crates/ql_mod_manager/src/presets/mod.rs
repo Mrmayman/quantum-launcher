@@ -233,8 +233,7 @@ impl PresetJson {
 }
 
 async fn get_instance_type(instance_name: &InstanceSelection) -> Result<String, ModError> {
-    let config_path = file_utils::get_instance_dir(instance_name).await?;
-    let config = InstanceConfigJson::read_from_path(&config_path).await?;
+    let config = InstanceConfigJson::read(instance_name).await?;
     Ok(config.mod_type)
 }
 

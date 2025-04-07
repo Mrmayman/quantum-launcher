@@ -1,11 +1,15 @@
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
+use chrono::Datelike;
 use iced::Task;
-use ql_core::{err, json::InstanceConfigJson, InstanceSelection, IntoStringError, ModId};
+use ql_core::{
+    err, json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
+    ModId,
+};
 use ql_mod_manager::mod_manager::{ModConfig, ModIndex};
 
 use crate::launcher_state::{
@@ -281,6 +285,37 @@ impl Launcher {
                 log.log.push(message);
             }
         }
+    }
+
+    fn get_current_date_formatted() -> String {
+        // Get the current date and time in UTC
+        let now = chrono::Local::now();
+
+        // Extract the day, month, and year
+        let day = now.day();
+        let month = now.format("%B").to_string(); // Full month name (e.g., "September")
+        let year = now.year();
+
+        // Return the formatted string
+        format!("{day} {month} {year}")
+    }
+
+    async fn save_config(
+        instance: InstanceSelection,
+        config: InstanceConfigJson,
+        dir: PathBuf,
+    ) -> Result<(), JsonFileError> {
+        let mut config = config.clone();
+        if config.enable_logger.is_none() {
+            config.enable_logger = Some(true);
+        }
+        let config_path = instance.get_instance_path(&dir).join("config.json");
+
+        let config_json = serde_json::to_string(&config)?;
+        tokio::fs::write(&config_path, config_json)
+            .await
+            .path(config_path)?;
+        Ok(())
     }
 }
 

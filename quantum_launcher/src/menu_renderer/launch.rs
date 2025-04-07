@@ -6,8 +6,8 @@ use ql_core::{LogType, IS_ARM_LINUX, LAUNCHER_VERSION_NAME};
 use crate::{
     icon_manager,
     launcher_state::{
-        CreateInstanceMessage, InstanceLog, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch,
-        Message, State, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
+        AccountMessage, CreateInstanceMessage, InstanceLog, LaunchTabId, Launcher,
+        ManageModsMessage, MenuLaunch, Message, State, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
     },
     menu_renderer::DISCORD,
     message_handler::SIDEBAR_DRAG_LEEWAY,
@@ -110,7 +110,14 @@ impl Launcher {
                     if let Some(menu) = &menu.edit_instance {
                         menu.view(selected)
                     } else {
-                        widget::column!("Loading...").padding(10).spacing(10).into()
+                        widget::column!(
+                            "Error: Could not read config json!",
+                            button_with_icon(icon_manager::delete(), "Delete Instance", 16)
+                                .on_press(Message::DeleteInstanceMenu)
+                        )
+                        .padding(10)
+                        .spacing(10)
+                        .into()
                     }
                 }
             }
@@ -262,10 +269,9 @@ impl Launcher {
                                 .style(|n: &LauncherTheme, status| {
                                     n.style_button(status, StyleButton::FlatExtraDark)
                                 })
-                                .on_press(if menu.is_viewing_server {
-                                    Message::ServerManageSelectedServer(name.clone())
-                                } else {
-                                    Message::LaunchInstanceSelected(name.clone())
+                                .on_press(Message::LaunchInstanceSelected {
+                                    name: name.clone(),
+                                    is_server: menu.is_viewing_server,
                                 })
                                 .width(menu.sidebar_width)
                                 .into()
@@ -310,7 +316,7 @@ impl Launcher {
             widget::pick_list(
                 self.accounts_dropdown.clone(),
                 self.accounts_selected.clone(),
-                Message::AccountSelected,
+                |n| Message::Account(AccountMessage::Selected(n)),
             )
             .width(menu.sidebar_width - 10)
             .into()
@@ -330,7 +336,7 @@ impl Launcher {
                             bottom: 3.0,
                             left: 8.0
                         })
-                        .on_press(Message::AccountLogoutCheck)
+                        .on_press(Message::Account(AccountMessage::LogoutCheck))
                         .style(|n: &LauncherTheme, status| n
                             .style_button(status, StyleButton::FlatExtraDark))
                 )

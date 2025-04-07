@@ -20,7 +20,7 @@ mod progress;
 
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::LazyLock,
 };
 
 pub use error::{
@@ -34,9 +34,7 @@ pub use progress::{DownloadProgress, GenericProgress, Progress};
 
 pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
-lazy_static::lazy_static! {
-    pub static ref CLIENT: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
-}
+pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
 /// Limit on how many files to download concurrently.
 const JOBS: usize = 64;

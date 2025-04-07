@@ -172,6 +172,10 @@ pub fn print_intro() {
     const LOGO: &str = include_str!("../../assets/ascii/icon.txt");
     const LOGO_WIDTH: u16 = 30;
 
+    if cfg!(target_os = "windows") {
+        return;
+    }
+
     // Helper function to pad lines to a fixed width
     fn pad_line(line: Option<&str>, width: usize) -> String {
         let line = line.unwrap_or_default();
@@ -200,12 +204,12 @@ pub fn print_intro() {
         for i in 0..lines_len {
             let text_line = pad_line(text.lines().nth(i), TEXT_WIDTH as usize);
             let logo_line = pad_line(LOGO.lines().nth(i), LOGO_WIDTH as usize);
-            if cfg!(target_os = "windows") || i >= logo_len {
+            if i >= logo_len {
                 _ = write!(stdout, "{logo_line} ");
             } else {
                 _ = write!(stdout, "{} ", logo_line.purple().bold());
             }
-            if cfg!(target_os = "windows") || i >= text_len_old {
+            if i >= text_len_old {
                 _ = write!(stdout, "{text_line}");
             } else {
                 _ = write!(stdout, "{}", text_line.bold());
@@ -216,19 +220,11 @@ pub fn print_intro() {
         // Screen only large enough for
         // Text and Logo to fit one after another
         // vertically
-        if cfg!(target_os = "windows") {
-            _ = writeln!(stdout, "{LOGO}\n{text}");
-        } else {
-            _ = writeln!(stdout, "{}\n{}", LOGO.purple().bold(), text.bold());
-        }
+        _ = writeln!(stdout, "{}\n{}", LOGO.purple().bold(), text.bold());
     } else if width >= LOGO_WIDTH {
         // Screen only large enough for Logo,
         // not text
-        if cfg!(target_os = "windows") {
-            _ = writeln!(stdout, "{LOGO}");
-        } else {
-            _ = writeln!(stdout, "{}", LOGO.purple().bold());
-        }
+        _ = writeln!(stdout, "{}", LOGO.purple().bold());
     } else {
         // Screen is too tiny
         _ = writeln!(stdout, "Quantum Launcher {LAUNCHER_VERSION_NAME}");

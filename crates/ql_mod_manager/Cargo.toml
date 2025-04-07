@@ -20,7 +20,6 @@ zip-extract = { workspace = true }
 
 colored = { workspace = true }
 tokio = { workspace = true }
-lazy_static = { workspace = true }
 thiserror = { workspace = true }
 
 image = "0.25"

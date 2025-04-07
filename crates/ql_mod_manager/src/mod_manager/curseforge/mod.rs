@@ -21,9 +21,7 @@ use super::{Backend, ModError};
 mod download;
 
 const NOT_LOADED: i32 = -1;
-lazy_static::lazy_static!(
-    pub static ref MC_ID: AtomicI32 = AtomicI32::new(NOT_LOADED);
-);
+pub static MC_ID: AtomicI32 = AtomicI32::new(NOT_LOADED);
 
 #[derive(Deserialize, Clone, Debug)]
 struct ModQuery {

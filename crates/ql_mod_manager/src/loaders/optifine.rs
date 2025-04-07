@@ -141,32 +141,38 @@ pub async fn uninstall(instance_name: String) -> Result<Loader, OptifineError> {
         .join(&instance_name);
 
     let optifine_path = instance_path.join("optifine");
+    if optifine_path.is_dir() {
+        tokio::fs::remove_dir_all(&optifine_path)
+            .await
+            .path(optifine_path)?;
+    }
 
-    tokio::fs::remove_dir_all(&optifine_path)
-        .await
-        .path(optifine_path)?;
     change_instance_type(&instance_path, "Vanilla".to_owned()).await?;
 
     let dot_minecraft_path = instance_path.join(".minecraft");
     let libraries_path = dot_minecraft_path.join("libraries");
-    tokio::fs::remove_dir_all(&libraries_path)
-        .await
-        .path(libraries_path)?;
+    if libraries_path.is_dir() {
+        tokio::fs::remove_dir_all(&libraries_path)
+            .await
+            .path(libraries_path)?;
+    }
 
     let versions_path = dot_minecraft_path.join("versions");
-    let mut entries = tokio::fs::read_dir(&versions_path)
-        .await
-        .path(versions_path)?;
-    while let Ok(Some(entry)) = entries.next_entry().await {
-        let path = entry.path();
-        // Check if the entry is a directory and contains the keyword
-        if !path.is_dir() {
-            continue;
-        }
+    if versions_path.is_dir() {
+        let mut entries = tokio::fs::read_dir(&versions_path)
+            .await
+            .path(versions_path)?;
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            // Check if the entry is a directory and contains the keyword
+            if !path.is_dir() {
+                continue;
+            }
 
-        if let Some(Some(file_name)) = path.file_name().map(|n| n.to_str()) {
-            if file_name.to_lowercase().contains("Opti") {
-                tokio::fs::remove_dir_all(&path).await.path(path)?;
+            if let Some(Some(file_name)) = path.file_name().map(|n| n.to_str()) {
+                if file_name.to_lowercase().contains("Opti") {
+                    tokio::fs::remove_dir_all(&path).await.path(path)?;
+                }
             }
         }
     }

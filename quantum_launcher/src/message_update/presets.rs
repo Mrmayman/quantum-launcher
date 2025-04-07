@@ -1,7 +1,10 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path};
 
 use iced::Task;
-use ql_core::{err, json::VersionDetails, IntoStringError, Loader, ModId, SelectedMod};
+use ql_core::{
+    err, json::VersionDetails, InstanceSelection, IntoIoError, IntoStringError, Loader, ModId,
+    SelectedMod,
+};
 use ql_mod_manager::mod_manager::{RecommendedMod, RECOMMENDED_MODS};
 
 use crate::launcher_state::{
@@ -29,65 +32,8 @@ impl Launcher {
         match message {
             EditPresetsMessage::Open => return Ok(self.go_to_edit_presets_menu()),
             EditPresetsMessage::TabChange(tab) => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner,
-                    config,
-                    sorted_mods_list,
-                    recommended_mods,
-                    ..
-                }) = &mut self.state
-                {
-                    let selected_mods = sorted_mods_list
-                        .iter()
-                        .filter_map(|n| n.is_manually_installed().then_some(n.id()))
-                        .collect::<HashSet<_>>();
-
-                    match tab.as_str() {
-                        PRESET_INNER_BUILD => {
-                            *inner = MenuEditPresetsInner::Build {
-                                selected_mods,
-                                selected_state: SelectedState::All,
-                                is_building: false,
-                            };
-                        }
-                        PRESET_INNER_RECOMMENDED => {
-                            let mod_type = config.mod_type.clone();
-
-                            let (sender, receiver) = std::sync::mpsc::channel();
-
-                            *inner = MenuEditPresetsInner::Recommended {
-                                progress: ProgressBar::with_recv(receiver),
-                                error: None,
-                            };
-
-                            if recommended_mods.is_some() {
-                                return Ok(Task::none());
-                            }
-
-                            let Some(json) =
-                                VersionDetails::load_s(&self.get_selected_instance_dir().unwrap())
-                            else {
-                                return Ok(Task::none());
-                            };
-                            let Ok(loader) = Loader::try_from(mod_type.as_str()) else {
-                                return Ok(Task::none());
-                            };
-
-                            let version = json.id.clone();
-                            let ids = RECOMMENDED_MODS.to_owned();
-                            return Ok(Task::perform(
-                                RecommendedMod::get_compatible_mods(ids, version, loader, sender),
-                                |n| {
-                                    Message::EditPresets(EditPresetsMessage::RecommendedModCheck(
-                                        n.strerr(),
-                                    ))
-                                },
-                            ));
-                        }
-                        _ => {
-                            err!("Invalid mod preset tab: {tab}");
-                        }
-                    }
+                if let Some(value) = self.preset_change_tab(tab) {
+                    return Ok(value);
                 }
             }
             EditPresetsMessage::ToggleCheckbox((name, id), enable) => {
@@ -111,33 +57,7 @@ impl Launcher {
                 });
             }
             EditPresetsMessage::SelectAll => {
-                if let State::ManagePresets(MenuEditPresets {
-                    inner:
-                        MenuEditPresetsInner::Build {
-                            selected_mods,
-                            selected_state,
-                            ..
-                        },
-                    sorted_mods_list,
-                    ..
-                }) = &mut self.state
-                {
-                    match selected_state {
-                        SelectedState::All => {
-                            selected_mods.clear();
-                            *selected_state = SelectedState::None;
-                        }
-                        SelectedState::Some | SelectedState::None => {
-                            *selected_mods = sorted_mods_list
-                                .iter()
-                                .filter_map(|mod_info| {
-                                    mod_info.is_manually_installed().then_some(mod_info.id())
-                                })
-                                .collect();
-                            *selected_state = SelectedState::All;
-                        }
-                    }
-                };
+                self.preset_select_all();
             }
             EditPresetsMessage::BuildYourOwn => {
                 iflet_manage_preset!(self, Build, selected_mods, is_building, {
@@ -171,7 +91,7 @@ impl Launcher {
                         }
                         Err(err) => *error = Some(err),
                     }
-                };
+                }
             }
             EditPresetsMessage::RecommendedToggle(idx, toggle) => {
                 if let State::ManagePresets(MenuEditPresets {
@@ -185,37 +105,7 @@ impl Launcher {
                 }
             }
             EditPresetsMessage::RecommendedDownload => {
-                if let State::ManagePresets(MenuEditPresets {
-                    recommended_mods: Some(recommended_mods),
-                    progress,
-                    ..
-                }) = &mut self.state
-                {
-                    let (sender, receiver) = std::sync::mpsc::channel();
-
-                    *progress = Some(ProgressBar::with_recv(receiver));
-
-                    let ids: Vec<ModId> = recommended_mods
-                        .iter()
-                        .filter(|n| n.0)
-                        .map(|n| ModId::from_pair(n.1.id, n.1.backend))
-                        .collect();
-
-                    let instance = self.selected_instance.clone().unwrap();
-
-                    return Ok(Task::perform(
-                        ql_mod_manager::mod_manager::download_mods_bulk(
-                            ids,
-                            instance,
-                            Some(sender),
-                        ),
-                        |n| {
-                            Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(
-                                n.strerr(),
-                            ))
-                        },
-                    ));
-                }
+                return Ok(self.preset_download_recommended())
             }
             EditPresetsMessage::RecommendedDownloadEnd(result) => {
                 result?;
@@ -223,6 +113,230 @@ impl Launcher {
             }
         }
         Ok(Task::none())
+    }
+
+    fn preset_download_recommended(&mut self) -> Task<Message> {
+        if let State::ManagePresets(MenuEditPresets {
+            recommended_mods: Some(recommended_mods),
+            progress,
+            ..
+        }) = &mut self.state
+        {
+            let (sender, receiver) = std::sync::mpsc::channel();
+            *progress = Some(ProgressBar::with_recv(receiver));
+
+            let ids: Vec<ModId> = recommended_mods
+                .iter()
+                .filter(|n| n.0)
+                .map(|n| ModId::from_pair(n.1.id, n.1.backend))
+                .collect();
+
+            let instance = self.selected_instance.clone().unwrap();
+
+            Task::perform(
+                ql_mod_manager::mod_manager::download_mods_bulk(ids, instance, Some(sender)),
+                |n| Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(n.strerr())),
+            )
+        } else {
+            Task::none()
+        }
+    }
+
+    fn preset_change_tab(&mut self, tab: String) -> Option<Task<Message>> {
+        if let State::ManagePresets(MenuEditPresets {
+            inner,
+            config,
+            sorted_mods_list,
+            recommended_mods,
+            ..
+        }) = &mut self.state
+        {
+            let selected_mods = sorted_mods_list
+                .iter()
+                .filter_map(|n| n.is_manually_installed().then_some(n.id()))
+                .collect::<HashSet<_>>();
+
+            match tab.as_str() {
+                PRESET_INNER_BUILD => {
+                    *inner = MenuEditPresetsInner::Build {
+                        selected_mods,
+                        selected_state: SelectedState::All,
+                        is_building: false,
+                    };
+                }
+                PRESET_INNER_RECOMMENDED => {
+                    if let Some(task) = Self::presets_switch_to_recommended(
+                        self.selected_instance.as_ref().unwrap(),
+                        inner,
+                        config,
+                        recommended_mods,
+                        &self.dir,
+                    ) {
+                        return Some(task);
+                    }
+                }
+                _ => {
+                    err!("Invalid mod preset tab: {tab}");
+                }
+            }
+        }
+        None
+    }
+
+    fn preset_select_all(&mut self) {
+        if let State::ManagePresets(MenuEditPresets {
+            inner:
+                MenuEditPresetsInner::Build {
+                    selected_mods,
+                    selected_state,
+                    ..
+                },
+            sorted_mods_list,
+            ..
+        }) = &mut self.state
+        {
+            match selected_state {
+                SelectedState::All => {
+                    selected_mods.clear();
+                    *selected_state = SelectedState::None;
+                }
+                SelectedState::Some | SelectedState::None => {
+                    *selected_mods = sorted_mods_list
+                        .iter()
+                        .filter_map(|mod_info| {
+                            mod_info.is_manually_installed().then_some(mod_info.id())
+                        })
+                        .collect();
+                    *selected_state = SelectedState::All;
+                }
+            }
+        }
+    }
+
+    fn presets_switch_to_recommended(
+        selected_instance: &InstanceSelection,
+        inner: &mut MenuEditPresetsInner,
+        config: &mut ql_core::json::InstanceConfigJson,
+        recommended_mods: &mut Option<Vec<(bool, RecommendedMod)>>,
+        dir: &Path,
+    ) -> Option<Task<Message>> {
+        let mod_type = config.mod_type.clone();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        *inner = MenuEditPresetsInner::Recommended {
+            progress: ProgressBar::with_recv(receiver),
+            error: None,
+        };
+        if recommended_mods.is_some() {
+            return None;
+        }
+        let json = VersionDetails::load_s(&selected_instance.get_instance_path(dir))?;
+        let loader = Loader::try_from(mod_type.as_str()).ok()?;
+        let version = json.id.clone();
+        let ids = RECOMMENDED_MODS.to_owned();
+
+        Some(Task::perform(
+            RecommendedMod::get_compatible_mods(ids, version, loader, sender),
+            |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n.strerr())),
+        ))
+    }
+
+    fn go_to_edit_presets_menu(&mut self) -> Task<Message> {
+        let State::EditMods(menu) = &self.state else {
+            return Task::none();
+        };
+
+        let selected_mods = menu
+            .sorted_mods_list
+            .iter()
+            .filter_map(|n| n.is_manually_installed().then_some(n.id()))
+            .collect::<HashSet<_>>();
+
+        let is_empty = menu.sorted_mods_list.is_empty();
+
+        let mod_type = menu.config.mod_type.clone();
+
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        self.state = State::ManagePresets(MenuEditPresets {
+            inner: if is_empty {
+                MenuEditPresetsInner::Recommended {
+                    progress: ProgressBar::with_recv(receiver),
+                    error: None,
+                }
+            } else {
+                MenuEditPresetsInner::Build {
+                    selected_mods,
+                    selected_state: SelectedState::All,
+                    is_building: false,
+                }
+            },
+            recommended_mods: None,
+            progress: None,
+            config: menu.config.clone(),
+            sorted_mods_list: menu.sorted_mods_list.clone(),
+        });
+
+        if !is_empty {
+            return Task::none();
+        }
+
+        let Some(json) = VersionDetails::load_s(&self.get_selected_instance_dir().unwrap()) else {
+            return Task::none();
+        };
+
+        let Ok(loader) = Loader::try_from(mod_type.as_str()) else {
+            return Task::none();
+        };
+
+        let version = json.id.clone();
+        let ids = RECOMMENDED_MODS.to_owned();
+        Task::perform(
+            RecommendedMod::get_compatible_mods(ids, version, loader, sender),
+            |n| Message::EditPresets(EditPresetsMessage::RecommendedModCheck(n.strerr())),
+        )
+    }
+
+    fn load_preset(&mut self) -> Task<Message> {
+        let Some(file) = rfd::FileDialog::new()
+            .add_filter("QuantumLauncher Mod Preset", &["qmp"])
+            .set_title("Select Mod Preset to Load")
+            .pick_file()
+        else {
+            return Task::none();
+        };
+        let file = match std::fs::read(&file).path(&file) {
+            Ok(n) => n,
+            Err(err) => {
+                self.set_error(err);
+                return Task::none();
+            }
+        };
+
+        match tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(ql_mod_manager::PresetJson::load(
+                self.selected_instance.clone().unwrap(),
+                file,
+            )) {
+            Ok(mods) => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                if let State::ManagePresets(menu) = &mut self.state {
+                    menu.progress = Some(ProgressBar::with_recv(receiver));
+                }
+                let instance_name = self.selected_instance.clone().unwrap();
+                return Task::perform(
+                    ql_mod_manager::mod_manager::download_mods_bulk(
+                        mods,
+                        instance_name,
+                        Some(sender),
+                    ),
+                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n.strerr())),
+                );
+            }
+            Err(err) => self.set_error(err),
+        }
+
+        Task::none()
     }
 
     fn build_end(&mut self, preset: Result<Vec<u8>, String>) -> Result<Task<Message>, String> {

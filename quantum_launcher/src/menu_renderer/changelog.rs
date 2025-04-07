@@ -1,23 +1,26 @@
+use std::sync::LazyLock;
+
 use iced::widget::{self, image::Handle};
-use lazy_static::lazy_static;
 
 use crate::{icon_manager, launcher_state::Message};
 
 use super::{button_with_icon, Element, DISCORD};
 
-lazy_static! {
-    pub static ref IMG_NEW: Handle =
-        Handle::from_bytes(include_bytes!("../../../assets/screenshots/new.png").as_slice());
-    pub static ref IMG_LOADERS: Handle = Handle::from_bytes(
-        include_bytes!("../../../assets/screenshots/install_loader.png").as_slice()
-    );
-    pub static ref IMG_MOD_STORE: Handle =
-        Handle::from_bytes(include_bytes!("../../../assets/screenshots/mod_store.png").as_slice());
-    pub static ref IMG_OLD_MC: Handle =
-        Handle::from_bytes(include_bytes!("../../../assets/screenshots/old_mc.png").as_slice());
-    pub static ref IMG_THEMES: Handle =
-        Handle::from_bytes(include_bytes!("../../../assets/screenshots/themes.png").as_slice());
-}
+pub static IMG_NEW: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/screenshots/new.png").as_slice())
+});
+pub static IMG_LOADERS: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/screenshots/install_loader.png").as_slice())
+});
+pub static IMG_MOD_STORE: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/screenshots/mod_store.png").as_slice())
+});
+pub static IMG_OLD_MC: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/screenshots/old_mc.png").as_slice())
+});
+pub static IMG_THEMES: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/screenshots/themes.png").as_slice())
+});
 
 pub fn changelog_0_4<'a>() -> Element<'a> {
     widget::column!(

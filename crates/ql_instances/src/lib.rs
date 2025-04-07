@@ -1,7 +1,7 @@
 //! # A module for creating, managing and running Minecraft client instances
 //!
 //! This module contains functions to:
-//! - Create and delete an instance
+//! - Create an instance
 //! - Launch the instance
 //! - Update the launcher
 //! - Read logs

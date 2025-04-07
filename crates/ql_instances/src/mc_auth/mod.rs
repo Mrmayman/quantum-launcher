@@ -195,13 +195,13 @@ pub async fn login_3_xbox(
     data: AuthTokenResponse,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, AuthError> {
-    send_progress(sender.as_ref(), 0, "Logging into xbox live...");
+    send_progress(sender.as_ref(), 1, "Logging into xbox live...");
     let xbox = login_in_xbox_live(&CLIENT, &data).await?;
-    send_progress(sender.as_ref(), 1, "Logging into minecraft...");
+    send_progress(sender.as_ref(), 2, "Logging into minecraft...");
     let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
-    send_progress(sender.as_ref(), 2, "Getting account details...");
+    send_progress(sender.as_ref(), 3, "Getting account details...");
     let final_details = get_final_details(&CLIENT, &minecraft).await?;
-    // send_progress(sender.as_ref(), 3, "Checking game ownership...");
+    // send_progress(sender.as_ref(), 4, "Checking game ownership...");
     // let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
 
     // if !owns_game {
@@ -233,7 +233,7 @@ fn send_progress(
     if let Some(sender) = sender {
         _ = sender.send(GenericProgress {
             done,
-            total: 3,
+            total: 4,
             message: Some(message.to_owned()),
             has_finished: false,
         });

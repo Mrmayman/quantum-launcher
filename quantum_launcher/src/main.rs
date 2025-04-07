@@ -75,13 +75,12 @@ use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use iced::{Settings, Task};
 use launcher_state::{
     get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherUpdate,
-    MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State, NEW_ACCOUNT_NAME,
-    OFFLINE_ACCOUNT_NAME,
+    MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
 
 use ql_core::{
     err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
-    Loader, ModId, SelectedMod,
+    Loader,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -132,140 +131,53 @@ impl Launcher {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Nothing => {}
-            Message::AccountSelected(account) => {
-                return self.account_selected(account);
-            }
-            Message::AccountResponse1(result) => match result {
-                Ok(code) => {
-                    return self.account_response_1(code);
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::AccountResponse2(result) => match result {
-                Ok(token) => {
-                    return self.account_response_2(token);
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::AccountResponse3(result) => match result {
-                Ok(data) => {
-                    return self.account_response_3(data);
-                }
-                Err(err) => {
-                    self.set_error(err);
-                }
-            },
-            Message::AccountLogoutCheck => {
-                let username = self.accounts_selected.as_ref().unwrap();
-                self.state = State::ConfirmAction {
-                    msg1: format!("log out of your account: {username}"),
-                    msg2: "You can always log in later".to_owned(),
-                    yes: Message::AccountLogoutConfirm,
-                    no: Message::LaunchScreenOpen {
-                        message: None,
-                        clear_selection: false,
-                    },
-                }
-            }
-            Message::AccountLogoutConfirm => {
-                let username = self.accounts_selected.clone().unwrap();
-                if let Err(err) = ql_instances::logout(&username) {
-                    self.set_error(err);
-                }
-                if let Some(accounts) = &mut self.config.accounts {
-                    accounts.remove(&username);
-                }
-                self.accounts.remove(&username);
-                if let Some(idx) = self
-                    .accounts_dropdown
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, n)| (*n == username).then_some(i))
-                {
-                    self.accounts_dropdown.remove(idx);
-                }
-                let selected_account = self
-                    .accounts_dropdown
-                    .first()
-                    .cloned()
-                    .unwrap_or_else(|| OFFLINE_ACCOUNT_NAME.to_owned());
-                self.accounts_selected = Some(selected_account);
 
-                return self.go_to_launch_screen(Option::<String>::None);
-            }
-            Message::ManageMods(message) => return self.update_manage_mods(message),
-            Message::LaunchInstanceSelected(selected_instance) => {
-                self.selected_instance = Some(InstanceSelection::Instance(selected_instance));
-                if let Err(err) = self.edit_instance() {
+            Message::CoreTickConfigSaved(result)
+            | Message::LaunchKillEnd(result)
+            | Message::UpdateDownloadEnd(result) => {
+                if let Err(err) = result {
                     self.set_error(err);
+                }
+            }
+
+            Message::ServerCreateEnd(Err(err))
+            | Message::ServerCreateVersionsLoaded(Err(err))
+            | Message::UninstallLoaderEnd(Err(err))
+            | Message::ServerManageStartServerFinish(Err(err))
+            | Message::InstallForgeEnd(Err(err))
+            | Message::LaunchEndedLog(Err(err))
+            | Message::ServerManageEndedLog(Err(err))
+            | Message::CoreListLoaded(Err(err))
+            | Message::UpdateCheckResult(Err(err)) => self.set_error(err),
+
+            Message::Account(msg) => return self.update_account(msg),
+            Message::ManageMods(message) => return self.update_manage_mods(message),
+            Message::LaunchInstanceSelected { name, is_server } => {
+                self.selected_instance = Some(InstanceSelection::new(&name, is_server));
+
+                if matches!(
+                    &self.state,
+                    State::Launch(MenuLaunch {
+                        edit_instance: Some(_),
+                        ..
+                    }),
+                ) {
+                    if let Err(err) = self.edit_instance() {
+                        err!("Could not open edit instance menu: {err}");
+                        if let State::Launch(MenuLaunch { edit_instance, .. }) = &mut self.state {
+                            *edit_instance = None;
+                        }
+                    }
                 }
             }
             Message::LaunchUsernameSet(username) => {
                 self.config.username = username;
             }
-            Message::LaunchStart => {
-                let account_data = if let Some(account) = &self.accounts_selected {
-                    if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
-                        None
-                    } else {
-                        self.accounts.get(account).cloned()
-                    }
-                } else {
-                    None
-                };
-
-                // If the user is loading an existing login from disk
-                // then first refresh the tokens
-                if let Some(account) = &account_data {
-                    if account.access_token.is_none() || account.needs_refresh {
-                        return self.account_refresh(account);
-                    }
-                }
-
-                // Or, if the account is freshly added,
-                // just directly launch the game.
-                return self.launch_game(account_data);
-            }
-            Message::AccountRefreshComplete(result) => match result {
-                Ok(data) => {
-                    self.accounts.insert(data.username.clone(), data);
-
-                    let account_data = if let Some(account) = &self.accounts_selected {
-                        if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
-                            None
-                        } else {
-                            self.accounts.get(account).cloned()
-                        }
-                    } else {
-                        None
-                    };
-
-                    return Task::batch([
-                        self.go_to_launch_screen::<String>(None),
-                        self.launch_game(account_data),
-                    ]);
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::LaunchEnd(result) => {
-                return self.finish_launching(result);
-            }
+            Message::LaunchStart => return self.launch_start(),
+            Message::LaunchEnd(result) => return self.finish_launching(result),
             Message::CreateInstance(message) => return self.update_create_instance(message),
-            Message::DeleteInstanceMenu => {
-                self.state = State::ConfirmAction {
-                    msg1: format!(
-                        "delete the instance {}",
-                        self.selected_instance.as_ref().unwrap().get_name()
-                    ),
-                    msg2: "All your data, including worlds, will be lost".to_owned(),
-                    yes: Message::DeleteInstance,
-                    no: Message::LaunchScreenOpen {
-                        message: None,
-                        clear_selection: false,
-                    },
-                };
-            }
-            Message::DeleteInstance => return self.delete_selected_instance(),
+            Message::DeleteInstanceMenu => self.go_to_delete_instance_menu(),
+            Message::DeleteInstance => return self.delete_instance_confirm(),
             Message::LaunchScreenOpen {
                 message,
                 clear_selection,
@@ -321,59 +233,30 @@ impl Launcher {
                     Message::UninstallLoaderEnd,
                 );
             }
-            Message::UninstallLoaderEnd(result) => match result {
-                Ok(loader) => {
-                    let message = format!(
-                        "Uninstalled {}",
-                        if let Loader::Fabric = loader {
-                            "Fabric/Quilt".to_owned()
-                        } else {
-                            // TODO: If the debug printing gets a bit too debug-ey
-                            // in the future, this may scare off users.
-                            format!("{loader:?}")
-                        }
-                    );
-                    return self.go_to_main_menu_with_message(Some(message));
-                }
-                Err(err) => self.set_error(err),
-            },
+            Message::UninstallLoaderEnd(Ok(loader)) => {
+                let message = format!(
+                    "Uninstalled {}",
+                    if let Loader::Fabric = loader {
+                        "Fabric/Quilt".to_owned()
+                    } else {
+                        // TODO: If the debug printing gets a bit too debug-ey
+                        // in the future, this may scare off users.
+                        format!("{loader:?}")
+                    }
+                );
+                return self.go_to_main_menu_with_message(Some(message));
+            }
             Message::InstallForgeStart { is_neoforge } => {
                 return self.install_forge(is_neoforge);
             }
-            Message::InstallForgeEnd(result) => match result {
-                Ok(()) => {
-                    return self.go_to_main_menu_with_message(Some("Installed Forge/NeoForge"));
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::LaunchEndedLog(result) => match result {
-                Ok((status, name)) => {
-                    info!("Game exited with status: {status}");
-                    self.set_game_crashed(status, &name);
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::LaunchKill => {
-                if let Some(process) = self
-                    .client_processes
-                    .remove(self.selected_instance.as_ref().unwrap().get_name())
-                {
-                    return Task::perform(
-                        {
-                            async move {
-                                let mut child = process.child.lock().unwrap();
-                                child.start_kill().strerr()
-                            }
-                        },
-                        Message::LaunchKillEnd,
-                    );
-                }
+            Message::InstallForgeEnd(Ok(())) => {
+                return self.go_to_main_menu_with_message(Some("Installed Forge/NeoForge"));
             }
-            Message::CoreTickConfigSaved(result) | Message::LaunchKillEnd(result) => {
-                if let Err(err) = result {
-                    self.set_error(err);
-                }
+            Message::LaunchEndedLog(Ok((status, name))) => {
+                info!("Game exited with status: {status}");
+                self.set_game_crashed(status, &name);
             }
+            Message::LaunchKill => return self.kill_selected_instance(),
             Message::LaunchCopyLog => {
                 if let Some(log) = self
                     .client_logs
@@ -384,55 +267,18 @@ impl Launcher {
                     );
                 }
             }
-            Message::UpdateCheckResult(update_check_info) => match update_check_info {
-                Ok(info) => match info {
-                    UpdateCheckInfo::UpToDate => {
-                        info_no_log!("Launcher is latest version. No new updates");
-                    }
-                    UpdateCheckInfo::NewVersion { url } => {
-                        self.state = State::UpdateFound(MenuLauncherUpdate {
-                            url,
-                            progress: None,
-                        });
-                    }
-                },
-                Err(err) => {
-                    err!("Could not check for updates: {err}");
+            Message::UpdateCheckResult(Ok(info)) => match info {
+                UpdateCheckInfo::UpToDate => {
+                    info_no_log!("Launcher is latest version. No new updates");
+                }
+                UpdateCheckInfo::NewVersion { url } => {
+                    self.state = State::UpdateFound(MenuLauncherUpdate {
+                        url,
+                        progress: None,
+                    });
                 }
             },
-            Message::UpdateDownloadStart => {
-                if let State::UpdateFound(MenuLauncherUpdate { url, progress, .. }) =
-                    &mut self.state
-                {
-                    let (sender, update_receiver) = std::sync::mpsc::channel();
-                    *progress = Some(ProgressBar::with_recv_and_msg(
-                        update_receiver,
-                        "Starting Update".to_owned(),
-                    ));
-
-                    let url = url.clone();
-
-                    return Task::perform(
-                        async move {
-                            ql_instances::install_launcher_update(url, sender)
-                                .await
-                                .strerr()
-                        },
-                        Message::UpdateDownloadEnd,
-                    );
-                }
-            }
-            Message::UpdateDownloadEnd(err) => {
-                if let Err(err) = err {
-                    self.set_error(err);
-                } else {
-                    // WTF: Yeah... no one is gonna see this.
-                    return self.go_to_launch_screen(Some(
-                        "Updated launcher! Close and reopen the launcher to see the new update"
-                            .to_owned(),
-                    ));
-                }
-            }
+            Message::UpdateDownloadStart => return self.update_download_start(),
             Message::LauncherSettingsThemePicked(theme) => {
                 info!("Setting color mode {theme}");
                 self.config.theme = Some(theme.clone());
@@ -443,9 +289,7 @@ impl Launcher {
                     _ => err!("Invalid color mode {theme}"),
                 }
             }
-            Message::LauncherSettingsOpen => {
-                self.state = State::LauncherSettings;
-            }
+            Message::LauncherSettingsOpen => self.state = State::LauncherSettings,
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting color scheme {style}");
                 self.config.style = Some(style.clone());
@@ -457,53 +301,7 @@ impl Launcher {
                     _ => err!("Invalid color scheme {style}"),
                 }
             }
-            Message::ManageModsSelectAll => {
-                if let State::EditMods(menu) = &mut self.state {
-                    match menu.selected_state {
-                        SelectedState::All => {
-                            menu.selected_mods.clear();
-                            menu.selected_state = SelectedState::None;
-                        }
-                        SelectedState::Some | SelectedState::None => {
-                            menu.selected_mods = menu
-                                .mods
-                                .mods
-                                .iter()
-                                .filter_map(|(id, mod_info)| {
-                                    mod_info
-                                        .manually_installed
-                                        .then_some(SelectedMod::Downloaded {
-                                            name: mod_info.name.clone(),
-                                            id: ModId::from_index_str(id),
-                                        })
-                                })
-                                .chain(menu.locally_installed_mods.iter().map(|n| {
-                                    SelectedMod::Local {
-                                        file_name: n.clone(),
-                                    }
-                                }))
-                                .collect();
-                            menu.selected_state = SelectedState::All;
-                        }
-                    }
-                }
-            }
             Message::InstallOptifine(msg) => return self.update_install_optifine(msg),
-            Message::ServerManageSelectedServer(selected) => {
-                self.selected_instance = Some(InstanceSelection::Server(selected));
-
-                if matches!(
-                    &self.state,
-                    State::Launch(MenuLaunch {
-                        edit_instance: Some(_),
-                        ..
-                    }),
-                ) {
-                    if let Err(err) = self.edit_instance() {
-                        self.set_error(err);
-                    }
-                }
-            }
             Message::ServerManageOpen {
                 selected_server,
                 message,
@@ -570,24 +368,18 @@ impl Launcher {
                     );
                 }
             }
-            Message::ServerCreateEnd(result) => match result {
-                Ok(name) => {
-                    self.selected_instance = Some(InstanceSelection::Server(name));
-                    return self.go_to_server_manage_menu(Some("Created Server".to_owned()));
-                }
-                Err(err) => self.set_error(err),
-            },
-            Message::ServerCreateVersionsLoaded(vec) => match vec {
-                Ok(vec) => {
-                    self.server_version_list_cache = Some(vec.clone());
-                    self.state = State::ServerCreate(MenuServerCreate::Loaded {
-                        versions: iced::widget::combo_box::State::new(vec),
-                        selected_version: None,
-                        name: String::new(),
-                    });
-                }
-                Err(err) => self.set_error(err),
-            },
+            Message::ServerCreateEnd(Ok(name)) => {
+                self.selected_instance = Some(InstanceSelection::Server(name));
+                return self.go_to_server_manage_menu(Some("Created Server".to_owned()));
+            }
+            Message::ServerCreateVersionsLoaded(Ok(vec)) => {
+                self.server_version_list_cache = Some(vec.clone());
+                self.state = State::ServerCreate(MenuServerCreate::Loaded {
+                    versions: iced::widget::combo_box::State::new(vec),
+                    selected_version: None,
+                    name: String::new(),
+                });
+            }
             Message::ServerManageStartServer(server) => {
                 self.server_logs.remove(&server);
                 let (sender, receiver) = std::sync::mpsc::channel();
@@ -602,28 +394,22 @@ impl Launcher {
                     );
                 }
             }
-            Message::ServerManageStartServerFinish(result) => match result {
-                Ok((child, is_classic_server)) => {
-                    self.java_recv = None;
-                    return self.add_server_to_processes(child, is_classic_server);
+            Message::ServerManageStartServerFinish(Ok((child, is_classic_server))) => {
+                self.java_recv = None;
+                return self.add_server_to_processes(child, is_classic_server);
+            }
+            Message::ServerManageEndedLog(Ok((status, name))) => {
+                if status.success() {
+                    info!("Server {name} stopped.");
+                } else {
+                    info!("Server {name} crashed with status: {status}");
                 }
-                Err(err) => self.set_error(err),
-            },
-            Message::ServerManageEndedLog(result) => match result {
-                Ok((status, name)) => {
-                    if status.success() {
-                        info!("Server {name} stopped.");
-                    } else {
-                        info!("Server {name} crashed with status: {status}");
-                    }
 
-                    // TODO: Implement server crash handling
-                    if let Some(log) = self.server_logs.get_mut(&name) {
-                        log.has_crashed = !status.success();
-                    }
+                // TODO: Implement server crash handling
+                if let Some(log) = self.server_logs.get_mut(&name) {
+                    log.has_crashed = !status.success();
                 }
-                Err(err) => self.set_error(err),
-            },
+            }
             Message::ServerManageKillServer(server) => {
                 if let Some(ServerProcess {
                     stdin: Some(stdin),
@@ -714,16 +500,13 @@ impl Launcher {
                     Message::UninstallLoaderEnd,
                 );
             }
-            Message::CoreListLoaded(result) => match result {
-                Ok((list, is_server)) => {
-                    if is_server {
-                        self.server_list = Some(list);
-                    } else {
-                        self.client_list = Some(list);
-                    }
+            Message::CoreListLoaded(Ok((list, is_server))) => {
+                if is_server {
+                    self.server_list = Some(list);
+                } else {
+                    self.client_list = Some(list);
                 }
-                Err(err) => self.set_error(err),
-            },
+            }
             Message::CoreCopyText(txt) => {
                 return iced::clipboard::write(txt);
             }
@@ -747,7 +530,10 @@ impl Launcher {
             Message::LaunchChangeTab(launch_tab_id) => {
                 if let LaunchTabId::Edit = launch_tab_id {
                     if let Err(err) = self.edit_instance() {
-                        self.set_error(err);
+                        err!("Could not open edit instance menu: {err}");
+                        if let State::Launch(MenuLaunch { edit_instance, .. }) = &mut self.state {
+                            *edit_instance = None;
+                        }
                     }
                 }
                 if let State::Launch(MenuLaunch { tab, .. }) = &mut self.state {
@@ -783,6 +569,9 @@ impl Launcher {
         Task::none()
     }
 
+    // Iced expects a `fn(&self)` so we're putting `&self`
+    // even when not needed.
+    #[allow(clippy::unused_self)]
     fn subscription(&self) -> iced::Subscription<Message> {
         const UPDATES_PER_SECOND: u64 = 5;
 

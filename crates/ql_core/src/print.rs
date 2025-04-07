@@ -1,7 +1,7 @@
 use std::{
     fs::{File, OpenOptions},
     io::{BufWriter, Write},
-    sync::Mutex,
+    sync::{LazyLock, Mutex},
 };
 
 use chrono::{Datelike, Timelike};
@@ -87,11 +87,7 @@ impl LoggingState {
     }
 }
 
-lazy_static::lazy_static! {
-    #[allow(clippy::ref_option)]
-    pub static ref LOGGER: Option<Mutex<LoggingState>> =
-        LoggingState::create();
-}
+pub static LOGGER: LazyLock<Option<Mutex<LoggingState>>> = LazyLock::new(LoggingState::create);
 
 pub fn print_to_file(msg: &str, t: LogType) {
     if let Some(logger) = LOGGER.as_ref() {

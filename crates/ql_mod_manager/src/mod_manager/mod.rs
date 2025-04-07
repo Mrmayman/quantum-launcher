@@ -49,6 +49,14 @@ pub trait Backend {
     ) -> Result<(), ModError>;
 }
 
+pub async fn get_description(id: ModId) -> Result<Box<ModInformation>, ModError> {
+    match &id {
+        ModId::Modrinth(n) => ModrinthBackend::get_description(n).await,
+        ModId::Curseforge(n) => CurseforgeBackend::get_description(n).await,
+    }
+    .map(Box::new)
+}
+
 pub async fn download_mod(id: &ModId, instance: &InstanceSelection) -> Result<(), ModError> {
     match id {
         ModId::Modrinth(n) => ModrinthBackend::download(n, instance).await,

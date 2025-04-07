@@ -17,12 +17,15 @@ pub async fn uninstall(instance: InstanceSelection) -> Result<Loader, ForgeInsta
 pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
     let launcher_dir = file_utils::get_launcher_dir().await?;
     let instance_dir = launcher_dir.join("instances").join(instance);
-    change_instance_type(&instance_dir, "Vanilla".to_owned()).await?;
 
     let forge_dir = instance_dir.join("forge");
-    tokio::fs::remove_dir_all(&forge_dir)
-        .await
-        .path(forge_dir)?;
+    if forge_dir.is_dir() {
+        tokio::fs::remove_dir_all(&forge_dir)
+            .await
+            .path(forge_dir)?;
+    }
+
+    change_instance_type(&instance_dir, "Vanilla".to_owned()).await?;
     Ok(())
 }
 
@@ -38,9 +41,11 @@ pub async fn uninstall_server(instance: &str) -> Result<(), ForgeInstallError> {
     }
 
     let libraries_dir = instance_dir.join("libraries");
-    tokio::fs::remove_dir_all(&libraries_dir)
-        .await
-        .path(libraries_dir)?;
+    if libraries_dir.is_dir() {
+        tokio::fs::remove_dir_all(&libraries_dir)
+            .await
+            .path(libraries_dir)?;
+    }
 
     delete_file(&instance_dir.join("run.sh")).await?;
     delete_file(&instance_dir.join("run.bat")).await?;

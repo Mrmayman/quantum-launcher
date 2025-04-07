@@ -60,7 +60,7 @@ pub async fn read_logs(
             // then we know something else has panicked,
             // so might as well panic too.
             //
-            // (this is a methaphor for real life lol)
+            // (this is a methaphor for real life lol WTF: )
             let mut child = child.lock().unwrap();
             child.try_wait()
         };

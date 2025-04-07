@@ -1,11 +1,12 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
 
 use tokio::sync::Mutex;
 
-lazy_static::lazy_static! {
-    pub static ref RATE_LIMITER: RateLimiter = RateLimiter::default();
-    pub static ref MOD_DOWNLOAD_LOCK: Mutex<()> = Mutex::new(());
-}
+pub static RATE_LIMITER: LazyLock<RateLimiter> = LazyLock::new(RateLimiter::default);
+pub static MOD_DOWNLOAD_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 pub struct RateLimiter {
     last_executed: Mutex<Instant>,

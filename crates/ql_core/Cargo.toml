@@ -9,7 +9,6 @@ dirs = "5"
 futures = "0.3"
 zip-extract = { workspace = true }
 
-lazy_static = { workspace = true }
 colored = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

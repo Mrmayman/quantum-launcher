@@ -93,6 +93,7 @@ pub enum ManageModsMessage {
     UpdateModsFinished(Result<(), String>),
     UpdateCheckResult(Result<Vec<(ModId, String)>, String>),
     UpdateCheckToggle(usize, bool),
+    SelectAll,
 }
 
 #[derive(Debug, Clone)]
@@ -136,17 +137,22 @@ pub enum EditPresetsMessage {
 }
 
 #[derive(Debug, Clone)]
+pub enum AccountMessage {
+    Selected(String),
+    Response1(Result<AuthCodeResponse, String>),
+    Response2(Result<AuthTokenResponse, String>),
+    Response3(Result<AccountData, String>),
+    LogoutCheck,
+    LogoutConfirm,
+    RefreshComplete(Result<AccountData, String>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
     #[allow(unused)]
     Nothing,
 
-    AccountSelected(String),
-    AccountResponse1(Result<AuthCodeResponse, String>),
-    AccountResponse2(Result<AuthTokenResponse, String>),
-    AccountResponse3(Result<AccountData, String>),
-    AccountLogoutCheck,
-    AccountLogoutConfirm,
-
+    Account(AccountMessage),
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
     ManageMods(ManageModsMessage),
@@ -155,10 +161,12 @@ pub enum Message {
     InstallFabric(InstallFabricMessage),
     EditPresets(EditPresetsMessage),
     CoreOpenDir(String),
-    LaunchInstanceSelected(String),
+    LaunchInstanceSelected {
+        name: String,
+        is_server: bool,
+    },
     LaunchUsernameSet(String),
     LaunchStart,
-    AccountRefreshComplete(Result<AccountData, String>),
     LaunchScreenOpen {
         message: Option<String>,
         clear_selection: bool,
@@ -204,8 +212,6 @@ pub enum Message {
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
 
-    ManageModsSelectAll,
-
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
     LauncherSettingsOpen,
@@ -214,7 +220,6 @@ pub enum Message {
         selected_server: Option<String>,
         message: Option<String>,
     },
-    ServerManageSelectedServer(String),
     ServerManageStartServer(String),
     ServerManageStartServerFinish(Result<(Arc<Mutex<Child>>, bool), String>),
     ServerManageEndedLog(Result<(ExitStatus, String), String>),
