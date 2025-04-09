@@ -32,13 +32,29 @@ pub async fn get_list_of_versions(
     instance_name: InstanceSelection,
     is_quilt: bool,
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
-    let version_json = VersionDetails::load(&instance_name).await?;
+    async fn inner(
+        instance_name: &InstanceSelection,
+        is_quilt: bool,
+    ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
+        let version_json = VersionDetails::load(instance_name).await?;
+        let version_list =
+            download_file_to_string(&format!("/versions/loader/{}", version_json.id), is_quilt)
+                .await?;
+        let versions = serde_json::from_str(&version_list)?;
+        Ok(versions)
+    }
 
-    // The first one is the latest version.
-    let version_list =
-        download_file_to_string(&format!("/versions/loader/{}", version_json.id), is_quilt).await?;
+    let mut result = inner(&instance_name, is_quilt).await;
+    if result.is_err() {
+        for _ in 0..5 {
+            result = inner(&instance_name, is_quilt).await;
+            if result.is_ok() {
+                break;
+            }
+        }
+    }
 
-    Ok(serde_json::from_str(&version_list)?)
+    result
 }
 
 pub async fn install_server(

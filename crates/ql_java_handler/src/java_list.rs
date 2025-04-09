@@ -8,7 +8,7 @@ use crate::JsonDownloadError;
 
 pub const JAVA_LIST_URL: &str = "https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum JavaVersion {
     Java16,
     Java17,

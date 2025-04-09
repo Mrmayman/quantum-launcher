@@ -152,7 +152,10 @@ impl Launcher {
             return Ok(());
         };
 
-        let selected_instance = self.selected_instance.as_ref().unwrap();
+        let Some(selected_instance) = self.selected_instance.as_ref() else {
+            return Ok(());
+        };
+
         let config_path = selected_instance
             .get_instance_path(&self.dir)
             .join("config.json");

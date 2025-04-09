@@ -504,16 +504,12 @@ impl GameLauncher {
             }
         }
 
-        self.add_libs_to_classpath(&mut class_path, &mut classpath_entries)?;
-
         if let Some(fabric_json) = fabric_json {
             for library in &fabric_json.libraries {
-                let mut skip = false;
                 if let Some(name) = remove_version_from_library(&library.name) {
-                    skip = !classpath_entries.insert(name);
-                }
-                if skip {
-                    continue;
+                    if !classpath_entries.insert(name) {
+                        continue;
+                    }
                 }
 
                 let library_path = self.instance_dir.join("libraries").join(library.get_path());
@@ -525,6 +521,17 @@ impl GameLauncher {
                 class_path.push(CLASSPATH_SEPARATOR);
             }
         }
+
+        // Vanilla libraries, have to load after everything else
+        self.add_libs_to_classpath(&mut class_path, &mut classpath_entries)?;
+
+        // Sometimes mod loaders/core mods try to "override" their own
+        // version of a library over the base game. This code is setup
+        // so that the loaders load the libraries they like, then the game
+        // only loads the stuff that hasn't been already loaded.
+        //
+        // classpath_entries is a HashSet that determines if an overriden
+        // version of a library has already been loaded.
 
         let jar_path = if let Some((_, jar)) = optifine_json {
             jar.to_owned()
@@ -605,14 +612,14 @@ impl GameLauncher {
         } else {
             JavaVersion::Java8
         };
-        Ok(Command::new(
-            get_java_binary(
-                version,
-                "java",
-                self.java_install_progress_sender.take().as_ref(),
-            )
-            .await?,
-        ))
+        let program = get_java_binary(
+            version,
+            "java",
+            self.java_install_progress_sender.take().as_ref(),
+        )
+        .await?;
+        info!("Java: {program:?}");
+        Ok(Command::new(program))
     }
 
     pub async fn cleanup_junk_files(&self) -> Result<(), GameLaunchError> {
