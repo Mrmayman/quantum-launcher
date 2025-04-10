@@ -155,13 +155,7 @@ impl Launcher {
             Message::LaunchInstanceSelected { name, is_server } => {
                 self.selected_instance = Some(InstanceSelection::new(&name, is_server));
 
-                if matches!(
-                    &self.state,
-                    State::Launch(MenuLaunch {
-                        edit_instance: Some(_),
-                        ..
-                    }),
-                ) {
+                if let State::Launch(MenuLaunch { .. }) = self.state {
                     if let Err(err) = self.edit_instance() {
                         err!("Could not open edit instance menu: {err}");
                         if let State::Launch(MenuLaunch { edit_instance, .. }) = &mut self.state {
