@@ -140,6 +140,10 @@ impl Launcher {
                 }
             }
 
+            Message::UpdateCheckResult(Err(err)) => {
+                err!("{err}")
+            }
+
             Message::ServerCreateEnd(Err(err))
             | Message::ServerCreateVersionsLoaded(Err(err))
             | Message::UninstallLoaderEnd(Err(err))
@@ -147,8 +151,7 @@ impl Launcher {
             | Message::InstallForgeEnd(Err(err))
             | Message::LaunchEndedLog(Err(err))
             | Message::ServerManageEndedLog(Err(err))
-            | Message::CoreListLoaded(Err(err))
-            | Message::UpdateCheckResult(Err(err)) => self.set_error(err),
+            | Message::CoreListLoaded(Err(err)) => self.set_error(err),
 
             Message::Account(msg) => return self.update_account(msg),
             Message::ManageMods(message) => return self.update_manage_mods(message),

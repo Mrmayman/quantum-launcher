@@ -157,7 +157,9 @@ impl Launcher {
     }
 
     fn tick_edit_instance(&self, config: InstanceConfigJson, commands: &mut Vec<Task<Message>>) {
-        let instance = self.selected_instance.clone().unwrap();
+        let Some(instance) = self.selected_instance.clone() else {
+            return;
+        };
         let dir = self.dir.clone();
         let cmd = Task::perform(Launcher::save_config(instance, config, dir), |n| {
             Message::EditInstance(EditInstanceMessage::ConfigSaved(n.strerr()))
