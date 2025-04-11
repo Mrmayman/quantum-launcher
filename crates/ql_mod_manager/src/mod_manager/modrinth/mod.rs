@@ -21,11 +21,11 @@ mod versions;
 pub struct ModrinthBackend;
 
 impl Backend for ModrinthBackend {
-    async fn search(query: Query) -> Result<(SearchResult, Instant), ModError> {
+    async fn search(query: Query, offset: usize) -> Result<SearchResult, ModError> {
         let _lock = RATE_LIMITER.lock().await;
         let instant = Instant::now();
 
-        let text = search::do_request(&query).await?;
+        let text = search::do_request(&query, offset).await?;
 
         let res = SearchResult {
             mods: text
@@ -40,10 +40,12 @@ impl Backend for ModrinthBackend {
                     icon_url: entry.icon_url,
                 })
                 .collect(),
+            start_time: instant,
             backend: StoreBackendType::Modrinth,
+            offset,
         };
 
-        Ok((res, instant))
+        Ok(res)
     }
 
     async fn get_description(id: &str) -> Result<ModInformation, ModError> {

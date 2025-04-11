@@ -8,7 +8,7 @@ use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     InstanceSelection, IntoIoError, IntoStringError, Loader, StoreBackendType,
 };
-use ql_mod_manager::mod_manager::{Backend, CurseforgeBackend, ModIndex, ModrinthBackend, Query};
+use ql_mod_manager::mod_manager::{ModIndex, Query};
 
 use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
@@ -43,18 +43,19 @@ impl Launcher {
             mods_download_in_progress: HashSet::new(),
             mod_index,
             backend: StoreBackendType::Modrinth,
+            is_loading_continuation: false,
         };
-        let command = menu.search_store(matches!(
-            &self.selected_instance,
-            Some(InstanceSelection::Server(_))
-        ));
+        let command = menu.search_store(
+            matches!(&self.selected_instance, Some(InstanceSelection::Server(_))),
+            0,
+        );
         self.state = State::ModsDownload(Box::new(menu));
         Ok(command)
     }
 }
 
 impl MenuModsDownload {
-    pub fn search_store(&mut self, is_server: bool) -> Task<Message> {
+    pub fn search_store(&mut self, is_server: bool, offset: usize) -> Task<Message> {
         let Ok(loaders) = Loader::try_from(self.config.mod_type.as_str()) else {
             return Task::none();
         };
@@ -69,12 +70,7 @@ impl MenuModsDownload {
         };
         let backend = self.backend;
         Task::perform(
-            async move {
-                match backend {
-                    ql_core::StoreBackendType::Modrinth => ModrinthBackend::search(query).await,
-                    ql_core::StoreBackendType::Curseforge => CurseforgeBackend::search(query).await,
-                }
-            },
+            ql_mod_manager::mod_manager::search(query, offset, backend),
             |n| Message::InstallMods(InstallModsMessage::SearchResult(n.strerr())),
         )
     }

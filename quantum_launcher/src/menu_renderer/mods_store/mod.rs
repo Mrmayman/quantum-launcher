@@ -82,9 +82,13 @@ impl MenuModsDownload {
             .padding(10)
             .spacing(10)
             .width(200),
-            widget::scrollable(mods_list.spacing(10).padding(10)).style(
-                |theme: &LauncherTheme, status| theme.style_scrollable_flat_extra_dark(status)
-            ),
+            widget::scrollable(mods_list.spacing(10).padding(10))
+                .style(
+                    |theme: &LauncherTheme, status| theme.style_scrollable_flat_extra_dark(status)
+                )
+                .on_scroll(|viewport| {
+                    Message::InstallMods(InstallModsMessage::Scrolled(viewport))
+                }),
         )
         .into()
     }

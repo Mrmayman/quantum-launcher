@@ -107,12 +107,37 @@ impl Launcher {
                 self.set_error(err);
             }
 
-            InstallModsMessage::SearchResult(Ok((search, time))) => {
+            InstallModsMessage::SearchResult(Ok(search)) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.is_loading_search = false;
-                    if time > menu.latest_load {
-                        menu.results = Some(search);
-                        menu.latest_load = time;
+                    menu.is_loading_continuation = false;
+
+                    if search.start_time > menu.latest_load {
+                        menu.latest_load = search.start_time;
+
+                        if let (Some(results), true) = (&mut menu.results, search.offset > 0) {
+                            results.mods.extend(search.mods);
+                        } else {
+                            menu.results = Some(search);
+                        }
+                    }
+                }
+            }
+            InstallModsMessage::Scrolled(viewport) => {
+                let total_height =
+                    viewport.content_bounds().height - (viewport.bounds().height * 2.0);
+                let scroll_px = viewport.absolute_offset().y;
+
+                if let State::ModsDownload(menu) = &mut self.state {
+                    if (scroll_px > total_height) && !menu.is_loading_continuation {
+                        menu.is_loading_continuation = true;
+
+                        let offset = if let Some(results) = &menu.results {
+                            results.offset + results.mods.len()
+                        } else {
+                            0
+                        };
+                        return menu.search_store(is_server, offset);
                     }
                 }
             }
@@ -123,7 +148,7 @@ impl Launcher {
             InstallModsMessage::SearchInput(input) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.query = input;
-                    return menu.search_store(is_server);
+                    return menu.search_store(is_server, 0);
                 }
             }
             InstallModsMessage::ImageDownloaded(image) => match image {
@@ -184,7 +209,7 @@ impl Launcher {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.backend = backend;
                     menu.results = None;
-                    return menu.search_store(is_server);
+                    return menu.search_store(is_server, 0);
                 }
             }
         }

@@ -7,7 +7,10 @@ use std::{
     time::Instant,
 };
 
-use iced::{widget::image::Handle, Task};
+use iced::{
+    widget::{self, image::Handle},
+    Task,
+};
 use ql_core::{
     err, file_utils, info,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
@@ -98,7 +101,7 @@ pub enum ManageModsMessage {
 
 #[derive(Debug, Clone)]
 pub enum InstallModsMessage {
-    SearchResult(Result<(SearchResult, Instant), String>),
+    SearchResult(Result<SearchResult, String>),
     Open,
     SearchInput(String),
     ImageDownloaded(Result<ImageResult, String>),
@@ -109,6 +112,7 @@ pub enum InstallModsMessage {
     DownloadComplete(Result<ModId, String>),
     IndexUpdated(Result<ModIndex, String>),
     ChangeBackend(StoreBackendType),
+    Scrolled(widget::scrollable::Viewport),
 }
 
 #[derive(Debug, Clone)]
@@ -427,10 +431,15 @@ pub struct MenuModsDownload {
     pub json: VersionDetails,
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
-    pub is_loading_search: bool,
     pub mods_download_in_progress: HashSet<ModId>,
     pub mod_index: ModIndex,
     pub backend: StoreBackendType,
+
+    /// Responsible for the "Loading..." text
+    pub is_loading_search: bool,
+    /// This is for the loading of continuation of the search,
+    /// ie. when you scroll down and more stuff appears
+    pub is_loading_continuation: bool,
 }
 
 pub struct MenuLauncherSettings;

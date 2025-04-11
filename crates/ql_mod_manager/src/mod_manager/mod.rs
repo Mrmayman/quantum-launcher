@@ -31,7 +31,7 @@ pub const SOURCE_ID_CURSEFORGE: &str = "curseforge";
 
 #[allow(async_fn_in_trait)]
 pub trait Backend {
-    async fn search(query: Query) -> Result<(SearchResult, Instant), ModError>;
+    async fn search(query: Query, offset: usize) -> Result<SearchResult, ModError>;
     async fn get_description(id: &str) -> Result<ModInformation, ModError>;
     async fn get_latest_version_date(
         id: &str,
@@ -55,6 +55,17 @@ pub async fn get_description(id: ModId) -> Result<Box<ModInformation>, ModError>
         ModId::Curseforge(n) => CurseforgeBackend::get_description(n).await,
     }
     .map(Box::new)
+}
+
+pub async fn search(
+    query: Query,
+    offset: usize,
+    backend: StoreBackendType,
+) -> Result<SearchResult, ModError> {
+    match backend {
+        StoreBackendType::Modrinth => ModrinthBackend::search(query, offset).await,
+        StoreBackendType::Curseforge => CurseforgeBackend::search(query, offset).await,
+    }
 }
 
 pub async fn download_mod(id: &ModId, instance: &InstanceSelection) -> Result<(), ModError> {
@@ -121,6 +132,8 @@ pub struct Query {
 pub struct SearchResult {
     pub mods: Vec<SearchMod>,
     pub backend: StoreBackendType,
+    pub start_time: Instant,
+    pub offset: usize,
 }
 
 #[derive(Debug, Clone)]

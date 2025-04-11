@@ -16,7 +16,7 @@ use crate::{
     rate_limiter::RATE_LIMITER,
 };
 
-use super::{Backend, ModError};
+use super::{Backend, ModError, SearchResult};
 
 mod download;
 
@@ -116,9 +116,7 @@ struct Logo {
 pub struct CurseforgeBackend;
 
 impl Backend for CurseforgeBackend {
-    async fn search(
-        query: super::Query,
-    ) -> Result<(super::SearchResult, std::time::Instant), super::ModError> {
+    async fn search(query: super::Query, offset: usize) -> Result<SearchResult, super::ModError> {
         #[derive(Deserialize)]
         struct SearchResult {
             data: Vec<Mod>,
@@ -135,6 +133,7 @@ impl Backend for CurseforgeBackend {
             ("modLoaderType", query.loader.to_curseforge().to_owned()),
             ("sortField", TOTAL_DOWNLOADS.to_owned()),
             ("sortOrder", "desc".to_owned()),
+            ("index", offset.to_string()),
         ]);
 
         if !query.name.is_empty() {
@@ -144,24 +143,23 @@ impl Backend for CurseforgeBackend {
         let response = send_request("mods/search", &params).await?;
         let response: SearchResult = serde_json::from_str(&response)?;
 
-        Ok((
-            super::SearchResult {
-                mods: response
-                    .data
-                    .into_iter()
-                    .map(|n| SearchMod {
-                        title: n.name,
-                        description: n.summary,
-                        downloads: n.downloadCount,
-                        internal_name: n.slug,
-                        id: n.id.to_string(),
-                        icon_url: n.logo.map(|n| n.url).unwrap_or_default(),
-                    })
-                    .collect(),
-                backend: ql_core::StoreBackendType::Curseforge,
-            },
-            instant,
-        ))
+        Ok(super::SearchResult {
+            mods: response
+                .data
+                .into_iter()
+                .map(|n| SearchMod {
+                    title: n.name,
+                    description: n.summary,
+                    downloads: n.downloadCount,
+                    internal_name: n.slug,
+                    id: n.id.to_string(),
+                    icon_url: n.logo.map(|n| n.url).unwrap_or_default(),
+                })
+                .collect(),
+            start_time: instant,
+            backend: ql_core::StoreBackendType::Curseforge,
+            offset,
+        })
     }
 
     async fn get_description(id: &str) -> Result<super::ModInformation, super::ModError> {

@@ -5,12 +5,13 @@ use serde::Deserialize;
 
 use crate::mod_manager::Query;
 
-pub async fn do_request(query: &Query) -> Result<Search, JsonDownloadError> {
+pub async fn do_request(query: &Query, offset: usize) -> Result<Search, JsonDownloadError> {
     const SEARCH_URL: &str = "https://api.modrinth.com/v2/search";
 
     let mut params = HashMap::from([
         ("index", "relevance".to_owned()),
-        ("limit", "200".to_owned()),
+        ("limit", "100".to_owned()),
+        ("offset", offset.to_string()),
     ]);
     if !query.name.is_empty() {
         params.insert("query", query.name.clone());

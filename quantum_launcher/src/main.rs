@@ -68,6 +68,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! Btw, if you have any questions, feel free to ask me on discord!
 
 #![deny(unsafe_code)]
+#![windows_subsystem = "windows"]
 
 use std::{sync::Arc, time::Duration};
 
@@ -87,15 +88,33 @@ use ql_mod_manager::loaders;
 use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
 use tokio::io::AsyncWriteExt;
 
+/// The CLI interface of the launcher.
 mod arguments;
-/// Launcher configuration
+/// Launcher configuration (global).
 mod config;
-/// Icon definitions as `iced::widget`
+/// Definitions of certain icons (like Download,
+/// Play, Settings and so on) as `iced::widget`.
 mod icon_manager;
+/// All the main structs and enums used in the launcher.
 mod launcher_state;
-/// Code to render menus
+
+/// Code to render the specific menus
+/// (called by [`view`]).
 mod menu_renderer;
+/// Code to manage the rendering of menus overall
+/// (this invokes [`menu_renderer`]).
+mod view;
+
+/// Child functions of the
+/// [`Launcher::update`] function.
 mod message_handler;
+/// Handlers for "child messages".
+///
+/// The [`Message`] enum is split into
+/// categories (like `Message::Account(AccountMessage)`).
+///
+/// This module has functions for handling each of
+/// these "child messages".
 mod message_update;
 /// Handles mod store
 mod mods_store;
@@ -103,7 +122,6 @@ mod mods_store;
 mod stylesheet;
 /// Code to tick every frame
 mod tick;
-mod view;
 
 const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
@@ -115,7 +133,7 @@ impl Launcher {
         );
 
         let is_new_user = file_utils::is_new_user();
-        // let is_new_user = true;
+        // let is_new_user = true; // Uncomment to test the intro screen.
 
         let get_entries_command = Task::perform(
             get_entries("instances".to_owned(), false),
