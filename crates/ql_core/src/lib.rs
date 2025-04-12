@@ -34,15 +34,28 @@ pub use progress::{DownloadProgress, GenericProgress, Progress};
 
 pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
-pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+/// To prevent spawning of terminal (windows only).
+///
+/// Takes in a &mut Command (both `tokio` or `std` will do).
+#[macro_export]
+macro_rules! no_window {
+    ($cmd:expr) => {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            // 0x08000000 => CREATE_NO_WINDOW
+            $cmd = $cmd.creation_flags(0x08000000);
+        }
+    };
+}
 
-/// Limit on how many files to download concurrently.
-const JOBS: usize = 64;
+pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
 /// Perform multiple async tasks concurrently.
 pub async fn do_jobs<ResultType>(
     results: impl Iterator<Item = impl std::future::Future<Output = ResultType>>,
 ) -> Vec<ResultType> {
+    const JOBS: usize = 64;
     let mut tasks = futures::stream::FuturesUnordered::new();
     let mut outputs = Vec::new();
 

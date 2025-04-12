@@ -8,8 +8,8 @@ use std::{
 use ql_core::{
     file_utils, info,
     json::{optifine::JsonOptifine, VersionDetails},
-    GenericProgress, IntoIoError, IoError, JsonFileError, Loader, Progress, RequestError,
-    CLASSPATH_SEPARATOR,
+    no_window, GenericProgress, IntoIoError, IoError, JsonFileError, Loader, Progress,
+    RequestError, CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
@@ -247,7 +247,8 @@ async fn download_libraries(
 
 async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(), OptifineError> {
     let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
-    let output = Command::new(&java_path)
+    let mut command = Command::new(&java_path);
+    let mut command = command
         .args([
             "-cp",
             &format!(
@@ -256,9 +257,11 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
             ),
             "OptifineInstaller",
         ])
-        .current_dir(optifine_path)
-        .output()
-        .path(java_path)?;
+        .current_dir(optifine_path);
+
+    no_window!(command);
+
+    let output = command.output().path(java_path)?;
     if !output.status.success() {
         return Err(OptifineError::JavaFail(
             String::from_utf8(output.stdout).unwrap(),
@@ -274,7 +277,8 @@ async fn compile_hook(
     java_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<(), OptifineError> {
     let javac_path = get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
-    let output = Command::new(&javac_path)
+    let mut command = Command::new(&javac_path);
+    let mut command = command
         .args([
             "-cp",
             new_installer_path.to_str().unwrap(),
@@ -282,9 +286,10 @@ async fn compile_hook(
             "-d",
             ".",
         ])
-        .current_dir(optifine_path)
-        .output()
-        .path(javac_path)?;
+        .current_dir(optifine_path);
+    no_window!(command);
+
+    let output = command.output().path(javac_path)?;
     if !output.status.success() {
         return Err(OptifineError::JavacFail(
             String::from_utf8(output.stdout).unwrap(),

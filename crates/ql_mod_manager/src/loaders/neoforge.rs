@@ -2,8 +2,8 @@ use std::{path::Path, sync::mpsc::Sender};
 
 use chrono::DateTime;
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, GenericProgress, InstanceSelection, IntoIoError,
-    IoError, CLASSPATH_SEPARATOR,
+    file_utils, info, json::VersionDetails, no_window, pt, GenericProgress, InstanceSelection,
+    IntoIoError, IoError, CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use serde::Deserialize;
@@ -239,12 +239,13 @@ async fn compile_and_run_installer(
         .path(source_path)?;
 
     pt!("Compiling Installer");
-    let output = Command::new(&javac_path)
+    let mut command = Command::new(&javac_path);
+    let mut command = command
         .args(["-cp", INSTALLER_NAME, "ForgeInstaller.java", "-d", "."])
-        .current_dir(neoforge_dir)
-        .output()
-        .await
-        .path(javac_path)?;
+        .current_dir(neoforge_dir);
+    no_window!(command);
+
+    let output = command.output().await.path(javac_path)?;
     if !output.status.success() {
         return Err(ForgeInstallError::CompileError(
             String::from_utf8(output.stdout)?,
@@ -253,17 +254,19 @@ async fn compile_and_run_installer(
     }
 
     let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
+
     pt!("Running Installer");
-    let output = Command::new(&java_path)
+    let mut command = Command::new(&java_path);
+    let mut command = command
         .args([
             "-cp",
             &format!("{INSTALLER_NAME}{CLASSPATH_SEPARATOR}."),
             "ForgeInstaller",
         ])
-        .current_dir(neoforge_dir)
-        .output()
-        .await
-        .path(java_path)?;
+        .current_dir(neoforge_dir);
+    no_window!(command);
+
+    let output = command.output().await.path(java_path)?;
 
     if !output.status.success() {
         return Err(ForgeInstallError::InstallerError(

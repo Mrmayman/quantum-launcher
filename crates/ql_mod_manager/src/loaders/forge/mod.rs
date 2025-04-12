@@ -11,7 +11,8 @@ use ql_core::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
         VersionDetails,
     },
-    pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress, CLASSPATH_SEPARATOR,
+    no_window, pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress,
+    CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -220,11 +221,13 @@ impl ForgeInstaller {
 
         pt!("Compiling Installer");
         self.send_progress(ForgeInstallProgress::P4RunningInstaller);
-        let output = Command::new(&javac_path)
+        let mut command = Command::new(&javac_path);
+        let mut command = command
             .args(["-cp", installer_name, "ForgeInstaller.java", "-d", "."])
-            .current_dir(&self.forge_dir)
-            .output()
-            .path(javac_path)?;
+            .current_dir(&self.forge_dir);
+        no_window!(command);
+
+        let output = command.output().path(javac_path)?;
         if !output.status.success() {
             return Err(ForgeInstallError::CompileError(
                 String::from_utf8(output.stdout)?,
@@ -234,16 +237,17 @@ impl ForgeInstaller {
 
         let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
         pt!("Running Installer");
-        let output = Command::new(&java_path)
+        let mut command = Command::new(&java_path);
+        let mut command = command
             .args([
                 "-cp",
                 &format!("{installer_name}{CLASSPATH_SEPARATOR}."),
                 "ForgeInstaller",
             ])
-            .current_dir(&self.forge_dir)
-            .output()
-            // .spawn()
-            .path(java_path)?;
+            .current_dir(&self.forge_dir);
+        no_window!(command);
+
+        let output = command.output().path(java_path)?;
         if !output.status.success() {
             return Err(ForgeInstallError::InstallerError(
                 String::from_utf8(output.stdout)?,
@@ -438,10 +442,11 @@ impl ForgeInstaller {
 
         pt!("Unpacking extracted file");
         let unpack200_path = get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
-        let output = Command::new(&unpack200_path)
-            .args(&[format!("{dest_str}.pack.crop",), dest_str.to_owned()])
-            .output()
-            .path(unpack200_path)?;
+        let mut command = Command::new(&unpack200_path);
+        let mut command = command.args(&[format!("{dest_str}.pack.crop",), dest_str.to_owned()]);
+        no_window!(command);
+
+        let output = command.output().path(unpack200_path)?;
 
         if !output.status.success() {
             return Err(ForgeInstallError::Unpack200Error(

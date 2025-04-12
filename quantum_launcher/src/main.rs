@@ -67,7 +67,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //!
 //! Btw, if you have any questions, feel free to ask me on discord!
 
-#![deny(unsafe_code)]
 #![windows_subsystem = "windows"]
 
 use std::{sync::Arc, time::Duration};
@@ -622,6 +621,9 @@ const WINDOW_HEIGHT: f32 = 400.0;
 const WINDOW_WIDTH: f32 = 600.0;
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    attach_to_console();
+
     let command = arguments::command();
     let matches = command.clone().get_matches();
 
@@ -727,5 +729,17 @@ fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<Pr
         cmds
     } else {
         vec![PrintCmd::Name]
+    }
+}
+
+#[cfg(windows)]
+fn attach_to_console() {
+    use windows::Win32::System::Console::AttachConsole;
+    use windows::Win32::System::Console::ATTACH_PARENT_PROCESS;
+
+    unsafe {
+        if let Err(err) = AttachConsole(ATTACH_PARENT_PROCESS) {
+            err!("Couldn't attach console: {err}");
+        }
     }
 }

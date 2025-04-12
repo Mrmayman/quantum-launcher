@@ -55,4 +55,8 @@ markup5ever_rcdom = "0.3"
 
 # Shenanigans to get Reqwest building everywhere
 # this is probably not a good idea but whatever.
+[target.'cfg(all(target_os = "linux", any(target_env = "musl", not(target_arch = "x86_64"))))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.61", features = ["Win32_System_Console"] }

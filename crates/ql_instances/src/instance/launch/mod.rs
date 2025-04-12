@@ -1,6 +1,6 @@
 use crate::mc_auth::AccountData;
 use error::GameLaunchError;
-use ql_core::{info, GenericProgress};
+use ql_core::{info, no_window, GenericProgress};
 use std::{
     process::Stdio,
     sync::{mpsc::Sender, Arc, Mutex},
@@ -120,6 +120,10 @@ pub async fn launch(
         command
     }
     .current_dir(&game_launcher.minecraft_dir);
+
+    if game_launcher.config_json.enable_logger.unwrap_or(true) {
+        no_window!(command);
+    }
 
     #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
     match (

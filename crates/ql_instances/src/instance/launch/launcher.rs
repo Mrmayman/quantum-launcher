@@ -466,13 +466,35 @@ impl GameLauncher {
         let mut class_path = String::new();
         let mut classpath_entries = HashSet::new();
 
-        if forge_json.is_some() {
+        if let Some(forge_json) = forge_json {
             let classpath_path = self.instance_dir.join("forge/classpath.txt");
             let forge_classpath = tokio::fs::read_to_string(&classpath_path)
                 .await
                 .path(classpath_path)?;
 
-            class_path.push_str(&forge_classpath);
+            let mut new_classpath = forge_classpath.clone();
+
+            #[cfg(target_os = "windows")]
+            if let Some(args) = &forge_json.arguments {
+                if let Some(jvm) = &args.jvm {
+                    if let Some(module_path) = get_after_p(jvm) {
+                        for lib in module_path
+                            .replace("${library_directory}", "../forge/libraries")
+                            .replace("${classpath_separator}", &CLASSPATH_SEPARATOR.to_string())
+                            .split(CLASSPATH_SEPARATOR)
+                        {
+                            if let Some(n) = remove_substring(
+                                &new_classpath,
+                                &format!("{lib}{CLASSPATH_SEPARATOR}"),
+                            ) {
+                                new_classpath = n;
+                            }
+                        }
+                    }
+                }
+            }
+
+            class_path.push_str(&new_classpath);
 
             let classpath_entries_path = self.instance_dir.join("forge/clean_classpath.txt");
             if let Ok(forge_classpath_entries) =
@@ -761,4 +783,25 @@ async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     }
 
     Ok(())
+}
+
+fn get_after_p(args: &[String]) -> Option<String> {
+    args.iter()
+        .position(|arg| arg == "-p")
+        .and_then(|index| args.get(index + 1))
+        .cloned()
+}
+
+/// Removes substring
+///
+/// `"hello", "ell" -> "ho"`
+fn remove_substring(original: &str, to_remove: &str) -> Option<String> {
+    if let Some(pos) = original.find(to_remove) {
+        let mut result = String::with_capacity(original.len() - to_remove.len());
+        result.push_str(&original[..pos]);
+        result.push_str(&original[pos + to_remove.len()..]);
+        Some(result)
+    } else {
+        None
+    }
 }

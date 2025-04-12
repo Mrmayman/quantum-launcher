@@ -7,7 +7,7 @@ use std::{
 use ql_core::{
     err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
-    GenericProgress, IntoIoError,
+    no_window, GenericProgress, IntoIoError,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::{Child, Command};
@@ -95,6 +95,7 @@ pub async fn run(
 
     let mut command = Command::new(java_path);
     let mut command = command.args(java_args.iter().chain(game_args.iter()));
+    no_window!(command);
 
     command = if config_json.enable_logger.unwrap_or(true) {
         command

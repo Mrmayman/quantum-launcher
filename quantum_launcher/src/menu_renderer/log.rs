@@ -17,7 +17,11 @@ impl Launcher {
         width_reduction: f32,
         height_reduction: f32,
     ) -> (f64, Element) {
-        let screen_width = ((self.window_size.0 - width_reduction) / 7.4) as usize - 5;
+        let screen_width = (self.window_size.0 - width_reduction) / 7.4;
+        if screen_width < 5.0 {
+            return (0.0, widget::column![].into());
+        }
+        let screen_width = (screen_width) as usize - 5;
         let height_limit = (self.window_size.1 - height_reduction) - 50.0;
 
         let text_len: f64 = text
