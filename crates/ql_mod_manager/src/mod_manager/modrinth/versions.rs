@@ -53,7 +53,7 @@ impl ModVersion {
 #[allow(clippy::struct_field_names)]
 pub struct Dependency {
     // pub version_id: Option<serde_json::Value>,
-    pub project_id: String,
+    pub project_id: Option<String>,
     // pub file_name: Option<serde_json::Value>,
     pub dependency_type: String,
 }

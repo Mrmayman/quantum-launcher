@@ -83,8 +83,11 @@ impl MenuModsDownload {
                 .into(),
             NodeValue::Paragraph => render_children(md, 0, images, window_size).into(),
             NodeValue::Link(node_link) => render_link(md, images, node_link, window_size),
-            NodeValue::FrontMatter(_) => todoh!("front matter"),
-            NodeValue::BlockQuote => todoh!("block quote"),
+            NodeValue::FrontMatter(matter) => widget::text(matter.clone()).into(),
+            NodeValue::BlockQuote => {
+                force_newline = true;
+                widget::container(render_children(md, 0, images, window_size)).into()
+            }
             NodeValue::List(_list) => {
                 force_newline = true;
                 render_children(md, 0, images, window_size)
@@ -111,9 +114,7 @@ impl MenuModsDownload {
             NodeValue::HtmlBlock(node_html_block) => {
                 Self::render_html(&node_html_block.literal, images, window_size)
             }
-            NodeValue::ThematicBreak => widget::row!(widget::text("_____").size(20))
-                .align_y(iced::Alignment::Center)
-                .into(),
+            NodeValue::ThematicBreak => widget::horizontal_rule(4.0).into(),
             NodeValue::FootnoteDefinition(_) => todoh!("footnote definition"),
             NodeValue::Table(_) => todoh!("table"),
             NodeValue::TableRow(_) => todoh!("table row"),
@@ -152,6 +153,9 @@ impl MenuModsDownload {
             NodeValue::Underline => todoh!("underline"),
             NodeValue::SpoileredText => todoh!("spoilered text"),
             NodeValue::EscapedTag(_) => todoh!("escaped tag"),
+            NodeValue::Raw(_) => todoh!("raw"),
+            NodeValue::Subscript => todoh!("subscript"),
+            NodeValue::Alert(_) => todoh!("alert"),
         };
 
         // WTF: I am going to commit a crime. Get ready.

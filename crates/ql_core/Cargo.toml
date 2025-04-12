@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 chrono = { workspace = true }
-dirs = "5"
+dirs = "6"
 futures = "0.3"
 zip-extract = { workspace = true }
 

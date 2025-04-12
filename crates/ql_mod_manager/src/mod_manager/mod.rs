@@ -23,7 +23,7 @@ pub use image::{download_image, ImageResult};
 pub use local_json::{ModConfig, ModFile, ModIndex};
 pub use modrinth::ModrinthBackend;
 pub use recommended::{RecommendedMod, RECOMMENDED_MODS};
-pub use toggle::toggle_mods;
+pub use toggle::{flip_filename, toggle_mods, toggle_mods_local};
 pub use update::{apply_updates, check_for_updates};
 
 pub const SOURCE_ID_MODRINTH: &str = "modrinth";

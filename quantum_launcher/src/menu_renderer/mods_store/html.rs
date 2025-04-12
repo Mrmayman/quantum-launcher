@@ -87,17 +87,17 @@ fn render_html(
     let name = name.local.to_string();
     let attrs = attrs.borrow();
     match name.as_str() {
-        "html" | "body" | "p" | "center" | "i" | "kbd" | "b" => {
+        "html" | "body" | "p" | "center" | "kbd" | "div" => {
             render_children(node, element, images, 0, window_size);
+        }
+        "details" | "summary" | "h1" => {
+            render_children(node, element, images, 1, window_size);
         }
         "h2" => {
             render_children(node, element, images, 2, window_size);
         }
-        "h3" => {
+        "h3" | "b" | "i" => {
             render_children(node, element, images, 3, window_size);
-        }
-        "details" | "summary" | "h1" => {
-            render_children(node, element, images, 1, window_size);
         }
         "a" => {
             if let Some(attr) = attrs

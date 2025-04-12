@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use iced::Task;
-use ql_core::{err, InstanceSelection, IntoIoError, IntoStringError, ModId, SelectedMod};
+use ql_core::{err_no_log, InstanceSelection, IntoIoError, IntoStringError, ModId, SelectedMod};
 use ql_mod_manager::mod_manager::ModIndex;
 
 use crate::launcher_state::{
@@ -98,23 +98,44 @@ impl Launcher {
                 }
             }
             ManageModsMessage::ToggleSelected => {
-                if let State::EditMods(menu) = &self.state {
-                    let ids = menu
-                        .selected_mods
-                        .iter()
-                        .filter_map(|s_mod| {
-                            if let SelectedMod::Downloaded { id, .. } = s_mod {
-                                Some(id.get_internal_id().to_owned())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
+                if let State::EditMods(menu) = &mut self.state {
+                    let (ids_downloaded, ids_local) = menu.get_kinds_of_ids();
                     let instance_name = self.selected_instance.clone().unwrap();
-                    return Task::perform(
-                        ql_mod_manager::mod_manager::toggle_mods(ids, instance_name),
+
+                    menu.selected_mods.retain(|n| {
+                        if let SelectedMod::Local { file_name } = n {
+                            !ids_local.contains(file_name)
+                        } else {
+                            true
+                        }
+                    });
+
+                    menu.selected_mods
+                        .extend(ids_local.iter().map(|n| SelectedMod::Local {
+                            file_name: ql_mod_manager::mod_manager::flip_filename(n),
+                        }));
+
+                    let toggle_downloaded = Task::perform(
+                        ql_mod_manager::mod_manager::toggle_mods(
+                            ids_downloaded,
+                            instance_name.clone(),
+                        ),
                         |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n.strerr())),
                     );
+                    let toggle_local = Task::perform(
+                        ql_mod_manager::mod_manager::toggle_mods_local(
+                            ids_local,
+                            instance_name.clone(),
+                        ),
+                        |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n.strerr())),
+                    )
+                    .chain(MenuEditMods::update_locally_installed_mods(
+                        &menu.mods,
+                        &instance_name,
+                        &self.dir,
+                    ));
+
+                    return Task::batch([toggle_downloaded, toggle_local]);
                 }
             }
             ManageModsMessage::ToggleFinished(err) => {
@@ -145,7 +166,7 @@ impl Launcher {
                 let updates = match updates {
                     Ok(n) => n,
                     Err(err) => {
-                        err!("Could not check for updates: {err}");
+                        err_no_log!("Could not check for updates: {err}");
                         return Task::none();
                     }
                 };

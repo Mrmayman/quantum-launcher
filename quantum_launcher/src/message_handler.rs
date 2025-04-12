@@ -699,7 +699,7 @@ pub async fn get_locally_installed_mods(
         let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
             continue;
         };
-        if extension == "jar" {
+        if extension == "jar" || extension == "disabled" {
             set.insert(file_name.to_owned());
         }
     }

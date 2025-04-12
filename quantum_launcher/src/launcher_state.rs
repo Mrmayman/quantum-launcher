@@ -367,12 +367,45 @@ impl MenuEditMods {
         for mod_info in idx.mods.values() {
             for file in &mod_info.files {
                 blacklist.push(file.filename.clone());
+                blacklist.push(format!("{}.disabled", file.filename));
             }
         }
         Task::perform(
             get_locally_installed_mods(selected_instance.get_dot_minecraft_path(dir), blacklist),
             |n| Message::ManageMods(ManageModsMessage::LocalIndexLoaded(n)),
         )
+    }
+
+    /// Returns two `Vec`s that are:
+    /// - The IDs of downloaded mods
+    /// - The filenames of local mods
+    ///
+    /// ...respectively, from the mods selected in the mod menu.
+    pub fn get_kinds_of_ids(&self) -> (Vec<String>, Vec<String>) {
+        let ids_downloaded = self
+            .selected_mods
+            .iter()
+            .filter_map(|s_mod| {
+                if let SelectedMod::Downloaded { id, .. } = s_mod {
+                    Some(id.get_index_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let ids_local: Vec<String> = self
+            .selected_mods
+            .iter()
+            .filter_map(|s_mod| {
+                if let SelectedMod::Local { file_name } = s_mod {
+                    Some(file_name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        (ids_downloaded, ids_local)
     }
 }
 

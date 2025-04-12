@@ -44,7 +44,7 @@ terminal_size = "0.4"
 colored = { workspace = true }
 clap = { version = "4", features = ["help"] }
 
-comrak = "0.28" # For markdown parsing (displaying mod pages)
+comrak = "0.38" # For markdown parsing (displaying mod pages)
 image = "0.24"
 # We be implementing a full blown HTML renderer in iced with this one
 html5ever = "0.27"

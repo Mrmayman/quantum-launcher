@@ -60,13 +60,23 @@ impl MenuEditMods {
             widget::column!(
                 "Mod Updates Available!",
                 widget::column(self.available_updates.iter().enumerate().map(
-                    |(i, (_, name, is_enabled))| {
-                        widget::checkbox(name, *is_enabled)
-                            .on_toggle(move |b| {
-                                Message::ManageMods(ManageModsMessage::UpdateCheckToggle(i, b))
-                            })
-                            .text_size(12)
-                            .into()
+                    |(i, (id, name, is_enabled))| {
+                        widget::checkbox(
+                            format!(
+                                "{} - {name}",
+                                self.mods
+                                    .mods
+                                    .get(&id.get_index_str())
+                                    .map(|n| n.name.clone())
+                                    .unwrap_or_default()
+                            ),
+                            *is_enabled,
+                        )
+                        .on_toggle(move |b| {
+                            Message::ManageMods(ManageModsMessage::UpdateCheckToggle(i, b))
+                        })
+                        .text_size(12)
+                        .into()
                     }
                 ))
                 .spacing(10),
@@ -282,54 +292,69 @@ impl MenuEditMods {
 
     fn get_mod_list_contents(&self) -> Element {
         widget::scrollable(
-            widget::column({
-                self.sorted_mods_list
-                    .iter()
-                    .map(|mod_list_entry| match mod_list_entry {
-                        ModListEntry::Downloaded { id, config } => widget::row!(
-                            if config.manually_installed {
-                                widget::row!(widget::checkbox(
-                                    format!(
-                                        "{}{}",
-                                        if config.enabled { "" } else { "(DISABLED) " },
-                                        config.name
-                                    ),
-                                    self.selected_mods.contains(&SelectedMod::Downloaded {
-                                        name: config.name.clone(),
-                                        id: (*id).clone()
-                                    })
-                                )
-                                .on_toggle(move |t| {
-                                    Message::ManageMods(ManageModsMessage::ToggleCheckbox(
-                                        (config.name.clone(), id.clone()),
-                                        t,
-                                    ))
-                                }))
-                            } else {
-                                widget::row!(widget::text!("- (DEPENDENCY) {}", config.name))
-                            },
-                            widget::horizontal_space(),
-                            widget::text(&config.installed_version).width(100).size(12),
-                        )
-                        .into(),
-                        ModListEntry::Local { file_name } => widget::row!(widget::checkbox(
-                            file_name.clone(),
-                            self.selected_mods.contains(&SelectedMod::Local {
-                                file_name: file_name.clone()
-                            })
-                        )
-                        .on_toggle(move |t| {
-                            Message::ManageMods(ManageModsMessage::ToggleCheckboxLocal(
+            widget::row![
+                widget::column({
+                    self.sorted_mods_list
+                        .iter()
+                        .map(|mod_list_entry| match mod_list_entry {
+                            ModListEntry::Downloaded { id, config } => {
+                                widget::row!(if config.manually_installed {
+                                    widget::row!(widget::checkbox(
+                                        format!(
+                                            "{}{}",
+                                            if config.enabled { "" } else { "(DISABLED) " },
+                                            config.name
+                                        ),
+                                        self.selected_mods.contains(&SelectedMod::Downloaded {
+                                            name: config.name.clone(),
+                                            id: (*id).clone()
+                                        })
+                                    )
+                                    .on_toggle(move |t| {
+                                        Message::ManageMods(ManageModsMessage::ToggleCheckbox(
+                                            (config.name.clone(), id.clone()),
+                                            t,
+                                        ))
+                                    }))
+                                } else {
+                                    widget::row!(widget::text!("- (DEPENDENCY) {}", config.name))
+                                },)
+                                .into()
+                            }
+                            ModListEntry::Local { file_name } => widget::checkbox(
                                 file_name.clone(),
-                                t,
-                            ))
-                        }))
-                        .into(),
+                                self.selected_mods.contains(&SelectedMod::Local {
+                                    file_name: file_name.clone(),
+                                }),
+                            )
+                            .on_toggle(move |t| {
+                                Message::ManageMods(ManageModsMessage::ToggleCheckboxLocal(
+                                    file_name.clone(),
+                                    t,
+                                ))
+                            })
+                            .into(),
+                        })
+                })
+                .padding(10)
+                .spacing(10),
+                widget::column({
+                    self.sorted_mods_list.iter().map(|entry| match entry {
+                        ModListEntry::Downloaded { config, .. } => {
+                            widget::text(&config.installed_version).into()
+                        }
+                        ModListEntry::Local { .. } => widget::text(" ").into(),
                     })
-            })
-            .padding(10)
+                })
+                .padding(10)
+                .spacing(10)
+            ]
             .spacing(10),
         )
+        .direction(widget::scrollable::Direction::Both {
+            vertical: widget::scrollable::Scrollbar::new(),
+            horizontal: widget::scrollable::Scrollbar::new(),
+        })
         .style(LauncherTheme::style_scrollable_flat_extra_dark)
         .into()
     }

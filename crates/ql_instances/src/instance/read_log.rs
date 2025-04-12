@@ -73,7 +73,7 @@ pub async fn read_logs(
             line = stdout_reader.next_line() => {
                 if let Some(line) = line? {
                     if uses_xml {
-                        read_stdout(&sender, &mut xml_cache, &line)?;
+                        xml_parse(&sender, &mut xml_cache, &line)?;
                     } else {
                         sender.send(LogLine::Message(line))?;
                     }
@@ -88,7 +88,7 @@ pub async fn read_logs(
     }
 }
 
-fn read_stdout(
+fn xml_parse(
     sender: &Sender<LogLine>,
     xml_cache: &mut String,
     line: &str,
@@ -118,8 +118,17 @@ fn read_stdout(
             sender.send(LogLine::Info(log_event))?;
             xml_cache.clear();
         }
-        Err(err) => {
-            err!("Could not parse XML: {err}\n{text}\n");
+        Err(_) => {
+            let no_unicode = any_ascii::any_ascii(text);
+            match serde_xml_rs::from_str(&no_unicode) {
+                Ok(log_event) => {
+                    sender.send(LogLine::Info(log_event))?;
+                    xml_cache.clear();
+                }
+                Err(err) => {
+                    err!("Could not parse XML: {err}\n{text}\n");
+                }
+            }
         }
     }
 

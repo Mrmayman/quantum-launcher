@@ -85,16 +85,19 @@ impl ModDownloader {
         let mut dependency_list = HashSet::new();
 
         for dependency in &download_version.dependencies {
+            let Some(ref dep_id) = dependency.project_id else {
+                continue;
+            };
+
             if dependency.dependency_type != "required" {
                 pt!(
-                    "Skipping dependency (not required: {}) {}",
+                    "Skipping dependency (not required: {}) {dep_id}",
                     dependency.dependency_type,
-                    dependency.project_id
                 );
                 continue;
             }
-            if dependency_list.insert(dependency.project_id.clone()) {
-                Box::pin(self.download_project(&dependency.project_id, Some(id), false)).await?;
+            if dependency_list.insert(dep_id.clone()) {
+                Box::pin(self.download_project(dep_id, Some(id), false)).await?;
             }
         }
 

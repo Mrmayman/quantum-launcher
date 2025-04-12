@@ -90,7 +90,7 @@ pub async fn run(
     let mut game_args = config_json.game_args.clone().unwrap_or_default();
     game_args.push("nogui".to_owned());
 
-    info!("Java args: {java_args:?}\n");
+    info!("\nJava args: {java_args:?}\n");
     info!("Game args: {game_args:?}\n");
 
     let mut command = Command::new(java_path);

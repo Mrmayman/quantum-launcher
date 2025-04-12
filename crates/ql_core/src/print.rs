@@ -134,6 +134,24 @@ macro_rules! info_no_log {
 }
 
 /// Print an error message.
+/// Not saved to a log file.
+#[macro_export]
+macro_rules! err_no_log {
+    ($($arg:tt)*) => {
+        // Ugly hack to fix compiler error
+        if true {
+            let plain_text = format!("[error] {}\n", format_args!($($arg)*));
+
+            if !cfg!(windows) {
+                eprintln!("{} {}", colored::Colorize::red("[error]"), format_args!($($arg)*))
+            }
+
+            $crate::print::print_to_storage(&plain_text, $crate::print::LogType::Error);
+        }
+    };
+}
+
+/// Print an error message.
 /// Saved to a log file.
 #[macro_export]
 macro_rules! err {
