@@ -67,6 +67,7 @@ pub enum EditInstanceMessage {
     JavaOverride(String),
     MemoryChanged(f32),
     LoggingToggle(bool),
+    CloseLauncherToggle(bool),
     JavaArgsAdd,
     JavaArgEdit(String, usize),
     JavaArgDelete(usize),

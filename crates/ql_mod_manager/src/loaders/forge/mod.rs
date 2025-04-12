@@ -222,6 +222,7 @@ impl ForgeInstaller {
         pt!("Compiling Installer");
         self.send_progress(ForgeInstallProgress::P4RunningInstaller);
         let mut command = Command::new(&javac_path);
+        #[allow(unused_mut)]
         let mut command = command
             .args(["-cp", installer_name, "ForgeInstaller.java", "-d", "."])
             .current_dir(&self.forge_dir);
@@ -238,6 +239,7 @@ impl ForgeInstaller {
         let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
         pt!("Running Installer");
         let mut command = Command::new(&java_path);
+        #[allow(unused_mut)]
         let mut command = command
             .args([
                 "-cp",
@@ -443,6 +445,7 @@ impl ForgeInstaller {
         pt!("Unpacking extracted file");
         let unpack200_path = get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
         let mut command = Command::new(&unpack200_path);
+        #[allow(unused_mut)]
         let mut command = command.args(&[format!("{dest_str}.pack.crop",), dest_str.to_owned()]);
         no_window!(command);
 

@@ -11,13 +11,15 @@ use crate::{file_utils, InstanceSelection, IntoIoError, JsonFileError};
 /// See the documentation of each field for more information.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InstanceConfigJson {
+    /// **Default: `"Vanilla"`**
+    ///
     /// Can be one of:
-    /// - `"Vanilla"`
+    /// - `"Vanilla"` (unmodded)
     /// - `"Fabric"`
     /// - `"Forge"`
     /// - `"OptiFine"`
     /// - `"Quilt"`
-    /// - `"NeoForge"` (coming soon)
+    /// - `"NeoForge"`
     pub mod_type: String,
     /// If you want to use your own Java installation
     /// instead of the auto-installed one, specify
@@ -25,9 +27,11 @@ pub struct InstanceConfigJson {
     pub java_override: Option<String>,
     /// The amount of RAM in megabytes the instance should have.
     pub ram_in_mb: usize,
+    /// **Default: `true`**
+    ///
     /// - `true` (default): Show log output in launcher.
     ///   May not show all log output, especially during a crash.
-    /// - `false`: Print raw, unformatted log output to the console.
+    /// - `false`: Print raw, unformatted log output to the console (stdout).
     ///   This is useful for debugging, but may be hard to read.
     pub enable_logger: Option<bool>,
     /// This is an optional list of additional
@@ -38,7 +42,10 @@ pub struct InstanceConfigJson {
     pub game_args: Option<Vec<String>>,
     /// If the instance was downloaded from Omniarchive,
     /// this field contains information about the entry.
+    /// Otherwise it's `None`/`null`
     pub omniarchive: Option<OmniarchiveEntry>,
+    /// **Default: `false`**
+    ///
     /// - `true`: the instance is a classic server.
     /// - `false` (default): the instance is a client
     ///   or a non-classic server (alpha, beta, release).
@@ -79,6 +86,24 @@ pub struct InstanceConfigJson {
     /// - `-XX:MaxGCPauseMillis=50`
     /// - `-XX:G1HeapRegionSize=32M`
     pub do_gc_tuning: Option<bool>,
+    /// **Client Only**
+    ///
+    /// Whether to close the launcher upon
+    /// starting the game.
+    ///
+    /// **Default: `false`**
+    ///
+    /// This keeps *just the game* running
+    /// after you open it. However:
+    /// - The impact of keeping the launcher open
+    ///   is downright **negligible**. Quantum Launcher
+    ///   is **very** lightweight. You won't feel any
+    ///   difference even on slow computers
+    /// - By doing this you lose access to easy log viewing
+    ///   and the ability to easily kill the game process if stuck
+    ///
+    /// Ultimately if you want one less icon in your taskbar then go ahead.
+    pub close_on_start: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

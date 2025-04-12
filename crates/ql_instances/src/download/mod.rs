@@ -433,6 +433,7 @@ impl GameDownloader {
             omniarchive,
             is_classic_server: None,
             do_gc_tuning: None,
+            close_on_start: None,
         };
         let config_json = serde_json::to_string(&config_json)?;
 

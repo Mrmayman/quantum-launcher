@@ -466,6 +466,86 @@ impl GameLauncher {
         let mut class_path = String::new();
         let mut classpath_entries = HashSet::new();
 
+        self.classpath_forge_and_neoforge(forge_json, &mut class_path, &mut classpath_entries)
+            .await?;
+        if optifine_json.is_some() {
+            self.classpath_optifine(&mut class_path).await?;
+        }
+        self.classpath_fabric_and_quilt(fabric_json, &mut class_path, &mut classpath_entries)?;
+
+        // Vanilla libraries, have to load after everything else
+        self.add_libs_to_classpath(&mut class_path, &mut classpath_entries)?;
+
+        // Sometimes mod loaders/core mods try to "override" their own
+        // version of a library over the base game. This code is setup
+        // so that the loaders load the libraries they like, then the game
+        // only loads the stuff that hasn't been already loaded.
+        //
+        // classpath_entries is a HashSet that determines if an overriden
+        // version of a library has already been loaded.
+
+        let jar_path = if let Some((_, jar)) = optifine_json {
+            jar.to_owned()
+        } else {
+            self.instance_dir
+                .join(".minecraft/versions")
+                .join(&self.version_json.id)
+                .join(format!("{}.jar", self.version_json.id))
+        };
+        let jar_path = jar_path
+            .to_str()
+            .ok_or(GameLaunchError::PathBufToString(jar_path.clone()))?;
+        class_path.push_str(jar_path);
+
+        Ok(class_path)
+    }
+
+    fn classpath_fabric_and_quilt(
+        &self,
+        fabric_json: Option<&FabricJSON>,
+        class_path: &mut String,
+        classpath_entries: &mut HashSet<String>,
+    ) -> Result<(), GameLaunchError> {
+        if let Some(fabric_json) = fabric_json {
+            for library in &fabric_json.libraries {
+                if let Some(name) = remove_version_from_library(&library.name) {
+                    if !classpath_entries.insert(name) {
+                        continue;
+                    }
+                }
+
+                let library_path = self.instance_dir.join("libraries").join(library.get_path());
+                class_path.push_str(
+                    library_path
+                        .to_str()
+                        .ok_or(GameLaunchError::PathBufToString(library_path.clone()))?,
+                );
+                class_path.push(CLASSPATH_SEPARATOR);
+            }
+        }
+        Ok(())
+    }
+
+    async fn classpath_optifine(&self, class_path: &mut String) -> Result<(), GameLaunchError> {
+        let jar_file_location = self.instance_dir.join(".minecraft/libraries");
+        let jar_files = find_jar_files(&jar_file_location).await?;
+        for jar_file in jar_files {
+            class_path.push_str(
+                jar_file
+                    .to_str()
+                    .ok_or(GameLaunchError::PathBufToString(jar_file.clone()))?,
+            );
+            class_path.push(CLASSPATH_SEPARATOR);
+        }
+        Ok(())
+    }
+
+    async fn classpath_forge_and_neoforge(
+        &self,
+        forge_json: Option<&forge::JsonDetails>,
+        class_path: &mut String,
+        classpath_entries: &mut HashSet<String>,
+    ) -> Result<(), GameLaunchError> {
         if let Some(forge_json) = forge_json {
             let classpath_path = self.instance_dir.join("forge/classpath.txt");
             let forge_classpath = tokio::fs::read_to_string(&classpath_path)
@@ -474,7 +554,16 @@ impl GameLauncher {
 
             let mut new_classpath = forge_classpath.clone();
 
-            #[cfg(target_os = "windows")]
+            // WTF: This is horrible but necessary
+            //
+            // When launching Minecraft 1.21.5 NeoForge,
+            // Java canonicalizes the module path ("-p path/to/something.jar")
+            // and then it complains that the canonicalized and relative
+            // paths are not the same. It is not smart enough to figure that shit
+            // out.
+            //
+            // So I have to remove all the libraries from the classpath which
+            // are in the module path.
             if let Some(args) = &forge_json.arguments {
                 if let Some(jvm) = &args.jvm {
                     if let Some(module_path) = get_after_p(jvm) {
@@ -506,69 +595,13 @@ impl GameLauncher {
             } else {
                 self.migrate_create_forge_clean_classpath(
                     forge_classpath,
-                    &mut classpath_entries,
+                    classpath_entries,
                     classpath_entries_path,
                 )
                 .await?;
             }
         }
-
-        if optifine_json.is_some() {
-            let jar_file_location = self.instance_dir.join(".minecraft/libraries");
-            let jar_files = find_jar_files(&jar_file_location).await?;
-            for jar_file in jar_files {
-                class_path.push_str(
-                    jar_file
-                        .to_str()
-                        .ok_or(GameLaunchError::PathBufToString(jar_file.clone()))?,
-                );
-                class_path.push(CLASSPATH_SEPARATOR);
-            }
-        }
-
-        if let Some(fabric_json) = fabric_json {
-            for library in &fabric_json.libraries {
-                if let Some(name) = remove_version_from_library(&library.name) {
-                    if !classpath_entries.insert(name) {
-                        continue;
-                    }
-                }
-
-                let library_path = self.instance_dir.join("libraries").join(library.get_path());
-                class_path.push_str(
-                    library_path
-                        .to_str()
-                        .ok_or(GameLaunchError::PathBufToString(library_path.clone()))?,
-                );
-                class_path.push(CLASSPATH_SEPARATOR);
-            }
-        }
-
-        // Vanilla libraries, have to load after everything else
-        self.add_libs_to_classpath(&mut class_path, &mut classpath_entries)?;
-
-        // Sometimes mod loaders/core mods try to "override" their own
-        // version of a library over the base game. This code is setup
-        // so that the loaders load the libraries they like, then the game
-        // only loads the stuff that hasn't been already loaded.
-        //
-        // classpath_entries is a HashSet that determines if an overriden
-        // version of a library has already been loaded.
-
-        let jar_path = if let Some((_, jar)) = optifine_json {
-            jar.to_owned()
-        } else {
-            self.instance_dir
-                .join(".minecraft/versions")
-                .join(&self.version_json.id)
-                .join(format!("{}.jar", self.version_json.id))
-        };
-        let jar_path = jar_path
-            .to_str()
-            .ok_or(GameLaunchError::PathBufToString(jar_path.clone()))?;
-        class_path.push_str(jar_path);
-
-        Ok(class_path)
+        Ok(())
     }
 
     fn add_libs_to_classpath(

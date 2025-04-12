@@ -91,7 +91,14 @@ impl MenuEditInstance {
                             .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
                         widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12),
                         widget::horizontal_space(),
-                    ]
+                    ].push_maybe((!selected_instance.is_server()).then_some(widget::column![
+                        widget::checkbox("Close launcher after game opens", self.config.close_on_start.unwrap_or(false))
+                            .on_toggle(|t| Message::EditInstance(EditInstanceMessage::CloseLauncherToggle(t))),
+                        widget::text("Disabled by default, enable if you want the launcher to close when the game opens.").size(12),
+                        widget::text("It's recommended you leave this off because:").size(12),
+                        widget::text("- This prevents you from seeing logs or killing the process.").size(12),
+                        widget::text("- Besides, closing the launcher won't make your game run faster (it's already super lightweight).").size(12),
+                    ].spacing(5)))
                     .padding(10)
                     .spacing(10)
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),

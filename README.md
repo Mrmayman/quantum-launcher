@@ -99,50 +99,63 @@ What about the others? Well...
 (note: WIP means work-in-progress)
 
 ## Core
-- [x] Instance creation
-- [x] Instance launching
-- [x] Instance deletion
-- [x] Instance renaming
+- [x] Instance creation, deletion, renaming, launching
 - [x] Java/Game args editing
 - [x] Memory allocation editing
 - [x] Optional Microsoft login
+- [x] Integration with Omniarchive, old version support
+
 ## Mods
 ### Loaders
 - [x] Fabric
 - [x] Forge
 - [x] Optifine
 - [x] Quilt
-- [ ] Neoforge
+- [x] Neoforge
 - [ ] OptiForge
 - [ ] OptiFabric
 - [ ] Jar Mods
 ### Sources
 - [x] Modrinth mods
-- [x] Curseforge mods (WIP)
+- [x] Curseforge mods
 - [ ] Modrinth modpacks
 - [ ] Curseforge modpacks
 ### Features
 - [x] Mod store
-- [x] Mod presets
+- [x] Mod presets (packaging mods)
 - [x] Mod updater
-- [ ] Optimization for mod updater (it's super slow right now)
+- [ ] Make mod updater incrementally load in (optimization)
 - [ ] UI/UX overhaul of preset system
+
 ## Instances
 - [ ] Import MultiMC instance
 - [ ] Migrate from other launchers (file locations)
 - [ ] Package QuantumLauncher instance
+
+## Servers (disabled in GUI but can be enabled)
+- [x] Ability to create, delete and run Minecraft servers
+- [x] Editing basic server settings (RAM, Java, Args)
+- [ ] Editing `server.properties`
+- [ ] Editing any NBT config file
+- [ ] Plugin store
+- [ ] [playit.gg](https://playit.gg) integration
+### Loaders
+- [x] Paper
+- [ ] Spigot
+- [ ] Bukkit
+- [ ] Bungeecoord
+- [ ] The stuff from <https://github.com/LeStegii/server-software/blob/master/java/MODS+PLUGINS.md>
+
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
 - [x] Linux Aarch64 (WIP)
-- [x] macOS (WIP)
+- [x] macOS Aarch64
+- [ ] macOS x86_64 (WIP)
 - [ ] Windows i686 (WIP)
 - [ ] Linux i686 (WIP)
 - [ ] Windows Aarch64 (WIP)
-- [ ] Android (distant future)
-## Misc
-- [x] Integration with Omniarchive, old version support
-- [ ] A local server hosting system (without port forwarding, using proxy tunneling) (WIP)
+- [ ] Android (distant future?)
 
 <p align="center">
 

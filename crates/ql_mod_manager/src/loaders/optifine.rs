@@ -248,6 +248,7 @@ async fn download_libraries(
 async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(), OptifineError> {
     let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
     let mut command = Command::new(&java_path);
+    #[allow(unused_mut)]
     let mut command = command
         .args([
             "-cp",
@@ -278,6 +279,7 @@ async fn compile_hook(
 ) -> Result<(), OptifineError> {
     let javac_path = get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
     let mut command = Command::new(&javac_path);
+    #[allow(unused_mut)]
     let mut command = command
         .args([
             "-cp",

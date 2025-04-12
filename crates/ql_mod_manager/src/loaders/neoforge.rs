@@ -240,6 +240,7 @@ async fn compile_and_run_installer(
 
     pt!("Compiling Installer");
     let mut command = Command::new(&javac_path);
+    #[allow(unused_mut)]
     let mut command = command
         .args(["-cp", INSTALLER_NAME, "ForgeInstaller.java", "-d", "."])
         .current_dir(neoforge_dir);
@@ -257,6 +258,7 @@ async fn compile_and_run_installer(
 
     pt!("Running Installer");
     let mut command = Command::new(&java_path);
+    #[allow(unused_mut)]
     let mut command = command
         .args([
             "-cp",

@@ -41,6 +41,15 @@ impl Launcher {
                     menu.config.enable_logger = Some(t);
                 }
             }
+            EditInstanceMessage::CloseLauncherToggle(t) => {
+                if let State::Launch(MenuLaunch {
+                    edit_instance: Some(menu),
+                    ..
+                }) = &mut self.state
+                {
+                    menu.config.close_on_start = Some(t);
+                }
+            }
             EditInstanceMessage::JavaArgsAdd => {
                 self.e_java_arg_add();
             }

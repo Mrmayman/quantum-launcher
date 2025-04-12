@@ -85,6 +85,12 @@ impl LoggingState {
         // Will not panic as we just made our sender Some()
         _ = self.sender.as_ref().unwrap().send(s.to_string());
     }
+
+    pub fn finish(&self) {
+        if let Some(writer) = &self.writer {
+            _ = writer.get_ref().sync_all();
+        }
+    }
 }
 
 pub static LOGGER: LazyLock<Option<Mutex<LoggingState>>> = LazyLock::new(LoggingState::create);
@@ -93,6 +99,13 @@ pub fn print_to_file(msg: &str, t: LogType) {
     if let Some(logger) = LOGGER.as_ref() {
         let mut lock = logger.lock().unwrap();
         lock.write_str(msg, t);
+    }
+}
+
+pub fn logger_finish() {
+    if let Some(logger) = LOGGER.as_ref() {
+        let lock = logger.lock().unwrap();
+        lock.finish();
     }
 }
 

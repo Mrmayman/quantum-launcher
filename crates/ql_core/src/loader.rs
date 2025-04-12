@@ -2,9 +2,10 @@ use crate::err;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Loader {
-    Forge,
     Fabric,
     Quilt,
+    Forge,
+    Neoforge,
 
     // The launcher supports these, but modrinth doesn't
     // (so no Mod Store):
@@ -12,7 +13,6 @@ pub enum Loader {
     Paper,
 
     // The launcher doesn't currently support these:
-    Neoforge,
     Liteloader,
     Modloader,
     Rift,

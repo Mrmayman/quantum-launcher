@@ -29,7 +29,7 @@ pub use error::{
 pub use file_utils::RequestError;
 use futures::StreamExt;
 pub use loader::Loader;
-pub use print::{LogType, LoggingState, LOGGER};
+pub use print::{logger_finish, LogType, LoggingState, LOGGER};
 pub use progress::{DownloadProgress, GenericProgress, Progress};
 
 pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };

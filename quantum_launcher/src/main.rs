@@ -42,14 +42,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! So it's a back-and-forth between `Message`s coming from interaction,
 //! and code to deal with the messages in `update()`.
 //!
-//! # What are `*_w()` functions?
-//! Functions ending in `_w` take in arguments as owned objects.
-//! For example, `String` instead of `&str` or `Vec<T>` instead
-//! of `&[T]`
-//!
-//! They also return errors as `String` instead of the actual error type.
-//! This is done to make use with `iced::Command` easier.
-//!
 //! # Comments
 //! I tend to be loose, for better or for worse,
 //! when it comes to using comments.

@@ -129,10 +129,16 @@ async fn write_config(
         game_args: None,
         omniarchive: get_omniarchive(version),
         is_classic_server: is_classic_server.then_some(true),
-        // Doesn't affect servers
+
+        // Doesn't affect servers:
+
         // I could add GC tuning to servers too, but I can't find
-        // a way to measure performance on a server.
+        // a way to measure performance on a server. Besides this setting
+        // makes performance worse on clients so I guess it's same for servers?
         do_gc_tuning: None,
+        // This won't do anything on servers. Who wants to lose their *only way*
+        // to control the server instantly after starting it?
+        close_on_start: None,
     };
     let server_config_path = server_dir.join("config.json");
     tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)

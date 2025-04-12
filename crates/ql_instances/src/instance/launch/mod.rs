@@ -149,6 +149,11 @@ pub async fn launch(
 
     let child = command.spawn().map_err(GameLaunchError::CommandError)?;
 
+    if game_launcher.config_json.close_on_start.unwrap_or(false) {
+        ql_core::logger_finish();
+        std::process::exit(0);
+    }
+
     Ok(Arc::new(Mutex::new(child)))
 }
 
