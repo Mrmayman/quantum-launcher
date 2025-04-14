@@ -126,24 +126,29 @@ pub async fn launch(
     }
 
     #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-    match (
-        DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
-        // Minecraft 21w19a release date (1.17 snapshot)
-        // Not sure if this is the right place to start,
-        // but the env var started being required sometime between 1.16.5 and 1.17
-        DateTime::parse_from_rfc3339("2021-05-12T11:19:15+00:00"),
-    ) {
-        // On Raspberry Pi (aarch64 linux), the game crashes with some GL
-        // error. But adding this environment variable fixes it.
-        // I don't know if this is the perfect solution though,
-        // contact me if this solution sucks.
-        (Ok(dt), Ok(v1_20)) => {
-            if dt >= v1_20 {
-                command = command.env("MESA_GL_VERSION_OVERRIDE", "3.3")
+    {
+        use chrono::DateTime;
+        use ql_core::err;
+
+        match (
+            DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
+            // Minecraft 21w19a release date (1.17 snapshot)
+            // Not sure if this is the right place to start,
+            // but the env var started being required sometime between 1.16.5 and 1.17
+            DateTime::parse_from_rfc3339("2021-05-12T11:19:15+00:00"),
+        ) {
+            // On Raspberry Pi (aarch64 linux), the game crashes with some GL
+            // error. But adding this environment variable fixes it.
+            // I don't know if this is the perfect solution though,
+            // contact me if this solution sucks.
+            (Ok(dt), Ok(v1_20)) => {
+                if dt >= v1_20 {
+                    command = command.env("MESA_GL_VERSION_OVERRIDE", "3.3")
+                }
             }
-        }
-        (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
-            err!("Could not parse instance date/time: {e}")
+            (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
+                err!("Could not parse instance date/time: {e}")
+            }
         }
     }
 

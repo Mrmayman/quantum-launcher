@@ -472,8 +472,6 @@ pub struct MenuModsDownload {
     pub mod_index: ModIndex,
     pub backend: StoreBackendType,
 
-    /// Responsible for the "Loading..." text
-    pub is_loading_search: bool,
     /// This is for the loading of continuation of the search,
     /// ie. when you scroll down and more stuff appears
     pub is_loading_continuation: bool,

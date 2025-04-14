@@ -109,7 +109,6 @@ impl Launcher {
 
             InstallModsMessage::SearchResult(Ok(search)) => {
                 if let State::ModsDownload(menu) = &mut self.state {
-                    menu.is_loading_search = false;
                     menu.is_loading_continuation = false;
 
                     if search.start_time > menu.latest_load {

@@ -33,11 +33,7 @@ impl MenuModsDownload {
             }
             .push(widget::horizontal_space()),
             None => {
-                widget::column!(widget::text(if self.is_loading_search {
-                    "Loading..."
-                } else {
-                    "Search something to get started..."
-                }))
+                widget::column!("Loading...")
             }
         };
         widget::row!(

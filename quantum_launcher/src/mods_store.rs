@@ -34,7 +34,6 @@ impl Launcher {
         let mut menu = MenuModsDownload {
             config,
             json: version,
-            is_loading_search: false,
             latest_load: Instant::now(),
             query: String::new(),
             results: None,
@@ -60,7 +59,6 @@ impl MenuModsDownload {
             return Task::none();
         };
 
-        self.is_loading_search = true;
         let query = Query {
             name: self.query.clone(),
             version: self.json.id.clone(),
