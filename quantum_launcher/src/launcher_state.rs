@@ -218,9 +218,11 @@ pub enum Message {
     UpdateDownloadStart,
     UpdateDownloadEnd(Result<(), String>),
 
+    LauncherSettingsOpen,
     LauncherSettingsThemePicked(String),
     LauncherSettingsStylePicked(String),
-    LauncherSettingsOpen,
+    LauncherSettingsUiScale(f64),
+    LauncherSettingsUiScaleApply,
 
     ServerManageOpen {
         selected_server: Option<String>,
@@ -477,7 +479,9 @@ pub struct MenuModsDownload {
     pub is_loading_continuation: bool,
 }
 
-pub struct MenuLauncherSettings;
+pub struct MenuLauncherSettings {
+    pub temp_scale: f64,
+}
 
 pub struct MenuEditPresets {
     pub inner: MenuEditPresetsInner,
@@ -545,7 +549,7 @@ pub enum State {
     },
     UpdateFound(MenuLauncherUpdate),
     ModsDownload(Box<MenuModsDownload>),
-    LauncherSettings,
+    LauncherSettings(MenuLauncherSettings),
     ServerCreate(MenuServerCreate),
     ManagePresets(MenuEditPresets),
 }
@@ -606,6 +610,7 @@ pub struct Launcher {
 
     pub window_size: (f32, f32),
     pub mouse_pos: (f32, f32),
+    pub keys_pressed: HashSet<iced::keyboard::Key>,
 }
 
 #[derive(Default)]
@@ -723,6 +728,7 @@ impl Launcher {
             accounts,
             accounts_dropdown,
             accounts_selected: Some(selected_account),
+            keys_pressed: HashSet::new(),
         })
     }
 
@@ -775,6 +781,7 @@ impl Launcher {
             accounts: HashMap::new(),
             accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
             accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
+            keys_pressed: HashSet::new(),
         }
     }
 

@@ -12,6 +12,37 @@ use crate::launcher_state::{ImageState, MenuModsDownload, Message};
 
 use super::Element;
 
+#[derive(Debug, Clone, Copy)]
+struct ChildData {
+    heading_weight: usize,
+    monospace: bool,
+}
+
+impl Default for ChildData {
+    fn default() -> Self {
+        Self {
+            heading_weight: 0,
+            monospace: false,
+        }
+    }
+}
+
+impl ChildData {
+    pub fn with_heading(weight: usize) -> Self {
+        Self {
+            heading_weight: weight,
+            monospace: false,
+        }
+    }
+
+    pub fn monospace() -> Self {
+        Self {
+            heading_weight: 0,
+            monospace: true,
+        }
+    }
+}
+
 impl MenuModsDownload {
     /// Takes in text containing HTML and renders it to an iced `Element`.
     ///
@@ -23,7 +54,7 @@ impl MenuModsDownload {
     ///   and add requests for loading missing ones to here.
     pub fn render_html<'a>(
         input: &str,
-        images: &ImageState,
+        images: &'a ImageState,
         window_size: (f32, f32),
     ) -> Element<'a> {
         let dom = parse_document(RcDom::default(), ParseOpts::default())
@@ -33,71 +64,127 @@ impl MenuModsDownload {
             .unwrap();
 
         let mut element = widget::column!().into();
-        Self::traverse_node(&dom.document, &mut element, images, 0, window_size);
+        _ = Self::traverse_node(
+            &dom.document,
+            &mut element,
+            images,
+            ChildData::default(),
+            window_size,
+        );
         element
     }
 
-    fn traverse_node(
+    #[must_use]
+    fn traverse_node<'a>(
         node: &Node,
-        element: &mut Element,
-        images: &ImageState,
-        heading_size: usize,
+        element: &mut Element<'a>,
+        images: &'a ImageState,
+        data: ChildData,
         window_size: (f32, f32),
-    ) {
+    ) -> bool {
         match &node.data {
             markup5ever_rcdom::NodeData::Document => {
-                let children = node.children.borrow();
-                *element = widget::column(children.iter().map(|node| {
-                    let mut element = widget::column!().into();
-                    Self::traverse_node(node, &mut element, images, 0, window_size);
-                    element
-                }))
-                .into();
+                render_children(node, element, images, ChildData::default(), window_size);
+                true
             }
             markup5ever_rcdom::NodeData::Text { contents } => {
-                *element = widget::text(contents.borrow().to_string())
-                    .size(if heading_size > 0 {
-                        36 - (heading_size * 4)
-                    } else {
-                        16
-                    } as u16)
-                    .into();
+                let text = contents.borrow().to_string();
+
+                *element = if data.monospace {
+                    widget::row![
+                        widget::text(text.clone()).font(iced::Font::with_name("JetBrains Mono")),
+                        widget::button(widget::text("Copy").size(12))
+                            .on_press(Message::CoreCopyText(text)),
+                    ]
+                    .spacing(5)
+                    .wrap()
+                    .into()
+                } else {
+                    widget::text(text)
+                        .size(if data.heading_weight > 0 {
+                            36 - (data.heading_weight * 4)
+                        } else {
+                            16
+                        } as u16)
+                        .into()
+                };
+
+                false
             }
             markup5ever_rcdom::NodeData::Element {
                 name,
                 attrs,
                 template_contents: _,
                 mathml_annotation_xml_integration_point: _,
-            } => {
-                render_html(name, attrs, node, element, images, window_size);
-            }
-            _ => {}
+            } => render_html(name, attrs, node, element, images, window_size),
+            _ => false,
         }
     }
 }
 
-fn render_html(
+#[must_use]
+fn render_html<'a>(
     name: &html5ever::QualName,
     attrs: &std::cell::RefCell<Vec<html5ever::Attribute>>,
     node: &Node,
-    element: &mut Element,
-    images: &ImageState,
+    element: &mut Element<'a>,
+    images: &'a ImageState,
     window_size: (f32, f32),
-) {
+) -> bool {
     let name = name.local.to_string();
     let attrs = attrs.borrow();
     match name.as_str() {
-        "html" | "body" | "p" | "center" | "kbd" | "div" => {
-            render_children(node, element, images, 0, window_size);
+        "center" | "kbd" | "span" => {
+            render_children(node, element, images, ChildData::default(), window_size);
+            false
+        }
+        "html" | "body" | "p" | "div" => {
+            render_children(node, element, images, ChildData::default(), window_size);
+            true
         }
         "details" | "summary" | "h1" => {
-            render_children(node, element, images, 1, window_size);
+            render_children(node, element, images, ChildData::default(), window_size);
+            true
         }
         "h2" => {
-            render_children(node, element, images, 2, window_size);
+            render_children(
+                node,
+                element,
+                images,
+                ChildData::with_heading(2),
+                window_size,
+            );
+            true
         }
-        "h3" | "b" | "i" => {
-            render_children(node, element, images, 3, window_size);
+        "h3" => {
+            render_children(
+                node,
+                element,
+                images,
+                ChildData::with_heading(3),
+                window_size,
+            );
+            true
+        }
+        "h4" => {
+            render_children(
+                node,
+                element,
+                images,
+                ChildData::with_heading(4),
+                window_size,
+            );
+            true
+        }
+        "b" | "strong" | "em" | "i" => {
+            render_children(
+                node,
+                element,
+                images,
+                ChildData::with_heading(4),
+                window_size,
+            );
+            false
         }
         "a" => {
             if let Some(attr) = attrs
@@ -105,15 +192,19 @@ fn render_html(
                 .find(|attr| attr.name.local.to_string().as_str() == "href")
             {
                 let url = attr.value.to_string();
-                let children_nodes = node.children.borrow();
+                let children_empty = { node.children.borrow().is_empty() };
 
-                let mut children = widget::column(children_nodes.iter().map(|node| {
-                    let mut element = widget::column!().into();
-                    MenuModsDownload::traverse_node(node, &mut element, images, 3, window_size);
-                    element
-                }));
-                if children_nodes.is_empty() {
-                    children = widget::column!(widget::text(url.clone()));
+                let mut children: Element = widget::column![].into();
+                _ = render_children(
+                    node,
+                    &mut children,
+                    images,
+                    ChildData::with_heading(0),
+                    window_size,
+                );
+
+                if children_empty {
+                    children = widget::column!(widget::text(url.clone())).into();
                 }
                 *element = widget::button(children)
                     .on_press(Message::CoreOpenDir(url))
@@ -121,8 +212,9 @@ fn render_html(
             } else {
                 *element = widget::text("[HTML error: malformed link]]").into();
             }
+            false
         }
-        "head" | "br" => {}
+        "head" | "br" => true,
         "img" => {
             if let Some(attr) = attrs
                 .iter()
@@ -142,23 +234,46 @@ fn render_html(
             } else {
                 *element = widget::text("[HTML error: malformed image]]").into();
             }
+            true
         }
-        _ => *element = widget::text!("[HTML todo: {name}]").into(),
+        "code" => {
+            render_children(node, element, images, ChildData::monospace(), window_size);
+            false
+        }
+        "hr" => {
+            *element = widget::horizontal_rule(4.0).into();
+            true
+        }
+        _ => {
+            *element = widget::text!("[HTML todo: {name}]").into();
+            true
+        }
     }
 }
 
-fn render_children(
+fn render_children<'a>(
     node: &Node,
-    element: &mut Element,
-    images: &ImageState,
-    heading_weight: usize,
+    element: &mut Element<'a>,
+    images: &'a ImageState,
+    data: ChildData,
     window_size: (f32, f32),
 ) {
     let children = node.children.borrow();
-    *element = widget::column(children.iter().map(|node| {
+
+    let mut column = widget::column![];
+    let mut row = widget::row![];
+
+    let mut is_newline = false;
+
+    for item in children.iter() {
+        if is_newline {
+            column = column.push(row.wrap());
+            row = widget::row![];
+        }
         let mut element = widget::column!().into();
-        MenuModsDownload::traverse_node(node, &mut element, images, heading_weight, window_size);
-        element
-    }))
-    .into();
+        is_newline = MenuModsDownload::traverse_node(item, &mut element, images, data, window_size);
+        row = row.push(element);
+    }
+    column = column.push(row.wrap());
+    *element = column.into();
 }

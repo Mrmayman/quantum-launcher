@@ -101,7 +101,7 @@ impl Launcher {
             State::ModsDownload(menu) => {
                 return menu.tick(self.selected_instance.clone().unwrap(), &mut self.images)
             }
-            State::LauncherSettings => {
+            State::LauncherSettings(_) => {
                 let launcher_config = self.config.clone();
                 return Task::perform(
                     async move { launcher_config.save().await.strerr() },

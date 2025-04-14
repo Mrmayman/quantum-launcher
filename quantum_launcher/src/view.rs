@@ -2,7 +2,7 @@ use iced::{widget, Length};
 use ql_core::LOGGER;
 
 use crate::{
-    launcher_state::{Launcher, MenuLauncherSettings, Message, State},
+    launcher_state::{Launcher, Message, State},
     menu_renderer::{
         changelog::{changelog_0_4, welcome_msg},
         view_account_login, Element, DISCORD,
@@ -134,7 +134,7 @@ impl Launcher {
             // TODO: maybe remove window_size argument?
             // It's not needed right now, but could be in the future.
             State::ModsDownload(menu) => menu.view(&self.images, self.window_size),
-            State::LauncherSettings => MenuLauncherSettings::view(&self.config),
+            State::LauncherSettings(menu) => menu.view(&self.config),
             State::RedownloadAssets { progress, .. } => widget::column!(
                 widget::text("Redownloading Assets").size(20),
                 progress.view()

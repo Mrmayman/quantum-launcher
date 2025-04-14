@@ -54,11 +54,11 @@ impl MenuModsDownload {
     }
 
     #[must_use]
-    fn render_element<'arena, 'element: 'arena>(
-        md: &'element comrak::arena_tree::Node<'arena, RefCell<comrak::nodes::Ast>>,
+    fn render_element<'arena, 'elem>(
+        md: &'arena comrak::arena_tree::Node<'arena, RefCell<comrak::nodes::Ast>>,
         heading_size: usize,
-        element: &mut Element<'static>,
-        images: &ImageState,
+        element: &mut Element<'elem>,
+        images: &'elem ImageState,
         window_size: (f32, f32),
     ) -> bool {
         let data = md.data.borrow();
@@ -194,12 +194,12 @@ fn parse_last_line_blank(input: &str) -> bool {
     true
 }
 
-fn render_children<'a>(
-    md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
+fn render_children<'arena, 'element>(
+    md: &'arena comrak::arena_tree::Node<'arena, RefCell<comrak::nodes::Ast>>,
     heading_size: usize,
-    images: &ImageState,
+    images: &'element ImageState,
     window_size: (f32, f32),
-) -> widget::Column<'static, Message, crate::stylesheet::styles::LauncherTheme> {
+) -> widget::Column<'element, Message, crate::stylesheet::styles::LauncherTheme> {
     let mut column = widget::column![];
     let mut row = widget::row![];
 
@@ -222,12 +222,12 @@ fn render_children<'a>(
     column
 }
 
-fn render_list_item<'a>(
+fn render_list_item<'a, 'elem>(
     md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
     item: &comrak::nodes::NodeList,
-    images: &ImageState,
+    images: &'elem ImageState,
     window_size: (f32, f32),
-) -> Element<'static> {
+) -> Element<'elem> {
     widget::column(md.children().map(|n| {
         let starting = match item.list_type {
             comrak::nodes::ListType::Bullet => widget::text(char::from(item.bullet_char)),
@@ -241,12 +241,12 @@ fn render_list_item<'a>(
     .into()
 }
 
-fn render_link<'a>(
+fn render_link<'a, 'elem>(
     md: &'a comrak::arena_tree::Node<'a, RefCell<comrak::nodes::Ast>>,
-    images: &ImageState,
+    images: &'elem ImageState,
     node_link: &comrak::nodes::NodeLink,
     window_size: (f32, f32),
-) -> Element<'static> {
+) -> Element<'elem> {
     let mut i = 0;
     let mut children = widget::column(md.children().map(|n| {
         i += 1;

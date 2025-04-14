@@ -317,11 +317,11 @@ impl widget::slider::Catalog for LauncherTheme {
                         self.get_bg(Color::Mid, true),
                         self.get_bg(Color::SecondDark, true),
                     ),
-                    width: 4.0,
+                    width: 6.0,
                     border: self.get_border(Color::SecondDark, true),
                 },
                 handle: widget::slider::Handle {
-                    shape: widget::slider::HandleShape::Circle { radius: 4.0 },
+                    shape: widget::slider::HandleShape::Circle { radius: 6.0 },
                     background: self.get_bg(Color::SecondLight, true),
                     border_width: 2.0,
                     border_color: self.get(Color::Light, true),

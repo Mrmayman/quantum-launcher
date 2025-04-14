@@ -438,7 +438,7 @@ impl Launcher {
             | State::Create(MenuCreateInstance::Loaded { progress: None, .. })
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
-            | State::LauncherSettings
+            | State::LauncherSettings(_)
             | State::Welcome => {
                 should_return_to_main_screen = true;
             }
@@ -538,13 +538,16 @@ impl Launcher {
                             return self.escape_back_button();
                         } else {
                             // TODO: Ctrl Q to quit
+                            self.keys_pressed.insert(key);
                         }
                     } else {
                         // FUTURE
                     }
                 }
-                iced::keyboard::Event::KeyReleased { .. }
-                | iced::keyboard::Event::ModifiersChanged(_) => {}
+                iced::keyboard::Event::KeyReleased { key, .. } => {
+                    self.keys_pressed.remove(&key);
+                }
+                iced::keyboard::Event::ModifiersChanged(_) => {}
             },
             iced::Event::Mouse(mouse) => match mouse {
                 iced::mouse::Event::CursorMoved { position } => {
@@ -586,9 +589,27 @@ impl Launcher {
                         menu.sidebar_dragging = false;
                     }
                 }
-                iced::mouse::Event::WheelScrolled { .. }
-                | iced::mouse::Event::CursorEntered
-                | iced::mouse::Event::CursorLeft => {}
+                iced::mouse::Event::WheelScrolled { delta } => {
+                    if let iced::event::Status::Ignored = status {
+                        if self.keys_pressed.contains(&iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::Control,
+                        )) {
+                            match delta {
+                                iced::mouse::ScrollDelta::Lines { y, .. }
+                                | iced::mouse::ScrollDelta::Pixels { y, .. } => {
+                                    let new_scale =
+                                        self.config.ui_scale.unwrap_or(1.0) + (y as f64 / 5.0);
+                                    let new_scale = new_scale.clamp(0.5, 2.0);
+                                    self.config.ui_scale = Some(new_scale);
+                                    if let State::LauncherSettings(menu) = &mut self.state {
+                                        menu.temp_scale = new_scale;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                iced::mouse::Event::CursorEntered | iced::mouse::Event::CursorLeft => {}
             },
             iced::Event::Touch(_) => {}
         }

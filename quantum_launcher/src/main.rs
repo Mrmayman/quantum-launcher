@@ -295,7 +295,11 @@ impl Launcher {
                     _ => err!("Invalid color mode {theme}"),
                 }
             }
-            Message::LauncherSettingsOpen => self.state = State::LauncherSettings,
+            Message::LauncherSettingsOpen => {
+                self.state = State::LauncherSettings(launcher_state::MenuLauncherSettings {
+                    temp_scale: self.config.ui_scale.unwrap_or(1.0),
+                })
+            }
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting color scheme {style}");
                 self.config.style = Some(style.clone());
@@ -307,6 +311,17 @@ impl Launcher {
                     _ => err!("Invalid color scheme {style}"),
                 }
             }
+            Message::LauncherSettingsUiScale(scale) => {
+                if let State::LauncherSettings(menu) = &mut self.state {
+                    menu.temp_scale = scale;
+                }
+            }
+            Message::LauncherSettingsUiScaleApply => {
+                if let State::LauncherSettings(menu) = &self.state {
+                    self.config.ui_scale = Some(menu.temp_scale);
+                }
+            }
+
             Message::InstallOptifine(msg) => return self.update_install_optifine(msg),
             Message::ServerManageOpen {
                 selected_server,
@@ -678,6 +693,10 @@ fn main() {
                 width: WINDOW_WIDTH,
                 height: WINDOW_HEIGHT,
             },
+            min_size: Some(iced::Size {
+                width: 420.0,
+                height: 300.0,
+            }),
             ..Default::default()
         })
         .run_with(Launcher::new)

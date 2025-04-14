@@ -434,7 +434,7 @@ impl MenuLauncherUpdate {
 }
 
 impl MenuLauncherSettings {
-    pub fn view(config: &LauncherConfig) -> Element {
+    pub fn view(&self, config: &LauncherConfig) -> Element {
         let themes = ["Dark".to_owned(), "Light".to_owned()];
         let styles = [
             "Brown".to_owned(),
@@ -442,7 +442,7 @@ impl MenuLauncherSettings {
             "Sky Blue".to_owned(),
         ];
 
-        let config_view = widget::column!(
+        let config_view = widget::row!(
             widget::container(
                 widget::column!(
                     "Select theme:",
@@ -467,8 +467,20 @@ impl MenuLauncherSettings {
                 .padding(10)
                 .spacing(10)
             ),
+            widget::container(
+                widget::column![
+                    "Change UI Scaling: (warning: slightly buggy)",
+                    widget::slider(0.5..=2.0, self.temp_scale, Message::LauncherSettingsUiScale)
+                        .step(0.1),
+                    widget::text!("Scale: {:.2}x", self.temp_scale),
+                    widget::button("Apply").on_press(Message::LauncherSettingsUiScaleApply)
+                ]
+                .padding(10)
+                .spacing(10)
+            )
         )
-        .spacing(10);
+        .spacing(10)
+        .wrap();
 
         widget::scrollable(
             widget::column!(
