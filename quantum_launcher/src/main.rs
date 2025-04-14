@@ -520,6 +520,9 @@ impl Launcher {
             Message::CoreOpenChangeLog => {
                 self.state = State::ChangeLog;
             }
+            Message::CoreOpenIntro => {
+                self.state = State::Welcome;
+            }
             Message::EditPresets(msg) => match self.update_edit_presets(msg) {
                 Ok(n) => return n,
                 Err(err) => self.set_error(err),

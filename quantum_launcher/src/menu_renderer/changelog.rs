@@ -1,11 +1,17 @@
 use std::sync::LazyLock;
 
-use iced::widget::{self, image::Handle};
+use iced::{
+    widget::{self, image::Handle},
+    Length,
+};
 
 use crate::{icon_manager, launcher_state::Message};
 
 use super::{button_with_icon, Element, DISCORD};
 
+pub static IMG_LAUNCHER: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../quantum_launcher.png").as_slice())
+});
 pub static IMG_NEW: LazyLock<Handle> = LazyLock::new(|| {
     Handle::from_bytes(include_bytes!("../../../assets/screenshots/new.png").as_slice())
 });
@@ -21,27 +27,60 @@ pub static IMG_OLD_MC: LazyLock<Handle> = LazyLock::new(|| {
 pub static IMG_THEMES: LazyLock<Handle> = LazyLock::new(|| {
     Handle::from_bytes(include_bytes!("../../../assets/screenshots/themes.png").as_slice())
 });
+pub static IMG_PRESETS: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/screenshots/presets.png").as_slice())
+});
 
 pub fn changelog_0_4<'a>() -> Element<'a> {
     widget::column!(
         widget::text("QuantumLauncher v0.4").size(40),
         widget::text("Changelog:").size(30),
         widget::text("Redesign:").size(20),
-        "- The launcher menus have been redesigned",
+        "- Redesigned the launcher menus!",
+        widget::image(IMG_LAUNCHER.clone()).width(300),
         "- Select instances easily with a sidebar, and enjoy the simpler navigation with tabs!",
         "- The purple colour pallete has been changed to be more vibrant and punchy",
-        widget::text("Servers").size(20),
+        "- Many other menus have been changed to look nicer",
+        widget::image(IMG_PRESETS.clone()).width(200),
+        widget::text("Mods:").size(20),
+        "- Added CurseForge to the Mods store (alongside Modrinth). You can choose the backend",
+        widget::image(IMG_MOD_STORE.clone()).width(300),
+        "- Added NeoForge installer!",
+        widget::image(IMG_LOADERS.clone()).width(200),
+        "- Mod updating and preset importing is now nearly 2x faster!",
+        "- Getting list of versions when creating instance is now nearly 2x faster!",
+        "- The mod store now has infinite scrolling! Just scroll down to see more mods",
+        /*widget::text("Servers").size(20),
         "- Added a server management system",
         "- You can create, edit, delete, launch and install mods for servers",
-        "- Extensive configuration and server plugin management!", // TODO: Implement this
+        "- Extensive configuration and server plugin management!"*/ // Postponed
         widget::text("Microsoft Account").size(20),
         "- Added optional Microsoft login for those with a paid account",
         "- Normal users can continue using the launcher, this is entirely optional",
         widget::text("Other").size(20),
+        "- Added option to close launcher after opening game",
+        "- Overhauled the game log viewer. There is no limit now!",
+        "- You can see the launcher debug logs by clicking the bottom bar",
+        "- macOS support is now ready!",
         "- Redesigned the command-line experience with the \"clap\" library",
+        "- Improved Java installer support for Windows 32 bit, Windows ARM and macOS",
+        "- MASSIVE code cleanup and overhaul",
         "- Updated \"iced\" to 0.13.1 from 0.12.1",
+        widget::text("Fixes").size(20),
+        "- Fixed the terminal popping up on Windows",
+        "- Fixed a bug where you couldn't disable local mods",
+        "- Fixed a JSON error when installing some mods (like debugify)",
+        "- Fixed a bug where renaming instances would break mod management features and forge",
+        "- Fixed a crash with 1.21.3 Fabric",
+        "- Fixed a crash with 1.21.5 Forge",
+        "- Fixed many rendering bugs with the mod description viewer in the mod store",
+        "- Reduced useless log file spam in \"QuantumLauncher/logs/\" folder",
+        "- Reduced errors in the fabric installer",
+        "- Fixed many bugs with game log viewing",
+        "- Improved reliability of Network Operations, you should see \"Request Error\"s less now",
     )
-    .spacing(10)
+    .spacing(7)
+    .width(Length::Fill)
     .into()
 }
 

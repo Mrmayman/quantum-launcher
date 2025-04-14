@@ -12,7 +12,7 @@ use iced::{
     Task,
 };
 use ql_core::{
-    err, file_utils, info,
+    err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
     JsonFileError, Loader, ModId, Progress, SelectedMod, StoreBackendType, LAUNCHER_VERSION_NAME,
@@ -200,6 +200,7 @@ pub enum Message {
     CoreTickConfigSaved(Result<(), String>),
     CoreListLoaded(Result<(Vec<String>, bool), String>),
     CoreOpenChangeLog,
+    CoreOpenIntro,
     CoreEvent(iced::Event, iced::event::Status),
 
     CoreLogToggle,
@@ -625,18 +626,7 @@ pub struct ServerProcess {
     pub receiver: Option<Receiver<String>>,
     pub stdin: Option<ChildStdin>,
     pub is_classic_server: bool,
-    pub name: String,
     pub has_issued_stop_command: bool,
-}
-
-impl Drop for ServerProcess {
-    fn drop(&mut self) {
-        if !self.has_issued_stop_command {
-            info!("Force-Killing server {}\n       You should be a bit more careful before closing the launcher window", self.name);
-            let mut lock = self.child.lock().unwrap();
-            _ = lock.start_kill();
-        }
-    }
 }
 
 impl Launcher {

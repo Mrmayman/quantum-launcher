@@ -11,7 +11,7 @@
 //! - Beta
 //!
 //! ## Example
-//! ```
+//! ```no_run
 //! # async fn get() {
 //! use omniarchive_api::{MinecraftVersionCategory};
 //!
@@ -24,12 +24,12 @@ use std::{
     collections::HashSet,
     fmt::Display,
     rc::Rc,
-    sync::{mpsc::Sender, Arc},
+    sync::{mpsc::Sender, Arc, Mutex},
 };
 
 use html5ever::tendril::TendrilSink;
 use markup5ever_rcdom::Node;
-use ql_core::file_utils;
+use ql_core::{do_jobs, file_utils};
 
 mod entry;
 mod error;
@@ -131,24 +131,24 @@ impl MinecraftVersionCategory {
     ) -> Result<Vec<String>, WebScrapeError> {
         let url = self.get_index_url(download_server);
 
-        let mut buffer = Vec::new();
-        let mut deeper_buffer = Vec::new();
-        let mut visited = HashSet::new();
+        let buffer = Mutex::new(Vec::new());
+        let deeper_buffer = Mutex::new(Vec::new());
+        let visited = Mutex::new(HashSet::new());
 
         if let Some(progress) = &progress {
             _ = progress.send(());
         }
 
-        let mut i = 1;
+        let i = Mutex::new(1);
 
         let links = self
             .get_links(
                 url,
-                &mut buffer,
-                &mut visited,
+                &buffer,
+                &visited,
                 progress.as_deref(),
-                &mut deeper_buffer,
-                &mut i,
+                &deeper_buffer,
+                &i,
             )
             .await?;
 
@@ -158,30 +158,42 @@ impl MinecraftVersionCategory {
     async fn get_links(
         &self,
         url: String,
-        buffer: &mut Vec<String>,
-        visited: &mut HashSet<String>,
+        buffer: &Mutex<Vec<String>>,
+        visited: &Mutex<HashSet<String>>,
         progress: Option<&Sender<()>>,
-        deeper_buffer: &mut Vec<String>,
-        i: &mut usize,
+        deeper_buffer: &Mutex<Vec<String>>,
+        i: &Mutex<usize>,
     ) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
-        let mut links = self
-            .scrape_links(&url, buffer, visited, progress, i)
-            .await?;
-        while !buffer.is_empty() || !deeper_buffer.is_empty() {
-            for link in buffer.iter() {
-                let scraped_links = self
-                    .scrape_links(link, deeper_buffer, visited, progress, i)
-                    .await?;
-                links.extend_from_slice(&scraped_links);
+        let mut links = self.scrape_links(url, buffer, visited, progress, i).await?;
+
+        let mut is_buffer_empty = buffer.lock().unwrap().is_empty();
+
+        while !is_buffer_empty {
+            {
+                let buffer_new = buffer.lock().unwrap().clone();
+                let new = do_jobs(
+                    buffer_new
+                        .into_iter()
+                        .map(|link| self.scrape_links(link, deeper_buffer, visited, progress, i)),
+                )
+                .await?;
+                buffer.lock().unwrap().clear();
+                links.extend(new.into_iter().flatten());
             }
-            buffer.clear();
-            for link in deeper_buffer.iter() {
-                let scraped_links = self
-                    .scrape_links(link, buffer, visited, progress, i)
-                    .await?;
-                links.extend_from_slice(&scraped_links);
+
+            {
+                let deeper_buffer_clone = deeper_buffer.lock().unwrap().clone();
+                let new = do_jobs(
+                    deeper_buffer_clone
+                        .into_iter()
+                        .map(|link| self.scrape_links(link, buffer, visited, progress, i)),
+                )
+                .await?;
+                deeper_buffer.lock().unwrap().clear();
+                links.extend(new.into_iter().flatten());
             }
-            deeper_buffer.clear();
+
+            is_buffer_empty = buffer.lock().unwrap().is_empty();
         }
         if let Some(progress) = &progress {
             _ = progress.send(());
@@ -191,21 +203,22 @@ impl MinecraftVersionCategory {
 
     async fn scrape_links(
         &self,
-        url: &str,
-        deeper_buffer: &mut Vec<String>,
-        visited: &mut HashSet<String>,
+        url: String,
+        deeper_buffer: &Mutex<Vec<String>>,
+        visited: &Mutex<HashSet<String>>,
         progress: Option<&Sender<()>>,
-        i: &mut usize,
+        i: &Mutex<usize>,
     ) -> Result<Vec<(Self, String)>, WebScrapeError> {
-        if !visited.insert(url.to_owned()) {
+        if !visited.lock().unwrap().insert(url.to_owned()) {
             return Ok(Vec::new());
         }
 
-        let file = file_utils::download_file_to_string(url, true).await?;
+        let file = file_utils::download_file_to_string(&url, true).await?;
 
         if let Some(progress) = progress {
             progress.send(()).unwrap();
         } else {
+            let mut i = i.lock().unwrap();
             eprintln!("- Progress ({self}): {i} / 20");
             *i += 1;
         }
@@ -237,7 +250,7 @@ impl MinecraftVersionCategory {
                     let link = a.value.to_string();
                     if link.ends_with("index.html") {
                         if link != "https://vault.omniarchive.uk/archive/java/index.html" {
-                            deeper_buffer.push(link);
+                            deeper_buffer.lock().unwrap().push(link);
                         }
                     } else if !ends_with_extension(&link, ".exe") {
                         links.push((*self, link));
@@ -271,12 +284,12 @@ pub async fn download_all(
     download_server: bool,
 ) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
     let mut links = Vec::new();
-    let mut visited = HashSet::new();
+    let visited = Mutex::new(HashSet::new());
 
-    let mut buffer = Vec::new();
-    let mut deeper_buffer = Vec::new();
+    let buffer = Mutex::new(Vec::new());
+    let deeper_buffer = Mutex::new(Vec::new());
 
-    let mut i = 1;
+    let i = Mutex::new(1);
 
     for category in MinecraftVersionCategory::all_client().into_iter().rev() {
         let url = category.get_index_url(download_server);
@@ -284,11 +297,11 @@ pub async fn download_all(
         let versions = category
             .get_links(
                 url,
-                &mut buffer,
-                &mut visited,
+                &buffer,
+                &visited,
                 progress.as_deref(),
-                &mut deeper_buffer,
-                &mut i,
+                &deeper_buffer,
+                &i,
             )
             .await?;
 

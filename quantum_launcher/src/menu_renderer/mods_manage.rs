@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use iced::widget;
+use iced::{widget, Length};
 use ql_core::{InstanceSelection, SelectedMod};
 
 use crate::{
@@ -28,7 +28,7 @@ impl MenuEditMods {
         }
 
         widget::row!(
-            widget::container(widget::column!(
+            widget::container(
                 widget::scrollable(
                     widget::column!(
                         widget::button(
@@ -44,9 +44,9 @@ impl MenuEditMods {
                     .padding(10)
                     .spacing(20)
                 )
-                .style(LauncherTheme::style_scrollable_flat_dark),
-                widget::vertical_space()
-            ))
+                .style(LauncherTheme::style_scrollable_flat_dark)
+                .height(Length::Fill)
+            )
             .style(|n| n.style_container_sharp_box(0.0, Color::Dark)),
             self.get_mod_list()
         )
@@ -244,7 +244,7 @@ impl MenuEditMods {
             path.exists().then_some(path.to_str().unwrap().to_owned())
         };
 
-        button_with_icon(icon_manager::folder(), "Go to Mods Folder", 16)
+        button_with_icon(icon_manager::folder(), "Open Mods Folder", 16)
             .on_press_maybe(path.map(Message::CoreOpenDir))
             .into()
     }
@@ -356,6 +356,7 @@ impl MenuEditMods {
             horizontal: widget::scrollable::Scrollbar::new(),
         })
         .style(LauncherTheme::style_scrollable_flat_extra_dark)
+        .width(Length::Fill)
         .into()
     }
 }

@@ -1,4 +1,4 @@
-use iced::widget;
+use iced::{widget, Length};
 use ql_core::{ModId, StoreBackendType};
 use ql_mod_manager::mod_manager::SearchMod;
 
@@ -202,7 +202,7 @@ impl MenuModsDownload {
                     button_with_icon(icon_manager::save(), "Copy ID", 16)
                         .on_press(Message::CoreCopyText(hit.id.clone())),
                 )
-                .spacing(10),
+                .spacing(5),
                 widget::row!(
                     if let Some(icon) = images.bitmap.get(&hit.icon_url) {
                         widget::column!(widget::image(icon.clone()))
@@ -220,6 +220,9 @@ impl MenuModsDownload {
             .padding(20)
             .spacing(20),
         )
+        .style(LauncherTheme::style_scrollable_flat_extra_dark)
+        .width(Length::Fill)
+        .height(Length::Fill)
         .into()
     }
 

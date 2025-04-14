@@ -1,4 +1,4 @@
-use iced::widget;
+use iced::{widget, Length};
 use ql_core::{InstanceSelection, Progress};
 
 use crate::{
@@ -372,7 +372,7 @@ impl MenuInstallFabric {
             MenuInstallFabric::Unsupported(is_quilt) => {
                 widget::column!(
                     button_with_icon(icon_manager::back(), "Back", 16)
-                        .on_press(back_to_launch_screen(selected_instance, None)),
+                        .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                     if *is_quilt {
                         "Quilt is unsupported for this Minecraft version."
                     } else {
@@ -481,23 +481,36 @@ impl MenuLauncherSettings {
                 config_view,
                 widget::container(
                     widget::column!(
-                        button_with_icon(icon_manager::page(), "View Changelog", 16)
-                            .on_press(Message::CoreOpenChangeLog),
-                        button_with_icon(icon_manager::page(), "Open Website", 16).on_press(
-                            Message::CoreOpenDir(
-                                "https://mrmayman.github.io/quantumlauncher".to_owned()
-                            )
-                        ),
-                        button_with_icon(icon_manager::github(), "Open Github Repo", 16).on_press(
-                            Message::CoreOpenDir(
-                                "https://github.com/Mrmayman/quantum-launcher".to_owned()
-                            )
-                        ),
-                        button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
-                            Message::CoreOpenDir(DISCORD.to_owned())
-                        ),
-                        "QuantumLauncher is free and open source software under the GNU GPL3 license.",
-                        "If you like it, consider sharing it with your friends.",
+                        widget::row![
+                            button_with_icon(icon_manager::page(), "View Changelog", 16)
+                                .on_press(Message::CoreOpenChangeLog),
+                            button_with_icon(icon_manager::page(), "View Intro", 16)
+                                .on_press(Message::CoreOpenIntro),
+                        ].spacing(5).wrap(),
+                        widget::row![
+                            button_with_icon(icon_manager::page(), "Open Website", 16).on_press(
+                                Message::CoreOpenDir(
+                                    "https://mrmayman.github.io/quantumlauncher".to_owned()
+                                )
+                            ),
+                            button_with_icon(icon_manager::github(), "Open Github Repo", 16).on_press(
+                                Message::CoreOpenDir(
+                                    "https://github.com/Mrmayman/quantum-launcher".to_owned()
+                                )
+                            ),
+                            button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
+                                Message::CoreOpenDir(DISCORD.to_owned())
+                            ),
+                        ].spacing(5).wrap(),
+                        widget::column![
+                            widget::text("QuantumLauncher is free and open source software under the GNU GPLv3 license.").size(12),
+                            widget::text("No warranty is provided for this software.").size(12),
+                            widget::text("You're free to share, modify, and redistribute it under the same license.").size(12),
+                            widget::button("View License").on_press(
+                                Message::CoreOpenDir("https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned())
+                            ),
+                        ].spacing(5),
+                        "If you like this launcher, consider sharing it with your friends.",
                         "Every new user motivates me to keep working on this :)"
                     )
                     .padding(10)
@@ -507,6 +520,8 @@ impl MenuLauncherSettings {
             .padding(10)
             .spacing(10),
         )
+        .width(Length::Fill)
+        .height(Length::Fill)
         .into()
     }
 }

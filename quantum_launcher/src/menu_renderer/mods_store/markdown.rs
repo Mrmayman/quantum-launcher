@@ -104,7 +104,8 @@ impl MenuModsDownload {
             NodeValue::DescriptionDetails => todoh!("description details"),
             NodeValue::CodeBlock(block) => widget::container(
                 widget::column!(
-                    widget::button("Copy").on_press(Message::CoreCopyText(block.literal.clone())),
+                    widget::button(widget::text("Copy").size(12))
+                        .on_press(Message::CoreCopyText(block.literal.clone())),
                     widget::text(block.literal.clone())
                         .font(iced::Font::with_name("JetBrains Mono")),
                 )
@@ -122,7 +123,8 @@ impl MenuModsDownload {
             NodeValue::TaskItem(_) => todoh!("task item"),
             NodeValue::SoftBreak | NodeValue::LineBreak => widget::column!().into(),
             NodeValue::Code(code) => widget::column![
-                widget::button("Copy").on_press(Message::CoreCopyText(code.literal.clone())),
+                widget::button(widget::text("Copy").size(12))
+                    .on_press(Message::CoreCopyText(code.literal.clone())),
                 widget::text(code.literal.clone()).font(iced::Font::with_name("JetBrains Mono"))
             ]
             .spacing(5)

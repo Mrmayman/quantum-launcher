@@ -107,7 +107,7 @@ pub async fn run(
     }
     .current_dir(&server_dir);
 
-    let child = command.spawn().path(server_jar_path)?;
+    let child = command.kill_on_drop(true).spawn().path(server_jar_path)?;
     info!("Started server");
     Ok((Arc::new(Mutex::new(child)), is_classic_server))
 }

@@ -365,9 +365,9 @@ impl MenuServerCreate {
             } => {
                 while let Ok(()) = progress_receiver.try_recv() {
                     *progress_number += 1.0;
-                    if *progress_number > 17.0 {
-                        err!("More than 17 indexes scraped: {progress_number}");
-                        *progress_number = 17.0;
+                    if *progress_number > 18.0 {
+                        err!("More than 18 indexes scraped: {progress_number}");
+                        *progress_number = 18.0;
                     }
                 }
             }

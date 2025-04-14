@@ -31,7 +31,7 @@ async fn add_omniarchive_versions(
 ) -> Result<(), ListError> {
     let versions = omniarchive_api::download_all(progress.clone(), false).await?;
 
-    for (category, url) in versions.into_iter().rev() {
+    for (category, url) in versions.into_iter() {
         let name = if let Some(name) = url
             .strip_prefix("https://vault.omniarchive.uk/archive/java/client-")
             .and_then(|n| n.strip_suffix(".jar"))

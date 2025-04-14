@@ -1,11 +1,9 @@
-use iced::widget;
+use iced::{widget, Length};
 use ql_core::LOGGER;
 
 use crate::{
-    icon_manager,
     launcher_state::{Launcher, MenuLauncherSettings, Message, State},
     menu_renderer::{
-        button_with_icon,
         changelog::{changelog_0_4, welcome_msg},
         view_account_login, Element, DISCORD,
     },
@@ -153,17 +151,16 @@ impl Launcher {
             State::ManagePresets(menu) => menu.view(self.window_size),
             State::ChangeLog => widget::scrollable(
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
-                        Message::LaunchScreenOpen {
-                            message: None,
-                            clear_selection: true
-                        }
-                    ),
-                    changelog_0_4() // changelog_0_3_1()
+                    changelog_0_4(), // changelog_0_3_1(),
+                    widget::button("Continue").on_press(Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: true
+                    }),
                 )
                 .padding(10)
                 .spacing(10),
             )
+            .height(Length::Fill)
             .into(),
             State::Welcome => welcome_msg(),
         }

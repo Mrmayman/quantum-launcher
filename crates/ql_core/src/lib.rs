@@ -52,9 +52,9 @@ macro_rules! no_window {
 pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
 /// Perform multiple async tasks concurrently.
-pub async fn do_jobs<ResultType>(
-    results: impl Iterator<Item = impl std::future::Future<Output = ResultType>>,
-) -> Vec<ResultType> {
+pub async fn do_jobs<T, E>(
+    results: impl Iterator<Item = impl std::future::Future<Output = Result<T, E>>>,
+) -> Result<Vec<T>, E> {
     const JOBS: usize = 64;
     let mut tasks = futures::stream::FuturesUnordered::new();
     let mut outputs = Vec::new();
@@ -63,15 +63,15 @@ pub async fn do_jobs<ResultType>(
         tasks.push(result);
         if tasks.len() > JOBS {
             if let Some(task) = tasks.next().await {
-                outputs.push(task);
+                outputs.push(task?);
             }
         }
     }
 
     while let Some(task) = tasks.next().await {
-        outputs.push(task);
+        outputs.push(task?);
     }
-    outputs
+    Ok(outputs)
 }
 
 #[derive(Clone, Debug)]
@@ -210,6 +210,7 @@ pub enum SelectedMod {
 pub fn open_file_explorer(path: &str) {
     use std::process::Command;
 
+    info!("Opening link: {path}");
     if let Err(err) = Command::new(if cfg!(target_os = "linux") {
         "xdg-open"
     } else if cfg!(target_os = "windows") {

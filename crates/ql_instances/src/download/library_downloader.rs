@@ -51,11 +51,7 @@ impl GameDownloader {
             self.download_library_fn(lib, &num_library, total_libraries, &replaced_names)
         });
 
-        let outputs = do_jobs(results).await;
-
-        if let Some(err) = outputs.into_iter().find_map(Result::err) {
-            return Err(err);
-        }
+        _ = do_jobs(results).await?;
 
         #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
         {

@@ -288,11 +288,7 @@ impl GameDownloader {
                 )
             });
 
-            let outputs = do_jobs(results).await;
-
-            if let Some(err) = outputs.into_iter().find_map(Result::err) {
-                return Err(err);
-            }
+            _ = do_jobs(results).await?;
 
             tokio::fs::remove_file(&lock_path).await.path(&lock_path)?;
         }

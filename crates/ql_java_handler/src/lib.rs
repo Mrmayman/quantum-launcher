@@ -196,11 +196,7 @@ async fn install_java_files(
             file,
         )
     });
-    let outputs = do_jobs(results).await;
-
-    if let Some(err) = outputs.into_iter().find_map(Result::err) {
-        return Err(err);
-    }
+    _ = do_jobs(results).await?;
 
     Ok(())
 }

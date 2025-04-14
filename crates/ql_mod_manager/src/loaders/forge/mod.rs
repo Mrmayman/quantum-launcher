@@ -308,7 +308,7 @@ impl ForgeInstaller {
             if self.major_version > 48 {
                 Self::add_to_classpath(classpath, &path, &file)?;
             }
-            info!("Built in forge library, skipping...");
+            pt!("Built in forge library, skipping...");
             return Ok(());
         }
 
