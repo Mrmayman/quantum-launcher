@@ -1,14 +1,14 @@
 name: Build-macOS
 
 on:
-  workflow_dispatch:  # allows manual triggering
+  workflow_dispatch: # allows manual triggering
 
 env:
   BIN_NAME: quantum_launcher
   PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
   FINAL_NAME: quantum_launcher
-  APP_VERSION: 0.4.0
+  APP_VERSION: 0.4.1
   CARGO_TERM_COLOR: always # Tell cargo to always use colors
 
 jobs:

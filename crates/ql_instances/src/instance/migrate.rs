@@ -79,47 +79,60 @@ impl GameLauncher {
         &self,
         version: &semver::Version,
     ) -> Result<(), GameLaunchError> {
-        let v0_3_1 = semver::Version {
+        let v0_4_0 = semver::Version {
             major: 0,
-            minor: 3,
-            patch: 1,
+            minor: 4,
+            patch: 0,
             pre: semver::Prerelease::EMPTY,
             build: semver::BuildMetadata::EMPTY,
         };
-        if version > &v0_3_1 {
-            return Ok(());
-        }
 
         let c_path = self.instance_dir.join("forge/classpath.txt");
         if !c_path.exists() {
             return Ok(()); // Forge isn't installed
         }
 
-        info!("Migrating Forge Classpath");
-        let classpath = tokio::fs::read_to_string(&c_path).await.path(&c_path)?;
+        if version < &v0_4_0 {
+            info!("Migrating Forge Classpath");
+            let classpath = tokio::fs::read_to_string(&c_path).await.path(&c_path)?;
 
-        let new_classpath = classpath
-            .split(":")
-            .map(|item| {
-                // migrate the absolute paths to relative paths, to fix renaming instances
-                if let Some(index) = item.find("forge/libraries") {
-                    let substring = &item[index..];
-                    format!("../{}", substring)
-                } else {
-                    item.to_string() // Or handle the case where the substring isn't found
-                }
-            })
-            .collect::<Vec<String>>()
-            .join(":");
+            let new_classpath = classpath
+                .split(":")
+                .map(|item| {
+                    // migrate the absolute paths to relative paths, to fix renaming instances
+                    if let Some(index) = item.find("forge/libraries") {
+                        let substring = &item[index..];
+                        format!("../{}", substring)
+                    } else {
+                        item.to_string() // Or handle the case where the substring isn't found
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(":");
 
-        tokio::fs::write(&c_path, &new_classpath)
-            .await
-            .path(&c_path)?;
+            tokio::fs::write(&c_path, &new_classpath)
+                .await
+                .path(&c_path)?;
 
-        let bak_path = self.instance_dir.join("forge/classpath.txt.bak");
-        tokio::fs::write(&bak_path, &classpath)
-            .await
-            .path(&bak_path)?;
+            let bak_path = self.instance_dir.join("forge/classpath.txt.bak");
+            tokio::fs::write(&bak_path, &classpath)
+                .await
+                .path(&bak_path)?;
+        }
+
+        if version <= &v0_4_0 {
+            let classpath = tokio::fs::read_to_string(&c_path).await.path(&c_path)?;
+
+            let new_classpath = classpath_v0_3_1_to_v0_4(&classpath);
+            tokio::fs::write(&c_path, &new_classpath)
+                .await
+                .path(&c_path)?;
+
+            let bak_path = self.instance_dir.join("forge/classpath.txt.2.bak");
+            tokio::fs::write(&bak_path, &classpath)
+                .await
+                .path(&bak_path)?;
+        }
 
         Ok(())
     }
@@ -222,4 +235,17 @@ fn transform_path(input: &str) -> Option<String> {
     }
 
     Some(result)
+}
+
+fn classpath_v0_3_1_to_v0_4(input: &str) -> String {
+    let mut parts: Vec<String> = input.split(':').map(str::to_owned).collect();
+
+    if let Some(first) = parts.get_mut(0) {
+        if let Some(index) = first.find("forge/libraries") {
+            let trimmed = &first[index..];
+            *first = format!("../{}", trimmed);
+        }
+    }
+
+    parts.join(":")
 }

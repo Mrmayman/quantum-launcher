@@ -121,6 +121,9 @@ impl ForgeInstaller {
             &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type}.jar", self.norm_forge_version, self.norm_forge_version),
             &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type_flipped}.jar", self.short_version, self.short_version),
             &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type_flipped}.jar", self.norm_forge_version, self.norm_forge_version),
+            // TODO: Minecraft 1.1: Needs Jarmod support
+            // &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.short_version, self.short_version),
+            // &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.norm_forge_version, self.norm_forge_version),
         ]).await?;
 
         let installer_name = format!("forge-{}-{file_type}.jar", self.short_version);
@@ -153,13 +156,12 @@ impl ForgeInstaller {
                 }
             }
         }
-        unreachable!()
+        panic!("Forge installer: Reached invalid state (while retrying downloads)")
     }
 
     async fn run_installer_and_get_classpath(
         &self,
         installer_name: &str,
-        installer_path: PathBuf,
         j_progress: Option<&Sender<GenericProgress>>,
     ) -> Result<(PathBuf, String), ForgeInstallError> {
         let libraries_dir = self.forge_dir.join("libraries");
@@ -168,27 +170,23 @@ impl ForgeInstaller {
             .path(&libraries_dir)?;
 
         let classpath = if self.major_version >= 14 {
+            // 1.12+
             self.run_installer(j_progress, installer_name).await?;
 
             if self.major_version < 39 {
+                // 1.12 - 1.18
                 format!(
-                    "{}/net/minecraftforge/forge/{}/forge-{}.jar{CLASSPATH_SEPARATOR}",
-                    libraries_dir
-                        .to_str()
-                        .ok_or(ForgeInstallError::PathBufToStr(libraries_dir.clone()))?,
+                    "../forge/libraries/net/minecraftforge/forge/{}/forge-{}.jar{CLASSPATH_SEPARATOR}",
                     self.short_version,
                     self.short_version
                 )
             } else {
+                // 1.18.1+
                 String::new()
             }
         } else {
-            format!(
-                "{}{CLASSPATH_SEPARATOR}",
-                installer_path
-                    .to_str()
-                    .ok_or(ForgeInstallError::PathBufToStr(installer_path.clone()))?
-            )
+            // 1.1 - 1.11.2
+            format!("../forge/{installer_name}{CLASSPATH_SEPARATOR}")
         };
         Ok((libraries_dir, classpath))
     }
@@ -632,11 +630,10 @@ pub async fn install_client(
     )
     .await?;
 
-    let (installer_file, installer_name, installer_path) =
-        installer.download_forge_installer().await?;
+    let (installer_file, installer_name, _) = installer.download_forge_installer().await?;
 
     let (libraries_dir, mut classpath) = installer
-        .run_installer_and_get_classpath(&installer_name, installer_path, j_progress.as_ref())
+        .run_installer_and_get_classpath(&installer_name, j_progress.as_ref())
         .await?;
 
     let mut clean_classpath = String::new();
