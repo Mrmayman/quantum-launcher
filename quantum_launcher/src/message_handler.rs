@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::ExitStatus,
     sync::{Arc, Mutex},
 };
@@ -17,9 +17,9 @@ use tokio::process::Child;
 use crate::{
     get_entries,
     launcher_state::{
-        ClientProcess, MenuCreateInstance, MenuEditInstance, MenuEditMods, MenuInstallFabric,
-        MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, NEW_ACCOUNT_NAME,
-        OFFLINE_ACCOUNT_NAME,
+        ClientProcess, EditPresetsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods,
+        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate,
+        NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
     },
     Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
@@ -204,6 +204,7 @@ impl Launcher {
                     available_updates: Vec::new(),
                     mod_update_progress: None,
                     locally_installed_mods: HashSet::new(),
+                    drag_and_drop_hovered: false,
                 });
 
                 Ok(locally_installed_mods)
@@ -238,6 +239,7 @@ impl Launcher {
                     available_updates: Vec::new(),
                     mod_update_progress: None,
                     locally_installed_mods: HashSet::new(),
+                    drag_and_drop_hovered: false,
                 });
 
                 let update_cmd = if is_vanilla {
@@ -517,14 +519,44 @@ impl Launcher {
                 iced::window::Event::Resized(size) => {
                     self.window_size = (size.width, size.height);
                 }
+                iced::window::Event::FileHovered(_) => {
+                    self.set_drag_and_drop_hover(true);
+                }
+                iced::window::Event::FilesHoveredLeft => {
+                    self.set_drag_and_drop_hover(false);
+                }
+                iced::window::Event::FileDropped(path) => {
+                    self.set_drag_and_drop_hover(false);
+
+                    if let (Some(extension), Some(filename)) = (
+                        path.extension()
+                            .and_then(|n| n.to_str())
+                            .map(|n| n.to_lowercase()),
+                        path.file_name().and_then(|n| n.to_str()),
+                    ) {
+                        if let State::EditMods(_) = &self.state {
+                            if extension == "jar" || extension == "disabled" {
+                                let selected_instance = self.selected_instance.as_ref().unwrap();
+                                let new_path = selected_instance
+                                    .get_dot_minecraft_path(&self.dir)
+                                    .join("mods")
+                                    .join(filename);
+                                if let Err(err) = std::fs::copy(&path, &new_path) {
+                                    err!("Couldn't drag and drop mod file in: {err}");
+                                }
+                            }
+                        } else if let State::ManagePresets(_) = &self.state {
+                            if extension == "qmp" {
+                                return self.load_qmp_from_path(&path);
+                            }
+                        }
+                    }
+                }
                 iced::window::Event::RedrawRequested(_)
                 | iced::window::Event::Moved { .. }
                 | iced::window::Event::Opened { .. }
                 | iced::window::Event::Focused
-                | iced::window::Event::Unfocused
-                | iced::window::Event::FileHovered(_)
-                | iced::window::Event::FileDropped(_)
-                | iced::window::Event::FilesHoveredLeft => {}
+                | iced::window::Event::Unfocused => {}
             },
             iced::Event::Keyboard(event) => match event {
                 iced::keyboard::Event::KeyPressed {
@@ -614,6 +646,48 @@ impl Launcher {
             iced::Event::Touch(_) => {}
         }
         Task::none()
+    }
+
+    pub fn load_qmp_from_path(&mut self, path: &Path) -> Task<Message> {
+        let file = match std::fs::read(path) {
+            Ok(n) => n,
+            Err(err) => {
+                err!("Couldn't drag and drop preset file: {err}");
+                return Task::none();
+            }
+        };
+        match tokio::runtime::Handle::current().block_on(ql_mod_manager::PresetJson::load(
+            self.selected_instance.clone().unwrap(),
+            file,
+        )) {
+            Ok(mods) => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                if let State::ManagePresets(menu) = &mut self.state {
+                    menu.progress = Some(ProgressBar::with_recv(receiver));
+                }
+                let instance_name = self.selected_instance.clone().unwrap();
+                Task::perform(
+                    ql_mod_manager::mod_manager::download_mods_bulk(
+                        mods,
+                        instance_name,
+                        Some(sender),
+                    ),
+                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n.strerr())),
+                )
+            }
+            Err(err) => {
+                self.set_error(err);
+                Task::none()
+            }
+        }
+    }
+
+    fn set_drag_and_drop_hover(&mut self, is_hovered: bool) {
+        if let State::EditMods(menu) = &mut self.state {
+            menu.drag_and_drop_hovered = is_hovered;
+        } else if let State::ManagePresets(menu) = &mut self.state {
+            menu.drag_and_drop_hovered = is_hovered;
+        }
     }
 
     pub fn update_download_start(&mut self) -> Task<Message> {

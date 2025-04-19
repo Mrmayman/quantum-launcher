@@ -2,8 +2,7 @@ use std::{collections::HashSet, path::Path};
 
 use iced::Task;
 use ql_core::{
-    err, json::VersionDetails, InstanceSelection, IntoIoError, IntoStringError, Loader, ModId,
-    SelectedMod,
+    err, json::VersionDetails, InstanceSelection, IntoStringError, Loader, ModId, SelectedMod,
 };
 use ql_mod_manager::mod_manager::{RecommendedMod, RECOMMENDED_MODS};
 
@@ -274,6 +273,7 @@ impl Launcher {
             progress: None,
             config: menu.config.clone(),
             sorted_mods_list: menu.sorted_mods_list.clone(),
+            drag_and_drop_hovered: false,
         });
 
         if !is_empty {
@@ -304,39 +304,8 @@ impl Launcher {
         else {
             return Task::none();
         };
-        let file = match std::fs::read(&file).path(&file) {
-            Ok(n) => n,
-            Err(err) => {
-                self.set_error(err);
-                return Task::none();
-            }
-        };
 
-        match tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(ql_mod_manager::PresetJson::load(
-                self.selected_instance.clone().unwrap(),
-                file,
-            )) {
-            Ok(mods) => {
-                let (sender, receiver) = std::sync::mpsc::channel();
-                if let State::ManagePresets(menu) = &mut self.state {
-                    menu.progress = Some(ProgressBar::with_recv(receiver));
-                }
-                let instance_name = self.selected_instance.clone().unwrap();
-                return Task::perform(
-                    ql_mod_manager::mod_manager::download_mods_bulk(
-                        mods,
-                        instance_name,
-                        Some(sender),
-                    ),
-                    |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n.strerr())),
-                );
-            }
-            Err(err) => self.set_error(err),
-        }
-
-        Task::none()
+        self.load_qmp_from_path(&file)
     }
 
     fn build_end(&mut self, preset: Result<Vec<u8>, String>) -> Result<Task<Message>, String> {

@@ -12,19 +12,10 @@ use crate::launcher_state::{ImageState, MenuModsDownload, Message};
 
 use super::Element;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 struct ChildData {
     heading_weight: usize,
     monospace: bool,
-}
-
-impl Default for ChildData {
-    fn default() -> Self {
-        Self {
-            heading_weight: 0,
-            monospace: false,
-        }
-    }
 }
 
 impl ChildData {
@@ -195,7 +186,7 @@ fn render_html<'a>(
                 let children_empty = { node.children.borrow().is_empty() };
 
                 let mut children: Element = widget::column![].into();
-                _ = render_children(
+                render_children(
                     node,
                     &mut children,
                     images,

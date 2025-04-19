@@ -26,7 +26,7 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ImageResult, ModConfig, ModIndex, ModInformation, RecommendedMod, SearchResult},
+    mod_manager::{ImageResult, ModConfig, ModIndex, ModDescription, RecommendedMod, SearchResult},
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -108,7 +108,7 @@ pub enum InstallModsMessage {
     ImageDownloaded(Result<ImageResult, String>),
     Click(usize),
     BackToMainScreen,
-    LoadData(Result<Box<ModInformation>, String>),
+    LoadData(Result<Box<ModDescription>, String>),
     Download(usize),
     DownloadComplete(Result<ModId, String>),
     IndexUpdated(Result<ModIndex, String>),
@@ -359,6 +359,7 @@ pub struct MenuEditMods {
     pub selected_state: SelectedState,
     pub available_updates: Vec<(ModId, String, bool)>,
     pub mod_update_progress: Option<ProgressBar<GenericProgress>>,
+    pub drag_and_drop_hovered: bool,
 }
 
 impl MenuEditMods {
@@ -463,7 +464,7 @@ pub struct MenuLauncherUpdate {
 pub struct MenuModsDownload {
     pub query: String,
     pub results: Option<SearchResult>,
-    pub result_data: HashMap<ModId, ModInformation>,
+    pub result_data: HashMap<ModId, ModDescription>,
     pub config: InstanceConfigJson,
     pub json: VersionDetails,
     pub opened_mod: Option<usize>,
@@ -487,6 +488,7 @@ pub struct MenuEditPresets {
     pub progress: Option<ProgressBar<GenericProgress>>,
     pub config: InstanceConfigJson,
     pub sorted_mods_list: Vec<ModListEntry>,
+    pub drag_and_drop_hovered: bool,
 }
 
 pub enum MenuEditPresetsInner {

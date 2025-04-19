@@ -183,7 +183,7 @@ pub enum UpdateError {
     UnsupportedArchitecture,
     #[error("no matching launcher update download found for your platform")]
     NoMatchingDownloadFound,
-    #[error("current launcher version is ahead of latest version! dev build?")]
+    #[error("Current launcher version is ahead of latest version! dev build?")]
     AheadOfLatestVersion,
     #[error("launcher update error: could not get current exe path: {0}")]
     CurrentExeError(std::io::Error),

@@ -27,7 +27,7 @@ impl MenuEditMods {
                 .into();
         }
 
-        widget::row!(
+        let menu_main = widget::row!(
             widget::container(
                 widget::scrollable(
                     widget::column!(
@@ -49,8 +49,19 @@ impl MenuEditMods {
             )
             .style(|n| n.style_container_sharp_box(0.0, Color::Dark)),
             self.get_mod_list()
-        )
-        .into()
+        );
+
+        if self.drag_and_drop_hovered {
+            widget::stack!(
+                menu_main,
+                widget::center(widget::button(
+                    widget::text("Drag and drop mod files to add them").size(20)
+                ))
+            )
+            .into()
+        } else {
+            menu_main.into()
+        }
     }
 
     fn get_mod_update_pane(&self) -> widget::Column<'_, Message, LauncherTheme> {
@@ -254,6 +265,7 @@ impl MenuEditMods {
             return widget::column!("Download some mods to get started")
                 .spacing(10)
                 .padding(10)
+                .width(Length::Fill)
                 .into();
         }
 

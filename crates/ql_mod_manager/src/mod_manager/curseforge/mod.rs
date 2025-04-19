@@ -34,25 +34,6 @@ impl ModQuery {
         let response: ModQuery = serde_json::from_str(&response)?;
         Ok(response)
     }
-
-    async fn get_file(
-        &self,
-        id: &str,
-        version: &str,
-        loader: Option<&str>,
-    ) -> Result<CurseforgeFileQuery, ModError> {
-        let Some(file) = self.data.latestFilesIndexes.iter().find(|n| {
-            let is_loader_compatible = loader == n.modLoader.map(|n| n.to_string()).as_deref();
-            let is_version_compatible = n.gameVersion == version;
-            is_version_compatible && is_loader_compatible
-        }) else {
-            return Err(ModError::NoCompatibleVersionFound);
-        };
-
-        let file_query = CurseforgeFileQuery::load(id, file.fileId).await?;
-
-        Ok(file_query)
-    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -66,6 +47,28 @@ struct Mod {
     id: i32,
     latestFilesIndexes: Vec<CurseforgeFileIdx>,
     // latestFiles: Vec<CurseforgeFile>,
+}
+
+impl Mod {
+    async fn get_file(
+        &self,
+        title: String,
+        id: &str,
+        version: &str,
+        loader: Option<&str>,
+    ) -> Result<CurseforgeFileQuery, ModError> {
+        let Some(file) = self.latestFilesIndexes.iter().find(|n| {
+            let is_loader_compatible = loader == n.modLoader.map(|n| n.to_string()).as_deref();
+            let is_version_compatible = n.gameVersion == version;
+            is_version_compatible && is_loader_compatible
+        }) else {
+            return Err(ModError::NoCompatibleVersionFound(title));
+        };
+
+        let file_query = CurseforgeFileQuery::load(id, file.fileId).await?;
+
+        Ok(file_query)
+    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -113,15 +116,36 @@ struct Logo {
     url: String,
 }
 
+#[derive(Deserialize)]
+struct CFSearchResult {
+    data: Vec<Mod>,
+}
+
+impl CFSearchResult {
+    async fn get_from_ids(ids: &[String]) -> Result<Self, super::ModError> {
+        let mut array_str = "[".to_owned();
+
+        let len = ids.len();
+        for (i, id) in ids.iter().enumerate() {
+            array_str.push_str(id);
+            if i + 1 < len {
+                array_str.push_str(", ");
+            }
+        }
+        array_str.push(']');
+
+        let params = HashMap::from([("body", array_str)]);
+        let response = send_request("mods", &params).await?;
+
+        let res: Self = serde_json::from_str(&response)?;
+        Ok(res)
+    }
+}
+
 pub struct CurseforgeBackend;
 
 impl Backend for CurseforgeBackend {
     async fn search(query: super::Query, offset: usize) -> Result<SearchResult, super::ModError> {
-        #[derive(Deserialize)]
-        struct SearchResult {
-            data: Vec<Mod>,
-        }
-
         const TOTAL_DOWNLOADS: &str = "6";
 
         let _lock = RATE_LIMITER.lock().await;
@@ -141,7 +165,7 @@ impl Backend for CurseforgeBackend {
         }
 
         let response = send_request("mods/search", &params).await?;
-        let response: SearchResult = serde_json::from_str(&response)?;
+        let response: CFSearchResult = serde_json::from_str(&response)?;
 
         Ok(super::SearchResult {
             mods: response
@@ -162,24 +186,18 @@ impl Backend for CurseforgeBackend {
         })
     }
 
-    async fn get_description(id: &str) -> Result<super::ModInformation, super::ModError> {
+    async fn get_description(id: &str) -> Result<super::ModDescription, super::ModError> {
         #[derive(Deserialize)]
         struct Resp2 {
             data: String,
         }
 
         let map = HashMap::new();
-
-        let response = ModQuery::load(id).await?;
-
         let description = send_request(&format!("mods/{id}/description"), &map).await?;
         let description: Resp2 = serde_json::from_str(&description)?;
 
-        Ok(crate::mod_manager::ModInformation {
-            title: response.data.name,
-            description: response.data.summary,
-            icon_url: response.data.logo.map(|n| n.url),
-            id: ql_core::ModId::Curseforge(response.data.id.to_string()),
+        Ok(crate::mod_manager::ModDescription {
+            id: ql_core::ModId::Curseforge(id.to_string()),
             long_description: description.data,
         })
     }
@@ -192,7 +210,10 @@ impl Backend for CurseforgeBackend {
         let response = ModQuery::load(id).await?;
         let loader = loader.map(|n| n.to_curseforge());
 
-        let file_query = response.get_file(id, version, loader).await?;
+        let file_query = response
+            .data
+            .get_file(response.data.name.clone(), id, version, loader)
+            .await?;
 
         let download_version_time = DateTime::parse_from_rfc3339(&file_query.data.fileDate)?;
 
@@ -214,7 +235,11 @@ impl Backend for CurseforgeBackend {
             .await?
             .join("mods");
 
-        download::download(id, &version, loader, &mut index, &mods_dir, None).await?;
+        let mut cache = HashMap::new();
+        download::download(
+            id, &version, loader, &mut index, &mods_dir, None, &mut cache,
+        )
+        .await?;
 
         index.save(instance).await?;
 
@@ -239,6 +264,14 @@ impl Backend for CurseforgeBackend {
             .await?
             .join("mods");
 
+        let mut cache = HashMap::from_iter(
+            CFSearchResult::get_from_ids(ids)
+                .await?
+                .data
+                .into_iter()
+                .map(|n| (n.id.to_string(), n)),
+        );
+
         let len = ids.len();
         for (i, id) in ids.iter().enumerate() {
             if let Some(sender) = &sender {
@@ -250,12 +283,14 @@ impl Backend for CurseforgeBackend {
                 });
             }
 
-            let result =
-                download::download(id, &version, loader, &mut index, &mods_dir, None).await;
+            let result = download::download(
+                id, &version, loader, &mut index, &mods_dir, None, &mut cache,
+            )
+            .await;
 
-            if let Err(ModError::NoCompatibleVersionFound) = result {
+            if let Err(ModError::NoCompatibleVersionFound(name)) = &result {
                 if ignore_incompatible {
-                    pt!("No compatible version found for mod {id}, skipping...");
+                    pt!("No compatible version found for mod {name} ({id}), skipping...");
                     continue;
                 }
             }

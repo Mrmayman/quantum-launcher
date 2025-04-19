@@ -20,8 +20,8 @@ impl MenuEditPresets {
         if let Some(progress) = &self.progress {
             return widget::column!(
                 widget::text("Installing mods").size(20),
-                "Check debug log (at the bottom) for more info",
-                progress.view()
+                progress.view(),
+                widget::text("Check debug log (at the bottom) for more info").size(12),
             )
             .padding(10)
             .spacing(10)

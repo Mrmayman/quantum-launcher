@@ -1,10 +1,15 @@
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use ql_core::{file_utils, info, pt, IntoIoError, ModId};
 
 use crate::mod_manager::{
     curseforge::ModQuery, ModConfig, ModError, ModFile, ModIndex, SOURCE_ID_CURSEFORGE,
 };
+
+use super::Mod;
 
 pub async fn download(
     id: &str,
@@ -13,6 +18,7 @@ pub async fn download(
     index: &mut ModIndex,
     mods_dir: &Path,
     dependent: Option<&str>,
+    query_cache: &mut HashMap<String, Mod>,
 ) -> Result<(), ModError> {
     // Mod already installed.
     if let Some(config) = index.mods.get_mut(id) {
@@ -26,14 +32,16 @@ pub async fn download(
     }
 
     info!("Installing mod {id}");
-    let response = ModQuery::load(id).await?;
-    pt!("name: {}", response.data.name);
+    let response = if let Some(r) = query_cache.get(id) {
+        r.clone()
+    } else {
+        let query = ModQuery::load(id).await?;
+        query_cache.insert(id.to_owned(), query.data.clone());
+        query.data
+    };
+    pt!("name: {}", response.name);
 
-    if let Some(config) = index
-        .mods
-        .values_mut()
-        .find(|n| n.name == response.data.name)
-    {
+    if let Some(config) = index.mods.values_mut().find(|n| n.name == response.name) {
         pt!("Already installed from modrinth? Skipping...");
         // Is this mod a dependency of something else?
         if let Some(dependent) = dependent {
@@ -44,11 +52,13 @@ pub async fn download(
         return Ok(());
     }
 
-    let file_query = response.get_file(id, version, loader).await?;
+    let file_query = response
+        .get_file(response.name.clone(), id, version, loader)
+        .await?;
     let Some(url) = file_query.data.downloadUrl.clone() else {
         return Err(ModError::CurseforgeModNotAllowedForDownload(
-            response.data.name.clone(),
-            response.data.slug.clone(),
+            response.name.clone(),
+            response.slug.clone(),
         ));
     };
 
@@ -56,7 +66,7 @@ pub async fn download(
     let file_dir = mods_dir.join(&file_query.data.fileName);
     tokio::fs::write(&file_dir, &bytes).await.path(&file_dir)?;
 
-    let id_str = response.data.id.to_string();
+    let id_str = response.id.to_string();
     let id_mod = ModId::Curseforge(id_str.clone());
 
     for dependency in &file_query.data.dependencies {
@@ -69,6 +79,7 @@ pub async fn download(
             index,
             mods_dir,
             Some(id),
+            query_cache,
         ))
         .await?;
     }
@@ -77,13 +88,13 @@ pub async fn download(
     index.mods.insert(
         id_index_str.clone(),
         ModConfig {
-            name: response.data.name.clone(),
+            name: response.name.clone(),
             manually_installed: dependent.is_none(),
             installed_version: file_query.data.displayName.clone(),
             version_release_time: file_query.data.fileDate.clone(),
             enabled: true,
-            description: response.data.summary.clone(),
-            icon_url: response.data.logo.clone().map(|n| n.url),
+            description: response.summary.clone(),
+            icon_url: response.logo.clone().map(|n| n.url),
             project_source: SOURCE_ID_CURSEFORGE.to_owned(),
             project_id: id_index_str.clone(),
             files: vec![ModFile {
@@ -114,7 +125,7 @@ pub async fn download(
         },
     );
 
-    pt!("Finished installing mod: {}", response.data.name);
+    pt!("Finished installing mod: {}", response.name);
 
     Ok(())
 }

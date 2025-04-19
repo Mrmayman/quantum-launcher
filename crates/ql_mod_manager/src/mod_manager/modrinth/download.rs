@@ -79,7 +79,9 @@ impl ModDownloader {
 
         print_downloading_message(&project_info, dependent);
 
-        let download_version = self.get_download_version(id).await?;
+        let download_version = self
+            .get_download_version(id, project_info.title.clone())
+            .await?;
 
         pt!("Getting dependencies");
         let mut dependency_list = HashSet::new();
@@ -155,7 +157,7 @@ impl ModDownloader {
         }
     }
 
-    async fn get_download_version(&self, id: &str) -> Result<ModVersion, ModError> {
+    async fn get_download_version(&self, id: &str, title: String) -> Result<ModVersion, ModError> {
         pt!("Getting download info");
         let download_info = ModVersion::download(id).await?;
 
@@ -178,7 +180,7 @@ impl ModDownloader {
         let download_version = download_versions
             .into_iter()
             .next_back()
-            .ok_or(ModError::NoCompatibleVersionFound)?;
+            .ok_or(ModError::NoCompatibleVersionFound(title))?;
 
         Ok(download_version)
     }

@@ -421,8 +421,17 @@ impl MenuLauncherUpdate {
                             message: None,
                             clear_selection: false
                         }
+                    ),
+                    button_with_icon(icon_manager::page(), "Open Website", 16)
+                        .on_press(Message::CoreOpenDir("https://mrmayman.github.com/quantumlauncher".to_owned())),
+                ).push_maybe((cfg!(target_os = "linux")).then_some(
+                    widget::column!(
+                        "Note: If you installed this launcher from a package manager (apt/dnf/pacman/..) it's recommended to update from there",
+                        "If you just downloaded it from the website then it's fine."
                     )
-                )
+                )).push_maybe((cfg!(target_os = "macos")).then_some(
+                    "Note: The updater may be broken on macOS so download the new version from the website"
+                ))
                 .spacing(5),
                 "Note: If you downloaded this from a package manager or store, update it from there, not here."
             )

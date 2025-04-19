@@ -32,7 +32,7 @@ pub const SOURCE_ID_CURSEFORGE: &str = "curseforge";
 #[allow(async_fn_in_trait)]
 pub trait Backend {
     async fn search(query: Query, offset: usize) -> Result<SearchResult, ModError>;
-    async fn get_description(id: &str) -> Result<ModInformation, ModError>;
+    async fn get_description(id: &str) -> Result<ModDescription, ModError>;
     async fn get_latest_version_date(
         id: &str,
         version: &str,
@@ -49,7 +49,7 @@ pub trait Backend {
     ) -> Result<(), ModError>;
 }
 
-pub async fn get_description(id: ModId) -> Result<Box<ModInformation>, ModError> {
+pub async fn get_description(id: ModId) -> Result<Box<ModDescription>, ModError> {
     match &id {
         ModId::Modrinth(n) => ModrinthBackend::get_description(n).await,
         ModId::Curseforge(n) => CurseforgeBackend::get_description(n).await,
@@ -147,10 +147,7 @@ pub struct SearchMod {
 }
 
 #[derive(Debug, Clone)]
-pub struct ModInformation {
-    pub title: String,
-    pub description: String,
-    pub icon_url: Option<String>,
+pub struct ModDescription {
     pub id: ModId,
     pub long_description: String,
 }

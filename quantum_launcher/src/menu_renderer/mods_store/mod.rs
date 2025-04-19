@@ -82,6 +82,8 @@ impl MenuModsDownload {
                 .style(
                     |theme: &LauncherTheme, status| theme.style_scrollable_flat_extra_dark(status)
                 )
+                .height(Length::Fill)
+                .width(Length::Fill)
                 .on_scroll(|viewport| {
                     Message::InstallMods(InstallModsMessage::Scrolled(viewport))
                 }),

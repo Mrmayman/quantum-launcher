@@ -11,7 +11,7 @@ use crate::{
     rate_limiter::{MOD_DOWNLOAD_LOCK, RATE_LIMITER},
 };
 
-use super::{Backend, ModError, ModInformation, Query, SearchResult};
+use super::{Backend, ModDescription, ModError, Query, SearchResult};
 
 mod download;
 mod info;
@@ -48,13 +48,10 @@ impl Backend for ModrinthBackend {
         Ok(res)
     }
 
-    async fn get_description(id: &str) -> Result<ModInformation, ModError> {
+    async fn get_description(id: &str) -> Result<ModDescription, ModError> {
         let info = info::ProjectInfo::download(id).await?;
 
-        Ok(ModInformation {
-            title: info.title,
-            description: info.description,
-            icon_url: info.icon_url,
+        Ok(ModDescription {
             id: ModId::Modrinth(info.id),
             long_description: info.body,
         })
@@ -85,10 +82,16 @@ impl Backend for ModrinthBackend {
         // Sort by date published
         download_versions.sort_by(version_sort);
 
-        let download_version = download_versions
-            .into_iter()
-            .next_back()
-            .ok_or(ModError::NoCompatibleVersionFound)?;
+        let download_version =
+            download_versions
+                .into_iter()
+                .next_back()
+                .ok_or(ModError::NoCompatibleVersionFound(
+                    download_info
+                        .first()
+                        .map(|n| n.name.clone())
+                        .unwrap_or_default(),
+                ))?;
 
         let download_version_time = DateTime::parse_from_rfc3339(&download_version.date_published)?;
 
@@ -132,7 +135,9 @@ impl Backend for ModrinthBackend {
         let mut downloader = download::ModDownloader::new(instance).await?;
         let bulk_info = ProjectInfo::download_bulk(ids).await?;
 
-        downloader.info.extend(ids.iter().cloned().zip(bulk_info));
+        downloader
+            .info
+            .extend(bulk_info.into_iter().map(|n| (n.id.clone(), n)));
 
         let len = ids.len();
 
@@ -150,9 +155,9 @@ impl Backend for ModrinthBackend {
             }
 
             let result = downloader.download_project(id, None, true).await;
-            if let Err(ModError::NoCompatibleVersionFound) = result {
+            if let Err(ModError::NoCompatibleVersionFound(name)) = &result {
                 if ignore_incompatible {
-                    pt!("No compatible version found for mod {id}, skipping...");
+                    pt!("No compatible version found for mod {name} ({id}), skipping...");
                     continue;
                 }
             }

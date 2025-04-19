@@ -10,8 +10,8 @@ pub enum ModError {
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] IoError),
-    #[error("no compatible version found for mod")]
-    NoCompatibleVersionFound,
+    #[error("no compatible version found for mod: {0}")]
+    NoCompatibleVersionFound(String),
     #[error("no files found for mod")]
     NoFilesFound,
     #[error("couldn't add entry {1} to zip: {0}")]
