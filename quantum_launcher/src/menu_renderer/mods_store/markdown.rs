@@ -122,12 +122,13 @@ impl MenuModsDownload {
             NodeValue::TableCell => todoh!("table cell"),
             NodeValue::TaskItem(_) => todoh!("task item"),
             NodeValue::SoftBreak | NodeValue::LineBreak => widget::column!().into(),
-            NodeValue::Code(code) => widget::column![
+            NodeValue::Code(code) => widget::row![
+                widget::text(code.literal.clone()).font(iced::Font::with_name("JetBrains Mono")),
                 widget::button(widget::text("Copy").size(12))
                     .on_press(Message::CoreCopyText(code.literal.clone())),
-                widget::text(code.literal.clone()).font(iced::Font::with_name("JetBrains Mono"))
             ]
             .spacing(5)
+            .wrap()
             .into(),
             NodeValue::HtmlInline(html) => Self::render_html(html, images, window_size),
             NodeValue::Strong | NodeValue::Emph => render_children(md, 4, images, window_size)
@@ -183,8 +184,9 @@ impl MenuModsDownload {
 }
 
 fn parse_last_line_blank(input: &str) -> bool {
-    if let Some(pos) = input.find("last_line_blank:") {
-        let substring = &input[pos..pos + 8];
+    const PRIVATE_FIELD: &str = "last_line_blank:";
+    if let Some(pos) = input.find(PRIVATE_FIELD) {
+        let substring = &input[pos..pos + 8 + PRIVATE_FIELD.len()];
         if substring.contains("true") {
             return true;
         } else if substring.contains("false") {

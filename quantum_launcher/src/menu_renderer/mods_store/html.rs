@@ -8,31 +8,15 @@ use html5ever::{driver::ParseOpts, parse_document, tendril::TendrilSink};
 use iced::widget;
 use markup5ever_rcdom::{Node, RcDom};
 
-use crate::launcher_state::{ImageState, MenuModsDownload, Message};
+use crate::{
+    draw_children,
+    launcher_state::{ImageState, MenuModsDownload, Message},
+};
 
-use super::Element;
-
-#[derive(Debug, Default, Clone, Copy)]
-struct ChildData {
-    heading_weight: usize,
-    monospace: bool,
-}
-
-impl ChildData {
-    pub fn with_heading(weight: usize) -> Self {
-        Self {
-            heading_weight: weight,
-            monospace: false,
-        }
-    }
-
-    pub fn monospace() -> Self {
-        Self {
-            heading_weight: 0,
-            monospace: true,
-        }
-    }
-}
+use super::{
+    helpers::{ChildData, ElementProperties},
+    Element,
+};
 
 impl MenuModsDownload {
     /// Takes in text containing HTML and renders it to an iced `Element`.
@@ -48,6 +32,11 @@ impl MenuModsDownload {
         images: &'a ImageState,
         window_size: (f32, f32),
     ) -> Element<'a> {
+        // WTF: If you can't fix the chaos, embrace the chaos.
+        let input = input
+            .replace("<ul>", "<br><ul>")
+            .replace("<ol>", "<br><ol>");
+
         let dom = parse_document(RcDom::default(), ParseOpts::default())
             .from_utf8()
             .read_from(&mut input.as_bytes())
@@ -61,6 +50,7 @@ impl MenuModsDownload {
             images,
             ChildData::default(),
             window_size,
+            ElementProperties::default(),
         );
         element
     }
@@ -72,10 +62,12 @@ impl MenuModsDownload {
         images: &'a ImageState,
         data: ChildData,
         window_size: (f32, f32),
+        properties: ElementProperties,
     ) -> bool {
+        let info = (node, images, window_size);
         match &node.data {
             markup5ever_rcdom::NodeData::Document => {
-                render_children(node, element, images, ChildData::default(), window_size);
+                draw_children!(info, element);
                 true
             }
             markup5ever_rcdom::NodeData::Text { contents } => {
@@ -107,7 +99,7 @@ impl MenuModsDownload {
                 attrs,
                 template_contents: _,
                 mathml_annotation_xml_integration_point: _,
-            } => render_html(name, attrs, node, element, images, window_size),
+            } => render_html(name, attrs, node, element, images, window_size, properties),
             _ => false,
         }
     }
@@ -121,60 +113,40 @@ fn render_html<'a>(
     element: &mut Element<'a>,
     images: &'a ImageState,
     window_size: (f32, f32),
+    properties: ElementProperties,
 ) -> bool {
     let name = name.local.to_string();
     let attrs = attrs.borrow();
+
+    let info = (node, images, window_size);
+
     match name.as_str() {
         "center" | "kbd" | "span" => {
-            render_children(node, element, images, ChildData::default(), window_size);
+            draw_children!(info, element);
             false
         }
         "html" | "body" | "p" | "div" => {
-            render_children(node, element, images, ChildData::default(), window_size);
+            draw_children!(info, element);
             true
         }
         "details" | "summary" | "h1" => {
-            render_children(node, element, images, ChildData::default(), window_size);
+            draw_children!(info, element, ChildData::with_heading(1));
             true
         }
         "h2" => {
-            render_children(
-                node,
-                element,
-                images,
-                ChildData::with_heading(2),
-                window_size,
-            );
+            draw_children!(info, element, ChildData::with_heading(2));
             true
         }
         "h3" => {
-            render_children(
-                node,
-                element,
-                images,
-                ChildData::with_heading(3),
-                window_size,
-            );
+            draw_children!(info, element, ChildData::with_heading(3));
             true
         }
         "h4" => {
-            render_children(
-                node,
-                element,
-                images,
-                ChildData::with_heading(4),
-                window_size,
-            );
+            draw_children!(info, element, ChildData::with_heading(4));
             true
         }
         "b" | "strong" | "em" | "i" => {
-            render_children(
-                node,
-                element,
-                images,
-                ChildData::with_heading(4),
-                window_size,
-            );
+            draw_children!(info, element, ChildData::with_heading(4));
             false
         }
         "a" => {
@@ -186,13 +158,7 @@ fn render_html<'a>(
                 let children_empty = { node.children.borrow().is_empty() };
 
                 let mut children: Element = widget::column![].into();
-                render_children(
-                    node,
-                    &mut children,
-                    images,
-                    ChildData::with_heading(0),
-                    window_size,
-                );
+                draw_children!(info, &mut children);
 
                 if children_empty {
                     children = widget::column!(widget::text(url.clone())).into();
@@ -228,11 +194,30 @@ fn render_html<'a>(
             true
         }
         "code" => {
-            render_children(node, element, images, ChildData::monospace(), window_size);
+            draw_children!(info, element, ChildData::monospace());
             false
         }
         "hr" => {
             *element = widget::horizontal_rule(4.0).into();
+            true
+        }
+        "ul" => {
+            draw_children!(info, element, ChildData::with_indent());
+            true
+        }
+        "ol" => {
+            draw_children!(info, element, ChildData::with_indent_ordered());
+            true
+        }
+        "li" => {
+            let bullet = if let Some(num) = properties.li_ordered_number {
+                widget::text!("{num}. ")
+            } else {
+                widget::text("- ")
+            };
+            let mut children: Element = widget::column![].into();
+            draw_children!(info, &mut children);
+            *element = widget::row![bullet, children].into();
             true
         }
         _ => {
@@ -248,23 +233,54 @@ fn render_children<'a>(
     images: &'a ImageState,
     data: ChildData,
     window_size: (f32, f32),
+    properties: ElementProperties,
 ) {
     let children = node.children.borrow();
 
     let mut column = widget::column![];
-    let mut row = widget::row![];
+    let mut row = widget::row![].push_maybe(data.indent.then_some(widget::Space::with_width(16)));
 
     let mut is_newline = false;
 
+    let mut i = 0;
     for item in children.iter() {
         if is_newline {
             column = column.push(row.wrap());
-            row = widget::row![];
+            row = widget::row![].push_maybe(data.indent.then_some(widget::Space::with_width(16)));
         }
+        if is_node_useless(item) {
+            continue;
+        }
+
         let mut element = widget::column!().into();
-        is_newline = MenuModsDownload::traverse_node(item, &mut element, images, data, window_size);
+
+        let mut properties = properties;
+        if data.li_ordered {
+            properties.li_ordered_number = Some(i + 1);
+        }
+
+        is_newline = MenuModsDownload::traverse_node(
+            item,
+            &mut element,
+            images,
+            data,
+            window_size,
+            properties,
+        );
         row = row.push(element);
+
+        i += 1;
     }
     column = column.push(row.wrap());
     *element = column.into();
+}
+
+fn is_node_useless(node: &Node) -> bool {
+    if let markup5ever_rcdom::NodeData::Text { contents } = &node.data {
+        let contents = contents.borrow();
+        let contents = contents.to_string();
+        contents.trim().is_empty()
+    } else {
+        false
+    }
 }

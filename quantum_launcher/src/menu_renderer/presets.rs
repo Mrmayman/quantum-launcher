@@ -38,7 +38,7 @@ impl MenuEditPresets {
                 .into();
         }
 
-        widget::column![
+        let p_main = widget::column![
             widget::container(
                 widget::row![
                     widget::Space::with_width(16.0),
@@ -82,8 +82,19 @@ impl MenuEditPresets {
                 .width(window_size.0)
                 .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark))
             )
-        ]
-        .into()
+        ];
+
+        if self.drag_and_drop_hovered {
+            widget::stack!(
+                p_main,
+                widget::center(widget::button(
+                    widget::text("Drag and drop mod files to add them").size(20)
+                ))
+            )
+            .into()
+        } else {
+            p_main.into()
+        }
     }
 
     fn get_tab_button<'a>(&'a self, n: &'a str) -> Element<'a> {

@@ -430,6 +430,7 @@ impl Launcher {
     fn escape_back_button(&mut self) -> Task<Message> {
         let mut should_return_to_main_screen = false;
         let mut should_return_to_mods_screen = false;
+        let mut should_return_to_download_screen = false;
 
         match &self.state {
             State::ChangeLog
@@ -453,6 +454,9 @@ impl Launcher {
             })
             | State::InstallFabric(MenuInstallFabric::Loaded { progress: None, .. }) => {
                 should_return_to_mods_screen = true;
+            }
+            State::ModsDownload(menu) if menu.opened_mod.is_some() => {
+                should_return_to_download_screen = true;
             }
             State::ModsDownload(menu) if menu.mods_download_in_progress.is_empty() => {
                 should_return_to_mods_screen = true;
@@ -485,6 +489,11 @@ impl Launcher {
             match self.go_to_edit_mods_menu_without_update_check() {
                 Ok(cmd) => return cmd,
                 Err(err) => self.set_error(err),
+            }
+        }
+        if should_return_to_download_screen {
+            if let State::ModsDownload(menu) = &mut self.state {
+                menu.opened_mod = None;
             }
         }
 

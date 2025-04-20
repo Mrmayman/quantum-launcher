@@ -369,6 +369,7 @@ impl MenuEditMods {
         })
         .style(LauncherTheme::style_scrollable_flat_extra_dark)
         .width(Length::Fill)
+        .height(Length::Fill)
         .into()
     }
 }

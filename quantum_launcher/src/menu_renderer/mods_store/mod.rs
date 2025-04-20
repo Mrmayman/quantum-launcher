@@ -12,6 +12,7 @@ use crate::{
 
 use super::{button_with_icon, Element};
 
+mod helpers;
 mod html;
 mod markdown;
 

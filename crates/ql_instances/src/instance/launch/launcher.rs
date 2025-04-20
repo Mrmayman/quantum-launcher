@@ -248,15 +248,14 @@ impl GameLauncher {
         //
         // These arguments are taken from
         // https://github.com/alexivkin/minecraft-launcher/
-        //
         // They mainly tune the garbage collector for better performance
         // which I haven't felt anyway.
         //
-        // Without these args I got 110-115 FPS average on vanilla
-        // Minecraft 1.20 in a new world.
+        // - Without these args I got 110-115 FPS average
+        // on vanilla Minecraft 1.20 in a new world.
+        // - With these args I got 105-110 FPS.
         //
-        // With these args I got 105-110 FPS. So... yeah they aren't
-        // doing the job for me.
+        // So... yeah they aren't doing the job for me.
         if self.config_json.do_gc_tuning.unwrap_or(false) {
             args.push("-XX:+UnlockExperimentalVMOptions".to_owned());
             args.push("-XX:+UseG1GC".to_owned());
@@ -267,6 +266,7 @@ impl GameLauncher {
         }
 
         if !is_logged_in && self.version_json.id.starts_with("1.16") {
+            // Fixes "Multiplayer is disabled" issue on 1.16.x
             args.push("-Dminecraft.api.auth.host=https://nope.invalid".to_owned());
             args.push("-Dminecraft.api.account.host=https://nope.invalid".to_owned());
             args.push("-Dminecraft.api.session.host=https://nope.invalid".to_owned());
@@ -281,41 +281,55 @@ impl GameLauncher {
             args.push("-XstartOnFirstThread".to_owned());
         }
 
+        self.java_arguments_betacraft(&mut args);
+
+        Ok(args)
+    }
+
+    /// Adds BetaCraft proxy to fix missing/incorrect sounds
+    /// in old versions of Minecraft.
+    ///
+    /// This auto adjusts the port based on version.
+    fn java_arguments_betacraft(&self, args: &mut Vec<String>) {
+        // Beta 1.9 prerelease (special case)
         if let Some(OmniarchiveEntry { name, .. }) = &self.config_json.omniarchive {
             if name.starts_with("beta/b1.9/pre/") {
                 args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
                 args.push("-Dhttp.proxyPort=11706".to_owned());
-                return Ok(args);
             }
+            return;
         }
+
         if self.version_json.r#type == "old_beta" || self.version_json.r#type == "old_alpha" {
             args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
             if self.version_json.id.starts_with("c0.") {
+                // Classic
                 args.push("-Dhttp.proxyPort=11701".to_owned());
             } else if self.version_json.r#type == "old_alpha" {
+                // Indev, Infdev and Alpha (mostly same)
                 args.push("-Dhttp.proxyPort=11702".to_owned());
             } else {
+                // Beta
                 args.push("-Dhttp.proxyPort=11705".to_owned());
             }
+            // Fixes crash on old versions
             args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
         } else {
-            match (
-                DateTime::parse_from_rfc3339(&self.version_json.releaseTime),
-                DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00"),
-            ) {
-                (Ok(dt), Ok(v1_5_2)) => {
+            // # Panics
+            // This is proven to be a correct date so won't panic.
+            let v1_5_2 = DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00").unwrap();
+            match DateTime::parse_from_rfc3339(&self.version_json.releaseTime) {
+                Ok(dt) => {
                     if dt <= v1_5_2 {
                         args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
                         args.push("-Dhttp.proxyPort=11707".to_owned());
                     }
                 }
-                (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
+                Err(e) => {
                     err!("Could not parse instance date/time: {e}");
                 }
             }
         }
-
-        Ok(args)
     }
 
     pub async fn setup_fabric(
