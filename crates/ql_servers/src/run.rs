@@ -90,7 +90,7 @@ pub async fn run(
     let mut game_args = config_json.game_args.clone().unwrap_or_default();
     game_args.push("nogui".to_owned());
 
-    info!("\nJava args: {java_args:?}\n");
+    info!("Java args: {java_args:?}\n");
     info!("Game args: {game_args:?}\n");
 
     let mut command = Command::new(java_path);
@@ -140,7 +140,7 @@ async fn get_java_path(
             }
             err!("Java override at {java_path:?} does not exist!");
         }
-    };
+    }
     let path = get_java_binary(version, "java", Some(&java_install_progress)).await?;
     Ok(path)
 }

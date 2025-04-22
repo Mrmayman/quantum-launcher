@@ -9,8 +9,37 @@
 //! - Changed to `reqwest::Client` and `async`
 //!   from `reqwest::blocking::Client`
 //! - Changed error handling code
+//! - Split it up into clean, independent functions
+//!
+//! ```no_run
+//! STATE: LOGGED OUT                     Refresh Token
+//!           |
+//!           v
+//! login_1_link()?
+//! -> AuthCodeResponse { Url, Code }
+//!               |
+//!               v
+//! (wait for user to log in)
+//! login_2_wait(AuthCodeResponse)
+//! -> AuthTokenResponse { Xbox Access Token, Refresh Token }
+//!               |                            |
+//!               v                            |
+//! login_3_xbox(AuthTokenResponse)            v
+//! ->  AccountData { Username, Access Token, Refresh Token, ... }
+//!               |                          ^
+//!               v                          |
+//! STATE: PLAY THE GAME                     |
+//! (Save refresh token to disk)             |
+//!               |                          |
+//!               v                          |
+//! STATE: LATER OPENING LAUNCHER            |
+//! (Load refresh token from disk)           |
+//!                          |               |
+//!                          v               |
+//! login_refresh(Username, Refresh Token) ---
+//! ```
 
-use ql_core::{err, info, pt, GenericProgress, IntoStringError, RequestError, CLIENT};
+use ql_core::{err, info, pt, retry, GenericProgress, IntoStringError, RequestError, CLIENT};
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
@@ -87,21 +116,21 @@ struct MinecraftFinalDetails {
 
 #[derive(Debug, Error)]
 pub enum AuthError {
-    #[error("microsoft account error: {0}")]
+    #[error("microsoft account:\n{0}")]
     RequestError(#[from] RequestError),
-    #[error("microsoft account error: json error: {0}\njson: {1}")]
+    #[error("microsoft account:\njson error: {0}\njson: {1}")]
     SerdeError(serde_json::Error, String),
-    #[error("microsoft account error: invalid access token")]
+    #[error("Invalid microsoft account access token")]
     InvalidAccessToken,
-    #[error("microsoft account error: unknown error")]
+    #[error("microsoft account error: unknown error\n\nThis is a bug! Please report in discord.")]
     UnknownError,
-    #[error("microsoft account error: missing json field: {0}")]
+    #[error("microsoft account:\nmissing json field: {0}")]
     MissingField(String),
-    #[error("microsoft account error: no uuid found")]
+    #[error("no uuid found for microsoft account")]
     NoUuid,
     #[error("microsoft account doesn't own minecraft")]
     DoesntOwnGame,
-    #[error("microsoft account error: keyring error: {0}")]
+    #[error("microsoft account:\nkeyring error: {0}")]
     KeyringError(#[from] keyring::Error),
 }
 
@@ -126,19 +155,22 @@ pub async fn login_refresh(
 ) -> Result<AccountData, AuthError> {
     send_progress(sender.as_ref(), 0, "Refreshing account token...");
 
-    let response = CLIENT
-        .post("https://login.live.com/oauth20_token.srf")
-        .form(&[
-            ("client_id", CLIENT_ID),
-            ("refresh_token", &refresh_token),
-            ("grant_type", "refresh_token"),
-            ("redirect_uri", "https://login.live.com/oauth20_desktop.srf"),
-            ("scope", "XboxLive.signin offline_access"),
-        ])
-        .send()
-        .await?
-        .text()
-        .await?;
+    let response = retry(async || {
+        CLIENT
+            .post("https://login.live.com/oauth20_token.srf")
+            .form(&[
+                ("client_id", CLIENT_ID),
+                ("refresh_token", &refresh_token),
+                ("grant_type", "refresh_token"),
+                ("redirect_uri", "https://login.live.com/oauth20_desktop.srf"),
+                ("scope", "XboxLive.signin offline_access"),
+            ])
+            .send()
+            .await?
+            .text()
+            .await
+    })
+    .await?;
 
     let data: RefreshResponse =
         serde_json::from_str(&response).map_err(|n| AuthError::SerdeError(n, response))?;
@@ -241,14 +273,6 @@ fn send_progress(
 }
 
 pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
-    // This code is ugly but it's not my code :')
-    // If the top comment wasn't clear enough this was taken from
-    // https://github.com/minecraft-rs/auth
-    //
-    // Massive props to them for even implementing something,
-    // that makes them already ahead of me.
-    //
-    // (WTF: ) tag so people can search for it
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(response.interval + 1)).await;
 
@@ -272,9 +296,7 @@ pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenRespons
                     "authorization_declined" | "expired_token" | "invalid_grant" => {
                         return Err(AuthError::InvalidAccessToken);
                     }
-                    _ => {
-                        continue;
-                    }
+                    _ => {}
                 }
             }
 

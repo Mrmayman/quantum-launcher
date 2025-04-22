@@ -44,7 +44,8 @@ pub struct VersionDetails {
 }
 
 impl VersionDetails {
-    /// Loads a Minecraft instance JSON from disk.
+    /// Loads a Minecraft instance JSON from disk,
+    /// based on a specific `InstanceSelection`
     ///
     /// # Errors
     /// - `details.json` file couldn't be loaded
@@ -61,6 +62,16 @@ impl VersionDetails {
         Ok(details)
     }
 
+    /// Loads a Minecraft instance JSON from disk,
+    /// based on a path to the root of the instance directory.
+    ///
+    /// This is the `async` function, for the sync function
+    /// see [`VersionDetails::load_s`]
+    ///
+    /// # Errors
+    /// - `dir`/`details.json` doesn't exist or isn't a file
+    /// - `details.json` file couldn't be loaded
+    /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load_from_path(path: &Path) -> Result<Self, JsonFileError> {
         let version_json_path = path.join("details.json");
         let version_json = tokio::fs::read_to_string(&version_json_path)
@@ -70,6 +81,16 @@ impl VersionDetails {
         Ok(version_json)
     }
 
+    /// Loads a Minecraft instance JSON from disk,
+    /// based on a path to the root of the instance directory.
+    ///
+    /// This is the sync function, for the `async` function
+    /// see [`VersionDetails::load_from_path`]
+    ///
+    /// # Errors
+    /// - `dir`/`details.json` doesn't exist or isn't a file
+    /// - `details.json` file couldn't be loaded
+    /// - `details.json` couldn't be parsed into valid JSON
     #[must_use]
     pub fn load_s(instance_dir: &Path) -> Option<Self> {
         let path = instance_dir.join("details.json");

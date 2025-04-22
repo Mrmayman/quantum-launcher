@@ -14,9 +14,9 @@ pub struct JsonOptifine {
 }
 
 impl JsonOptifine {
-    /// Reads the OptiFine JSON file and JAR file from the instance directory.
+    /// Reads the Optifine JSON file and JAR file from the instance directory.
     ///
-    /// This function takes the name of the instance and looks for the OptiFine
+    /// This function takes the name of the instance and looks for the Optifine
     /// directory in the .minecraft/versions directory.
     ///
     /// It returns the parsed JSON file and the path to the JAR file.
@@ -25,7 +25,7 @@ impl JsonOptifine {
     /// - If the versions dir does not exist:
     ///   `QuantumLauncher/instances/<instance_name>/.minecraft/versions/`
     /// - If any directory starting with "Opti" is not found in the versions dir
-    /// - If the OptiFine directory does not contain a JSON file or JAR file
+    /// - If the Optifine directory does not contain a JSON file or JAR file
     /// - If the config directory (`AppData/Roaming` or `~/.config`) does not exist
     pub async fn read(instance_name: &str) -> Result<(Self, PathBuf), JsonFileError> {
         let dot_minecraft_dir = file_utils::get_launcher_dir()

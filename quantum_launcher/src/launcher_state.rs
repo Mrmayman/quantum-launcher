@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::Display,
+    fmt::{Display, Write},
     path::{Path, PathBuf},
     process::ExitStatus,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -26,7 +26,7 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ImageResult, ModConfig, ModIndex, ModDescription, RecommendedMod, SearchResult},
+    mod_manager::{ImageResult, ModConfig, ModDescription, ModIndex, RecommendedMod, SearchResult},
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -741,7 +741,9 @@ impl Launcher {
                 Ok(n) => Some(n),
                 Err(err) => {
                     err!("Could not get launcher dir! This is a bug! {err}");
-                    error.push_str(&format!("\n\n{err}"));
+                    if let Err(err) = write!(error, "\n\n{err}") {
+                        err!("While appending to launcher dir error string: {err}");
+                    }
                     None
                 }
             }

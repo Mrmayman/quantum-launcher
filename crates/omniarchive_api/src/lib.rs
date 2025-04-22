@@ -209,7 +209,7 @@ impl MinecraftVersionCategory {
         progress: Option<&Sender<()>>,
         i: &Mutex<usize>,
     ) -> Result<Vec<(Self, String)>, WebScrapeError> {
-        if !visited.lock().unwrap().insert(url.to_owned()) {
+        if !visited.lock().unwrap().insert(url.clone()) {
             return Ok(Vec::new());
         }
 

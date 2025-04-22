@@ -4,14 +4,14 @@
 //! - Java auto-installer
 //! - File and download utilities
 //! - Error types
-//! - JSON structs for version, instance config, Fabric, Forge, OptiFine, etc
+//! - JSON structs for version, instance config, Fabric, Forge, Optifine, etc
 //! - Logging macros
 //! - And much more
 
 mod error;
 /// Common utilities for working with files.
 pub mod file_utils;
-/// JSON structs for version, instance config, Fabric, Forge, OptiFine, etc.
+/// JSON structs for version, instance config, Fabric, Forge, Optifine, Quilt, Neoforge, etc.
 pub mod json;
 mod loader;
 /// Logging macros.
@@ -19,6 +19,7 @@ pub mod print;
 mod progress;
 
 use std::{
+    future::Future,
     path::{Path, PathBuf},
     sync::LazyLock,
 };
@@ -51,7 +52,35 @@ macro_rules! no_window {
 
 pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
-/// Perform multiple async tasks concurrently.
+/// Perform multiple async tasks concurrently. Useful for things like
+/// downloading lots of files at the same time.
+///
+/// # Calling
+///
+/// This takes in an `Iterator` of the `Future` of `async fn -> Result<T, E>`
+/// and returns `Result<Vec<T>, E>`, where if any one of the
+/// input functions failed the whole thing will fail.
+///
+/// Only if all the input functions succeed, it will return a `Vec`
+/// of the output data.
+///
+/// # Example
+/// ```no_run
+/// # async fn download_file(url: &str) -> Result<String, String> {
+/// #     Ok("Hello".to_owned())
+/// # }
+/// # async fn trying() -> Result<String, String> {
+/// #   let files: [&str; 1] = ["test"];
+/// do_jobs(files.iter().map(|url| {
+///     // Async function that returns Result<T, E>
+///     // No need to await
+///     download_file(url)
+/// })).await?;
+/// # }
+/// ```
+///
+/// # Errors
+/// Returns whatever error the input function returns.
 pub async fn do_jobs<T, E>(
     results: impl Iterator<Item = impl std::future::Future<Output = Result<T, E>>>,
 ) -> Result<Vec<T>, E> {
@@ -72,6 +101,54 @@ pub async fn do_jobs<T, E>(
         outputs.push(task?);
     }
     Ok(outputs)
+}
+
+/// Retries a non-deterministic function
+/// multiple (5) times if it fails.
+///
+/// Some functions are inherently non-deterministic
+/// in nature, ie. doing the same thing multiple times
+/// won't always produce the same result.
+/// **For example**, network operations like *downloading
+/// a file* are non-deterministic as they can randomly
+/// fail for no reason, anytime.
+///
+/// So by repeating the function multiple times if it
+/// fails, we reduce the failure rate, because
+/// we could get lucky and succeed on the second try,
+/// or the third try...
+///
+/// # Calling
+/// This takes in an async closure that returns a `Result<T, E>`.
+/// More specifically, it takes in an `Fn` closure, which can run
+/// repeatedly but without storing any state.
+///
+/// # Example
+/// ```no_run
+/// # async fn download_file(url: &str) -> Result<String, String> {
+/// #     Ok("Hi".to_owned())
+/// # }
+/// # async fn download_something_important() -> Result<String, String> {
+/// retry(async || download_file("example.com/my_file").await).await
+/// # }
+/// ```
+///
+/// # Errors
+/// Returns whatever error the original function returned.
+pub async fn retry<T, E, Res, Func>(f: Func) -> Result<T, E>
+where
+    Res: Future<Output = Result<T, E>>,
+    Func: Fn() -> Res,
+{
+    const LIMIT: usize = 5;
+    let mut result = f().await;
+    for _ in 0..LIMIT {
+        if result.is_ok() {
+            break;
+        }
+        result = f().await;
+    }
+    result
 }
 
 #[derive(Clone, Debug)]

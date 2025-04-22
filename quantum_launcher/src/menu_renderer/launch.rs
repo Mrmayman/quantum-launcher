@@ -23,7 +23,10 @@ impl Launcher {
         &'element self,
         menu: &'element MenuLaunch,
     ) -> Element<'element> {
-        let selected_instance_s = self.selected_instance.as_ref().map(|n| n.get_name());
+        let selected_instance_s = self
+            .selected_instance
+            .as_ref()
+            .map(ql_core::InstanceSelection::get_name);
 
         let difference = self.mouse_pos.0 - f32::from(menu.sidebar_width);
         let hovered = difference < SIDEBAR_DRAG_LEEWAY && difference > 0.0;
@@ -172,12 +175,12 @@ impl Launcher {
                 self.view_launcher_log(&log_new,
                     TEXT_SIZE,
                     scroll,
-                    sidebar_width as f32 + 16.0,
+                    f32::from(sidebar_width) + 16.0,
                     height_reduction
                 );
 
             // TODO: Make scrolling precise when bottom launcher log bar is open
-            let screen_height_lines = (self.window_size.1 - height_reduction - 70.0) as f64 / 18.0;
+            let screen_height_lines = f64::from(self.window_size.1 - height_reduction - 70.0) / 18.0;
             let new_text_len = text_len - screen_height_lines;
 
             let log = widget::mouse_area(

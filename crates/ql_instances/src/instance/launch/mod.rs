@@ -76,7 +76,7 @@ pub async fn launch(
 
     let mut command = game_launcher.get_java_command().await?;
 
-    info!("\nJava args: {java_arguments:?}\n");
+    info!("Java args: {java_arguments:?}\n");
 
     censor(&mut game_arguments, "--clientId", |args| {
         censor(args, "--accessToken", |args| {

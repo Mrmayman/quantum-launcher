@@ -11,8 +11,8 @@ use tar::Archive;
 /// - `data`: A reference to the `.tar.gz` file as a byte slice.
 /// - `output_dir`: Path to the directory where the contents will be extracted.
 ///
-/// # Returns
-/// - `Result<()>` on success, or an error otherwise.
+/// # Errors
+/// - `std::io::Error` if the `.tar.gz` file was invalid.
 pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> {
     // For extracting the `.gz`
     let decoder = GzDecoder::new(Cursor::new(archive));

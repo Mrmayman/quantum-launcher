@@ -3,9 +3,7 @@ use std::path::{Path, PathBuf};
 use reqwest::{header::InvalidHeaderValue, Client};
 use thiserror::Error;
 
-use crate::{error::IoError, InstanceSelection, IntoIoError, CLIENT};
-
-const REQUEST_TRY_LIMIT: usize = 5;
+use crate::{error::IoError, retry, InstanceSelection, IntoIoError, CLIENT};
 
 /// Returns the path to the QuantumLauncher root folder.
 ///
@@ -160,16 +158,7 @@ pub async fn download_file_to_string(url: &str, user_agent: bool) -> Result<Stri
         }
     }
 
-    let mut result = inner(&CLIENT, url, user_agent).await;
-
-    for _ in 0..REQUEST_TRY_LIMIT {
-        if let Ok(n) = result {
-            return Ok(n);
-        }
-        result = inner(&CLIENT, url, user_agent).await;
-    }
-
-    result
+    retry(async || inner(&CLIENT, url, user_agent).await).await
 }
 
 /// Downloads a file from the given URL into a `Vec<u8>`.
@@ -201,16 +190,7 @@ pub async fn download_file_to_bytes(url: &str, user_agent: bool) -> Result<Vec<u
         }
     }
 
-    let mut result = inner(&CLIENT, url, user_agent).await;
-
-    for _ in 0..REQUEST_TRY_LIMIT {
-        if let Ok(n) = result {
-            return Ok(n);
-        }
-        result = inner(&CLIENT, url, user_agent).await;
-    }
-
-    result
+    retry(async || inner(&CLIENT, url, user_agent).await).await
 }
 
 /// Downloads a file from the given URL into a `Vec<u8>`,
@@ -246,28 +226,19 @@ pub async fn download_file_to_bytes_with_agent(
         }
     }
 
-    let mut result = inner(&CLIENT, url, user_agent).await;
-
-    for _ in 0..REQUEST_TRY_LIMIT {
-        if let Ok(n) = result {
-            return Ok(n);
-        }
-        result = inner(&CLIENT, url, user_agent).await;
-    }
-
-    result
+    retry(async || inner(&CLIENT, url, user_agent).await).await
 }
 
 #[derive(Debug, Error)]
 pub enum RequestError {
-    #[error("download error with code {code}, url {url}")]
+    #[error("Download error (code {code}), url {url}\n\nTrying again might fix this")]
     DownloadError {
         code: reqwest::StatusCode,
         url: reqwest::Url,
     },
-    #[error("reqwest error: {0}")]
+    #[error("Request error: {0}\n\nTrying again might fix this")]
     ReqwestError(#[from] reqwest::Error),
-    #[error("reqwest error: {0}")]
+    #[error("Reqwest error: invalid header value\n\nTrying again might fix this")]
     InvalidHeaderValue(#[from] InvalidHeaderValue),
 }
 
@@ -295,6 +266,16 @@ use std::os::unix::fs::symlink;
 #[cfg(windows)]
 use std::os::windows::fs::{symlink_dir, symlink_file};
 
+/// Creates a symbolic link (ie. the thing at `src` "points" to `dest`,
+/// accessing `src` will actually access `dest`)
+///
+/// # Errors
+/// (depending on platform):
+/// - If `src` already exists
+/// - If `dest` doesn't exist
+/// - If user doesn't have permission for `src`
+/// - If the path is invalid (part of path is not a directory for example)
+/// - Other niche stuff (Read only filesystem, Running out of disk space)
 pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
     #[cfg(unix)]
     {

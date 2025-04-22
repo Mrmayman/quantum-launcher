@@ -167,16 +167,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
 ///
 /// The other files in `assets/ascii` are unused.
 pub fn print_intro() {
-    const TEXT_WIDTH: u16 = 39;
-
-    const LOGO: &str = include_str!("../../assets/ascii/icon.txt");
-    const LOGO_WIDTH: u16 = 30;
-
-    if cfg!(target_os = "windows") {
-        return;
-    }
-
-    // Helper function to pad lines to a fixed width
+    /// Helper function to pad lines to a fixed width
     fn pad_line(line: Option<&str>, width: usize) -> String {
         let line = line.unwrap_or_default();
         if line.len() < width {
@@ -184,6 +175,15 @@ pub fn print_intro() {
         } else {
             line.to_owned()
         }
+    }
+
+    const TEXT_WIDTH: u16 = 39;
+
+    const LOGO: &str = include_str!("../../assets/ascii/icon.txt");
+    const LOGO_WIDTH: u16 = 30;
+
+    if cfg!(target_os = "windows") {
+        return;
     }
 
     let (text, text_len_old) = get_side_text();

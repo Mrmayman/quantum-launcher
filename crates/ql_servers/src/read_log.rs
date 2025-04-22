@@ -33,14 +33,7 @@ pub async fn read_logs(
 
     loop {
         {
-            // # Panics
-            // If child fails to lock, that means the Mutex
-            // is poisoned. In that case, the main thread has
-            // panicked somewhere else, so something must be
-            // seriously wrong.
-            //
-            // Best to follow suit and panic as well.
-            let mut child = child.lock().unwrap();
+            let mut child = child.lock().map_err(|_| ReadError::MutexPanic)?;
             if let Ok(Some(status)) = child.try_wait() {
                 // Game has exited.
                 return Ok((status, name));
@@ -68,4 +61,6 @@ pub enum ReadError {
     Io(#[from] std::io::Error),
     #[error("error reading server logs: {0}")]
     Send(#[from] SendError<String>),
+    #[error("error reading server logs: another thread panicked")]
+    MutexPanic,
 }

@@ -201,7 +201,7 @@ impl Launcher {
             }
             InstallModsMessage::IndexUpdated(Ok(idx)) => {
                 if let State::ModsDownload(menu) = &mut self.state {
-                    menu.mod_index = idx
+                    menu.mod_index = idx;
                 }
             }
             InstallModsMessage::ChangeBackend(backend) => {

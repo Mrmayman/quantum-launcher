@@ -577,10 +577,9 @@ impl Launcher {
                     if let iced::event::Status::Ignored = status {
                         if let Key::Named(iced::keyboard::key::Named::Escape) = key {
                             return self.escape_back_button();
-                        } else {
-                            // TODO: Ctrl Q to quit
-                            self.keys_pressed.insert(key);
                         }
+                        // TODO: Ctrl Q to quit
+                        self.keys_pressed.insert(key);
                     } else {
                         // FUTURE
                     }

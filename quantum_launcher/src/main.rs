@@ -150,7 +150,7 @@ impl Launcher {
             }
 
             Message::UpdateCheckResult(Err(err)) => {
-                err!("{err}")
+                err!("{err}");
             }
 
             Message::ServerCreateEnd(Err(err))
@@ -298,7 +298,7 @@ impl Launcher {
             Message::LauncherSettingsOpen => {
                 self.state = State::LauncherSettings(launcher_state::MenuLauncherSettings {
                     temp_scale: self.config.ui_scale.unwrap_or(1.0),
-                })
+                });
             }
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting color scheme {style}");

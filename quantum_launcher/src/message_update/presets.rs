@@ -31,7 +31,7 @@ impl Launcher {
         match message {
             EditPresetsMessage::Open => return Ok(self.go_to_edit_presets_menu()),
             EditPresetsMessage::TabChange(tab) => {
-                if let Some(value) = self.preset_change_tab(tab) {
+                if let Some(value) = self.preset_change_tab(&tab) {
                     return Ok(value);
                 }
             }
@@ -141,7 +141,7 @@ impl Launcher {
         }
     }
 
-    fn preset_change_tab(&mut self, tab: String) -> Option<Task<Message>> {
+    fn preset_change_tab(&mut self, tab: &str) -> Option<Task<Message>> {
         if let State::ManagePresets(MenuEditPresets {
             inner,
             config,
@@ -155,7 +155,7 @@ impl Launcher {
                 .filter_map(|n| n.is_manually_installed().then_some(n.id()))
                 .collect::<HashSet<_>>();
 
-            match tab.as_str() {
+            match tab {
                 PRESET_INNER_BUILD => {
                     *inner = MenuEditPresetsInner::Build {
                         selected_mods,
