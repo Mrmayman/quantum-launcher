@@ -1,7 +1,10 @@
+use std::{fmt::Display, str::FromStr};
+
 use iced::widget;
+use ql_core::err;
 
 use super::{
-    color::{Color, BROWN, PURPLE, SKY_BLUE},
+    color::{Color, BROWN, CATPPUCCIN, PURPLE, SKY_BLUE},
     widgets::{IsFlat, StyleButton, StyleScrollable},
 };
 
@@ -14,6 +17,39 @@ pub enum LauncherThemeColor {
     #[default]
     Purple,
     SkyBlue,
+    Catppuccin,
+}
+
+impl Display for LauncherThemeColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                LauncherThemeColor::Brown => "Brown",
+                LauncherThemeColor::Purple => "Purple",
+                LauncherThemeColor::SkyBlue => "Sky Blue",
+                LauncherThemeColor::Catppuccin => "Catppuccin",
+            },
+        )
+    }
+}
+
+impl FromStr for LauncherThemeColor {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "Brown" => LauncherThemeColor::Brown,
+            "Purple" => LauncherThemeColor::Purple,
+            "Sky Blue" => LauncherThemeColor::SkyBlue,
+            "Catppuccin" => LauncherThemeColor::Catppuccin,
+            _ => {
+                err!("Unknown style: {s:?}");
+                LauncherThemeColor::default()
+            }
+        })
+    }
 }
 
 #[derive(Clone, Default, Debug)]
@@ -44,6 +80,7 @@ impl LauncherTheme {
             LauncherThemeColor::Brown => &BROWN,
             LauncherThemeColor::Purple => &PURPLE,
             LauncherThemeColor::SkyBlue => &SKY_BLUE,
+            LauncherThemeColor::Catppuccin => &CATPPUCCIN,
         };
         let color = if invert {
             match self.lightness {

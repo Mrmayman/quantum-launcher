@@ -3,6 +3,7 @@ use std::{
     fmt::{Display, Write},
     path::{Path, PathBuf},
     process::ExitStatus,
+    str::FromStr,
     sync::{mpsc::Receiver, Arc, Mutex},
     time::Instant,
 };
@@ -822,16 +823,11 @@ fn load_config_and_theme(
             LauncherThemeLightness::default()
         }
     };
-    let style = match config.style.as_deref() {
-        Some("Brown") => LauncherThemeColor::Brown,
-        Some("Purple") => LauncherThemeColor::Purple,
-        Some("Sky Blue") => LauncherThemeColor::SkyBlue,
-        None => LauncherThemeColor::default(),
-        _ => {
-            err!("Unknown style: {:?}", config.style);
-            LauncherThemeColor::default()
-        }
-    };
+    let style = config
+        .style
+        .as_deref()
+        .and_then(|n| LauncherThemeColor::from_str(n).ok())
+        .unwrap_or_default();
     let theme = LauncherTheme::from_vals(style, theme);
     Ok((config, theme))
 }

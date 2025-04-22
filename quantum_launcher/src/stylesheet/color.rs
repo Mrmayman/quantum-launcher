@@ -15,9 +15,9 @@ pub const PURPLE: Pallete = Pallete {
     dark: [0x3a, 0x24, 0x36],
     second_dark: [0x66, 0x47, 0x69],
     mid: [0xcc, 0x76, 0xc5],
-    light: [0xeb, 0xad, 0xda],
-    second_light: [0xe6, 0xe4, 0xce],
-    white: [0xff, 0xff, 0xff],
+    light: [0xf9, 0xb1, 0xe6],
+    second_light: [0xff, 0xc7, 0xf0],
+    white: [0xff, 0xda, 0xf5],
 };
 
 pub const BROWN: Pallete = Pallete {
@@ -37,7 +37,17 @@ pub const SKY_BLUE: Pallete = Pallete {
     mid: [0x48, 0x85, 0xa4],
     second_light: [0xa3, 0xd3, 0xfa],
     light: [0xe6, 0xf2, 0xff],
-    white: [0xff, 0xff, 0xff],
+    white: [0xf5, 0xf9, 0xfe],
+};
+
+pub const CATPPUCCIN: Pallete = Pallete {
+    extra_dark: [0x11, 0x11, 0x1b],
+    dark: [0x1e, 0x1e, 0x2e],
+    second_dark: [0x57, 0x56, 0x67],
+    mid: [0x76, 0x75, 0x88],
+    second_light: [0xf2, 0xcd, 0xcd],
+    light: [0xfc, 0xe0, 0xda],
+    white: [0xf7, 0xea, 0xe6],
 };
 
 #[derive(Clone, Copy)]
@@ -54,8 +64,8 @@ pub enum Color {
 impl Color {
     pub fn invert(self) -> Color {
         match self {
-            Color::ExtraDark => Color::White,
-            Color::Dark => Color::Light,
+            Color::ExtraDark => Color::Light,
+            Color::Dark => Color::White,
             Color::SecondDark => Color::SecondLight,
             Color::Light => Color::Dark,
             Color::SecondLight => Color::SecondDark,

@@ -61,7 +61,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #![windows_subsystem = "windows"]
 
-use std::{sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use iced::{Settings, Task};
@@ -303,13 +303,7 @@ impl Launcher {
             Message::LauncherSettingsStylePicked(style) => {
                 info!("Setting color scheme {style}");
                 self.config.style = Some(style.clone());
-
-                match style.as_str() {
-                    "Purple" => self.theme.color = LauncherThemeColor::Purple,
-                    "Brown" => self.theme.color = LauncherThemeColor::Brown,
-                    "Sky Blue" => self.theme.color = LauncherThemeColor::SkyBlue,
-                    _ => err!("Invalid color scheme {style}"),
-                }
+                self.theme.color = LauncherThemeColor::from_str(&style).unwrap_or_default();
             }
             Message::LauncherSettingsUiScale(scale) => {
                 if let State::LauncherSettings(menu) = &mut self.state {

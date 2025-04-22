@@ -444,11 +444,13 @@ impl MenuLauncherUpdate {
 
 impl MenuLauncherSettings {
     pub fn view(&self, config: &LauncherConfig) -> Element {
+        // HOOK: Add more themes
         let themes = ["Dark".to_owned(), "Light".to_owned()];
         let styles = [
             "Brown".to_owned(),
             "Purple".to_owned(),
             "Sky Blue".to_owned(),
+            "Catppuccin".to_owned(),
         ];
 
         let config_view = widget::row!(
@@ -541,6 +543,7 @@ impl MenuLauncherSettings {
             .padding(10)
             .spacing(10),
         )
+        .style(LauncherTheme::style_scrollable_flat_extra_dark)
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
