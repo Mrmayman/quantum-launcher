@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use iced::{widget::image::Handle, Task};
-use ql_core::{err, InstanceSelection, IntoStringError, ModId};
+use ql_core::{err, info, InstanceSelection, IntoStringError, ModId};
 use ql_mod_manager::{loaders, store::get_description};
 
 mod accounts;
@@ -8,9 +10,13 @@ mod edit_instance;
 mod manage_mods;
 mod presets;
 
-use crate::launcher_state::{
-    InstallFabricMessage, InstallModsMessage, InstallOptifineMessage, Launcher, MenuInstallFabric,
-    MenuInstallOptifine, Message, ProgressBar, State,
+use crate::{
+    launcher_state::{
+        self, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage, Launcher,
+        LauncherSettingsMessage, MenuInstallFabric, MenuInstallOptifine, Message, ProgressBar,
+        State,
+    },
+    stylesheet::styles::{LauncherThemeColor, LauncherThemeLightness},
 };
 
 impl Launcher {
@@ -84,12 +90,8 @@ impl Launcher {
 
                 let instance_name = self.selected_instance.clone().unwrap();
                 return Task::perform(
-                    async move {
-                        loaders::fabric::get_list_of_versions(instance_name, is_quilt)
-                            .await
-                            .strerr()
-                    },
-                    |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m)),
+                    loaders::fabric::get_list_of_versions(instance_name, is_quilt),
+                    |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m.strerr())),
                 );
             }
         }
@@ -312,5 +314,40 @@ impl Launcher {
             }
         }
         Task::none()
+    }
+
+    pub fn update_launcher_settings(&mut self, msg: LauncherSettingsMessage) {
+        match msg {
+            LauncherSettingsMessage::ThemePicked(theme) => {
+                info!("Setting color mode {theme}");
+                self.config.theme = Some(theme.clone());
+
+                match theme.as_str() {
+                    "Light" => self.theme.lightness = LauncherThemeLightness::Light,
+                    "Dark" => self.theme.lightness = LauncherThemeLightness::Dark,
+                    _ => err!("Invalid color mode {theme}"),
+                }
+            }
+            LauncherSettingsMessage::Open => {
+                self.state = State::LauncherSettings(launcher_state::MenuLauncherSettings {
+                    temp_scale: self.config.ui_scale.unwrap_or(1.0),
+                });
+            }
+            LauncherSettingsMessage::StylePicked(style) => {
+                info!("Setting color scheme {style}");
+                self.config.style = Some(style.clone());
+                self.theme.color = LauncherThemeColor::from_str(&style).unwrap_or_default();
+            }
+            LauncherSettingsMessage::UiScale(scale) => {
+                if let State::LauncherSettings(menu) = &mut self.state {
+                    menu.temp_scale = scale;
+                }
+            }
+            LauncherSettingsMessage::UiScaleApply => {
+                if let State::LauncherSettings(menu) = &self.state {
+                    self.config.ui_scale = Some(menu.temp_scale);
+                }
+            }
+        }
     }
 }

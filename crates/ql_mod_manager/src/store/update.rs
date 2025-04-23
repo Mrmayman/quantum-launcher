@@ -13,7 +13,7 @@ pub async fn apply_updates(
     progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ModError> {
     // It's as simple as that!
-    delete_mods(&updates, &selected_instance).await?;
+    delete_mods(updates.clone(), selected_instance.clone()).await?;
     download_mods_bulk(updates, selected_instance, progress).await?;
     Ok(())
 }

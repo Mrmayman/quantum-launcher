@@ -232,13 +232,7 @@ impl Launcher {
             .collect();
 
         Task::perform(
-            async move {
-                let ids = ids;
-                let selected_instance = selected_instance;
-                ql_mod_manager::store::delete_mods(&ids, &selected_instance)
-                    .await
-                    .map(|()| ids)
-            },
+            ql_mod_manager::store::delete_mods(ids, selected_instance),
             |n| Message::ManageMods(ManageModsMessage::DeleteFinished(n.strerr())),
         )
     }

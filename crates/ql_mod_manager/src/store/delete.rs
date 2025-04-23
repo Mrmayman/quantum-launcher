@@ -5,21 +5,24 @@ use std::{
     path::Path,
 };
 
-pub async fn delete_mods(ids: &[ModId], instance_name: &InstanceSelection) -> Result<(), ModError> {
+pub async fn delete_mods(
+    ids: Vec<ModId>,
+    instance_name: InstanceSelection,
+) -> Result<Vec<ModId>, ModError> {
     if ids.is_empty() {
-        return Ok(());
+        return Ok(ids);
     }
 
     info!("Deleting mods:");
-    let mut index = ModIndex::get(instance_name).await?;
+    let mut index = ModIndex::get(&instance_name).await?;
 
-    let mods_dir = file_utils::get_dot_minecraft_dir(instance_name)
+    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)
         .await?
         .join("mods");
 
     // let mut downloaded_mods = HashSet::new();
 
-    for id in ids {
+    for id in &ids {
         pt!("Deleting mod {id:?}");
         delete_mod(&mut index, id, &mods_dir).await?;
         // delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;
@@ -75,9 +78,9 @@ pub async fn delete_mods(ids: &[ModId], instance_name: &InstanceSelection) -> Re
         }
     }
 
-    index.save(instance_name).await?;
+    index.save(&instance_name).await?;
     info!("Finished deleting mods");
-    Ok(())
+    Ok(ids)
 }
 
 async fn delete_mod(index: &mut ModIndex, id: &ModId, mods_dir: &Path) -> Result<(), ModError> {

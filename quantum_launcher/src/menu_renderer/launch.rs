@@ -7,7 +7,8 @@ use crate::{
     icon_manager,
     launcher_state::{
         AccountMessage, CreateInstanceMessage, InstanceLog, LaunchTabId, Launcher,
-        ManageModsMessage, MenuLaunch, Message, State, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
+        LauncherSettingsMessage, ManageModsMessage, MenuLaunch, Message, State, NEW_ACCOUNT_NAME,
+        OFFLINE_ACCOUNT_NAME,
     },
     menu_renderer::DISCORD,
     message_handler::SIDEBAR_DRAG_LEEWAY,
@@ -489,7 +490,7 @@ fn get_tab_selector<'a>(selected_instance_s: Option<&'a str>, menu: &'a MenuLaun
     .height(TAB_HEIGHT)
     .width(TAB_HEIGHT)
     .style(|n, status| n.style_button(status, StyleButton::FlatExtraDark))
-    .on_press(Message::LauncherSettingsOpen);
+    .on_press(Message::LauncherSettings(LauncherSettingsMessage::Open));
 
     widget::container(
         widget::row!(settings_button, tab_bar, widget::horizontal_space()).push_maybe(

@@ -6,9 +6,9 @@ use crate::{
     icon_manager,
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallOptifineMessage,
-        ManageModsMessage, MenuCreateInstance, MenuEditInstance, MenuInstallFabric,
-        MenuInstallForge, MenuInstallOptifine, MenuLauncherSettings, MenuLauncherUpdate, Message,
-        ProgressBar,
+        LauncherSettingsMessage, ManageModsMessage, MenuCreateInstance, MenuEditInstance,
+        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLauncherSettings,
+        MenuLauncherUpdate, Message, ProgressBar,
     },
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -457,11 +457,9 @@ impl MenuLauncherSettings {
             widget::container(
                 widget::column!(
                     "Select theme:",
-                    widget::pick_list(
-                        themes,
-                        config.theme.clone(),
-                        Message::LauncherSettingsThemePicked
-                    ),
+                    widget::pick_list(themes, config.theme.clone(), |n| Message::LauncherSettings(
+                        LauncherSettingsMessage::ThemePicked(n)
+                    )),
                 )
                 .padding(10)
                 .spacing(10)
@@ -469,11 +467,9 @@ impl MenuLauncherSettings {
             widget::container(
                 widget::column!(
                     "Select style:",
-                    widget::pick_list(
-                        styles,
-                        config.style.clone(),
-                        Message::LauncherSettingsStylePicked
-                    )
+                    widget::pick_list(styles, config.style.clone(), |n| Message::LauncherSettings(
+                        LauncherSettingsMessage::StylePicked(n)
+                    ))
                 )
                 .padding(10)
                 .spacing(10)
@@ -481,10 +477,14 @@ impl MenuLauncherSettings {
             widget::container(
                 widget::column![
                     "Change UI Scaling: (warning: slightly buggy)",
-                    widget::slider(0.5..=2.0, self.temp_scale, Message::LauncherSettingsUiScale)
-                        .step(0.1),
+                    widget::slider(0.5..=2.0, self.temp_scale, |n| Message::LauncherSettings(
+                        LauncherSettingsMessage::UiScale(n)
+                    ))
+                    .step(0.1),
                     widget::text!("Scale: {:.2}x", self.temp_scale),
-                    widget::button("Apply").on_press(Message::LauncherSettingsUiScaleApply)
+                    widget::button("Apply").on_press(Message::LauncherSettings(
+                        LauncherSettingsMessage::UiScaleApply
+                    ))
                 ]
                 .padding(10)
                 .spacing(10)

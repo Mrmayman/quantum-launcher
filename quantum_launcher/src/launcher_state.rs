@@ -41,11 +41,13 @@ use crate::{
 pub const OFFLINE_ACCOUNT_NAME: &str = "(Offline)";
 pub const NEW_ACCOUNT_NAME: &str = "+ Add Account";
 
+type Res<T = ()> = Result<T, String>;
+
 #[derive(Debug, Clone)]
 pub enum InstallFabricMessage {
-    End(Result<bool, String>),
+    End(Res<bool>),
     VersionSelected(String),
-    VersionsLoaded(Result<Vec<FabricVersionListItem>, String>),
+    VersionsLoaded(Res<Vec<FabricVersionListItem>>),
     ButtonClicked,
     ScreenOpen { is_quilt: bool },
 }
@@ -53,18 +55,18 @@ pub enum InstallFabricMessage {
 #[derive(Debug, Clone)]
 pub enum CreateInstanceMessage {
     ScreenOpen,
-    VersionsLoaded(Result<Vec<ListEntry>, String>),
+    VersionsLoaded(Res<Vec<ListEntry>>),
     VersionSelected(ListEntry),
     NameInput(String),
     Start,
-    End(Result<String, String>),
+    End(Res<String>),
     ChangeAssetToggle(bool),
     Cancel,
 }
 
 #[derive(Debug, Clone)]
 pub enum EditInstanceMessage {
-    ConfigSaved(Result<(), String>),
+    ConfigSaved(Res),
     JavaOverride(String),
     MemoryChanged(f32),
     LoggingToggle(bool),
@@ -89,30 +91,30 @@ pub enum ManageModsMessage {
     ToggleCheckbox((String, ModId), bool),
     ToggleCheckboxLocal(String, bool),
     DeleteSelected,
-    DeleteFinished(Result<Vec<ModId>, String>),
-    LocalDeleteFinished(Result<(), String>),
+    DeleteFinished(Res<Vec<ModId>>),
+    LocalDeleteFinished(Res),
     LocalIndexLoaded(HashSet<String>),
     ToggleSelected,
-    ToggleFinished(Result<(), String>),
+    ToggleFinished(Res),
     UpdateMods,
-    UpdateModsFinished(Result<(), String>),
-    UpdateCheckResult(Result<Vec<(ModId, String)>, String>),
+    UpdateModsFinished(Res),
+    UpdateCheckResult(Res<Vec<(ModId, String)>>),
     UpdateCheckToggle(usize, bool),
     SelectAll,
 }
 
 #[derive(Debug, Clone)]
 pub enum InstallModsMessage {
-    SearchResult(Result<SearchResult, String>),
+    SearchResult(Res<SearchResult>),
     Open,
     SearchInput(String),
-    ImageDownloaded(Result<ImageResult, String>),
+    ImageDownloaded(Res<ImageResult>),
     Click(usize),
     BackToMainScreen,
-    LoadData(Result<Box<ModDescription>, String>),
+    LoadData(Res<Box<ModDescription>>),
     Download(usize),
-    DownloadComplete(Result<ModId, String>),
-    IndexUpdated(Result<ModIndex, String>),
+    DownloadComplete(Res<ModId>),
+    IndexUpdated(Res<ModIndex>),
     ChangeBackend(StoreBackendType),
     Scrolled(widget::scrollable::Viewport),
 }
@@ -122,7 +124,7 @@ pub enum InstallOptifineMessage {
     ScreenOpen,
     SelectInstallerStart,
     SelectInstallerEnd(Option<rfd::FileHandle>),
-    End(Result<(), String>),
+    End(Res),
 }
 
 #[derive(Debug, Clone)]
@@ -133,24 +135,33 @@ pub enum EditPresetsMessage {
     ToggleCheckboxLocal(String, bool),
     SelectAll,
     BuildYourOwn,
-    BuildYourOwnEnd(Result<Vec<u8>, String>),
+    BuildYourOwnEnd(Res<Vec<u8>>),
     Load,
-    LoadComplete(Result<(), String>),
-    RecommendedModCheck(Result<Vec<RecommendedMod>, String>),
+    LoadComplete(Res),
+    RecommendedModCheck(Res<Vec<RecommendedMod>>),
     RecommendedToggle(usize, bool),
     RecommendedDownload,
-    RecommendedDownloadEnd(Result<(), String>),
+    RecommendedDownloadEnd(Res),
 }
 
 #[derive(Debug, Clone)]
 pub enum AccountMessage {
     Selected(String),
-    Response1(Result<AuthCodeResponse, String>),
-    Response2(Result<AuthTokenResponse, String>),
-    Response3(Result<AccountData, String>),
+    Response1(Res<AuthCodeResponse>),
+    Response2(Res<AuthTokenResponse>),
+    Response3(Res<AccountData>),
     LogoutCheck,
     LogoutConfirm,
-    RefreshComplete(Result<AccountData, String>),
+    RefreshComplete(Res<AccountData>),
+}
+
+#[derive(Debug, Clone)]
+pub enum LauncherSettingsMessage {
+    Open,
+    ThemePicked(String),
+    StylePicked(String),
+    UiScale(f64),
+    UiScaleApply,
 }
 
 #[derive(Debug, Clone)]
@@ -166,7 +177,8 @@ pub enum Message {
     InstallOptifine(InstallOptifineMessage),
     InstallFabric(InstallFabricMessage),
     EditPresets(EditPresetsMessage),
-    CoreOpenDir(String),
+    LauncherSettings(LauncherSettingsMessage),
+
     LaunchInstanceSelected {
         name: String,
         is_server: bool,
@@ -177,29 +189,34 @@ pub enum Message {
         message: Option<String>,
         clear_selection: bool,
     },
-    LaunchEnd(Result<Arc<Mutex<Child>>, String>),
+    LaunchEnd(Res<Arc<Mutex<Child>>>),
     LaunchKill,
-    LaunchKillEnd(Result<(), String>),
+    LaunchKillEnd(Res),
+    LaunchChangeTab(LaunchTabId),
+
     DeleteInstanceMenu,
     DeleteInstance,
+
     InstallForgeStart {
         is_neoforge: bool,
     },
-    InstallForgeEnd(Result<(), String>),
+    InstallForgeEnd(Res),
     InstallPaperStart,
-    InstallPaperEnd(Result<(), String>),
+    InstallPaperEnd(Res),
+
     UninstallLoaderConfirm(Box<Message>, String),
     UninstallLoaderFabricStart,
     UninstallLoaderForgeStart,
     UninstallLoaderOptiFineStart,
     UninstallLoaderPaperStart,
-    UninstallLoaderEnd(Result<Loader, String>),
+    UninstallLoaderEnd(Res<Loader>),
 
     CoreErrorCopy,
+    CoreOpenDir(String),
     CoreCopyText(String),
     CoreTick,
-    CoreTickConfigSaved(Result<(), String>),
-    CoreListLoaded(Result<(Vec<String>, bool), String>),
+    CoreTickConfigSaved(Res),
+    CoreListLoaded(Res<(Vec<String>, bool)>),
     CoreOpenChangeLog,
     CoreOpenIntro,
     CoreEvent(iced::Event, iced::event::Status),
@@ -210,39 +227,31 @@ pub enum Message {
 
     LaunchLogScroll(i64),
     LaunchLogScrollAbsolute(i64),
-
-    LaunchEndedLog(Result<(ExitStatus, String), String>),
+    LaunchEndedLog(Res<(ExitStatus, String)>),
     LaunchCopyLog,
-    LaunchChangeTab(LaunchTabId),
 
-    UpdateCheckResult(Result<UpdateCheckInfo, String>),
+    UpdateCheckResult(Res<UpdateCheckInfo>),
     UpdateDownloadStart,
-    UpdateDownloadEnd(Result<(), String>),
-
-    LauncherSettingsOpen,
-    LauncherSettingsThemePicked(String),
-    LauncherSettingsStylePicked(String),
-    LauncherSettingsUiScale(f64),
-    LauncherSettingsUiScaleApply,
+    UpdateDownloadEnd(Res),
 
     ServerManageOpen {
         selected_server: Option<String>,
         message: Option<String>,
     },
     ServerManageStartServer(String),
-    ServerManageStartServerFinish(Result<(Arc<Mutex<Child>>, bool), String>),
-    ServerManageEndedLog(Result<(ExitStatus, String), String>),
+    ServerManageStartServerFinish(Res<(Arc<Mutex<Child>>, bool)>),
+    ServerManageEndedLog(Res<(ExitStatus, String)>),
     ServerManageKillServer(String),
     ServerManageEditCommand(String, String),
     ServerManageCopyLog,
     ServerManageSubmitCommand(String),
 
     ServerCreateScreenOpen,
-    ServerCreateVersionsLoaded(Result<Vec<ListEntry>, String>),
+    ServerCreateVersionsLoaded(Res<Vec<ListEntry>>),
     ServerCreateNameInput(String),
     ServerCreateVersionSelected(ListEntry),
     ServerCreateStart,
-    ServerCreateEnd(Result<String, String>),
+    ServerCreateEnd(Res<String>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default, Copy)]
@@ -832,7 +841,7 @@ fn load_config_and_theme(
     Ok((config, theme))
 }
 
-pub async fn get_entries(path: String, is_server: bool) -> Result<(Vec<String>, bool), String> {
+pub async fn get_entries(path: String, is_server: bool) -> Res<(Vec<String>, bool)> {
     let dir_path = file_utils::get_launcher_dir().await.strerr()?.join(path);
     if !dir_path.exists() {
         tokio::fs::create_dir_all(&dir_path)

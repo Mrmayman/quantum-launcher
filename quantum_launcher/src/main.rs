@@ -61,7 +61,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #![windows_subsystem = "windows"]
 
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use iced::{Settings, Task};
@@ -76,7 +76,6 @@ use ql_core::{
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
-use stylesheet::styles::{LauncherTheme, LauncherThemeColor, LauncherThemeLightness};
 use tokio::io::AsyncWriteExt;
 
 /// The CLI interface of the launcher.
@@ -285,36 +284,7 @@ impl Launcher {
                 }
             },
             Message::UpdateDownloadStart => return self.update_download_start(),
-            Message::LauncherSettingsThemePicked(theme) => {
-                info!("Setting color mode {theme}");
-                self.config.theme = Some(theme.clone());
-
-                match theme.as_str() {
-                    "Light" => self.theme.lightness = LauncherThemeLightness::Light,
-                    "Dark" => self.theme.lightness = LauncherThemeLightness::Dark,
-                    _ => err!("Invalid color mode {theme}"),
-                }
-            }
-            Message::LauncherSettingsOpen => {
-                self.state = State::LauncherSettings(launcher_state::MenuLauncherSettings {
-                    temp_scale: self.config.ui_scale.unwrap_or(1.0),
-                });
-            }
-            Message::LauncherSettingsStylePicked(style) => {
-                info!("Setting color scheme {style}");
-                self.config.style = Some(style.clone());
-                self.theme.color = LauncherThemeColor::from_str(&style).unwrap_or_default();
-            }
-            Message::LauncherSettingsUiScale(scale) => {
-                if let State::LauncherSettings(menu) = &mut self.state {
-                    menu.temp_scale = scale;
-                }
-            }
-            Message::LauncherSettingsUiScaleApply => {
-                if let State::LauncherSettings(menu) = &self.state {
-                    self.config.ui_scale = Some(menu.temp_scale);
-                }
-            }
+            Message::LauncherSettings(msg) => self.update_launcher_settings(msg),
 
             Message::InstallOptifine(msg) => return self.update_install_optifine(msg),
             Message::ServerManageOpen {
@@ -601,7 +571,7 @@ impl Launcher {
         iced::Subscription::batch(vec![tick, events])
     }
 
-    fn theme(&self) -> LauncherTheme {
+    fn theme(&self) -> stylesheet::styles::LauncherTheme {
         self.theme.clone()
     }
 
