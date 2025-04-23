@@ -11,7 +11,7 @@ use ql_core::{
     InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
 };
 use ql_instances::{AccountData, ReadError};
-use ql_mod_manager::{loaders, mod_manager::ModIndex};
+use ql_mod_manager::{loaders, store::ModIndex};
 use tokio::process::Child;
 
 use crate::{
@@ -246,7 +246,7 @@ impl Launcher {
                     Task::none()
                 } else {
                     Task::perform(
-                        ql_mod_manager::mod_manager::check_for_updates(selected_instance.clone()),
+                        ql_mod_manager::store::check_for_updates(selected_instance.clone()),
                         |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
                     )
                 };
@@ -288,11 +288,7 @@ impl Launcher {
             ));
             let selected_instance = self.selected_instance.clone().unwrap();
             Task::perform(
-                ql_mod_manager::mod_manager::apply_updates(
-                    selected_instance,
-                    updates,
-                    Some(sender),
-                ),
+                ql_mod_manager::store::apply_updates(selected_instance, updates, Some(sender)),
                 |n| Message::ManageMods(ManageModsMessage::UpdateModsFinished(n.strerr())),
             )
         } else {
@@ -540,7 +536,7 @@ impl Launcher {
                     if let (Some(extension), Some(filename)) = (
                         path.extension()
                             .and_then(|n| n.to_str())
-                            .map(|n| n.to_lowercase()),
+                            .map(str::to_lowercase),
                         path.file_name().and_then(|n| n.to_str()),
                     ) {
                         if let State::EditMods(_) = &self.state {
@@ -638,7 +634,7 @@ impl Launcher {
                                 iced::mouse::ScrollDelta::Lines { y, .. }
                                 | iced::mouse::ScrollDelta::Pixels { y, .. } => {
                                     let new_scale =
-                                        self.config.ui_scale.unwrap_or(1.0) + (y as f64 / 5.0);
+                                        self.config.ui_scale.unwrap_or(1.0) + (f64::from(y) / 5.0);
                                     let new_scale = new_scale.clamp(0.5, 2.0);
                                     self.config.ui_scale = Some(new_scale);
                                     if let State::LauncherSettings(menu) = &mut self.state {
@@ -675,11 +671,7 @@ impl Launcher {
                 }
                 let instance_name = self.selected_instance.clone().unwrap();
                 Task::perform(
-                    ql_mod_manager::mod_manager::download_mods_bulk(
-                        mods,
-                        instance_name,
-                        Some(sender),
-                    ),
+                    ql_mod_manager::store::download_mods_bulk(mods, instance_name, Some(sender)),
                     |n| Message::EditPresets(EditPresetsMessage::LoadComplete(n.strerr())),
                 )
             }

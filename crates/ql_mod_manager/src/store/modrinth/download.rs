@@ -11,7 +11,7 @@ use ql_core::{
     pt, InstanceSelection, IntoIoError,
 };
 
-use crate::mod_manager::{
+use crate::store::{
     local_json::{ModConfig, ModIndex},
     modrinth::versions::ModVersion,
     ModError, SOURCE_ID_MODRINTH,

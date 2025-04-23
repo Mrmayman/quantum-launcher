@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use iced::Task;
 use ql_core::{err_no_log, InstanceSelection, IntoIoError, IntoStringError, ModId, SelectedMod};
-use ql_mod_manager::mod_manager::ModIndex;
+use ql_mod_manager::store::ModIndex;
 
 use crate::launcher_state::{
     Launcher, ManageModsMessage, MenuEditMods, Message, SelectedState, State,
@@ -112,21 +112,15 @@ impl Launcher {
 
                     menu.selected_mods
                         .extend(ids_local.iter().map(|n| SelectedMod::Local {
-                            file_name: ql_mod_manager::mod_manager::flip_filename(n),
+                            file_name: ql_mod_manager::store::flip_filename(n),
                         }));
 
                     let toggle_downloaded = Task::perform(
-                        ql_mod_manager::mod_manager::toggle_mods(
-                            ids_downloaded,
-                            instance_name.clone(),
-                        ),
+                        ql_mod_manager::store::toggle_mods(ids_downloaded, instance_name.clone()),
                         |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n.strerr())),
                     );
                     let toggle_local = Task::perform(
-                        ql_mod_manager::mod_manager::toggle_mods_local(
-                            ids_local,
-                            instance_name.clone(),
-                        ),
+                        ql_mod_manager::store::toggle_mods_local(ids_local, instance_name.clone()),
                         |n| Message::ManageMods(ManageModsMessage::ToggleFinished(n.strerr())),
                     )
                     .chain(MenuEditMods::update_locally_installed_mods(
@@ -155,7 +149,7 @@ impl Launcher {
                         menu.available_updates.clear();
                     }
                     return Task::perform(
-                        ql_mod_manager::mod_manager::check_for_updates(
+                        ql_mod_manager::store::check_for_updates(
                             self.selected_instance.clone().unwrap(),
                         ),
                         |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
@@ -241,7 +235,7 @@ impl Launcher {
             async move {
                 let ids = ids;
                 let selected_instance = selected_instance;
-                ql_mod_manager::mod_manager::delete_mods(&ids, &selected_instance)
+                ql_mod_manager::store::delete_mods(&ids, &selected_instance)
                     .await
                     .map(|()| ids)
             },

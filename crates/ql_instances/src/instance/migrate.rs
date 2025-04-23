@@ -97,12 +97,12 @@ impl GameLauncher {
             let classpath = tokio::fs::read_to_string(&c_path).await.path(&c_path)?;
 
             let new_classpath = classpath
-                .split(":")
+                .split(':')
                 .map(|item| {
                     // migrate the absolute paths to relative paths, to fix renaming instances
                     if let Some(index) = item.find("forge/libraries") {
                         let substring = &item[index..];
-                        format!("../{}", substring)
+                        format!("../{substring}")
                     } else {
                         item.to_string() // Or handle the case where the substring isn't found
                     }
@@ -243,7 +243,7 @@ fn classpath_v0_3_1_to_v0_4(input: &str) -> String {
     if let Some(first) = parts.get_mut(0) {
         if let Some(index) = first.find("forge/libraries") {
             let trimmed = &first[index..];
-            *first = format!("../{}", trimmed);
+            *first = format!("../{trimmed}");
         }
     }
 

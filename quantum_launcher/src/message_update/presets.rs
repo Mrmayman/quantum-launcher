@@ -4,7 +4,7 @@ use iced::Task;
 use ql_core::{
     err, json::VersionDetails, InstanceSelection, IntoStringError, Loader, ModId, SelectedMod,
 };
-use ql_mod_manager::mod_manager::{RecommendedMod, RECOMMENDED_MODS};
+use ql_mod_manager::store::{RecommendedMod, RECOMMENDED_MODS};
 
 use crate::launcher_state::{
     EditPresetsMessage, Launcher, MenuEditPresets, MenuEditPresetsInner, Message, ProgressBar,
@@ -133,7 +133,7 @@ impl Launcher {
             let instance = self.selected_instance.clone().unwrap();
 
             Task::perform(
-                ql_mod_manager::mod_manager::download_mods_bulk(ids, instance, Some(sender)),
+                ql_mod_manager::store::download_mods_bulk(ids, instance, Some(sender)),
                 |n| Message::EditPresets(EditPresetsMessage::RecommendedDownloadEnd(n.strerr())),
             )
         } else {

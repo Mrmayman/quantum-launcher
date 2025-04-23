@@ -27,7 +27,7 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    mod_manager::{ImageResult, ModConfig, ModDescription, ModIndex, RecommendedMod, SearchResult},
+    store::{ImageResult, ModConfig, ModDescription, ModIndex, RecommendedMod, SearchResult},
 };
 use tokio::process::{Child, ChildStdin};
 

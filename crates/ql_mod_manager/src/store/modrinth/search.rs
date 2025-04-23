@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use ql_core::JsonDownloadError;
 use serde::Deserialize;
 
-use crate::mod_manager::Query;
+use crate::store::Query;
 
 pub async fn do_request(query: &Query, offset: usize) -> Result<Search, JsonDownloadError> {
     const SEARCH_URL: &str = "https://api.modrinth.com/v2/search";

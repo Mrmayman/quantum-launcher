@@ -1,5 +1,6 @@
 use ql_core::{err, file_utils};
 use serde::Deserialize;
+use std::fmt::Write;
 
 use crate::rate_limiter::RATE_LIMITER;
 
@@ -61,7 +62,7 @@ impl ProjectInfo {
         let mut url = "https://api.modrinth.com/v2/projects?ids=[".to_owned();
         let len = ids.len();
         for (i, id) in ids.iter().enumerate() {
-            url.push_str(&format!("{id:?}"));
+            _ = write!(url, "{id:?}");
             if i + 1 < len {
                 url.push_str(", ");
             }

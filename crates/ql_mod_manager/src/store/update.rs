@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 use chrono::DateTime;
 use ql_core::{info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader};
 
-use crate::mod_manager::{get_latest_version_date, get_loader};
+use crate::store::{get_latest_version_date, get_loader};
 
 use super::{delete_mods, download_mods_bulk, ModError, ModId, ModIndex};
 

@@ -1,4 +1,4 @@
-use crate::mod_manager::{ModError, ModIndex};
+use crate::store::{ModError, ModIndex};
 use ql_core::{err, file_utils, info, pt, InstanceSelection, IoError, ModId};
 use std::{
     collections::{HashMap, HashSet},

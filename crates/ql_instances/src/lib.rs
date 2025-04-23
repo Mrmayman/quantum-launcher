@@ -37,8 +37,8 @@
 //! We download the ARM64 natives from two different sources:
 //! - `./assets/lwjgl_arm64/*` - Providing natives for different LWJGL
 //!   versions. Sourced from <https://github.com/theofficialgman/piston-meta-arm64>
-//! - `./assets/minecraft_arm` - Providing natives for LWJGL,
-//!   Log4J, Oshi, JavaObjCBridge, and Slf4J. Used less often.
+//! - `./assets/minecraft_arm` - Providing natives for `LWJGL`,
+//!   `Log4J`, `Oshi`, `JavaObjCBridge`, and `Slf4J`. Used less often.
 //!   Sourced from <https://github.com/Kichura/Minecraft_ARM>
 //!
 //! Both of these complement each other and provide a complete

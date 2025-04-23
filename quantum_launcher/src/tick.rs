@@ -10,7 +10,7 @@ use ql_core::{
     err, json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
     ModId,
 };
-use ql_mod_manager::mod_manager::{ModConfig, ModIndex};
+use ql_mod_manager::store::{ModConfig, ModIndex};
 
 use crate::launcher_state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
@@ -176,7 +176,7 @@ impl Launcher {
             if !self.images.downloads_in_progress.contains(url) {
                 self.images.downloads_in_progress.insert(url.to_owned());
                 commands.push(Task::perform(
-                    ql_mod_manager::mod_manager::download_image(url.to_owned(), false),
+                    ql_mod_manager::store::download_image(url.to_owned(), false),
                     |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                 ));
             }
@@ -343,7 +343,7 @@ impl MenuModsDownload {
                 {
                     images.downloads_in_progress.insert(result.title.clone());
                     commands.push(Task::perform(
-                        ql_mod_manager::mod_manager::download_image(result.icon_url.clone(), true),
+                        ql_mod_manager::store::download_image(result.icon_url.clone(), true),
                         |n| Message::InstallMods(InstallModsMessage::ImageDownloaded(n)),
                     ));
                 }

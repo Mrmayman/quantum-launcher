@@ -2,7 +2,7 @@ use std::sync::mpsc::Sender;
 
 use ql_core::{info, pt, GenericProgress, Loader, ModId, StoreBackendType};
 
-use crate::mod_manager::get_latest_version_date;
+use crate::store::get_latest_version_date;
 
 use super::ModError;
 

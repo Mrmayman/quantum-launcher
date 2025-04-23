@@ -130,7 +130,12 @@ pub enum AuthError {
     NoUuid,
     #[error("microsoft account doesn't own minecraft")]
     DoesntOwnGame,
+
+    #[cfg(not(target_os = "linux"))]
     #[error("microsoft account:\nkeyring error: {0}")]
+    KeyringError(#[from] keyring::Error),
+    #[cfg(target_os = "linux")]
+    #[error("microsoft account:\nkeyring error: {0}\n\nSee https://mrmayman.github.io/quantumlauncher/#keyring-error for help")]
     KeyringError(#[from] keyring::Error),
 }
 
@@ -148,6 +153,16 @@ pub fn logout(username: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Gets the account info from the
+/// refresh token.
+///
+/// You can read an existing refresh token
+/// from disk using [`read_refresh_token`].
+///
+/// Note: This is for reusing an existing logged-in
+/// account. If you want to freshly log in, use
+/// [`login_1_link`], [`login_2_wait`], [`login_3_xbox`]
+/// respectively in that order.
 pub async fn login_refresh(
     username: String,
     refresh_token: String,

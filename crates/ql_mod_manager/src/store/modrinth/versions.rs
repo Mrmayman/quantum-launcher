@@ -1,7 +1,7 @@
 use ql_core::file_utils;
 use serde::Deserialize;
 
-use crate::{mod_manager::local_json::ModFile, rate_limiter::RATE_LIMITER};
+use crate::{rate_limiter::RATE_LIMITER, store::local_json::ModFile};
 
 use super::ModError;
 

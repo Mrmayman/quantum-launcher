@@ -58,7 +58,7 @@ pub async fn launch(
         .await?;
     let optifine_json = game_launcher.setup_optifine(&mut game_arguments).await?;
 
-    game_launcher.fill_java_arguments(&mut java_arguments)?;
+    game_launcher.fill_java_arguments(&mut java_arguments);
 
     game_launcher
         .fill_game_arguments(&mut game_arguments, auth.as_ref())

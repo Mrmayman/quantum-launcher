@@ -1,6 +1,6 @@
 use iced::{widget, Length};
 use ql_core::{ModId, StoreBackendType};
-use ql_mod_manager::mod_manager::SearchMod;
+use ql_mod_manager::store::SearchMod;
 
 use crate::{
     icon_manager,

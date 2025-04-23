@@ -424,10 +424,7 @@ impl GameLauncher {
         Ok(Some((optifine_json, jar)))
     }
 
-    pub fn fill_java_arguments(
-        &self,
-        java_arguments: &mut Vec<String>,
-    ) -> Result<(), GameLaunchError> {
+    pub fn fill_java_arguments(&self, java_arguments: &mut Vec<String>) {
         for argument in java_arguments {
             replace_var(
                 argument,
@@ -438,7 +435,6 @@ impl GameLauncher {
             replace_var(argument, "library_directory", "../forge/libraries");
             replace_var(argument, "version_name", &self.version_json.id);
         }
-        Ok(())
     }
 
     pub fn setup_logging(&self, java_arguments: &mut Vec<String>) -> Result<(), GameLaunchError> {

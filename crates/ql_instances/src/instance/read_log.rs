@@ -113,21 +113,18 @@ fn xml_parse(
         _ => &xml,
     };
 
-    match serde_xml_rs::from_str(text) {
-        Ok(log_event) => {
-            sender.send(LogLine::Info(log_event))?;
-            xml_cache.clear();
-        }
-        Err(_) => {
-            let no_unicode = any_ascii::any_ascii(text);
-            match serde_xml_rs::from_str(&no_unicode) {
-                Ok(log_event) => {
-                    sender.send(LogLine::Info(log_event))?;
-                    xml_cache.clear();
-                }
-                Err(err) => {
-                    err!("Could not parse XML: {err}\n{text}\n");
-                }
+    if let Ok(log_event) = serde_xml_rs::from_str(text) {
+        sender.send(LogLine::Info(log_event))?;
+        xml_cache.clear();
+    } else {
+        let no_unicode = any_ascii::any_ascii(text);
+        match serde_xml_rs::from_str(&no_unicode) {
+            Ok(log_event) => {
+                sender.send(LogLine::Info(log_event))?;
+                xml_cache.clear();
+            }
+            Err(err) => {
+                err!("Could not parse XML: {err}\n{text}\n");
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::{path::Path, sync::mpsc::Sender};
+use std::{fmt::Write, path::Path, sync::mpsc::Sender};
 
 use chrono::DateTime;
 use ql_core::{
@@ -97,7 +97,7 @@ pub async fn install(
             let lib = parts[1];
             let ver = parts[2];
 
-            clean_classpath.push_str(&format!("{class}:{lib}\n"));
+            _ = writeln!(clean_classpath, "{class}:{lib}\n");
 
             let (url, path) = if let Some(downloads) = &library.downloads {
                 (
@@ -109,13 +109,13 @@ pub async fn install(
                     .url
                     .clone()
                     .unwrap_or("https://libraries.minecraft.net/".to_owned());
-                let path = format!("{}/{lib}/{ver}/{lib}-{ver}.jar", class.replace(".", "/"));
+                let path = format!("{}/{lib}/{ver}/{lib}-{ver}.jar", class.replace('.', "/"));
 
                 let url = base + &path;
                 (url, path)
             };
 
-            classpath.push_str(&format!("../forge/libraries/{path}"));
+            _ = write!(classpath, "../forge/libraries/{path}");
             classpath.push(CLASSPATH_SEPARATOR);
 
             let file_path = libraries_path.join(&path);

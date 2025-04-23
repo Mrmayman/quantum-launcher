@@ -5,7 +5,7 @@ use std::{
 
 use ql_core::{file_utils, info, pt, IntoIoError, ModId};
 
-use crate::mod_manager::{
+use crate::store::{
     curseforge::ModQuery, ModConfig, ModError, ModFile, ModIndex, SOURCE_ID_CURSEFORGE,
 };
 

@@ -8,7 +8,7 @@ use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     InstanceSelection, IntoIoError, IntoStringError, Loader, StoreBackendType,
 };
-use ql_mod_manager::mod_manager::{ModIndex, Query};
+use ql_mod_manager::store::{ModIndex, Query};
 
 use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
@@ -67,9 +67,8 @@ impl MenuModsDownload {
             // open_source: false, // TODO: Add Open Source filter
         };
         let backend = self.backend;
-        Task::perform(
-            ql_mod_manager::mod_manager::search(query, offset, backend),
-            |n| Message::InstallMods(InstallModsMessage::SearchResult(n.strerr())),
-        )
+        Task::perform(ql_mod_manager::store::search(query, offset, backend), |n| {
+            Message::InstallMods(InstallModsMessage::SearchResult(n.strerr()))
+        })
     }
 }

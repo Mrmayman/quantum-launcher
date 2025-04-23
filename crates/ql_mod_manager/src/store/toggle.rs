@@ -2,10 +2,11 @@ use std::path::Path;
 
 use ql_core::{err, file_utils, InstanceSelection, IoError};
 
-use crate::mod_manager::ModIndex;
+use crate::store::ModIndex;
 
 use super::ModError;
 
+#[must_use]
 pub fn flip_filename(name: &str) -> String {
     if let Some(n) = name.strip_suffix(".disabled") {
         n.to_owned()

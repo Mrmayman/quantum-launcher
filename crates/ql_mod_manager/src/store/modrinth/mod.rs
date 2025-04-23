@@ -7,8 +7,8 @@ use ql_core::{info, pt, GenericProgress, InstanceSelection, Loader, ModId};
 use versions::ModVersion;
 
 use crate::{
-    mod_manager::{SearchMod, StoreBackendType},
     rate_limiter::{MOD_DOWNLOAD_LOCK, RATE_LIMITER},
+    store::{SearchMod, StoreBackendType},
 };
 
 use super::{Backend, ModDescription, ModError, Query, SearchResult};

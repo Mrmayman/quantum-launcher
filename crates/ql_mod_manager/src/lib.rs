@@ -17,8 +17,8 @@
 
 /// Installers and Uninstallers for loaders (Fabric/Forge/Optifine/Quilt/Paper).
 pub mod loaders;
-/// Mod manager integrated with Modrinth.
-pub mod mod_manager;
 mod presets;
 mod rate_limiter;
+/// Mod manager integrated with Modrinth.
+pub mod store;
 pub use presets::PresetJson;

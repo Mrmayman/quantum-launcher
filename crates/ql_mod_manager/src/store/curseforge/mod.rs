@@ -12,8 +12,8 @@ use reqwest::header::HeaderValue;
 use serde::Deserialize;
 
 use crate::{
-    mod_manager::{get_loader, ModIndex, SearchMod},
     rate_limiter::RATE_LIMITER,
+    store::{get_loader, ModIndex, SearchMod},
 };
 
 use super::{Backend, ModError, SearchResult};
@@ -196,7 +196,7 @@ impl Backend for CurseforgeBackend {
         let description = send_request(&format!("mods/{id}/description"), &map).await?;
         let description: Resp2 = serde_json::from_str(&description)?;
 
-        Ok(crate::mod_manager::ModDescription {
+        Ok(crate::store::ModDescription {
             id: ql_core::ModId::Curseforge(id.to_string()),
             long_description: description.data,
         })
@@ -264,13 +264,12 @@ impl Backend for CurseforgeBackend {
             .await?
             .join("mods");
 
-        let mut cache = HashMap::from_iter(
-            CFSearchResult::get_from_ids(ids)
-                .await?
-                .data
-                .into_iter()
-                .map(|n| (n.id.to_string(), n)),
-        );
+        let mut cache = CFSearchResult::get_from_ids(ids)
+            .await?
+            .data
+            .into_iter()
+            .map(|n| (n.id.to_string(), n))
+            .collect();
 
         let len = ids.len();
         for (i, id) in ids.iter().enumerate() {

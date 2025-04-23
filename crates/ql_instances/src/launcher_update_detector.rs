@@ -1,10 +1,7 @@
 use std::{
     ffi::OsStr,
     process::Command,
-    sync::{
-        mpsc::{SendError, Sender},
-        Arc,
-    },
+    sync::{mpsc::Sender, Arc},
 };
 
 use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
@@ -25,6 +22,18 @@ pub enum UpdateCheckInfo {
 ///
 /// Returns `Ok(UpdateCheckInfo::NewVersion { url })` if there is a new version available.
 /// (url pointing to zip file containing new version executable).
+///
+/// # Errors
+/// - If current version is ahead of latest version
+///   (experimental dev build)
+/// - If the release info couldn't be downloaded
+/// - If the release info couldn't be parsed into JSON
+/// - If no releases could be found in the Github repo
+/// - If the new version's version number is incompatible
+///   with semver (even after conversion)
+/// - If user is on unsupported architecture
+/// - If user is on unsupported OS
+/// - If no matching download could be found for your OS
 pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError> {
     const URL: &str = "https://api.github.com/repos/Mrmayman/quantum-launcher/releases";
 
@@ -53,6 +62,8 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
                 "x86_64"
             } else if cfg!(target_arch = "aarch64") {
                 "aarch64"
+            } else if cfg!(target_arch = "x86") {
+                "i686"
             } else {
                 err!("Update checking: Unsupported architecture");
                 return Err(UpdateError::UnsupportedArchitecture);
@@ -93,11 +104,20 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
 /// # Arguments
 /// - `url`: The url to the zip file containing the new version of the launcher.
 /// - `progress`: A channel to send progress updates to.
+///
+/// # Errors
+/// ## New version:
+/// - Couldn't be downloaded
+/// - Couldn't be extracted (invalid zip)
+/// - Couldn't be started
+/// ## Current executable:
+/// - Couldn't be found
+/// - Has a name with invalid unicode
 pub async fn install_launcher_update(
     url: String,
     progress: Sender<GenericProgress>,
 ) -> Result<(), UpdateError> {
-    progress.send(GenericProgress::default())?;
+    _ = progress.send(GenericProgress::default());
 
     let exe_path = std::env::current_exe().map_err(UpdateError::CurrentExeError)?;
     let exe_location = exe_path.parent().ok_or(UpdateError::ExeParentPathError)?;
@@ -116,33 +136,33 @@ pub async fn install_launcher_update(
     }
 
     info!("Backing up existing launcher");
-    progress.send(GenericProgress {
+    _ = progress.send(GenericProgress {
         done: 1,
         total: 4,
         message: Some("Backing up existing launcher".to_owned()),
         has_finished: false,
-    })?;
+    });
     let backup_path = exe_location.join(format!("backup_{backup_idx}_{exe_name}"));
     tokio::fs::rename(&exe_path, &backup_path)
         .await
         .path(backup_path)?;
 
     info!("Downloading new version of launcher");
-    progress.send(GenericProgress {
+    _ = progress.send(GenericProgress {
         done: 2,
         total: 4,
         message: Some("Downloading new launcher".to_owned()),
         has_finished: false,
-    })?;
+    });
     let download_zip = file_utils::download_file_to_bytes(&url, false).await?;
 
     info!("Extracting launcher");
-    progress.send(GenericProgress {
+    _ = progress.send(GenericProgress {
         done: 3,
         total: 4,
         message: Some("Extracting new launcher".to_owned()),
         has_finished: false,
-    })?;
+    });
     zip_extract::extract(std::io::Cursor::new(download_zip), exe_location, true)?;
 
     // Should I, though?
@@ -197,8 +217,6 @@ pub enum UpdateError {
     Io(#[from] IoError),
     #[error("launcher update error: zip extract error: {0}")]
     Zip(#[from] zip_extract::ZipExtractError),
-    #[error("launcher update error: send error: {0}")]
-    Send(#[from] SendError<GenericProgress>),
 }
 
 #[derive(Deserialize)]

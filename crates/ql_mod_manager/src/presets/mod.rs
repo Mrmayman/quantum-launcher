@@ -12,7 +12,7 @@ use ql_core::{
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
 
-use crate::mod_manager::{ModConfig, ModError, ModIndex};
+use crate::store::{ModConfig, ModError, ModIndex};
 
 /// A "Mod Preset"
 ///

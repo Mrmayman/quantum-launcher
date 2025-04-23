@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write,
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc::Sender,
@@ -298,13 +299,13 @@ impl ForgeInstaller {
         let lib = parts[1];
         let ver = parts[2];
 
-        clean_classpath.push_str(&format!("{class}:{lib}\n"));
+        _ = writeln!(clean_classpath, "{class}:{lib}");
 
         let (file, path) = Self::get_filename_and_path(lib, ver, library, class)?;
 
         if class == "net.minecraftforge" && lib == "forge" {
             if self.major_version > 48 {
-                Self::add_to_classpath(classpath, &path, &file)?;
+                Self::add_to_classpath(classpath, &path, &file);
             }
             pt!("Built in forge library, skipping...");
             return Ok(());
@@ -365,20 +366,15 @@ impl ForgeInstaller {
             };
         }
 
-        Self::add_to_classpath(classpath, &path, &file)?;
+        Self::add_to_classpath(classpath, &path, &file);
 
         Ok(())
     }
 
-    fn add_to_classpath(
-        classpath: &mut String,
-        path: &str,
-        file: &str,
-    ) -> Result<(), ForgeInstallError> {
+    fn add_to_classpath(classpath: &mut String, path: &str, file: &str) {
         let classpath_item = format!("../forge/libraries/{path}/{file}{CLASSPATH_SEPARATOR}");
-        // println!("adding library to classpath {classpath_item:?}");
+        // println!("adding library to classpath {classpath_item}");
         classpath.push_str(&classpath_item);
-        Ok(())
     }
 
     /// WTF: This is a set of unholy rituals that

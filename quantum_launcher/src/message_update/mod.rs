@@ -1,6 +1,6 @@
 use iced::{widget::image::Handle, Task};
 use ql_core::{err, InstanceSelection, IntoStringError, ModId};
-use ql_mod_manager::{loaders, mod_manager::get_description};
+use ql_mod_manager::{loaders, store::get_description};
 
 mod accounts;
 mod create_instance;
@@ -215,7 +215,7 @@ impl Launcher {
         Task::none()
     }
 
-    fn insert_image(&mut self, image: ql_mod_manager::mod_manager::ImageResult) {
+    fn insert_image(&mut self, image: ql_mod_manager::store::ImageResult) {
         if image.is_svg {
             let handle = iced::widget::svg::Handle::from_memory(image.image);
             self.images.svg.insert(image.url, handle);
@@ -249,7 +249,7 @@ impl Launcher {
 
         Some(Task::perform(
             async move {
-                ql_mod_manager::mod_manager::download_mod(&id, &selected_instance)
+                ql_mod_manager::store::download_mod(&id, &selected_instance)
                     .await
                     .map(|()| ModId::Modrinth(project_id))
             },
