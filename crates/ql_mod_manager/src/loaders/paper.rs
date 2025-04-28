@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::Path};
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonFileError, Loader,
-    RequestError,
+    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonDownloadError,
+    JsonFileError, Loader, RequestError,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -96,8 +96,8 @@ pub async fn uninstall(instance_name: String) -> Result<Loader, PaperInstallerEr
 pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {
     info!("Installing Paper");
     pt!("Getting version list");
-    let paper_versions = file_utils::download_file_to_string(PAPER_VERSIONS_URL, false).await?;
-    let paper_version: PaperVersions = serde_json::from_str(&paper_versions)?;
+    let paper_version: PaperVersions =
+        file_utils::download_file_to_json(PAPER_VERSIONS_URL, false).await?;
 
     let server_dir = file_utils::get_launcher_dir()
         .await?
@@ -141,6 +141,15 @@ impl From<JsonFileError> for PaperInstallerError {
         match value {
             JsonFileError::SerdeError(err) => Self::Serde(err),
             JsonFileError::Io(err) => Self::Io(err),
+        }
+    }
+}
+
+impl From<JsonDownloadError> for PaperInstallerError {
+    fn from(value: JsonDownloadError) -> Self {
+        match value {
+            JsonDownloadError::RequestError(err) => Self::Request(err),
+            JsonDownloadError::SerdeError(err) => Self::Serde(err),
         }
     }
 }

@@ -20,13 +20,13 @@ pub fn command() -> Command {
     .version(LAUNCHER_VERSION_NAME)
     .long_about(long_about())
     .subcommand(
-        get_list_instance_subcommands("list-instances".to_owned())
+        get_list_instance_subcommands("list-instances")
             .short_flag('l')
             .about("Lists all installed Minecraft instances")
             .long_about("Lists all installed Minecraft instances. Can be paired with hyphen-separated-flags like name-loader, name-version, loader-name-version"),
     )
     .subcommand(
-        get_list_instance_subcommands("list-servers".to_owned())
+        get_list_instance_subcommands("list-servers")
             .short_flag('s')
             .about("Lists all installed Minecraft servers")
             .long_about("Lists all installed Minecraft servers. Can be paired with hyphen-separated-flags like name-loader, name-version, loader-name-version"),
@@ -35,7 +35,7 @@ pub fn command() -> Command {
     .subcommand(Command::new("--no-sandbox").hide(true)) // This one doesn't do anything, but on Windows i686 it's automatically passed?
 }
 
-fn get_list_instance_subcommands(name: String) -> Command {
+fn get_list_instance_subcommands(name: &'static str) -> Command {
     Command::new(name)
         // May god forgive me for what I'm about to do
         .subcommand(Command::new("name"))

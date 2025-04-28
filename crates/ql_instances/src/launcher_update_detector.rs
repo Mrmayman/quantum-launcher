@@ -4,7 +4,9 @@ use std::{
     sync::{mpsc::Sender, Arc},
 };
 
-use ql_core::{err, file_utils, info, GenericProgress, IntoIoError, IoError, RequestError};
+use ql_core::{
+    err, file_utils, info, GenericProgress, IntoIoError, IoError, JsonDownloadError, RequestError,
+};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -37,8 +39,7 @@ pub enum UpdateCheckInfo {
 pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError> {
     const URL: &str = "https://api.github.com/repos/Mrmayman/quantum-launcher/releases";
 
-    let json = file_utils::download_file_to_string(URL, true).await?;
-    let json: Vec<GithubRelease> = serde_json::from_str(&json)?;
+    let json: Vec<GithubRelease> = file_utils::download_file_to_json(URL, true).await?;
 
     let latest = json.first().ok_or(UpdateError::NoReleases)?;
 
@@ -217,6 +218,15 @@ pub enum UpdateError {
     Io(#[from] IoError),
     #[error("launcher update error: zip extract error: {0}")]
     Zip(#[from] zip_extract::ZipExtractError),
+}
+
+impl From<JsonDownloadError> for UpdateError {
+    fn from(value: JsonDownloadError) -> Self {
+        match value {
+            JsonDownloadError::RequestError(err) => Self::Request(err),
+            JsonDownloadError::SerdeError(err) => Self::Serde(err),
+        }
+    }
 }
 
 #[derive(Deserialize)]

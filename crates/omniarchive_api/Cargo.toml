@@ -10,5 +10,5 @@ colored = { workspace = true }
 thiserror = { workspace = true }
 
 # HTML Parsing
-html5ever = "0.27"
-markup5ever_rcdom = "0.3"
+html5ever = { workspace = true }
+markup5ever_rcdom = { workspace = true }

@@ -46,8 +46,7 @@ impl ProjectInfo {
     pub async fn download(id: &str) -> Result<Self, ModError> {
         let _lock = RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{id}");
-        let file = file_utils::download_file_to_string(&url, true).await?;
-        let file: Self = match serde_json::from_str(&file) {
+        let file: Self = match file_utils::download_file_to_json(&url, true).await {
             Ok(file) => file,
             Err(err) => {
                 err!("Could not parse mod project json from url: {url}");
@@ -69,10 +68,7 @@ impl ProjectInfo {
         }
         url.push(']');
 
-        let response = file_utils::download_file_to_string(&url, false).await?;
-        let response: Vec<Self> = serde_json::from_str(&response)?;
-
-        Ok(response)
+        Ok(file_utils::download_file_to_json(&url, false).await?)
     }
 }
 

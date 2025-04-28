@@ -183,8 +183,8 @@ async fn get_neoforge_version(
 ) -> Result<String, ForgeInstallError> {
     pt!("Checking NeoForge versions");
     send_progress(f_progress, ForgeInstallProgress::P2DownloadingJson);
-    let versions = file_utils::download_file_to_string(NEOFORGE_VERSIONS_URL, false).await?;
-    let versions: NeoforgeVersions = serde_json::from_str(&versions)?;
+    let versions: NeoforgeVersions =
+        file_utils::download_file_to_json(NEOFORGE_VERSIONS_URL, false).await?;
 
     let version_json = VersionDetails::load(instance_selection).await?;
     let release_time = DateTime::parse_from_rfc3339(&version_json.releaseTime)?;

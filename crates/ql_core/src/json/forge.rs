@@ -19,8 +19,7 @@ impl JsonVersions {
         const VERSIONS_JSON: &str =
             "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json";
 
-        let manifest = file_utils::download_file_to_string(VERSIONS_JSON, false).await?;
-        Ok(serde_json::from_str(&manifest)?)
+        file_utils::download_file_to_json(VERSIONS_JSON, false).await
     }
 
     /// Returns the Forge version for the given Minecraft version.

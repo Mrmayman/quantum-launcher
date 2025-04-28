@@ -180,8 +180,7 @@ async fn install_java_files(
             .await;
     };
 
-    let json = file_utils::download_file_to_string(&java_files_url, false).await?;
-    let json: JavaFilesJson = serde_json::from_str(&json)?;
+    let json: JavaFilesJson = file_utils::download_file_to_json(&java_files_url, false).await?;
 
     let num_files = json.files.len();
     let file_num = Mutex::new(0);

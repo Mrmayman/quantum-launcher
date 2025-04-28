@@ -17,9 +17,17 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["fs", "macros", "process"] }
 chrono = "0.4"
-zip-extract = "0.2"
+zip-extract = { version = "0.2", default-features = false, features = [
+    "deflate",
+] }
 thiserror = "2"
-rfd = "0.15"
+rfd = { version = "0.15", default-features = false, features = [
+    "xdg-portal",
+    "tokio",
+] }
+
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
 
 # [profile.dev]
 # opt-level = 1

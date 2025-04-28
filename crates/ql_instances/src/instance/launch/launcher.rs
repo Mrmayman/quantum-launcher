@@ -501,20 +501,30 @@ impl GameLauncher {
         // classpath_entries is a HashSet that determines if an overriden
         // version of a library has already been loaded.
 
-        let jar_path = if let Some((_, jar)) = optifine_json {
-            jar.to_owned()
-        } else {
-            self.instance_dir
-                .join(".minecraft/versions")
-                .join(&self.version_json.id)
-                .join(format!("{}.jar", self.version_json.id))
-        };
+        let jar_path = Self::get_jar_path(
+            &self.version_json,
+            &self.instance_dir,
+            optifine_json.map(|n| n.1.as_path()),
+        );
         let jar_path = jar_path
             .to_str()
             .ok_or(GameLaunchError::PathBufToString(jar_path.clone()))?;
         class_path.push_str(jar_path);
 
         Ok(class_path)
+    }
+
+    pub fn get_jar_path(
+        version_json: &VersionDetails,
+        instance_dir: &Path,
+        optifine_jar: Option<&Path>,
+    ) -> PathBuf {
+        optifine_jar.map(Path::to_owned).unwrap_or_else(|| {
+            instance_dir
+                .join(".minecraft/versions")
+                .join(&version_json.id)
+                .join(format!("{}.jar", version_json.id))
+        })
     }
 
     fn classpath_fabric_and_quilt(

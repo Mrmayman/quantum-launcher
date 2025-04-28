@@ -16,7 +16,7 @@ pub struct VersionDetails {
     pub assetIndex: AssetIndex,
     /// Which version of the assets to be downloaded.
     pub assets: String,
-    pub complianceLevel: Option<usize>,
+    // pub complianceLevel: Option<usize>,
     /// Where to download the client/server jar.
     pub downloads: Downloads,
     /// Name of the version.
@@ -134,9 +134,9 @@ pub struct AssetIndex {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Downloads {
     pub client: Download,
-    pub client_mappings: Option<Download>,
+    // pub client_mappings: Option<Download>,
     pub server: Option<Download>,
-    pub server_mappings: Option<Download>,
+    // pub server_mappings: Option<Download>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -161,12 +161,11 @@ pub struct Library {
     pub rules: Option<Vec<LibraryRule>>,
     pub natives: Option<BTreeMap<String, String>>,
     // Fabric:
-    pub sha1: Option<String>,
-    pub sha256: Option<String>,
-    // name: Option<String>
-    pub size: Option<usize>,
-    pub sha512: Option<String>,
-    pub md5: Option<String>,
+    // pub sha1: Option<String>,
+    // pub sha256: Option<String>,
+    // pub size: Option<usize>,
+    // pub sha512: Option<String>,
+    // pub md5: Option<String>,
     pub url: Option<String>,
 }
 
@@ -188,21 +187,6 @@ impl Debug for Library {
         }
         if let Some(natives) = &self.natives {
             s_ref = s_ref.field("natives", &natives);
-        }
-        if let Some(sha1) = &self.sha1 {
-            s_ref = s_ref.field("sha1", &sha1);
-        }
-        if let Some(sha256) = &self.sha256 {
-            s_ref = s_ref.field("sha256", &sha256);
-        }
-        if let Some(size) = &self.size {
-            s_ref = s_ref.field("size", &size);
-        }
-        if let Some(sha512) = &self.sha512 {
-            s_ref = s_ref.field("sha512", &sha512);
-        }
-        if let Some(md5) = &self.md5 {
-            s_ref = s_ref.field("md5", &md5);
         }
         if let Some(url) = &self.url {
             s_ref = s_ref.field("url", &url);
@@ -230,7 +214,7 @@ impl Debug for LibraryExtract {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LibraryDownloads {
     pub artifact: Option<LibraryDownloadArtifact>,
-    pub name: Option<String>,
+    // pub name: Option<String>,
     pub classifiers: Option<BTreeMap<String, LibraryClassifier>>,
 }
 
@@ -241,9 +225,6 @@ impl Debug for LibraryDownloads {
         if let Some(artifact) = &self.artifact {
             s_ref = s_ref.field("artifact", &artifact);
         }
-        if let Some(name) = &self.name {
-            s_ref = s_ref.field("name", &name);
-        }
         if let Some(classifiers) = &self.classifiers {
             s_ref = s_ref.field("classifiers", &classifiers);
         }
@@ -251,27 +232,12 @@ impl Debug for LibraryDownloads {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LibraryClassifier {
-    pub path: Option<String>,
+    // pub path: Option<String>,
     pub sha1: String,
     pub size: usize,
     pub url: String,
-}
-
-impl Debug for LibraryClassifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = f.debug_struct("LibraryClassifier");
-        let mut s_ref = &mut s;
-        if let Some(path) = &self.path {
-            s_ref = s_ref.field("path", &path);
-        }
-        s_ref
-            .field("sha1", &self.sha1)
-            .field("size", &self.size)
-            .field("url", &self.url)
-            .finish()
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -293,16 +259,12 @@ impl Debug for LibraryRule {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LibraryRuleOS {
     pub name: String,
-    pub version: Option<String>, // Regex
+    // pub version: Option<String>, // Regex for OS version. TODO: Use this
 }
 
 impl Debug for LibraryRuleOS {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(version) = &self.version {
-            write!(f, "{} {version}", self.name)
-        } else {
-            write!(f, "{}", self.name)
-        }
+        write!(f, "{}", self.name)
     }
 }
 

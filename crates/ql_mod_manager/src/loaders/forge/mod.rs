@@ -16,7 +16,6 @@ use ql_core::{
     CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
-use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 use crate::loaders::change_instance_type;
 
@@ -328,9 +327,6 @@ impl ForgeInstaller {
             .path(&lib_dir_path)?;
 
         let dest = lib_dir_path.join(&file);
-        let dest_str = dest
-            .to_str()
-            .ok_or(ForgeInstallError::PathBufToStr(dest.clone()))?;
 
         self.send_progress(ForgeInstallProgress::P5DownloadingLibrary {
             num: library_i + 1,
@@ -350,20 +346,12 @@ impl ForgeInstaller {
                 library.name
             );
 
-            match file_utils::download_file_to_bytes(&url, false).await {
-                Ok(bytes) => {
-                    tokio::fs::write(&dest, bytes).await.path(dest)?;
-                }
-                Err(err) => {
-                    err!("Error downloading library: {err}\n        Trying pack.xz version");
-                    let result = self.unpack_augmented_library(dest_str, &url).await;
-                    if result.is_not_found() {
-                        err!("Error 404 not found. Skipping...");
-                        return Ok(());
-                    }
-                    result?;
-                }
-            };
+            let result = file_utils::download_file_to_bytes(&url, false).await;
+            if result.is_not_found() {
+                err!("Error 404 not found. Skipping...");
+                return Ok(());
+            }
+            result?;
         }
 
         Self::add_to_classpath(classpath, &path, &file);
@@ -375,83 +363,6 @@ impl ForgeInstaller {
         let classpath_item = format!("../forge/libraries/{path}/{file}{CLASSPATH_SEPARATOR}");
         // println!("adding library to classpath {classpath_item}");
         classpath.push_str(&classpath_item);
-    }
-
-    /// WTF: This is a set of unholy rituals that
-    /// apparently are needed in the forge installer?
-    ///
-    /// Idk, I saw it on
-    /// <https://github.com/alexivkin/minecraft-launcher/>
-    async fn unpack_augmented_library(
-        &self,
-        dest_str: &str,
-        url: &str,
-    ) -> Result<(), ForgeInstallError> {
-        pt!("Unpacking augmented library");
-        pt!("Downloading File");
-        let bytes = file_utils::download_file_to_bytes(&format!("{url}.pack.xz"), false).await?;
-        pt!("Extracting pack.xz");
-        // WTF: HOLY SHIT
-        // looking back why am I extracting a `.xz` file
-        // as a `.zip`?
-        // Lucky not one of my users has ever run this.
-        let temp_extract_xz = Self::extract_zip_file(&bytes)?;
-
-        pt!("Reading signature");
-        let extracted_pack_path = temp_extract_xz.path().join(format!("{dest_str}.pack"));
-        let mut extracted_pack = tokio::fs::File::open(&extracted_pack_path)
-            .await
-            .path(&extracted_pack_path)?;
-        extracted_pack
-            .seek(std::io::SeekFrom::End(-8))
-            .await
-            .path(&extracted_pack_path)?;
-        let mut sig_len_bytes = [0u8; 4];
-        extracted_pack
-            .read_exact(&mut sig_len_bytes)
-            .await
-            .path(&extracted_pack_path)?;
-        let sig_len = u32::from_le_bytes(sig_len_bytes);
-
-        let full_len = tokio::fs::metadata(&extracted_pack_path)
-            .await
-            .path(&extracted_pack_path)?
-            .len();
-        let crop_len = full_len - u64::from(sig_len) - 8;
-
-        let extracted_pack = tokio::fs::File::open(&extracted_pack_path)
-            .await
-            .path(&extracted_pack_path)?;
-        let mut pack_crop = Vec::with_capacity(crop_len as usize);
-        extracted_pack
-            .take(crop_len)
-            .read_to_end(&mut pack_crop)
-            .await
-            .path(extracted_pack_path)?;
-
-        let cropped_pack_path = temp_extract_xz
-            .path()
-            .join(format!("{dest_str}.pack.crop",));
-        tokio::fs::write(&cropped_pack_path, &pack_crop)
-            .await
-            .path(cropped_pack_path)?;
-
-        pt!("Unpacking extracted file");
-        let unpack200_path = get_java_binary(JavaVersion::Java8, "unpack200", None).await?;
-        let mut command = Command::new(&unpack200_path);
-        #[allow(unused_mut)]
-        let mut command = command.args(&[format!("{dest_str}.pack.crop",), dest_str.to_owned()]);
-        no_window!(command);
-
-        let output = command.output().path(unpack200_path)?;
-
-        if !output.status.success() {
-            return Err(ForgeInstallError::Unpack200Error(
-                String::from_utf8(output.stdout)?,
-                String::from_utf8(output.stderr)?,
-            ));
-        }
-        Ok(())
     }
 
     fn get_filename_and_path(

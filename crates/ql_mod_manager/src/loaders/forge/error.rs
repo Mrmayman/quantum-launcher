@@ -27,8 +27,6 @@ pub enum ForgeInstallError {
     CompileError(String, String),
     #[error("error running forge installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     InstallerError(String, String),
-    #[error("error installing forge: unpack200 error\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
-    Unpack200Error(String, String),
     #[error("error installing forge: could not convert bytes to string: {0}")]
     FromUtf8Error(#[from] FromUtf8Error),
     #[error("error installing forge: could not find parent directory of library")]
@@ -65,9 +63,19 @@ pub trait Is404NotFound {
     fn is_not_found(&self) -> bool;
 }
 
-impl<T> Is404NotFound for Result<T, ForgeInstallError> {
+impl<T, E: Is404NotFound> Is404NotFound for Result<T, E> {
     fn is_not_found(&self) -> bool {
-        if let Err(ForgeInstallError::Request(RequestError::DownloadError { code, .. })) = &self {
+        if let Err(err) = &self {
+            err.is_not_found()
+        } else {
+            false
+        }
+    }
+}
+
+impl Is404NotFound for ForgeInstallError {
+    fn is_not_found(&self) -> bool {
+        if let ForgeInstallError::Request(RequestError::DownloadError { code, .. }) = &self {
             code.as_u16() == 404
         } else {
             false

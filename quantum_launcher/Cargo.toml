@@ -7,6 +7,7 @@ authors = ["Mrmayman <navneetkrishna22@gmail.com>"]
 description = "A simple Minecraft Launcher written in Rust."
 keywords = ["minecraft", "mc", "launcher"]
 license = "GPL-3.0-only"
+homepage = "https://mrmayman.github.io/quantumlauncher"
 repository = "https://github.com/Mrmayman/quantum-launcher/"
 readme = "../README.md"
 
@@ -44,14 +45,14 @@ terminal_size = "0.4"
 colored = { workspace = true }
 clap = { version = "4", features = ["help"] }
 
-comrak = "0.38" # For markdown parsing (displaying mod pages)
-image = "0.24"
-# We be implementing a full blown HTML renderer in iced with this one
-html5ever = "0.27"
-markup5ever_rcdom = "0.3"
-# Look, I could just have used the
-# built in markdown widget in iced,
-# but it doesn't have inline HTML support
+# Mod page rendering:
+comrak = { version = "0.38", default-features = false } # Markdown rendering
+image = "0.24"                                          # Image loading
+html5ever = { workspace = true }                        # HTML rendering
+markup5ever_rcdom = { workspace = true }                #
+
+# iced::widget::markdown doesn't have inline
+# HTML support so I made my own renderer.
 
 # Shenanigans to get Reqwest building everywhere
 # this is probably not a good idea but whatever.

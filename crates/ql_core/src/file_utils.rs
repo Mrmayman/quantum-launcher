@@ -1,9 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use reqwest::{header::InvalidHeaderValue, Client};
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 
-use crate::{error::IoError, retry, InstanceSelection, IntoIoError, CLIENT};
+use crate::{error::IoError, retry, InstanceSelection, IntoIoError, JsonDownloadError, CLIENT};
 
 /// Returns the path to the QuantumLauncher root folder.
 ///
@@ -155,6 +156,53 @@ pub async fn download_file_to_string(url: &str, user_agent: bool) -> Result<Stri
                 code: response.status(),
                 url: response.url().clone(),
             })
+        }
+    }
+
+    retry(async || inner(&CLIENT, url, user_agent).await).await
+}
+
+/// Downloads a file from the given URL into a JSON.
+///
+/// More specifically, it tries to parse the contents
+/// into anything implementing `serde::Deserialize`
+///
+/// # Arguments
+/// - `url`: the URL to download from
+/// - `user_agent`: whether to use the quantum launcher
+///   user agent (required for modrinth)
+///
+/// # Errors
+/// Returns an error if:
+/// - Error sending request
+/// - Redirect loop detected
+/// - Redirect limit exhausted.
+pub async fn download_file_to_json<T: DeserializeOwned>(
+    url: &str,
+    user_agent: bool,
+) -> Result<T, JsonDownloadError> {
+    async fn inner<T: DeserializeOwned>(
+        client: &Client,
+        url: &str,
+        user_agent: bool,
+    ) -> Result<T, JsonDownloadError> {
+        let mut get = client.get(url);
+        if user_agent {
+            get = get.header(
+                "User-Agent",
+                "Mrmayman/quantumlauncher (mrmayman.github.io/quantumlauncher)",
+            );
+        }
+        let response = get.send().await?;
+        if response.status().is_success() {
+            Ok(response.json().await?)
+        } else {
+            Err(JsonDownloadError::RequestError(
+                RequestError::DownloadError {
+                    code: response.status(),
+                    url: response.url().clone(),
+                },
+            ))
         }
     }
 

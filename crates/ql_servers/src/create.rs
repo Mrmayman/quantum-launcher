@@ -245,8 +245,8 @@ async fn download_from_mojang(
         .ok_or(ServerError::VersionNotFoundInManifest(version.to_owned()))?;
     pt!("Downloading version JSON");
     progress_json(sender);
-    let version_json = file_utils::download_file_to_string(&version.url, false).await?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    let version_json: VersionDetails =
+        file_utils::download_file_to_json(&version.url, false).await?;
     let Some(server) = &version_json.downloads.server else {
         return Err(ServerError::NoServerDownload);
     };
@@ -274,8 +274,8 @@ async fn download_omniarchive_version(
     .ok_or(ServerError::VersionNotFoundInManifest(name.to_owned()))?;
     info!("Downloading version JSON");
     progress_json(sender);
-    let version_json = file_utils::download_file_to_string(&version.url, false).await?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    let version_json: VersionDetails =
+        file_utils::download_file_to_json(&version.url, false).await?;
     Ok(version_json)
 }
 

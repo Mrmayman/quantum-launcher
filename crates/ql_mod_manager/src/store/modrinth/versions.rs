@@ -30,9 +30,7 @@ impl ModVersion {
     pub async fn download(project_id: &str) -> Result<Vec<Self>, ModError> {
         let _lock = RATE_LIMITER.lock().await;
         let url = format!("https://api.modrinth.com/v2/project/{project_id}/version");
-        let file = file_utils::download_file_to_string(&url, false).await?;
-        let file = serde_json::from_str(&file)?;
-        Ok(file)
+        Ok(file_utils::download_file_to_json(&url, false).await?)
     }
 
     // pub async fn is_compatible(

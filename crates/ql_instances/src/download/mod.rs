@@ -11,7 +11,7 @@ use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err, file_utils, info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError, JsonDownloadError,
+    DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError,
 };
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -194,7 +194,8 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(GenericProgress::default()).unwrap();
         }
-        let asset_index = GameDownloader::download_json(&self.version_json.assetIndex.url).await?;
+        let asset_index: Value =
+            file_utils::download_file_to_json(&self.version_json.assetIndex.url, false).await?;
 
         let launcher_dir = file_utils::get_launcher_dir().await?;
 
@@ -383,11 +384,6 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn download_json(url: &str) -> Result<Value, JsonDownloadError> {
-        let json = file_utils::download_file_to_string(url, false).await?;
-        Ok(serde_json::from_str::<serde_json::Value>(&json)?)
-    }
-
     pub async fn create_profiles_json(&self) -> Result<(), DownloadError> {
         let profile_json = ProfileJson::default();
 
@@ -473,9 +469,7 @@ impl GameDownloader {
         if let Some(sender) = sender {
             sender.send(DownloadProgress::DownloadingVersionJson)?;
         }
-        let version_json = file_utils::download_file_to_string(&version.url, false).await?;
-        let version_json = serde_json::from_str(&version_json)?;
-        Ok(version_json)
+        Ok(file_utils::download_file_to_json(&version.url, false).await?)
     }
 
     async fn new_get_instance_dir(instance_name: &str) -> Result<Option<PathBuf>, IoError> {

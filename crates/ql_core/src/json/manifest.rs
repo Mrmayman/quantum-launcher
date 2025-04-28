@@ -18,9 +18,7 @@ impl Manifest {
     /// (server error or bad internet) or parsed into JSON.
     pub async fn download() -> Result<Manifest, JsonDownloadError> {
         const VERSIONS_JSON: &str = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
-
-        let manifest = file_utils::download_file_to_string(VERSIONS_JSON, false).await?;
-        Ok(serde_json::from_str(&manifest)?)
+        file_utils::download_file_to_json(VERSIONS_JSON, false).await
     }
 
     /// Looks up a version by its name.

@@ -6,8 +6,6 @@ use serde::Deserialize;
 
 use crate::JsonDownloadError;
 
-pub const JAVA_LIST_URL: &str = "https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
-
 #[derive(Clone, Copy, Debug)]
 pub enum JavaVersion {
     Java16,
@@ -126,8 +124,8 @@ pub struct JavaListJson {
 
 impl JavaListJson {
     pub async fn download() -> Result<Self, JsonDownloadError> {
-        let json = file_utils::download_file_to_string(JAVA_LIST_URL, false).await?;
-        Ok(serde_json::from_str(&json)?)
+        pub const JAVA_LIST_URL: &str = "https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
+        file_utils::download_file_to_json(JAVA_LIST_URL, false).await
     }
 
     pub fn get_url(&self, version: JavaVersion) -> Option<String> {
