@@ -22,7 +22,7 @@ colored = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 
-image = "0.25"
+image = { workspace = true }
 chrono = { workspace = true }
 regex = "1"
 zip = "2"

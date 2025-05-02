@@ -1,4 +1,3 @@
-use image::ImageReader;
 use ql_core::file_utils;
 
 #[derive(Clone)]
@@ -66,7 +65,7 @@ pub async fn download_image(url: String, icon: bool) -> Result<ImageResult, Stri
         }
     }
 
-    let img = ImageReader::new(std::io::Cursor::new(image))
+    let img = image::io::Reader::new(std::io::Cursor::new(image))
         .with_guessed_format()
         .map_err(|err| format!("{url}: {err}"))?
         .decode()

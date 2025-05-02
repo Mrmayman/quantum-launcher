@@ -26,6 +26,15 @@ rfd = { version = "0.15", default-features = false, features = [
     "tokio",
 ] }
 
+image = { version = "0.24", default-features = false, features = [
+    # Web formats are enough
+    "avif",
+    "gif",
+    "ico",
+    "jpeg",
+    "png",
+    "webp",
+] }
 html5ever = "0.27"
 markup5ever_rcdom = "0.3"
 

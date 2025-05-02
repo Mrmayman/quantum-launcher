@@ -71,8 +71,8 @@ use launcher_state::{
 };
 
 use ql_core::{
-    err, file_utils, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
-    Loader,
+    err, err_no_log, file_utils, info, info_no_log, open_file_explorer, InstanceSelection,
+    IntoStringError, Loader,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -149,7 +149,7 @@ impl Launcher {
             }
 
             Message::UpdateCheckResult(Err(err)) => {
-                err!("{err}");
+                err_no_log!("{err}");
             }
 
             Message::ServerCreateEnd(Err(err))
@@ -618,7 +618,7 @@ fn main() {
                 return;
             }
             "--no-sandbox" => {
-                err!("Unknown command --no-sandbox, ignoring...");
+                err_no_log!("Unknown command --no-sandbox, ignoring...");
             }
             err => panic!("Unimplemented command! {err}"),
         }
@@ -717,7 +717,7 @@ fn attach_to_console() {
 
     unsafe {
         if let Err(err) = AttachConsole(ATTACH_PARENT_PROCESS) {
-            err!("Couldn't attach console: {err}");
+            err_no_log!("Couldn't attach console: {err}");
         }
     }
 }

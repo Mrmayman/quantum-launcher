@@ -25,7 +25,13 @@ ql_core = { path = "../crates/ql_core" }
 ql_servers = { path = "../crates/ql_servers" }
 
 # For the GUI
-iced = { version = "0.13", features = ["tokio", "image", "svg"] }
+iced = { version = "0.13", default-features = false, features = [
+    "wgpu",
+    "tiny-skia",
+    "tokio",
+    "image",
+    "svg",
+] }
 
 # For parsing JSON
 serde = { workspace = true }
@@ -47,7 +53,7 @@ clap = { version = "4", features = ["help"] }
 
 # Mod page rendering:
 comrak = { version = "0.38", default-features = false } # Markdown rendering
-image = "0.24"                                          # Image loading
+image = { workspace = true }                            # Image loading
 html5ever = { workspace = true }                        # HTML rendering
 markup5ever_rcdom = { workspace = true }                #
 

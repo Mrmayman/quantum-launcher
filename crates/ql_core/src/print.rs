@@ -25,33 +25,9 @@ pub struct LoggingState {
 impl LoggingState {
     #[must_use]
     pub fn create() -> Option<Mutex<LoggingState>> {
-        let launcher_dir = file_utils::get_launcher_dir_s().ok()?;
-
-        let logs_dir = launcher_dir.join("logs");
-        std::fs::create_dir_all(&logs_dir).ok()?;
-
-        // Current date+time
-        let now = chrono::Local::now();
-        let log_file_name = format!(
-            "{}-{}-{}-{}-{}-{}.log",
-            now.year(),
-            now.month(),
-            now.day(),
-            now.hour(),
-            now.minute(),
-            now.second()
-        );
-        let log_file_path = logs_dir.join(log_file_name);
-
-        let file = OpenOptions::new()
-            .create(true) // Create file if it doesn't exist
-            .append(true) // Append to the file instead of overwriting
-            .open(&log_file_path)
-            .ok()?;
-
         Some(Mutex::new(LoggingState {
             thread: None,
-            writer: Some(BufWriter::new(file)),
+            writer: None,
             sender: None,
             text: Vec::new(),
         }))
@@ -66,6 +42,12 @@ impl LoggingState {
 
         if self.sender.is_none() {
             let (sender, receiver) = std::sync::mpsc::channel::<String>();
+
+            if self.writer.is_none() {
+                if let Some(file) = get_logs_file() {
+                    self.writer = Some(BufWriter::new(file));
+                }
+            }
 
             if let Some(writer) = self.writer.take() {
                 let thread = std::thread::spawn(move || {
@@ -92,6 +74,29 @@ impl LoggingState {
             _ = writer.get_ref().sync_all();
         }
     }
+}
+
+fn get_logs_file() -> Option<File> {
+    let launcher_dir = file_utils::get_launcher_dir_s().ok()?;
+    let logs_dir = launcher_dir.join("logs");
+    std::fs::create_dir_all(&logs_dir).ok()?;
+    let now = chrono::Local::now();
+    let log_file_name = format!(
+        "{}-{}-{}-{}-{}-{}.log",
+        now.year(),
+        now.month(),
+        now.day(),
+        now.hour(),
+        now.minute(),
+        now.second()
+    );
+    let log_file_path = logs_dir.join(log_file_name);
+    let file = OpenOptions::new()
+        .create(true) // Create file if it doesn't exist
+        .append(true) // Append to the file instead of overwriting
+        .open(&log_file_path)
+        .ok()?;
+    Some(file)
 }
 
 pub static LOGGER: LazyLock<Option<Mutex<LoggingState>>> = LazyLock::new(LoggingState::create);
