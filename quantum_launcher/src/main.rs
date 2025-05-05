@@ -67,7 +67,7 @@ use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use iced::{Settings, Task};
 use launcher_state::{
     get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherUpdate,
-    MenuServerCreate, Message, ProgressBar, SelectedState, ServerProcess, State,
+    MenuServerCreate, MenuWelcome, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
 
 use ql_core::{
@@ -161,6 +161,13 @@ impl Launcher {
             | Message::ServerManageEndedLog(Err(err))
             | Message::CoreListLoaded(Err(err)) => self.set_error(err),
 
+            Message::WelcomeContinue1 => {
+                self.state = State::Welcome(MenuWelcome::P2Theme);
+            }
+            Message::WelcomeContinue2 => {
+                self.state = State::Welcome(MenuWelcome::P3Auth);
+            }
+
             Message::Account(msg) => return self.update_account(msg),
             Message::ManageMods(message) => return self.update_manage_mods(message),
             Message::LaunchInstanceSelected { name, is_server } => {
@@ -183,6 +190,7 @@ impl Launcher {
             Message::CreateInstance(message) => return self.update_create_instance(message),
             Message::DeleteInstanceMenu => self.go_to_delete_instance_menu(),
             Message::DeleteInstance => return self.delete_instance_confirm(),
+
             Message::LaunchScreenOpen {
                 message,
                 clear_selection,
@@ -500,7 +508,7 @@ impl Launcher {
                 self.state = State::ChangeLog;
             }
             Message::CoreOpenIntro => {
-                self.state = State::Welcome;
+                self.state = State::Welcome(MenuWelcome::P1InitialScreen);
             }
             Message::EditPresets(msg) => match self.update_edit_presets(msg) {
                 Ok(n) => return n,

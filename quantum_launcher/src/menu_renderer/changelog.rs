@@ -5,9 +5,13 @@ use iced::{
     Length,
 };
 
-use crate::{icon_manager, launcher_state::Message};
+use crate::{
+    config::LauncherConfig,
+    icon_manager,
+    launcher_state::{AccountMessage, MenuWelcome, Message, NEW_ACCOUNT_NAME},
+};
 
-use super::{button_with_icon, Element, DISCORD};
+use super::{button_with_icon, center_x, get_themes_and_styles, Element, DISCORD};
 
 pub static IMG_LAUNCHER: LazyLock<Handle> = LazyLock::new(|| {
     Handle::from_bytes(include_bytes!("../../../quantum_launcher.png").as_slice())
@@ -29,6 +33,9 @@ pub static IMG_THEMES: LazyLock<Handle> = LazyLock::new(|| {
 });
 pub static IMG_PRESETS: LazyLock<Handle> = LazyLock::new(|| {
     Handle::from_bytes(include_bytes!("../../../assets/screenshots/presets.png").as_slice())
+});
+pub static IMG_LOGO: LazyLock<Handle> = LazyLock::new(|| {
+    Handle::from_bytes(include_bytes!("../../../assets/icon/ql_logo.png").as_slice())
 });
 
 pub fn changelog_0_4<'a>() -> Element<'a> {
@@ -124,6 +131,85 @@ pub fn changelog_0_3_1<'a>() -> Element<'a> {
     .into()
 }
 
+impl MenuWelcome {
+    pub fn view<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
+        match self {
+            MenuWelcome::P1InitialScreen => widget::column![
+                widget::vertical_space(),
+                center_x(widget::image(IMG_LOGO.clone()).width(200)),
+                center_x(widget::text("Welcome to QuantumLauncher!").size(20)),
+                center_x(widget::button("Get Started").on_press(Message::WelcomeContinue1)),
+                widget::vertical_space(),
+            ]
+            .align_x(iced::alignment::Horizontal::Center)
+            .spacing(10)
+            .into(),
+            MenuWelcome::P2Theme => {
+                let (theme, style) = get_themes_and_styles(config);
+                widget::column![
+                    widget::vertical_space(),
+                    center_x(widget::text("Customize your launcher!").size(24)),
+                    widget::row![
+                        widget::horizontal_space(),
+                        "Select Theme:",
+                        theme,
+                        widget::horizontal_space(),
+                    ]
+                    .spacing(10),
+                    widget::row![
+                        widget::horizontal_space(),
+                        "Select Color Scheme:",
+                        style,
+                        widget::horizontal_space(),
+                    ]
+                    .spacing(10),
+                    widget::Space::with_height(5),
+                    center_x("Oh, and also..."),
+                    center_x(
+                        button_with_icon(icon_manager::chat(), "Join our Discord", 16)
+                            .on_press(Message::CoreOpenDir(DISCORD.to_owned()))
+                    ),
+                    widget::Space::with_height(5),
+                    center_x(widget::button("Continue").on_press(Message::WelcomeContinue2)),
+                    widget::vertical_space(),
+                ]
+                .spacing(10)
+                .into()
+            }
+            MenuWelcome::P3Auth => widget::column![
+                widget::vertical_space(),
+                center_x(
+                    widget::text_input("Enter username...", &config.username)
+                        .width(200)
+                        .on_input(Message::LaunchUsernameSet)
+                ),
+                center_x(
+                    widget::button(center_x("Continue"))
+                        .width(200)
+                        .on_press_maybe((!config.username.is_empty()).then_some(
+                            Message::LaunchScreenOpen {
+                                message: None,
+                                clear_selection: true
+                            }
+                        ))
+                ),
+                widget::Space::with_height(10),
+                center_x(widget::text("OR").size(20)),
+                widget::Space::with_height(10),
+                center_x(
+                    widget::button("Login to Microsoft").on_press(Message::Account(
+                        AccountMessage::Selected(NEW_ACCOUNT_NAME.to_owned())
+                    ))
+                ),
+                widget::vertical_space(),
+            ]
+            .spacing(5)
+            .into(),
+        }
+    }
+}
+
+#[allow(unused)]
 pub fn welcome_msg<'a>() -> Element<'a> {
     widget::scrollable(widget::column!(
         widget::text("Welcome to QuantumLauncher!").size(32),

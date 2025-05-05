@@ -170,6 +170,9 @@ pub enum Message {
     #[allow(unused)]
     Nothing,
 
+    WelcomeContinue1,
+    WelcomeContinue2,
+
     Account(AccountMessage),
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
@@ -527,9 +530,15 @@ impl MenuEditPresetsInner {
     }
 }
 
+pub enum MenuWelcome {
+    P1InitialScreen,
+    P2Theme,
+    P3Auth,
+}
+
 /// The enum that represents which menu is opened currently.
 pub enum State {
-    Welcome,
+    Welcome(MenuWelcome),
     Launch(MenuLaunch),
     ChangeLog,
     EditMods(MenuEditMods),
@@ -675,7 +684,7 @@ impl Launcher {
         let version = config.version.as_deref().unwrap_or("0.3.0");
 
         let state = if is_new_user {
-            State::Welcome
+            State::Welcome(MenuWelcome::P1InitialScreen)
         } else if version == LAUNCHER_VERSION_NAME {
             launch
         } else {

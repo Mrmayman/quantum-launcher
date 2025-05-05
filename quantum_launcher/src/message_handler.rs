@@ -438,7 +438,7 @@ impl Launcher {
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
             | State::LauncherSettings(_)
-            | State::Welcome => {
+            | State::Welcome(_) => {
                 should_return_to_main_screen = true;
             }
             State::ConfirmAction { no, .. } => return self.update(no.clone()),

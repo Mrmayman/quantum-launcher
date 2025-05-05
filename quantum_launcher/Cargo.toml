@@ -18,6 +18,12 @@ build = "build.rs"
 [build-dependencies]
 embed-resource = "3"
 
+[features]
+default = ["wgpu", "tiny_skia"]
+wgpu = ["iced/wgpu"]
+tiny_skia = ["iced/tiny-skia"]
+debug = ["iced/debug"]
+
 [dependencies]
 ql_instances = { path = "../crates/ql_instances" }
 ql_mod_manager = { path = "../crates/ql_mod_manager" }
@@ -26,8 +32,6 @@ ql_servers = { path = "../crates/ql_servers" }
 
 # For the GUI
 iced = { version = "0.13", default-features = false, features = [
-    "wgpu",
-    "tiny-skia",
     "tokio",
     "image",
     "svg",

@@ -3,10 +3,7 @@ use ql_core::LOGGER;
 
 use crate::{
     launcher_state::{Launcher, Message, State},
-    menu_renderer::{
-        changelog::{changelog_0_4, welcome_msg},
-        view_account_login, Element, DISCORD,
-    },
+    menu_renderer::{changelog::changelog_0_4, view_account_login, Element, DISCORD},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
     DEBUG_LOG_BUTTON_HEIGHT,
 };
@@ -162,7 +159,7 @@ impl Launcher {
             )
             .height(Length::Fill)
             .into(),
-            State::Welcome => welcome_msg(),
+            State::Welcome(menu) => menu.view(&self.config),
         }
     }
 }

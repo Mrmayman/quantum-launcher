@@ -25,6 +25,15 @@ pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
 
 pub type Element<'a> = iced::Element<'a, Message, LauncherTheme, iced::Renderer>;
 
+fn center_x<'a>(e: impl Into<Element<'a>>) -> Element<'a> {
+    widget::row![
+        widget::horizontal_space(),
+        e.into(),
+        widget::horizontal_space(),
+    ]
+    .into()
+}
+
 pub fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
@@ -443,23 +452,14 @@ impl MenuLauncherUpdate {
 }
 
 impl MenuLauncherSettings {
-    pub fn view(&self, config: &LauncherConfig) -> Element {
-        // HOOK: Add more themes
-        let themes = ["Dark".to_owned(), "Light".to_owned()];
-        let styles = [
-            "Brown".to_owned(),
-            "Purple".to_owned(),
-            "Sky Blue".to_owned(),
-            "Catppuccin".to_owned(),
-        ];
+    pub fn view<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
+        let (theme_list, style_list) = get_themes_and_styles(config);
 
         let config_view = widget::row!(
             widget::container(
                 widget::column!(
                     "Select theme:",
-                    widget::pick_list(themes, config.theme.clone(), |n| Message::LauncherSettings(
-                        LauncherSettingsMessage::ThemePicked(n)
-                    )),
+                    theme_list,
                 )
                 .padding(10)
                 .spacing(10)
@@ -467,9 +467,7 @@ impl MenuLauncherSettings {
             widget::container(
                 widget::column!(
                     "Select style:",
-                    widget::pick_list(styles, config.style.clone(), |n| Message::LauncherSettings(
-                        LauncherSettingsMessage::StylePicked(n)
-                    ))
+                    style_list
                 )
                 .padding(10)
                 .spacing(10)
@@ -553,6 +551,28 @@ impl MenuLauncherSettings {
         .height(Length::Fill)
         .into()
     }
+}
+
+fn get_themes_and_styles(config: &LauncherConfig) -> (Element, Element) {
+    // HOOK: Add more themes
+    let themes = ["Dark".to_owned(), "Light".to_owned()];
+    let styles = [
+        "Brown".to_owned(),
+        "Purple".to_owned(),
+        "Sky Blue".to_owned(),
+        "Catppuccin".to_owned(),
+    ];
+
+    let theme_list = widget::pick_list(themes, config.theme.clone(), |n| {
+        Message::LauncherSettings(LauncherSettingsMessage::ThemePicked(n))
+    })
+    .into();
+
+    let style_list = widget::pick_list(styles, config.style.clone(), |n| {
+        Message::LauncherSettings(LauncherSettingsMessage::StylePicked(n))
+    })
+    .into();
+    (theme_list, style_list)
 }
 
 fn back_to_launch_screen(

@@ -147,7 +147,7 @@ impl Launcher {
             State::Error { .. }
             | State::ConfirmAction { .. }
             | State::ChangeLog
-            | State::Welcome
+            | State::Welcome(_)
             | State::AccountLogin { .. }
             | State::GenericMessage(_)
             | State::InstallPaper => {}
