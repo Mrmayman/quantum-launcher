@@ -162,6 +162,7 @@ pub enum LauncherSettingsMessage {
     StylePicked(String),
     UiScale(f64),
     UiScaleApply,
+    ClearJavaInstalls,
 }
 
 #[derive(Debug, Clone)]

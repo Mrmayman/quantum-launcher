@@ -348,6 +348,9 @@ impl Launcher {
                     self.config.ui_scale = Some(menu.temp_scale);
                 }
             }
+            LauncherSettingsMessage::ClearJavaInstalls => {
+                ql_instances::delete_java_installs();
+            }
         }
     }
 }

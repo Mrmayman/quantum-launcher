@@ -65,20 +65,36 @@ use zip_extract::ZipExtractError;
 /// - On aarch64 linux, this function installs Amazon Corretto Java.
 /// - On all other platforms, this function installs Java from Mojang.
 pub async fn get_java_binary(
-    version: JavaVersion,
+    mut version: JavaVersion,
     name: &str,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<PathBuf, JavaInstallError> {
     let launcher_dir = file_utils::get_launcher_dir().await?;
-
     let java_dir = launcher_dir.join("java_installs").join(version.to_string());
-
     let is_incomplete_install = java_dir.join("install.lock").exists();
+
+    if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
+        version = match version {
+            // Java 8 and 16 are unsupported on Windows Aarch64.
+
+            // 17 should be backwards compatible with 8 and 16
+            // for the most part, but some things like Beta ModLoader
+            // might break?
+            JavaVersion::Java8 | JavaVersion::Java16 | JavaVersion::Java17 => JavaVersion::Java17,
+            JavaVersion::Java21 => JavaVersion::Java21,
+        }
+    }
+
+    if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+        version = match version {
+            JavaVersion::Java16 => JavaVersion::Java17,
+            _ => version,
+        }
+    }
 
     if !java_dir.exists() || is_incomplete_install {
         info!("Installing Java: {version}");
         install_java(version, java_install_progress_sender).await?;
-        info!("Finished installing Java {version}");
     }
 
     let normal_name = format!("bin/{name}");
@@ -87,7 +103,17 @@ pub async fn get_java_binary(
     } else if cfg!(target_os = "windows") {
         format!("bin/{name}.exe")
     } else if cfg!(target_os = "macos") {
-        format!("jre.bundle/Contents/Home/bin/{name}")
+        // `if let` chains have been stabilised in Rust now,
+        // but I can't use the latest Rust version to maintain MSRV
+
+        // "If you are running Java 8 on macOS ARM"
+        // then use the Amazon Corretto JDK instead of Mojang-provided one
+        let prefix = if let (true, JavaVersion::Java8) = (cfg!(target_arch = "aarch64"), version) {
+            ""
+        } else {
+            "jre.bundle/"
+        };
+        format!("{prefix}Contents/Home/bin/{name}")
     } else {
         return Err(JavaInstallError::NoJavaBinFound);
     });
@@ -125,23 +151,11 @@ async fn install_java(
 }
 
 async fn install_java_files(
-    mut version: JavaVersion,
+    version: JavaVersion,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: PathBuf,
 ) -> Result<(), JavaInstallError> {
     let java_list_json = JavaListJson::download().await?;
-
-    if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
-        version = match version {
-            // Java 8 and 16 are unsupported on Windows Aarch64.
-
-            // 17 should be backwards compatible with 8 and 16
-            // for the most part, but some things like Beta ModLoader
-            // might break?
-            JavaVersion::Java8 | JavaVersion::Java16 | JavaVersion::Java17 => JavaVersion::Java17,
-            JavaVersion::Java21 => JavaVersion::Java21,
-        }
-    }
 
     let Some(java_files_url) = java_list_json.get_url(version) else {
         // # Here is a table representing java platform support.
@@ -323,4 +337,22 @@ pub enum JavaInstallError {
     NoJavaBinFound,
     #[error("couldn't install java: zip extract error: {0}")]
     ZipExtract(#[from] ZipExtractError),
+}
+
+pub fn delete_java_installs() {
+    info!("Clearing Java installs");
+    let dir = match file_utils::get_launcher_dir_s() {
+        Ok(n) => n,
+        Err(err) => {
+            err!("While deleting Java Installations: Could not get launcher directory: {err}");
+            return;
+        }
+    };
+    let java_installs = dir.join("java_installs");
+    if !java_installs.exists() {
+        return;
+    }
+    if let Err(err) = std::fs::remove_dir_all(&java_installs) {
+        err!("Could not delete `java_installs` dir: {err}");
+    }
 }

@@ -665,30 +665,6 @@ fn main() {
         })
         .run_with(Launcher::new)
         .unwrap();
-    // Launcher::run(Settings {
-    //     window: iced::window::Settings {
-    //         size: iced::Size {
-    //             width: WINDOW_WIDTH,
-    //             height: WINDOW_HEIGHT,
-    //         },
-    //         resizable: true,
-    //         ..Default::default()
-    //     },
-    //     fonts: vec![
-    //         include_bytes!("../../assets/fonts/Inter-Regular.ttf")
-    //             .as_slice()
-    //             .into(),
-    //         include_bytes!("../../assets/fonts/launcher-icons.ttf")
-    //             .as_slice()
-    //             .into(),
-    //         include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
-    //             .as_slice()
-    //             .into(),
-    //     ],
-    //     default_font: iced::Font::with_name("Inter"),
-    //     ..Default::default()
-    // })
-    // .unwrap();
 }
 
 fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<PrintCmd> {

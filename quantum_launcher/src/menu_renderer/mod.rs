@@ -488,7 +488,12 @@ impl MenuLauncherSettings {
                 ]
                 .padding(10)
                 .spacing(10)
-            )
+            ),
+            widget::container(widget::column![
+                button_with_icon(icon_manager::delete(), "Clear Java installs", 16)
+                    .on_press(Message::LauncherSettings(LauncherSettingsMessage::ClearJavaInstalls)),
+                widget::text("Might fix any problems with Java. Should be safe, you just need to redownload the Java Runtime").size(12),
+            ].padding(10).spacing(10))
         )
         .spacing(10)
         .wrap();
