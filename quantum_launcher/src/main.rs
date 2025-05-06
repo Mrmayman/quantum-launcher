@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//! QuantumLauncher is a Minecraft launcher written in Rust using the Iced GUI framework.
+//! Quantum Launcher is a Minecraft launcher written in Rust using the Iced GUI framework.
 //!
 //! For more information see the `../../README.md` file.
 //!
@@ -60,6 +60,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //! Btw, if you have any questions, feel free to ask me on discord!
 
 #![windows_subsystem = "windows"]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_precision_loss)]
 
 use std::{sync::Arc, time::Duration};
 
@@ -606,10 +610,20 @@ fn main() {
     #[cfg(target_os = "windows")]
     attach_to_console();
 
+    let is_dir_err = if let Err(err) = file_utils::get_launcher_dir() {
+        err!("Couldn't get launcher dir: {err}");
+        true
+    } else {
+        false
+    };
+
     let command = arguments::command();
     let matches = command.clone().get_matches();
 
     if let Some(subcommand) = matches.subcommand() {
+        if is_dir_err {
+            std::process::exit(1);
+        }
         match subcommand.0 {
             "list-instances" => {
                 let command = get_list_instance_subcommand(subcommand);

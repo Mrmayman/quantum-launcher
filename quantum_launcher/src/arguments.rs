@@ -1,9 +1,8 @@
 use clap::Command;
 use colored::Colorize;
 use ql_core::{
-    file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
-    IntoStringError, LAUNCHER_VERSION_NAME,
+    IntoStringError, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
 use std::io::Write;
 
@@ -118,8 +117,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
                     if has_printed {
                         print!("\t");
                     }
-                    let launcher_dir = file_utils::get_launcher_dir_s().unwrap();
-                    let instance_dir = launcher_dir.join(dirname).join(&instance);
+                    let instance_dir = LAUNCHER_DIR.join(dirname).join(&instance);
 
                     let json = std::fs::read_to_string(instance_dir.join("details.json")).unwrap();
                     let json: VersionDetails = serde_json::from_str(&json).unwrap();
@@ -139,8 +137,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
                     if has_printed {
                         print!("\t");
                     }
-                    let launcher_dir = file_utils::get_launcher_dir_s().unwrap();
-                    let instance_dir = launcher_dir.join(dirname).join(&instance);
+                    let instance_dir = LAUNCHER_DIR.join(dirname).join(&instance);
                     let config_json =
                         std::fs::read_to_string(instance_dir.join("config.json")).unwrap();
                     let config_json: InstanceConfigJson =
@@ -159,7 +156,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
 
 /// Prints the "intro" to the screen
 /// consisting of the **ASCII art logo**, as well as
-/// **stylised text saying "QuantumLauncher"**
+/// **stylised text saying `QuantumLauncher`**
 ///
 /// The actual data is `include_str!()`ed from
 /// - `assets/ascii/icon.txt` for the ASCII art

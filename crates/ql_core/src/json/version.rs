@@ -51,9 +51,7 @@ impl VersionDetails {
     /// - `details.json` file couldn't be loaded
     /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        let path = file_utils::get_instance_dir(instance)
-            .await?
-            .join("details.json");
+        let path = file_utils::get_instance_dir(instance)?.join("details.json");
 
         let file = tokio::fs::read_to_string(&path).await.path(path)?;
 

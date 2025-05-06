@@ -9,7 +9,7 @@ use ql_core::{
     file_utils, info,
     json::{optifine::JsonOptifine, VersionDetails},
     no_window, GenericProgress, IntoIoError, IoError, JsonFileError, Loader, Progress,
-    RequestError, CLASSPATH_SEPARATOR,
+    RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
@@ -83,10 +83,7 @@ pub async fn install(
     info!("Started installing OptiFine");
     send_progress(progress_sender, OptifineInstallProgress::P1Start);
 
-    let instance_path = file_utils::get_launcher_dir()
-        .await?
-        .join("instances")
-        .join(&instance_name);
+    let instance_path = LAUNCHER_DIR.join("instances").join(&instance_name);
 
     create_details_json(&instance_path).await?;
 
@@ -135,10 +132,7 @@ fn send_progress(
 }
 
 pub async fn uninstall(instance_name: String) -> Result<Loader, OptifineError> {
-    let instance_path = file_utils::get_launcher_dir()
-        .await?
-        .join("instances")
-        .join(&instance_name);
+    let instance_path = LAUNCHER_DIR.join("instances").join(&instance_name);
 
     let optifine_path = instance_path.join("optifine");
     if optifine_path.is_dir() {

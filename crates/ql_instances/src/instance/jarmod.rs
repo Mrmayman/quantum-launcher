@@ -11,7 +11,7 @@ use crate::instance::launch::GameLauncher;
 
 #[allow(dead_code)] // incomplete
 pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError> {
-    let instance_dir = file_utils::get_instance_dir(instance).await?;
+    let instance_dir = file_utils::get_instance_dir(instance)?;
     let jarmods_dir = instance_dir.join("jarmods");
     tokio::fs::create_dir_all(&jarmods_dir)
         .await

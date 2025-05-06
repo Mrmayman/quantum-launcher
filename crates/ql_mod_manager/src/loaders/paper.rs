@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use ql_core::{
     file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonDownloadError,
-    JsonFileError, Loader, RequestError,
+    JsonFileError, Loader, RequestError, LAUNCHER_DIR,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -61,10 +61,7 @@ async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
 }
 
 pub async fn uninstall(instance_name: String) -> Result<Loader, PaperInstallerError> {
-    let server_dir = file_utils::get_launcher_dir()
-        .await?
-        .join("servers")
-        .join(instance_name);
+    let server_dir = LAUNCHER_DIR.join("servers").join(instance_name);
 
     let jar_path = server_dir.join("paper_server.jar");
     tokio::fs::remove_file(&jar_path).await.path(jar_path)?;
@@ -99,10 +96,7 @@ pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {
     let paper_version: PaperVersions =
         file_utils::download_file_to_json(PAPER_VERSIONS_URL, false).await?;
 
-    let server_dir = file_utils::get_launcher_dir()
-        .await?
-        .join("servers")
-        .join(&instance_name);
+    let server_dir = LAUNCHER_DIR.join("servers").join(&instance_name);
 
     let json = VersionDetails::load(&ql_core::InstanceSelection::Server(instance_name)).await?;
 

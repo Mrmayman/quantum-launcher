@@ -8,6 +8,8 @@
 //! - Logging macros
 //! - And much more
 
+#![allow(clippy::cast_precision_loss)]
+
 mod error;
 /// Common utilities for working with files.
 pub mod file_utils;
@@ -27,7 +29,7 @@ use std::{
 pub use error::{
     DownloadError, IntoIoError, IntoStringError, IoError, JsonDownloadError, JsonFileError,
 };
-pub use file_utils::RequestError;
+pub use file_utils::{RequestError, LAUNCHER_DIR};
 use futures::StreamExt;
 pub use loader::Loader;
 pub use print::{logger_finish, LogType, LoggingState, LOGGER};

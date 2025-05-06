@@ -6,13 +6,14 @@ use std::{
 
 use chrono::DateTime;
 use ql_core::{
-    err, file_utils, info,
+    err, info,
     json::{
         forge,
         version::{LibraryDownloadArtifact, LibraryDownloads},
         FabricJSON, InstanceConfigJson, JsonOptifine, OmniarchiveEntry, VersionDetails,
     },
     GenericProgress, InstanceSelection, IntoIoError, IoError, JsonFileError, CLASSPATH_SEPARATOR,
+    LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::Command;
@@ -141,17 +142,16 @@ impl GameLauncher {
     }
 
     async fn set_assets_argument(&self, argument: &mut String) -> Result<(), GameLaunchError> {
-        let old_assets_path_v2 = file_utils::get_launcher_dir()
-            .await?
+        let launcher_dir = &*LAUNCHER_DIR;
+
+        let old_assets_path_v2 = launcher_dir
             .join("assets")
             .join(&self.version_json.assetIndex.id);
 
         let old_assets_path_v1 = self.instance_dir.join("assets");
 
         if self.version_json.assetIndex.id == "legacy" {
-            let assets_path = file_utils::get_launcher_dir()
-                .await?
-                .join("assets/legacy_assets");
+            let assets_path = launcher_dir.join("assets/legacy_assets");
 
             if old_assets_path_v2.exists() {
                 self.redownload_legacy_assets().await?;
@@ -170,7 +170,7 @@ impl GameLauncher {
             let assets_path_fixed = if assets_path.exists() {
                 assets_path
             } else {
-                file_utils::get_launcher_dir().await?.join("assets/null")
+                launcher_dir.join("assets/null")
             };
 
             let Some(assets_path) = assets_path_fixed.to_str() else {
@@ -179,7 +179,7 @@ impl GameLauncher {
             replace_var(argument, "assets_root", assets_path);
             replace_var(argument, "game_assets", assets_path);
         } else {
-            let assets_path = file_utils::get_launcher_dir().await?.join("assets/dir");
+            let assets_path = launcher_dir.join("assets/dir");
 
             if old_assets_path_v2.exists() {
                 info!("Migrating old assets to new path...");
@@ -196,7 +196,7 @@ impl GameLauncher {
             let assets_path_fixed = if assets_path.exists() {
                 assets_path
             } else {
-                file_utils::get_launcher_dir().await?.join("assets/null")
+                launcher_dir.join("assets/null")
             };
             let Some(assets_path) = assets_path_fixed.to_str() else {
                 return Err(GameLaunchError::PathBufToString(assets_path_fixed));
@@ -290,6 +290,7 @@ impl GameLauncher {
     /// in old versions of Minecraft.
     ///
     /// This auto adjusts the port based on version.
+    #[allow(clippy::doc_markdown)]
     fn java_arguments_betacraft(&self, args: &mut Vec<String>) {
         // Beta 1.9 prerelease (special case)
         if let Some(OmniarchiveEntry { name, .. }) = &self.config_json.omniarchive {
@@ -519,12 +520,15 @@ impl GameLauncher {
         instance_dir: &Path,
         optifine_jar: Option<&Path>,
     ) -> PathBuf {
-        optifine_jar.map(Path::to_owned).unwrap_or_else(|| {
-            instance_dir
-                .join(".minecraft/versions")
-                .join(&version_json.id)
-                .join(format!("{}.jar", version_json.id))
-        })
+        optifine_jar.map_or_else(
+            || {
+                instance_dir
+                    .join(".minecraft/versions")
+                    .join(&version_json.id)
+                    .join(format!("{}.jar", version_json.id))
+            },
+            Path::to_owned,
+        )
     }
 
     fn classpath_fabric_and_quilt(
@@ -732,10 +736,10 @@ async fn get_instance_dir(instance_name: &str) -> Result<PathBuf, GameLaunchErro
         return Err(GameLaunchError::InstanceNotFound);
     }
 
-    let launcher_dir = file_utils::get_launcher_dir().await?;
+    let launcher_dir = &*LAUNCHER_DIR;
     tokio::fs::create_dir_all(&launcher_dir)
         .await
-        .path(&launcher_dir)?;
+        .path(launcher_dir)?;
 
     let instances_folder_dir = launcher_dir.join("instances");
     tokio::fs::create_dir_all(&instances_folder_dir)

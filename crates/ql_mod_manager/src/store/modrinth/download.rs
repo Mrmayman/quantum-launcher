@@ -207,7 +207,7 @@ impl ModDownloader {
 }
 
 async fn get_mods_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ModError> {
-    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name).await?;
+    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
     let mods_dir = dot_minecraft_dir.join("mods");
     if !mods_dir.exists() {
         tokio::fs::create_dir(&mods_dir).await.path(&mods_dir)?;
@@ -284,7 +284,7 @@ fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>
 }
 
 pub async fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, ModError> {
-    let instance_dir = file_utils::get_instance_dir(instance).await?;
+    let instance_dir = file_utils::get_instance_dir(instance)?;
     let config_json = InstanceConfigJson::read_from_path(&instance_dir).await?;
 
     Ok(match config_json.mod_type.as_str() {

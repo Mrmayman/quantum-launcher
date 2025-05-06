@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 use reqwest::{header::InvalidHeaderValue, Client};
 use serde::de::DeserializeOwned;
@@ -6,34 +9,61 @@ use thiserror::Error;
 
 use crate::{error::IoError, retry, InstanceSelection, IntoIoError, JsonDownloadError, CLIENT};
 
-/// Returns the path to the QuantumLauncher root folder.
+/// The path to the QuantumLauncher root folder.
 ///
-/// # Errors
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
+/// This uses the current dir or executable location (portable mode)
+/// if a `qlportable.txt` is found, otherwise it uses the system config dir:
+/// - `~/.config` on Linux
+/// - `~/AppData/Roaming` on Windows
+/// - `~/Library/Application Support` on macOS
+///
+/// Use [`get_launcher_dir`] for a non-panicking solution.
+///
+/// # Panics
+/// - if config dir is not found
 /// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
 /// - if the launcher directory could not be created (permissions issue)
-pub async fn get_launcher_dir() -> Result<PathBuf, IoError> {
-    let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
-    let launcher_directory = config_directory.join("QuantumLauncher");
-    tokio::fs::create_dir_all(&launcher_directory)
-        .await
-        .path(&launcher_directory)?;
+#[allow(clippy::doc_markdown)]
+pub static LAUNCHER_DIR: LazyLock<PathBuf> = LazyLock::new(|| get_launcher_dir().unwrap());
 
+/// Returns the path to the QuantumLauncher root folder.
+///
+/// This uses the current dir or executable location (portable mode)
+/// if a `qlportable.txt` is found, otherwise it uses the system config dir:
+/// - `~/.config` on Linux
+/// - `~/AppData/Roaming` on Windows
+/// - `~/Library/Application Support` on macOS
+///
+/// # Errors
+/// - if config dir is not found
+/// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
+/// - if the launcher directory could not be created (permissions issue)
+#[allow(clippy::doc_markdown)]
+pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
+    let launcher_directory = if let Some(n) = check_qlportable_file() {
+        n
+    } else {
+        dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?
+    }
+    .join("QuantumLauncher");
+    std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
     Ok(launcher_directory)
 }
 
-/// Returns the path to the QuantumLauncher root folder. Sync version.
-///
-/// # Errors
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
-/// - if the launcher directory could not be created (permissions issue)
-pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
-    let config_directory = dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?;
-    let launcher_directory = config_directory.join("QuantumLauncher");
-    std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
+fn check_qlportable_file() -> Option<PathBuf> {
+    fn check_file(dir: Option<PathBuf>) -> Option<PathBuf> {
+        const PORTABLE_FILENAME: &str = "qlportable.txt";
+        let dir = dir?;
+        dir.join(PORTABLE_FILENAME).exists().then_some(dir)
+    }
 
-    Ok(launcher_directory)
+    check_file(std::env::current_dir().ok()).or_else(|| {
+        check_file(
+            std::env::current_exe()
+                .ok()
+                .and_then(|n| n.parent().map(Path::to_owned)),
+        )
+    })
 }
 
 /// Returns whether the user is new to QuantumLauncher,
@@ -41,6 +71,7 @@ pub fn get_launcher_dir_s() -> Result<PathBuf, IoError> {
 ///
 /// It checks whether the launcher directory does not exist.
 #[must_use]
+#[allow(clippy::doc_markdown)]
 pub fn is_new_user() -> bool {
     let Some(config_directory) = dirs::config_dir() else {
         return false;
@@ -55,38 +86,18 @@ pub fn is_new_user() -> bool {
 /// - if the instance directory is outside the launcher directory (escape attack)
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if the launcher directory could not be created (permissions issue)
-pub async fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = get_launcher_dir().await?;
+pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = &*LAUNCHER_DIR;
     let dir = match selection {
         InstanceSelection::Instance(name) => {
             launcher_dir.join("instances").join(name).join(".minecraft")
         }
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
     };
-    if !dir.starts_with(&launcher_dir) {
+    if !dir.starts_with(launcher_dir) {
         return Err(IoError::DirEscapeAttack);
     }
     Ok(dir)
-}
-
-/// Returns the path to `.minecraft` folder containing the game files. Sync version.
-///
-/// # Errors
-/// - if the instance directory is outside the launcher directory (escape attack)
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if the launcher directory could not be created (permissions issue)
-pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = get_launcher_dir_s()?;
-    let mc_dir = match selection {
-        InstanceSelection::Instance(name) => {
-            launcher_dir.join("instances").join(name).join(".minecraft")
-        }
-        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
-    };
-    if !mc_dir.starts_with(&launcher_dir) {
-        return Err(IoError::DirEscapeAttack);
-    }
-    Ok(mc_dir)
 }
 
 /// Returns the path to the instance directory containing
@@ -96,32 +107,13 @@ pub fn get_dot_minecraft_dir_s(selection: &InstanceSelection) -> Result<PathBuf,
 /// - if the instance directory is outside the launcher directory (escape attack)
 /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
 /// - if the launcher directory could not be created (permissions issue)
-pub async fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = get_launcher_dir().await?;
+pub fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
+    let launcher_dir = &*LAUNCHER_DIR;
     let instance_dir = match selection {
         InstanceSelection::Instance(name) => launcher_dir.join("instances").join(name),
         InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
     };
-    if !instance_dir.starts_with(&launcher_dir) {
-        return Err(IoError::DirEscapeAttack);
-    }
-    Ok(instance_dir)
-}
-
-/// Returns the path to the instance directory containing
-/// QuantumLauncher-specific files. Sync version.
-///
-/// # Errors
-/// - if the instance directory is outside the launcher directory (escape attack)
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if the launcher directory could not be created (permissions issue)
-pub fn get_instance_dir_s(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = get_launcher_dir_s()?;
-    let instance_dir = match selection {
-        InstanceSelection::Instance(name) => launcher_dir.join("instances").join(name),
-        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
-    };
-    if !instance_dir.starts_with(&launcher_dir) {
+    if !instance_dir.starts_with(launcher_dir) {
         return Err(IoError::DirEscapeAttack);
     }
     Ok(instance_dir)

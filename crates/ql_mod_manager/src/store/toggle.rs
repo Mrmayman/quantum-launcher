@@ -19,9 +19,7 @@ pub async fn toggle_mods_local(
     names: Vec<String>,
     instance_name: InstanceSelection,
 ) -> Result<(), ModError> {
-    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)
-        .await?
-        .join("mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)?.join("mods");
 
     for file in names {
         let flipped = flip_filename(&file);
@@ -36,9 +34,7 @@ pub async fn toggle_mods(
 ) -> Result<(), ModError> {
     let mut index = ModIndex::get(&instance_name).await?;
 
-    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)
-        .await?
-        .join("mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)?.join("mods");
 
     for id in id {
         if let Some(info) = index.mods.get_mut(&id) {
@@ -66,7 +62,7 @@ async fn rename_file(a: &Path, b: &Path) -> Result<(), ModError> {
             err!("Cannot find file for renaming, skipping: {a:?} -> {b:?}");
         } else {
             let err = IoError::Io {
-                error: err,
+                error: err.to_string(),
                 path: a.to_owned(),
             };
             Err(err)?;

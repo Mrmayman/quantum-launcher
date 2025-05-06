@@ -16,9 +16,7 @@ pub async fn delete_mods(
     info!("Deleting mods:");
     let mut index = ModIndex::get(&instance_name).await?;
 
-    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)
-        .await?
-        .join("mods");
+    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)?.join("mods");
 
     // let mut downloaded_mods = HashSet::new();
 
@@ -105,7 +103,7 @@ async fn delete_file(mods_dir: &Path, file: &str) -> Result<(), ModError> {
             err!("File does not exist, skipping: {path:?}");
         } else {
             let err = IoError::Io {
-                error: err,
+                error: err.to_string(),
                 path: path.clone(),
             };
             Err(err)?;

@@ -218,7 +218,7 @@ impl Launcher {
 
     pub fn go_to_edit_mods_menu(&mut self) -> Result<Task<Message>, JsonFileError> {
         let selected_instance = self.selected_instance.as_ref().unwrap();
-        let config_path = file_utils::get_instance_dir_s(selected_instance)?.join("config.json");
+        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;

@@ -231,9 +231,7 @@ impl Backend for CurseforgeBackend {
         let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
         let mut index = ModIndex::get(instance).await?;
 
-        let mods_dir = file_utils::get_dot_minecraft_dir(instance)
-            .await?
-            .join("mods");
+        let mods_dir = file_utils::get_dot_minecraft_dir(instance)?.join("mods");
 
         let mut cache = HashMap::new();
         download::download(
@@ -260,9 +258,7 @@ impl Backend for CurseforgeBackend {
         let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
         let mut index = ModIndex::get(instance).await?;
 
-        let mods_dir = file_utils::get_dot_minecraft_dir(instance)
-            .await?
-            .join("mods");
+        let mods_dir = file_utils::get_dot_minecraft_dir(instance)?.join("mods");
 
         let mut cache = CFSearchResult::get_from_ids(ids)
             .await?

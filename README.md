@@ -159,6 +159,15 @@ What about the others? Well...
 
 <p align="center">
 
+# MSRV (Minimum Supported Rust Version)
+
+</p>
+
+- The exact MSRV is unknown (feel free to find out for yourselves).
+- However, at least Rust 1.78.0 is required.
+
+<p align="center">
+
 # Contributing
 
 </p>

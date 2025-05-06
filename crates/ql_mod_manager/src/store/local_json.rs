@@ -32,7 +32,7 @@ pub struct ModIndex {
 
 impl ModIndex {
     pub async fn get(selected_instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir(selected_instance).await?;
+        let dot_mc_dir = file_utils::get_dot_minecraft_dir(selected_instance)?;
 
         let mods_dir = dot_mc_dir.join("mods");
         if !mods_dir.exists() {
@@ -73,7 +73,7 @@ impl ModIndex {
     }
 
     pub fn get_s(selected_instance: &InstanceSelection) -> Result<Self, ModError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir_s(selected_instance)?;
+        let dot_mc_dir = file_utils::get_dot_minecraft_dir(selected_instance)?;
 
         let mods_dir = dot_mc_dir.join("mods");
         if !mods_dir.exists() {
@@ -104,7 +104,7 @@ impl ModIndex {
     }
 
     pub async fn save(&self, instance_name: &InstanceSelection) -> Result<(), ModError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir(instance_name).await?;
+        let dot_mc_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
 
         let index_dir = dot_mc_dir.join("mod_index.json");
 

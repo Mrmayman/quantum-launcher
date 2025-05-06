@@ -16,24 +16,16 @@ use crate::{DownloadProgress, RequestError};
 
 // impl_error!(JsonDownloadError, JsonDownloadError);
 
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum IoError {
     #[error("at path {path:?}, error: {error}")]
-    Io {
-        error: std::io::Error,
-        path: PathBuf,
-    },
+    Io { error: String, path: PathBuf },
     #[error("couldn't read directory {parent:?}, error {error}")]
-    ReadDir {
-        error: std::io::Error,
-        parent: PathBuf,
-    },
+    ReadDir { error: String, parent: PathBuf },
     #[error("config or AppData directory not found")]
     ConfigDirNotFound,
     #[error("directory is outside parent directory. POTENTIAL SECURITY RISK AVOIDED")]
     DirEscapeAttack,
-    #[error("test error. should not be seen normally")]
-    MockError,
 }
 
 pub trait IntoIoError<T> {
@@ -44,7 +36,7 @@ pub trait IntoIoError<T> {
 impl<T> IntoIoError<T> for std::io::Result<T> {
     fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError> {
         self.map_err(|err: std::io::Error| IoError::Io {
-            error: err,
+            error: err.to_string(),
             path: (p.into()).clone(),
         })
     }

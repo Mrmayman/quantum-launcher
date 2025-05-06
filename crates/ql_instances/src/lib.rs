@@ -46,6 +46,10 @@
 //!
 //! It's still a bit of a hack and it sometimes breaks but it works.
 
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+
 mod download;
 mod instance;
 mod json_natives;

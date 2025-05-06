@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    file_utils, info, json::OmniarchiveEntry, DownloadError, DownloadProgress, IntoIoError,
+    info, json::OmniarchiveEntry, DownloadError, DownloadProgress, IntoIoError, LAUNCHER_DIR,
     LAUNCHER_VERSION_NAME,
 };
 
@@ -33,7 +33,7 @@ pub async fn create_instance(
     info!("Started creating instance.");
 
     // An empty asset directory.
-    let launcher_dir = file_utils::get_launcher_dir().await?;
+    let launcher_dir = &*LAUNCHER_DIR;
 
     let assets_dir = launcher_dir.join("assets/null");
     tokio::fs::create_dir_all(&assets_dir)

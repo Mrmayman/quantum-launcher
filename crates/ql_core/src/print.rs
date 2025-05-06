@@ -77,8 +77,7 @@ impl LoggingState {
 }
 
 fn get_logs_file() -> Option<File> {
-    let launcher_dir = file_utils::get_launcher_dir_s().ok()?;
-    let logs_dir = launcher_dir.join("logs");
+    let logs_dir = file_utils::get_launcher_dir().ok()?.join("logs");
     std::fs::create_dir_all(&logs_dir).ok()?;
     let now = chrono::Local::now();
     let log_file_name = format!(

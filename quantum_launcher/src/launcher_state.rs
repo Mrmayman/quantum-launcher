@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{Display, Write},
+    fmt::Display,
     path::{Path, PathBuf},
     process::ExitStatus,
     str::FromStr,
@@ -16,7 +16,8 @@ use ql_core::{
     err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
-    JsonFileError, Loader, ModId, Progress, SelectedMod, StoreBackendType, LAUNCHER_VERSION_NAME,
+    JsonFileError, Loader, ModId, Progress, SelectedMod, StoreBackendType, LAUNCHER_DIR,
+    LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
     AccountData, AuthCodeResponse, AuthTokenResponse, ListEntry, LogLine, UpdateCheckInfo,
@@ -656,10 +657,10 @@ pub struct ServerProcess {
 
 impl Launcher {
     pub fn load_new(message: Option<String>, is_new_user: bool) -> Result<Self, JsonFileError> {
-        let launcher_dir = match file_utils::get_launcher_dir_s() {
+        let launcher_dir = match file_utils::get_launcher_dir() {
             Ok(n) => n,
             Err(err) => {
-                err!("Could not get launcher dir (This is a bug): {err}");
+                err!("Could not get launcher dir (This is a bug):");
                 return Ok(Self::with_error(format!(
                     "Could not get launcher dir: {err}"
                 )));
@@ -753,20 +754,11 @@ impl Launcher {
     }
 
     pub fn with_error(error: impl std::fmt::Display) -> Self {
-        let mut error = error.to_string();
+        let error = error.to_string();
         let launcher_dir = if error.contains("Could not get launcher dir") {
             None
         } else {
-            match file_utils::get_launcher_dir_s() {
-                Ok(n) => Some(n),
-                Err(err) => {
-                    err!("Could not get launcher dir! This is a bug! {err}");
-                    if let Err(err) = write!(error, "\n\n{err}") {
-                        err!("While appending to launcher dir error string: {err}");
-                    }
-                    None
-                }
-            }
+            Some(LAUNCHER_DIR.clone())
         };
 
         let (config, theme) = launcher_dir
@@ -807,10 +799,11 @@ impl Launcher {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     pub fn set_error(&mut self, error: impl ToString) {
-        self.state = State::Error {
-            error: error.to_string().replace(CLIENT_ID, "[CLIENT ID]"),
-        }
+        let error = error.to_string().replace(CLIENT_ID, "[CLIENT ID]");
+        err!("{error}");
+        self.state = State::Error { error }
     }
 
     pub fn go_to_launch_screen<T: Display>(&mut self, message: Option<T>) -> Task<Message> {
@@ -852,7 +845,7 @@ fn load_config_and_theme(
 }
 
 pub async fn get_entries(path: String, is_server: bool) -> Res<(Vec<String>, bool)> {
-    let dir_path = file_utils::get_launcher_dir().await.strerr()?.join(path);
+    let dir_path = file_utils::get_launcher_dir().strerr()?.join(path);
     if !dir_path.exists() {
         tokio::fs::create_dir_all(&dir_path)
             .await

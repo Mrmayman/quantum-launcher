@@ -1,4 +1,4 @@
-use ql_core::{err, file_utils, IntoIoError, JsonFileError, LAUNCHER_VERSION_NAME};
+use ql_core::{err, IntoIoError, JsonFileError, LAUNCHER_DIR, LAUNCHER_VERSION_NAME};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
@@ -134,7 +134,7 @@ impl LauncherConfig {
     /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
     /// - if you’re on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
     pub async fn save(&self) -> Result<(), JsonFileError> {
-        let config_path = file_utils::get_launcher_dir().await?.join("config.json");
+        let config_path = LAUNCHER_DIR.join("config.json");
         let config = serde_json::to_string(&self)?;
 
         tokio::fs::write(&config_path, config.as_bytes())

@@ -9,7 +9,9 @@ use std::{
 use indicatif::ProgressBar;
 use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
-    do_jobs, err, file_utils, info,
+    do_jobs, err,
+    file_utils::{self, LAUNCHER_DIR},
+    info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
     DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError,
 };
@@ -197,9 +199,7 @@ impl GameDownloader {
         let asset_index: Value =
             file_utils::download_file_to_json(&self.version_json.assetIndex.url, false).await?;
 
-        let launcher_dir = file_utils::get_launcher_dir().await?;
-
-        let assets_dir = launcher_dir.join("assets");
+        let assets_dir = LAUNCHER_DIR.join("assets");
         tokio::fs::create_dir_all(&assets_dir)
             .await
             .path(&assets_dir)?;
@@ -474,8 +474,7 @@ impl GameDownloader {
 
     async fn new_get_instance_dir(instance_name: &str) -> Result<Option<PathBuf>, IoError> {
         info!("Initializing instance folder.");
-        let launcher_dir = file_utils::get_launcher_dir().await?;
-        let instances_dir = launcher_dir.join("instances");
+        let instances_dir = LAUNCHER_DIR.join("instances");
         tokio::fs::create_dir_all(&instances_dir)
             .await
             .path(&instances_dir)?;

@@ -153,7 +153,7 @@ pub struct ModDescription {
 }
 
 async fn get_loader(instance: &InstanceSelection) -> Result<Option<Loader>, ModError> {
-    let instance_dir = file_utils::get_instance_dir(instance).await?;
+    let instance_dir = file_utils::get_instance_dir(instance)?;
     let config_json = InstanceConfigJson::read_from_path(&instance_dir).await?;
 
     Ok(match config_json.mod_type.as_str() {

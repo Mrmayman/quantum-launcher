@@ -4,7 +4,7 @@ use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
     file_utils, info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    pt, GenericProgress, IntoIoError, IntoStringError,
+    pt, GenericProgress, IntoIoError, IntoStringError, LAUNCHER_DIR,
 };
 
 use crate::ServerError;
@@ -148,8 +148,7 @@ async fn write_config(
 }
 
 async fn get_server_dir(name: &str) -> Result<std::path::PathBuf, ServerError> {
-    let launcher_dir = file_utils::get_launcher_dir().await?;
-    let server_dir = launcher_dir.join("servers").join(name);
+    let server_dir = LAUNCHER_DIR.join("servers").join(name);
     if server_dir.exists() {
         return Err(ServerError::ServerAlreadyExists);
     }
@@ -299,8 +298,7 @@ fn progress_json(sender: Option<&Sender<GenericProgress>>) {
 /// - If the server directory couldn't be deleted.
 /// - If the launcher directory couldn't be found or created.
 pub fn delete_server(name: &str) -> Result<(), String> {
-    let launcher_dir = file_utils::get_launcher_dir_s().strerr()?;
-    let server_dir = launcher_dir.join("servers").join(name);
+    let server_dir = LAUNCHER_DIR.join("servers").join(name);
     std::fs::remove_dir_all(&server_dir)
         .path(server_dir)
         .strerr()?;

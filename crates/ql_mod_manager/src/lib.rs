@@ -1,6 +1,6 @@
 //! # A crate for dealing with mods
 //!
-//! This crate provides a way to manage mods for QuantumLauncher.
+//! This crate provides a way to manage mods for Quantum Launcher.
 //!
 //! # Features
 //! ## Modrinth
@@ -14,6 +14,10 @@
 //! - Optifine
 //! - Quilt
 //! - Paper
+
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::cast_precision_loss)]
 
 /// Installers and Uninstallers for loaders (Fabric/Forge/Optifine/Quilt/Paper).
 pub mod loaders;

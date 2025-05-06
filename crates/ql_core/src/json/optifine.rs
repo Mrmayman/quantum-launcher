@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{file_utils, IntoIoError, IoError, JsonFileError};
+use crate::{IntoIoError, IoError, JsonFileError, LAUNCHER_DIR};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -28,8 +28,7 @@ impl JsonOptifine {
     /// - If the Optifine directory does not contain a JSON file or JAR file
     /// - If the config directory (`AppData/Roaming` or `~/.config`) does not exist
     pub async fn read(instance_name: &str) -> Result<(Self, PathBuf), JsonFileError> {
-        let dot_minecraft_dir = file_utils::get_launcher_dir()
-            .await?
+        let dot_minecraft_dir = LAUNCHER_DIR
             .join("instances")
             .join(instance_name)
             .join(".minecraft/versions");
@@ -40,7 +39,8 @@ impl JsonOptifine {
                 error: std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     "Could not find OptiFine directory",
-                ),
+                )
+                .to_string(),
                 path: dot_minecraft_dir.clone(),
             })?;
 
@@ -88,7 +88,8 @@ async fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf
             error: std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "No JSON file found in the directory",
-            ),
+            )
+            .to_string(),
             path: dir_path.to_owned(),
         }
     })?;
@@ -98,7 +99,8 @@ async fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf
             error: std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "No Jar file found in the directory",
-            ),
+            )
+            .to_string(),
             path: dir_path.to_owned(),
         }
     })?;

@@ -10,7 +10,7 @@ use java_files::{JavaFile, JavaFilesJson};
 use java_list::JavaListJson;
 use ql_core::{
     do_jobs, err, file_utils, info, GenericProgress, IntoIoError, IoError, JsonDownloadError,
-    RequestError,
+    RequestError, LAUNCHER_DIR,
 };
 
 mod compression;
@@ -69,8 +69,7 @@ pub async fn get_java_binary(
     name: &str,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
 ) -> Result<PathBuf, JavaInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir().await?;
-    let java_dir = launcher_dir.join("java_installs").join(version.to_string());
+    let java_dir = LAUNCHER_DIR.join("java_installs").join(version.to_string());
     let is_incomplete_install = java_dir.join("install.lock").exists();
 
     if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
@@ -215,8 +214,7 @@ async fn install_java_files(
 }
 
 async fn get_install_dir(version: JavaVersion) -> Result<PathBuf, JavaInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir().await?;
-    let java_installs_dir = launcher_dir.join("java_installs");
+    let java_installs_dir = LAUNCHER_DIR.join("java_installs");
     tokio::fs::create_dir_all(&java_installs_dir)
         .await
         .path(java_installs_dir.clone())?;
@@ -341,14 +339,7 @@ pub enum JavaInstallError {
 
 pub fn delete_java_installs() {
     info!("Clearing Java installs");
-    let dir = match file_utils::get_launcher_dir_s() {
-        Ok(n) => n,
-        Err(err) => {
-            err!("While deleting Java Installations: Could not get launcher directory: {err}");
-            return;
-        }
-    };
-    let java_installs = dir.join("java_installs");
+    let java_installs = LAUNCHER_DIR.join("java_installs");
     if !java_installs.exists() {
         return;
     }

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use ql_core::{file_utils, InstanceSelection, IntoIoError, Loader};
+use ql_core::{InstanceSelection, IntoIoError, Loader, LAUNCHER_DIR};
 
 use crate::loaders::change_instance_type;
 
@@ -15,8 +15,7 @@ pub async fn uninstall(instance: InstanceSelection) -> Result<Loader, ForgeInsta
 }
 
 pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir().await?;
-    let instance_dir = launcher_dir.join("instances").join(instance);
+    let instance_dir = LAUNCHER_DIR.join("instances").join(instance);
 
     let forge_dir = instance_dir.join("forge");
     if forge_dir.is_dir() {
@@ -30,8 +29,7 @@ pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
 }
 
 pub async fn uninstall_server(instance: &str) -> Result<(), ForgeInstallError> {
-    let launcher_dir = file_utils::get_launcher_dir().await?;
-    let instance_dir = launcher_dir.join("servers").join(instance);
+    let instance_dir = LAUNCHER_DIR.join("servers").join(instance);
     change_instance_type(&instance_dir, "Vanilla".to_owned()).await?;
 
     if let Some(forge_shim_file) = find_forge_shim_file(&instance_dir).await {

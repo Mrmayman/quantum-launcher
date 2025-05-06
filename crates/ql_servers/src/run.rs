@@ -5,9 +5,9 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, info,
+    err, info,
     json::{InstanceConfigJson, VersionDetails},
-    no_window, GenericProgress, IntoIoError,
+    no_window, GenericProgress, IntoIoError, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::{Child, Command};
@@ -41,8 +41,7 @@ pub async fn run(
     name: String,
     java_install_progress: Sender<GenericProgress>,
 ) -> Result<(Arc<Mutex<Child>>, bool), ServerError> {
-    let launcher_dir = file_utils::get_launcher_dir().await?;
-    let server_dir = launcher_dir.join("servers").join(name);
+    let server_dir = LAUNCHER_DIR.join("servers").join(name);
 
     let config_json = InstanceConfigJson::read_from_path(&server_dir).await?;
 
