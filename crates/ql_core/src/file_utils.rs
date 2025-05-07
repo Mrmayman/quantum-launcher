@@ -7,7 +7,9 @@ use reqwest::{header::InvalidHeaderValue, Client};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
-use crate::{error::IoError, retry, InstanceSelection, IntoIoError, JsonDownloadError, CLIENT};
+use crate::{
+    error::IoError, info_no_log, retry, InstanceSelection, IntoIoError, JsonDownloadError, CLIENT,
+};
 
 /// The path to the QuantumLauncher root folder.
 ///
@@ -52,9 +54,31 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
 
 fn check_qlportable_file() -> Option<PathBuf> {
     fn check_file(dir: Option<PathBuf>) -> Option<PathBuf> {
-        const PORTABLE_FILENAME: &str = "qlportable.txt";
+        const PORTABLE_FILENAME: &str = "qldir.txt";
         let dir = dir?;
-        dir.join(PORTABLE_FILENAME).exists().then_some(dir)
+
+        let file_path = dir.join(PORTABLE_FILENAME);
+        if let Ok(mut n) = std::fs::read_to_string(&file_path) {
+            // Handling of Home Directory `~`
+            if let Some(short) = n.strip_prefix("~/") {
+                if let Some(home) = dirs::home_dir().and_then(|n| n.to_str().map(|n| n.to_owned()))
+                {
+                    n = format!("{}/{short}", home);
+                }
+            }
+
+            let n = n.trim();
+            let path = PathBuf::from(n);
+
+            if !n.is_empty() && path.is_dir() {
+                info_no_log!("Custom dir: {n}/QuantumLauncher");
+                Some(path)
+            } else {
+                file_path.exists().then_some(dir)
+            }
+        } else {
+            None
+        }
     }
 
     check_file(std::env::current_dir().ok()).or_else(|| {

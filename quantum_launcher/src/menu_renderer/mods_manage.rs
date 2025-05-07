@@ -14,6 +14,8 @@ use crate::{
 
 use super::{back_to_launch_screen, button_with_icon, Element};
 
+const MODS_MANAGE_WIDTH: u16 = 155;
+
 impl MenuEditMods {
     pub fn view<'a>(
         &'a self,
@@ -38,11 +40,20 @@ impl MenuEditMods {
                         )
                         .on_press(back_to_launch_screen(selected_instance, None)),
                         self.get_mod_installer_buttons(selected_instance),
+                        widget::column!(
+                            button_with_icon(icon_manager::download(), "Download Stuff", 16)
+                                .width(MODS_MANAGE_WIDTH)
+                                .on_press(Message::InstallMods(InstallModsMessage::Open)),
+                            button_with_icon(icon_manager::save(), "Mod Presets", 16)
+                                .width(MODS_MANAGE_WIDTH)
+                                .on_press(Message::EditPresets(EditPresetsMessage::Open))
+                        )
+                        .spacing(5),
                         Self::open_mod_folder_button(selected_instance, launcher_dir),
                         widget::container(self.get_mod_update_pane()),
                     )
                     .padding(10)
-                    .spacing(20)
+                    .spacing(10)
                 )
                 .style(LauncherTheme::style_scrollable_flat_dark)
                 .height(Length::Fill)
@@ -100,10 +111,7 @@ impl MenuEditMods {
         }
     }
 
-    fn get_mod_installer_buttons(
-        &self,
-        selected_instance: &InstanceSelection,
-    ) -> widget::Column<'_, Message, LauncherTheme> {
+    fn get_mod_installer_buttons(&self, selected_instance: &InstanceSelection) -> Element {
         match self.config.mod_type.as_str() {
             "Vanilla" => match selected_instance {
                 InstanceSelection::Instance(_) => widget::column![
@@ -134,7 +142,9 @@ impl MenuEditMods {
                         .on_press(Message::InstallOptifine(InstallOptifineMessage::ScreenOpen))
                         .width(97))
                     .spacing(5),
-                ],
+                ]
+                .spacing(5)
+                .into(),
                 InstanceSelection::Server(_) => widget::column!(
                     "Install:",
                     widget::row!(
@@ -167,81 +177,59 @@ impl MenuEditMods {
                     widget::button("Paper")
                         .width(97)
                         .on_press(Message::InstallPaperStart),
-                ),
+                )
+                .spacing(5)
+                .into(),
             },
-            "Forge" => {
-                widget::column!(
-                    widget::button("Install OptiFine"),
-                    Self::get_uninstall_panel(
-                        &self.config.mod_type,
-                        Message::UninstallLoaderForgeStart,
-                        true
-                    )
+            "Forge" => widget::column!(
+                widget::button("Install OptiFine"),
+                Self::get_uninstall_panel(
+                    &self.config.mod_type,
+                    Message::UninstallLoaderForgeStart,
                 )
+            )
+            .spacing(5)
+            .into(),
+            "OptiFine" => widget::column!(
+                widget::button("Install Forge"),
+                Self::get_uninstall_panel(
+                    &self.config.mod_type,
+                    Message::UninstallLoaderOptiFineStart,
+                ),
+            )
+            .spacing(5)
+            .into(),
+            "NeoForge" => {
+                Self::get_uninstall_panel(&self.config.mod_type, Message::UninstallLoaderForgeStart)
             }
-            "OptiFine" => {
-                widget::column!(
-                    widget::button("Install Forge"),
-                    Self::get_uninstall_panel(
-                        &self.config.mod_type,
-                        Message::UninstallLoaderOptiFineStart,
-                        false
-                    ),
-                )
-            }
-            "NeoForge" => Self::get_uninstall_panel(
-                &self.config.mod_type,
-                Message::UninstallLoaderForgeStart,
-                true,
-            ),
             "Fabric" | "Quilt" => Self::get_uninstall_panel(
                 &self.config.mod_type,
                 Message::UninstallLoaderFabricStart,
-                true,
             ),
-            "Paper" => Self::get_uninstall_panel(
-                &self.config.mod_type,
-                Message::UninstallLoaderPaperStart,
-                false,
-            ),
+            "Paper" => {
+                Self::get_uninstall_panel(&self.config.mod_type, Message::UninstallLoaderPaperStart)
+            }
             _ => {
-                widget::column!(widget::text!("Unknown mod type: {}", self.config.mod_type))
+                widget::column!(widget::text!("Unknown mod type: {}", self.config.mod_type)).into()
             }
         }
-        .spacing(5)
     }
 
-    fn get_uninstall_panel(
-        mod_type: &str,
-        uninstall_loader_message: Message,
-        download_mods: bool,
-    ) -> iced::widget::Column<'_, Message, LauncherTheme> {
-        widget::column!(
-            widget::button(
-                widget::row!(
-                    icon_manager::delete(),
-                    widget::text!("Uninstall {mod_type}")
-                )
-                .spacing(10)
-                .padding(5)
+    fn get_uninstall_panel(mod_type: &str, uninstall_loader_message: Message) -> Element {
+        widget::button(
+            widget::row!(
+                icon_manager::delete(),
+                widget::text!("Uninstall {mod_type}")
             )
-            .on_press(Message::UninstallLoaderConfirm(
-                Box::new(uninstall_loader_message),
-                mod_type.to_owned()
-            )),
-            if download_mods {
-                widget::column!(
-                    button_with_icon(icon_manager::download(), "Download Mods", 16)
-                        .on_press(Message::InstallMods(InstallModsMessage::Open)),
-                    button_with_icon(icon_manager::save(), "Mod Presets...", 16)
-                        .on_press(Message::EditPresets(EditPresetsMessage::Open))
-                )
-                .spacing(5)
-            } else {
-                widget::column!()
-            },
+            .width(MODS_MANAGE_WIDTH + 25)
+            .spacing(10)
+            .padding(5),
         )
-        .spacing(5)
+        .on_press(Message::UninstallLoaderConfirm(
+            Box::new(uninstall_loader_message),
+            mod_type.to_owned(),
+        ))
+        .into()
     }
 
     fn open_mod_folder_button<'a>(
@@ -255,7 +243,8 @@ impl MenuEditMods {
             path.exists().then_some(path.to_str().unwrap().to_owned())
         };
 
-        button_with_icon(icon_manager::folder(), "Open Mods Folder", 16)
+        button_with_icon(icon_manager::folder(), "Mods Folder", 16)
+            .width(MODS_MANAGE_WIDTH)
             .on_press_maybe(path.map(Message::CoreOpenDir))
             .into()
     }

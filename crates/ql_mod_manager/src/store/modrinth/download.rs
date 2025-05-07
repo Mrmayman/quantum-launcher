@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use chrono::DateTime;
@@ -12,9 +12,10 @@ use ql_core::{
 };
 
 use crate::store::{
+    get_mods_resourcepacks_shaderpacks_dir,
     local_json::{ModConfig, ModIndex},
     modrinth::versions::ModVersion,
-    ModError, SOURCE_ID_MODRINTH,
+    ModError, QueryType, SOURCE_ID_MODRINTH,
 };
 
 use super::info::ProjectInfo;
@@ -25,14 +26,17 @@ pub struct ModDownloader {
     loader: Option<String>,
     currently_installing_mods: HashSet<String>,
     pub info: HashMap<String, ProjectInfo>,
+
     mods_dir: PathBuf,
+    resourcepacks_dir: PathBuf,
+    shaderpacks_dir: PathBuf,
 }
 
 impl ModDownloader {
     pub async fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
-        let mods_dir = get_mods_dir(instance_name).await?;
-
         let version_json = VersionDetails::load(instance_name).await?;
+        let (mods_dir, resourcepacks_dir, shaderpacks_dir) =
+            get_mods_resourcepacks_shaderpacks_dir(instance_name, &version_json).await?;
 
         let index = ModIndex::get(instance_name).await?;
         let loader = get_loader_type(instance_name).await?;
@@ -42,8 +46,11 @@ impl ModDownloader {
             index,
             loader,
             currently_installing_mods,
-            mods_dir,
             info: HashMap::new(),
+
+            mods_dir,
+            resourcepacks_dir,
+            shaderpacks_dir,
         })
     }
 
@@ -66,21 +73,27 @@ impl ModDownloader {
             return Ok(());
         }
 
+        let query_type = QueryType::from_modrinth_str(&project_info.project_type).ok_or(
+            ModError::UnknownProjectType(project_info.project_type.clone()),
+        )?;
+
         info!("Getting project info (id: {id})");
 
-        if !self.has_compatible_loader(&project_info) {
-            if let Some(loader) = &self.loader {
-                pt!("Mod {} doesn't support {loader}", project_info.title);
-            } else {
-                err!("Mod {} doesn't support unknown loader!", project_info.title);
+        if let QueryType::Mods = query_type {
+            if !self.has_compatible_loader(&project_info) {
+                if let Some(loader) = &self.loader {
+                    pt!("Mod {} doesn't support {loader}", project_info.title);
+                } else {
+                    err!("Mod {} doesn't support unknown loader!", project_info.title);
+                }
+                return Ok(());
             }
-            return Ok(());
         }
 
         print_downloading_message(&project_info, dependent);
 
         let download_version = self
-            .get_download_version(id, project_info.title.clone())
+            .get_download_version(id, project_info.title.clone(), query_type)
             .await?;
 
         pt!("Getting dependencies");
@@ -104,7 +117,7 @@ impl ModDownloader {
         }
 
         if !self.index.mods.contains_key(id) {
-            self.download_file(&download_version).await?;
+            self.download_file(&download_version, query_type).await?;
             add_mod_to_index(
                 &mut self.index,
                 id,
@@ -113,6 +126,7 @@ impl ModDownloader {
                 dependency_list,
                 dependent,
                 manually_installed,
+                query_type,
             );
         }
 
@@ -129,6 +143,7 @@ impl ModDownloader {
             return true;
         }
 
+        // Handling the same mod across multiple store backends
         if let Some(mod_info) = self.index.mods.values_mut().find(|n| n.name == name) {
             if let Some(dependent) = dependent {
                 mod_info.dependents.insert(dependent.to_owned());
@@ -157,7 +172,12 @@ impl ModDownloader {
         }
     }
 
-    async fn get_download_version(&self, id: &str, title: String) -> Result<ModVersion, ModError> {
+    async fn get_download_version(
+        &self,
+        id: &str,
+        title: String,
+        project_type: QueryType,
+    ) -> Result<ModVersion, ModError> {
         pt!("Getting download info");
         let download_info = ModVersion::download(id).await?;
 
@@ -165,7 +185,7 @@ impl ModDownloader {
             .iter()
             .filter(|v| v.game_versions.contains(&self.version))
             .filter(|v| {
-                if let Some(loader) = &self.loader {
+                if let (Some(loader), QueryType::Mods) = (&self.loader, project_type) {
                     v.loaders.contains(loader)
                 } else {
                     true
@@ -185,10 +205,22 @@ impl ModDownloader {
         Ok(download_version)
     }
 
-    async fn download_file(&self, download_version: &ModVersion) -> Result<(), ModError> {
+    fn get_dir(&self, project_type: QueryType) -> &Path {
+        match project_type {
+            QueryType::Mods => &self.mods_dir,
+            QueryType::ResourcePacks => &self.resourcepacks_dir,
+            QueryType::Shaders => &self.shaderpacks_dir,
+        }
+    }
+
+    async fn download_file(
+        &self,
+        download_version: &ModVersion,
+        project_type: QueryType,
+    ) -> Result<(), ModError> {
         if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
             let file_bytes = file_utils::download_file_to_bytes(&primary_file.url, true).await?;
-            let file_path = self.mods_dir.join(&primary_file.filename);
+            let file_path = self.get_dir(project_type).join(&primary_file.filename);
             tokio::fs::write(&file_path, &file_bytes)
                 .await
                 .path(file_path)?;
@@ -196,7 +228,7 @@ impl ModDownloader {
             pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
                 let file_bytes = file_utils::download_file_to_bytes(&file.url, true).await?;
-                let file_path = self.mods_dir.join(&file.filename);
+                let file_path = self.get_dir(project_type).join(&file.filename);
                 tokio::fs::write(&file_path, &file_bytes)
                     .await
                     .path(file_path)?;
@@ -204,15 +236,6 @@ impl ModDownloader {
         }
         Ok(())
     }
-}
-
-async fn get_mods_dir(instance_name: &InstanceSelection) -> Result<PathBuf, ModError> {
-    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
-    let mods_dir = dot_minecraft_dir.join("mods");
-    if !mods_dir.exists() {
-        tokio::fs::create_dir(&mods_dir).await.path(&mods_dir)?;
-    }
-    Ok(mods_dir)
 }
 
 pub fn version_sort(a: &ModVersion, b: &ModVersion) -> Ordering {
@@ -245,31 +268,33 @@ fn add_mod_to_index(
     dependency_list: HashSet<String>,
     dependent: Option<&str>,
     manually_installed: bool,
+    project_type: QueryType,
 ) {
-    index.mods.insert(
-        id.to_owned(),
-        ModConfig {
-            name: project_info.title.clone(),
-            description: project_info.description.clone(),
-            icon_url: project_info.icon_url.clone(),
-            project_id: id.to_owned(),
-            files: download_version.files.clone(),
-            supported_versions: download_version.game_versions.clone(),
-            dependencies: dependency_list,
-            dependents: if let Some(dependent) = dependent {
-                let mut set = HashSet::new();
-                set.insert(dependent.to_owned());
-                set
-            } else {
-                HashSet::new()
-            },
-            manually_installed,
-            enabled: true,
-            installed_version: download_version.version_number.clone(),
-            version_release_time: download_version.date_published.clone(),
-            project_source: SOURCE_ID_MODRINTH.to_owned(),
+    let config = ModConfig {
+        name: project_info.title.clone(),
+        description: project_info.description.clone(),
+        icon_url: project_info.icon_url.clone(),
+        project_id: id.to_owned(),
+        files: download_version.files.clone(),
+        supported_versions: download_version.game_versions.clone(),
+        dependencies: dependency_list,
+        dependents: if let Some(dependent) = dependent {
+            let mut set = HashSet::new();
+            set.insert(dependent.to_owned());
+            set
+        } else {
+            HashSet::new()
         },
-    );
+        manually_installed,
+        enabled: true,
+        installed_version: download_version.version_number.clone(),
+        version_release_time: download_version.date_published.clone(),
+        project_source: SOURCE_ID_MODRINTH.to_owned(),
+    };
+
+    if let QueryType::Mods = project_type {
+        index.mods.insert(id.to_owned(), config);
+    }
 }
 
 fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>) {
@@ -294,9 +319,10 @@ pub async fn get_loader_type(instance: &InstanceSelection) -> Result<Option<Stri
         "NeoForge" => Some("neoforge"),
         "LiteLoader" => Some("liteloader"),
         "Rift" => Some("rift"),
-        "OptiFine" => Some("optifine"),
-        _ => {
-            err!("Unknown loader {}", config_json.mod_type);
+        loader => {
+            if loader != "Vanilla" {
+                err!("Unknown loader {loader}");
+            }
             None
         } // TODO: Add more loaders
     }

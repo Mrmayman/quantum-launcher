@@ -28,7 +28,9 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    store::{ImageResult, ModConfig, ModDescription, ModIndex, RecommendedMod, SearchResult},
+    store::{
+        ImageResult, ModConfig, ModDescription, ModIndex, QueryType, RecommendedMod, SearchResult,
+    },
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -116,8 +118,10 @@ pub enum InstallModsMessage {
     Download(usize),
     DownloadComplete(Res<ModId>),
     IndexUpdated(Res<ModIndex>),
-    ChangeBackend(StoreBackendType),
     Scrolled(widget::scrollable::Viewport),
+
+    ChangeBackend(StoreBackendType),
+    ChangeQueryType(QueryType),
 }
 
 #[derive(Debug, Clone)]
@@ -486,7 +490,9 @@ pub struct MenuModsDownload {
     pub latest_load: Instant,
     pub mods_download_in_progress: HashSet<ModId>,
     pub mod_index: ModIndex,
+
     pub backend: StoreBackendType,
+    pub query_type: QueryType,
 
     /// This is for the loading of continuation of the search,
     /// ie. when you scroll down and more stuff appears

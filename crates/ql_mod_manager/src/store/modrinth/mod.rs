@@ -11,7 +11,7 @@ use crate::{
     store::{SearchMod, StoreBackendType},
 };
 
-use super::{Backend, ModDescription, ModError, Query, SearchResult};
+use super::{Backend, ModDescription, ModError, Query, QueryType, SearchResult};
 
 mod download;
 mod info;
@@ -21,11 +21,15 @@ mod versions;
 pub struct ModrinthBackend;
 
 impl Backend for ModrinthBackend {
-    async fn search(query: Query, offset: usize) -> Result<SearchResult, ModError> {
+    async fn search(
+        query: Query,
+        offset: usize,
+        query_type: QueryType,
+    ) -> Result<SearchResult, ModError> {
         let _lock = RATE_LIMITER.lock().await;
         let instant = Instant::now();
 
-        let text = search::do_request(&query, offset).await?;
+        let text = search::do_request(&query, offset, query_type).await?;
 
         let res = SearchResult {
             mods: text
@@ -71,7 +75,11 @@ impl Backend for ModrinthBackend {
             .filter(|v| v.game_versions.contains(&version))
             .filter(|v| {
                 if let Some(loader) = &loader {
-                    v.loaders.contains(&loader.to_modrinth_str().to_owned())
+                    if v.loaders.len() < 2 && (v.loaders.first().is_none_or(|n| n == "minecraft")) {
+                        v.loaders.contains(&loader.to_modrinth_str().to_owned())
+                    } else {
+                        true
+                    }
                 } else {
                     true
                 }

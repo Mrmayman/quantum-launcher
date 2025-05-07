@@ -6,7 +6,7 @@ use zip_extract::ZipError;
 pub enum ModError {
     #[error(transparent)]
     RequestError(#[from] RequestError),
-    #[error("json error: {0}")]
+    #[error("(mods): json error: {0}")]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] IoError),
@@ -14,9 +14,9 @@ pub enum ModError {
     NoCompatibleVersionFound(String),
     #[error("no files found for mod")]
     NoFilesFound,
-    #[error("couldn't add entry {1} to zip: {0}")]
+    #[error("(mods): couldn't add entry {1} to zip: {0}")]
     ZipIoError(std::io::Error, String),
-    #[error("zip error: {0}")]
+    #[error("(mods): zip error: {0}")]
     Zip(#[from] ZipError),
     #[error("no minecraft entry found in curseforge API")]
     NoMinecraftInCurseForge,
@@ -24,6 +24,8 @@ pub enum ModError {
     CurseforgeModNotAllowedForDownload(String, String),
     #[error("could not parse date when checking for mod update: {0}")]
     Chrono(#[from] chrono::ParseError),
+    #[error("unknown project type while downloading from store: {0}")]
+    UnknownProjectType(String),
 }
 
 impl From<JsonFileError> for ModError {

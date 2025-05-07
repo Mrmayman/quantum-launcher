@@ -21,16 +21,18 @@ pub enum Loader {
 impl TryFrom<&str> for Loader {
     type Error = ();
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
+    fn try_from(loader: &str) -> Result<Self, Self::Error> {
+        match loader {
             "Forge" => Ok(Loader::Forge),
             "Fabric" => Ok(Loader::Fabric),
             "Quilt" => Ok(Loader::Quilt),
             "OptiFine" => Ok(Loader::OptiFine),
             "Paper" => Ok(Loader::Paper),
             "NeoForge" => Ok(Loader::Neoforge),
-            loader => {
-                err!("Unknown loader: {loader}");
+            _ => {
+                if loader != "Vanilla" {
+                    err!("Unknown loader: {loader}");
+                }
                 Err(())
             }
         }

@@ -3,9 +3,13 @@ use std::collections::HashMap;
 use ql_core::JsonDownloadError;
 use serde::Deserialize;
 
-use crate::store::Query;
+use crate::store::{Query, QueryType};
 
-pub async fn do_request(query: &Query, offset: usize) -> Result<Search, JsonDownloadError> {
+pub async fn do_request(
+    query: &Query,
+    offset: usize,
+    query_type: QueryType,
+) -> Result<Search, JsonDownloadError> {
     const SEARCH_URL: &str = "https://api.modrinth.com/v2/search";
 
     let mut params = HashMap::from([
@@ -18,12 +22,14 @@ pub async fn do_request(query: &Query, offset: usize) -> Result<Search, JsonDown
     }
 
     let mut filters = vec![
-        vec!["project_type:mod".to_owned()],
-        vec![format!("categories:'{}'", query.loader.to_modrinth_str())],
+        vec![format!("project_type:{}", query_type.to_modrinth_str())],
         vec![format!("versions:{}", query.version)],
     ];
-    if query.server_side {
-        filters.push(vec![format!("versions:{}", query.version)]);
+
+    if let QueryType::Mods = query_type {
+        if let Some(loader) = query.loader {
+            filters.push(vec![format!("categories:'{}'", loader.to_modrinth_str())])
+        }
     }
 
     let filters = serde_json::to_string(&filters)?;

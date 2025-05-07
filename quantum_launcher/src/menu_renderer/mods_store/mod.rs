@@ -1,6 +1,6 @@
 use iced::{widget, Length};
 use ql_core::{ModId, StoreBackendType};
-use ql_mod_manager::store::SearchMod;
+use ql_mod_manager::store::{QueryType, SearchMod};
 
 use crate::{
     icon_manager,
@@ -59,6 +59,15 @@ impl MenuModsDownload {
                             Some(self.backend),
                             |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
                         ),
+                        widget::Space::with_height(5),
+                        widget::text("Select Type:").size(20),
+                        widget::column(QueryType::ALL.iter().map(|n| {
+                            widget::radio(n.to_string(), *n, Some(self.query_type), |v| {
+                                Message::InstallMods(InstallModsMessage::ChangeQueryType(v))
+                            })
+                            .into()
+                        }))
+                        .spacing(5)
                     )
                     .spacing(5)
                 } else {
@@ -79,15 +88,43 @@ impl MenuModsDownload {
             .padding(10)
             .spacing(10)
             .width(200),
-            widget::scrollable(mods_list.spacing(10).padding(10))
-                .style(
-                    |theme: &LauncherTheme, status| theme.style_scrollable_flat_extra_dark(status)
+            widget::Column::new()
+                .push_maybe(
+                    (self.query_type == QueryType::Shaders
+                        && self.config.mod_type != "OptiFine"
+
+                        // Iris Shaders Mod
+                        && !self.mod_index.mods.contains_key("YL57xq9U") // Modrinth ID
+                        && !self.mod_index.mods.contains_key("CF:455508")) // CurseForge ID
+                    .then_some(
+                        widget::column![
+                            widget::text(
+                                "You haven't installed any shader mod! Either install Fabric + Sodium + Iris (recommended), or install OptiFine"
+                            ).size(12)
+                        ].padding(10)
+                    )
                 )
-                .height(Length::Fill)
-                .width(Length::Fill)
-                .on_scroll(|viewport| {
-                    Message::InstallMods(InstallModsMessage::Scrolled(viewport))
-                }),
+                .push_maybe(
+                    (self.query_type == QueryType::Mods
+                        && self.config.mod_type == "Vanilla")
+                    .then_some(
+                        widget::column![
+                            widget::text(
+                                "You haven't installed any mod loader! Install Fabric (recommended), Forge, Quilt or NeoForge"
+                            ).size(12)
+                        ].padding(10)
+                    )
+                )
+                .push(
+                    widget::scrollable(mods_list.spacing(10).padding(10))
+                        .style(|theme: &LauncherTheme, status| theme
+                            .style_scrollable_flat_extra_dark(status))
+                        .height(Length::Fill)
+                        .width(Length::Fill)
+                        .on_scroll(|viewport| {
+                            Message::InstallMods(InstallModsMessage::Scrolled(viewport))
+                        }),
+                )
         )
         .into()
     }
@@ -191,12 +228,13 @@ impl MenuModsDownload {
                         Message::CoreOpenDir(format!(
                             "{}{}",
                             match self.backend {
+                                // FIXME: add resource packs and shaderpacks
                                 StoreBackendType::Modrinth => "https://modrinth.com/mod/",
                                 StoreBackendType::Curseforge =>
                                     "https://www.curseforge.com/minecraft/mc-mods/",
                             },
                             hit.internal_name
-                        )) // TODO: add curseforge
+                        ))
                     ),
                     button_with_icon(icon_manager::save(), "Copy ID", 16)
                         .on_press(Message::CoreCopyText(hit.id.clone())),

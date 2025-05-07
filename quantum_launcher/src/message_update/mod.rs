@@ -206,9 +206,17 @@ impl Launcher {
                     menu.mod_index = idx;
                 }
             }
+
             InstallModsMessage::ChangeBackend(backend) => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.backend = backend;
+                    menu.results = None;
+                    return menu.search_store(is_server, 0);
+                }
+            }
+            InstallModsMessage::ChangeQueryType(query) => {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.query_type = query;
                     menu.results = None;
                     return menu.search_store(is_server, 0);
                 }

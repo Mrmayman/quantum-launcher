@@ -5,9 +5,7 @@ use std::{
 };
 
 use chrono::DateTime;
-use ql_core::{
-    file_utils, json::VersionDetails, pt, GenericProgress, JsonDownloadError, RequestError, CLIENT,
-};
+use ql_core::{json::VersionDetails, pt, GenericProgress, JsonDownloadError, RequestError, CLIENT};
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
 
@@ -16,8 +14,10 @@ use crate::{
     store::{get_loader, ModIndex, SearchMod},
 };
 
-use super::{Backend, ModError, SearchResult};
+use super::{get_mods_resourcepacks_shaderpacks_dir, Backend, ModError, QueryType, SearchResult};
+use categories::get_categories;
 
+mod categories;
 mod download;
 
 const NOT_LOADED: i32 = -1;
@@ -46,6 +46,7 @@ struct Mod {
     logo: Option<Logo>,
     id: i32,
     latestFilesIndexes: Vec<CurseforgeFileIdx>,
+    classId: i32,
     // latestFiles: Vec<CurseforgeFile>,
 }
 
@@ -56,11 +57,12 @@ impl Mod {
         id: &str,
         version: &str,
         loader: Option<&str>,
+        query_type: QueryType,
     ) -> Result<CurseforgeFileQuery, ModError> {
         let Some(file) = self.latestFilesIndexes.iter().find(|n| {
             let is_loader_compatible = loader == n.modLoader.map(|n| n.to_string()).as_deref();
             let is_version_compatible = n.gameVersion == version;
-            is_version_compatible && is_loader_compatible
+            (query_type != QueryType::Mods) || (is_version_compatible && is_loader_compatible)
         }) else {
             return Err(ModError::NoCompatibleVersionFound(title));
         };
@@ -145,7 +147,11 @@ impl CFSearchResult {
 pub struct CurseforgeBackend;
 
 impl Backend for CurseforgeBackend {
-    async fn search(query: super::Query, offset: usize) -> Result<SearchResult, super::ModError> {
+    async fn search(
+        query: super::Query,
+        offset: usize,
+        query_type: QueryType,
+    ) -> Result<SearchResult, super::ModError> {
         const TOTAL_DOWNLOADS: &str = "6";
 
         let _lock = RATE_LIMITER.lock().await;
@@ -153,12 +159,23 @@ impl Backend for CurseforgeBackend {
 
         let mut params = HashMap::from([
             ("gameId", get_mc_id().await?.to_string()),
-            ("gameVersion", query.version.clone()),
-            ("modLoaderType", query.loader.to_curseforge().to_owned()),
             ("sortField", TOTAL_DOWNLOADS.to_owned()),
             ("sortOrder", "desc".to_owned()),
             ("index", offset.to_string()),
         ]);
+
+        if let QueryType::Mods = query_type {
+            if let Some(loader) = query.loader {
+                params.insert("modLoaderType", loader.to_curseforge().to_owned());
+            }
+            params.insert("gameVersion", query.version.clone());
+        }
+
+        let categories = get_categories().await?;
+        let query_type_str = query_type.to_curseforge_str();
+        if let Some(category) = categories.data.iter().find(|n| n.slug == query_type_str) {
+            params.insert("classId", category.id.to_string());
+        }
 
         if !query.name.is_empty() {
             params.insert("searchFilter", query.name.clone());
@@ -210,9 +227,10 @@ impl Backend for CurseforgeBackend {
         let response = ModQuery::load(id).await?;
         let loader = loader.map(|n| n.to_curseforge());
 
+        let query_type = get_query_type(response.data.classId).await?;
         let file_query = response
             .data
-            .get_file(response.data.name.clone(), id, version, loader)
+            .get_file(response.data.name.clone(), id, version, loader, query_type)
             .await?;
 
         let download_version_time = DateTime::parse_from_rfc3339(&file_query.data.fileDate)?;
@@ -224,18 +242,22 @@ impl Backend for CurseforgeBackend {
         id: &str,
         instance: &ql_core::InstanceSelection,
     ) -> Result<(), super::ModError> {
-        let version = {
-            let version_json = VersionDetails::load(instance).await?;
-            version_json.id
-        };
+        let version_json = VersionDetails::load(instance).await?;
         let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
         let mut index = ModIndex::get(instance).await?;
 
-        let mods_dir = file_utils::get_dot_minecraft_dir(instance)?.join("mods");
+        let (mods_dir, resourcepacks_dir, shaderpacks_dir) =
+            get_mods_resourcepacks_shaderpacks_dir(instance, &version_json).await?;
 
         let mut cache = HashMap::new();
         download::download(
-            id, &version, loader, &mut index, &mods_dir, None, &mut cache,
+            id,
+            &version_json.id,
+            loader,
+            &mut index,
+            (&mods_dir, &resourcepacks_dir, &shaderpacks_dir),
+            None,
+            &mut cache,
         )
         .await?;
 
@@ -251,14 +273,12 @@ impl Backend for CurseforgeBackend {
         set_manually_installed: bool,
         sender: Option<&Sender<GenericProgress>>,
     ) -> Result<(), super::ModError> {
-        let version = {
-            let version_json = VersionDetails::load(instance).await?;
-            version_json.id
-        };
+        let version_json = VersionDetails::load(instance).await?;
         let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
         let mut index = ModIndex::get(instance).await?;
 
-        let mods_dir = file_utils::get_dot_minecraft_dir(instance)?.join("mods");
+        let (mods_dir, resourcepacks_dir, shaderpacks_dir) =
+            get_mods_resourcepacks_shaderpacks_dir(instance, &version_json).await?;
 
         let mut cache = CFSearchResult::get_from_ids(ids)
             .await?
@@ -279,7 +299,13 @@ impl Backend for CurseforgeBackend {
             }
 
             let result = download::download(
-                id, &version, loader, &mut index, &mods_dir, None, &mut cache,
+                id,
+                &version_json.id,
+                loader,
+                &mut index,
+                (&mods_dir, &resourcepacks_dir, &shaderpacks_dir),
+                None,
+                &mut cache,
             )
             .await;
 
@@ -371,4 +397,16 @@ pub async fn get_mc_id() -> Result<i32, ModError> {
     } else {
         Ok(val)
     }
+}
+
+async fn get_query_type(class_id: i32) -> Result<QueryType, ModError> {
+    let categories = get_categories().await?;
+    Ok(
+        if let Some(category) = categories.data.iter().find(|n| n.id == class_id) {
+            QueryType::from_curseforge_str(&category.slug)
+                .ok_or(ModError::UnknownProjectType(category.slug.clone()))?
+        } else {
+            QueryType::Mods
+        },
+    )
 }

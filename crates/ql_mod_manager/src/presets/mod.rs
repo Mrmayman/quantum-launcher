@@ -244,7 +244,7 @@ fn add_downloaded_mod_to_entries(
 ) {
     let id_str = id.get_index_str();
     let Some(config) = index.mods.get(&id_str) else {
-        err!("Could not find id {id:?} in index!");
+        err!("Could not find id {id:?} ({id_str}) in index!");
         return;
     };
 
