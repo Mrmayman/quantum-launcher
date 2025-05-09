@@ -1,5 +1,5 @@
 use iced::Task;
-use ql_core::{err, IntoIoError, IntoStringError};
+use ql_core::{err, IntoIoError, IntoStringError, LAUNCHER_DIR};
 
 use crate::{
     launcher_state::{get_entries, EditInstanceMessage, Launcher, MenuLaunch, Message, State},
@@ -126,12 +126,11 @@ impl Launcher {
             Ok(Task::none())
         } else {
             let instances_dir =
-                self.dir
-                    .join(if self.selected_instance.as_ref().unwrap().is_server() {
-                        "servers"
-                    } else {
-                        "instances"
-                    });
+                LAUNCHER_DIR.join(if self.selected_instance.as_ref().unwrap().is_server() {
+                    "servers"
+                } else {
+                    "instances"
+                });
 
             let old_path = instances_dir.join(&menu.old_instance_name);
             let new_path = instances_dir.join(&menu.instance_name);

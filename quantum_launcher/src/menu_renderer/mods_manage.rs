@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use iced::{widget, Length};
 use ql_core::{InstanceSelection, SelectedMod};
 
@@ -17,11 +15,7 @@ use super::{back_to_launch_screen, button_with_icon, Element};
 const MODS_MANAGE_WIDTH: u16 = 155;
 
 impl MenuEditMods {
-    pub fn view<'a>(
-        &'a self,
-        selected_instance: &'a InstanceSelection,
-        launcher_dir: &'a Path,
-    ) -> Element<'a> {
+    pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
             return widget::column!(widget::text("Updating mods").size(20), progress.view())
                 .padding(10)
@@ -49,7 +43,7 @@ impl MenuEditMods {
                                 .on_press(Message::EditPresets(EditPresetsMessage::Open))
                         )
                         .spacing(5),
-                        Self::open_mod_folder_button(selected_instance, launcher_dir),
+                        Self::open_mod_folder_button(selected_instance),
                         widget::container(self.get_mod_update_pane()),
                     )
                     .padding(10)
@@ -232,14 +226,9 @@ impl MenuEditMods {
         .into()
     }
 
-    fn open_mod_folder_button<'a>(
-        selected_instance: &'a InstanceSelection,
-        parent: &'a Path,
-    ) -> Element<'a> {
+    fn open_mod_folder_button<'a>(selected_instance: &'a InstanceSelection) -> Element<'a> {
         let path = {
-            let path = selected_instance
-                .get_dot_minecraft_path(parent)
-                .join("mods");
+            let path = selected_instance.get_dot_minecraft_path().join("mods");
             path.exists().then_some(path.to_str().unwrap().to_owned())
         };
 

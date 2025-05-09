@@ -7,8 +7,8 @@ use std::{
 
 use iced::{keyboard::Key, Task};
 use ql_core::{
-    err, file_utils, info, info_no_log, json::instance_config::InstanceConfigJson,
-    InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
+    err, info, info_no_log, json::instance_config::InstanceConfigJson, InstanceSelection,
+    IntoIoError, IntoStringError, JsonFileError,
 };
 use ql_instances::{AccountData, ReadError};
 use ql_mod_manager::{loaders, store::ModIndex};
@@ -136,7 +136,7 @@ impl Launcher {
     pub fn delete_instance_confirm(&mut self) -> Task<Message> {
         if let State::ConfirmAction { .. } = &self.state {
             let selected_instance = self.selected_instance.as_ref().unwrap();
-            let deleted_instance_dir = selected_instance.get_instance_path(&self.dir);
+            let deleted_instance_dir = selected_instance.get_instance_path();
             if let Err(err) = std::fs::remove_dir_all(&deleted_instance_dir) {
                 self.set_error(err);
                 return Task::none();
@@ -157,9 +157,7 @@ impl Launcher {
             return Ok(());
         };
 
-        let config_path = selected_instance
-            .get_instance_path(&self.dir)
-            .join("config.json");
+        let config_path = selected_instance.get_instance_path().join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -183,9 +181,7 @@ impl Launcher {
         &mut self,
     ) -> Result<Task<Message>, JsonFileError> {
         let selected_instance = self.selected_instance.as_ref().unwrap();
-        let config_path = selected_instance
-            .get_instance_path(&self.dir)
-            .join("config.json");
+        let config_path = selected_instance.get_instance_path().join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -193,7 +189,7 @@ impl Launcher {
         match ModIndex::get_s(selected_instance).strerr() {
             Ok(idx) => {
                 let locally_installed_mods =
-                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance, &self.dir);
+                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance);
 
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
@@ -218,7 +214,7 @@ impl Launcher {
 
     pub fn go_to_edit_mods_menu(&mut self) -> Result<Task<Message>, JsonFileError> {
         let selected_instance = self.selected_instance.as_ref().unwrap();
-        let config_path = file_utils::get_instance_dir(selected_instance)?.join("config.json");
+        let config_path = selected_instance.get_instance_path().join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
         let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
@@ -228,7 +224,7 @@ impl Launcher {
         match ModIndex::get_s(selected_instance).strerr() {
             Ok(idx) => {
                 let locally_installed_mods =
-                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance, &self.dir);
+                    MenuEditMods::update_locally_installed_mods(&idx, selected_instance);
 
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
@@ -408,19 +404,11 @@ impl Launcher {
     }
 
     pub fn get_selected_instance_dir(&self) -> Option<PathBuf> {
-        Some(
-            self.selected_instance
-                .as_ref()?
-                .get_instance_path(&self.dir),
-        )
+        Some(self.selected_instance.as_ref()?.get_instance_path())
     }
 
     pub fn get_selected_dot_minecraft_dir(&self) -> Option<PathBuf> {
-        Some(
-            self.selected_instance
-                .as_ref()?
-                .get_dot_minecraft_path(&self.dir),
-        )
+        Some(self.selected_instance.as_ref()?.get_dot_minecraft_path())
     }
 
     fn escape_back_button(&mut self) -> Task<Message> {
@@ -543,7 +531,7 @@ impl Launcher {
                             if extension == "jar" || extension == "disabled" {
                                 let selected_instance = self.selected_instance.as_ref().unwrap();
                                 let new_path = selected_instance
-                                    .get_dot_minecraft_path(&self.dir)
+                                    .get_dot_minecraft_path()
                                     .join("mods")
                                     .join(filename);
                                 if let Err(err) = std::fs::copy(&path, &new_path) {

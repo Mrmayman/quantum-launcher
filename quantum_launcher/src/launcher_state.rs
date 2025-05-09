@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
-    path::{Path, PathBuf},
+    path::Path,
     process::ExitStatus,
     str::FromStr,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -385,7 +385,6 @@ impl MenuEditMods {
     pub fn update_locally_installed_mods(
         idx: &ModIndex,
         selected_instance: &InstanceSelection,
-        dir: &Path,
     ) -> Task<Message> {
         let mut blacklist = Vec::new();
         for mod_info in idx.mods.values() {
@@ -395,7 +394,7 @@ impl MenuEditMods {
             }
         }
         Task::perform(
-            get_locally_installed_mods(selected_instance.get_dot_minecraft_path(dir), blacklist),
+            get_locally_installed_mods(selected_instance.get_dot_minecraft_path(), blacklist),
             |n| Message::ManageMods(ManageModsMessage::LocalIndexLoaded(n)),
         )
     }
@@ -611,7 +610,6 @@ pub struct InstanceLog {
 
 pub struct Launcher {
     pub state: State,
-    pub dir: PathBuf,
     pub selected_instance: Option<InstanceSelection>,
     pub config: LauncherConfig,
     pub theme: LauncherTheme,
@@ -733,7 +731,6 @@ impl Launcher {
             .unwrap_or_else(|| OFFLINE_ACCOUNT_NAME.to_owned());
 
         Ok(Self {
-            dir: launcher_dir,
             client_list: None,
             server_list: None,
             java_recv: None,
@@ -779,7 +776,6 @@ impl Launcher {
             .unwrap_or((LauncherConfig::default(), LauncherTheme::default()));
 
         Self {
-            dir: launcher_dir.unwrap_or_default(),
             state: State::Error { error },
             is_log_open: false,
             log_scroll: 0,

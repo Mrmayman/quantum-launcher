@@ -126,7 +126,6 @@ impl Launcher {
                     .chain(MenuEditMods::update_locally_installed_mods(
                         &menu.mods,
                         &instance_name,
-                        &self.dir,
                     ));
 
                     return Task::batch([toggle_downloaded, toggle_local]);

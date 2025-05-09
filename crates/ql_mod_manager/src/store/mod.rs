@@ -2,7 +2,7 @@ use std::{fmt::Display, path::PathBuf, sync::mpsc::Sender, time::Instant};
 
 use chrono::DateTime;
 use ql_core::{
-    err, file_utils,
+    err,
     json::{InstanceConfigJson, VersionDetails},
     GenericProgress, InstanceSelection, IntoIoError, Loader, ModId, StoreBackendType,
 };
@@ -222,7 +222,7 @@ pub struct ModDescription {
 }
 
 async fn get_loader(instance: &InstanceSelection) -> Result<Option<Loader>, ModError> {
-    let instance_dir = file_utils::get_instance_dir(instance)?;
+    let instance_dir = instance.get_instance_path();
     let config_json = InstanceConfigJson::read_from_path(&instance_dir).await?;
 
     Ok(match config_json.mod_type.as_str() {
@@ -246,7 +246,7 @@ async fn get_mods_resourcepacks_shaderpacks_dir(
     instance_name: &InstanceSelection,
     version_json: &VersionDetails,
 ) -> Result<(PathBuf, PathBuf, PathBuf), ModError> {
-    let dot_minecraft_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+    let dot_minecraft_dir = instance_name.get_dot_minecraft_path();
     let mods_dir = dot_minecraft_dir.join("mods");
     tokio::fs::create_dir_all(&mods_dir).await.path(&mods_dir)?;
 

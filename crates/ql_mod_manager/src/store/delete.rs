@@ -1,5 +1,5 @@
 use crate::store::{ModError, ModIndex};
-use ql_core::{err, file_utils, info, pt, InstanceSelection, IoError, ModId};
+use ql_core::{err, info, pt, InstanceSelection, IoError, ModId};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -16,7 +16,7 @@ pub async fn delete_mods(
     info!("Deleting mods:");
     let mut index = ModIndex::get(&instance_name).await?;
 
-    let mods_dir = file_utils::get_dot_minecraft_dir(&instance_name)?.join("mods");
+    let mods_dir = instance_name.get_dot_minecraft_path().join("mods");
 
     // let mut downloaded_mods = HashSet::new();
 

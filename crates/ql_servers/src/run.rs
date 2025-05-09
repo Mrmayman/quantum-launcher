@@ -33,10 +33,6 @@ use crate::ServerError;
 /// - `Command` couldn't be spawned (IO Error)
 /// - Forge shim file (`forge-*-shim.jar`) couldn't be found
 /// - Other stuff I'm too dumb to see
-/// ## Launcher Dir
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
-/// - if the launcher directory could not be created (permissions issue)
 pub async fn run(
     name: String,
     java_install_progress: Sender<GenericProgress>,

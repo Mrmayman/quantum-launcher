@@ -27,11 +27,6 @@ impl ServerProperties {
 
     /// Saves the configuration to a server with name `server_name`,
     /// as a `server.properties` file.
-    ///
-    /// # Errors
-    /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-    /// - if you’re on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
-    /// - if the directory could not be accessed (permissions)
     pub async fn save(&self, server_name: &str) -> Result<(), IoError> {
         let server_dir = LAUNCHER_DIR.join("servers").join(server_name);
         let properties_file = server_dir.join("server.properties");

@@ -15,7 +15,7 @@ use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Mess
 impl Launcher {
     pub fn open_mods_screen(&mut self) -> Result<Task<Message>, String> {
         let selection = self.selected_instance.as_ref().unwrap();
-        let instances_dir = selection.get_instance_path(&self.dir);
+        let instances_dir = selection.get_instance_path();
 
         let config_path = instances_dir.join("config.json");
         let config = std::fs::read_to_string(&config_path)

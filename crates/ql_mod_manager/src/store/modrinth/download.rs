@@ -309,7 +309,7 @@ fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>
 }
 
 pub async fn get_loader_type(instance: &InstanceSelection) -> Result<Option<String>, ModError> {
-    let instance_dir = file_utils::get_instance_dir(instance)?;
+    let instance_dir = instance.get_instance_path();
     let config_json = InstanceConfigJson::read_from_path(&instance_dir).await?;
 
     Ok(match config_json.mod_type.as_str() {

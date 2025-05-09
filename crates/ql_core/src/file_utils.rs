@@ -7,9 +7,7 @@ use reqwest::{header::InvalidHeaderValue, Client};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
-use crate::{
-    error::IoError, info_no_log, retry, InstanceSelection, IntoIoError, JsonDownloadError, CLIENT,
-};
+use crate::{error::IoError, info_no_log, retry, IntoIoError, JsonDownloadError, CLIENT};
 
 /// The path to the QuantumLauncher root folder.
 ///
@@ -102,45 +100,6 @@ pub fn is_new_user() -> bool {
     };
     let launcher_directory = config_directory.join("QuantumLauncher");
     !launcher_directory.exists()
-}
-
-/// Returns the path to `.minecraft` folder containing the game files.
-///
-/// # Errors
-/// - if the instance directory is outside the launcher directory (escape attack)
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if the launcher directory could not be created (permissions issue)
-pub fn get_dot_minecraft_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = &*LAUNCHER_DIR;
-    let dir = match selection {
-        InstanceSelection::Instance(name) => {
-            launcher_dir.join("instances").join(name).join(".minecraft")
-        }
-        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
-    };
-    if !dir.starts_with(launcher_dir) {
-        return Err(IoError::DirEscapeAttack);
-    }
-    Ok(dir)
-}
-
-/// Returns the path to the instance directory containing
-/// QuantumLauncher-specific files.
-///
-/// # Errors
-/// - if the instance directory is outside the launcher directory (escape attack)
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if the launcher directory could not be created (permissions issue)
-pub fn get_instance_dir(selection: &InstanceSelection) -> Result<PathBuf, IoError> {
-    let launcher_dir = &*LAUNCHER_DIR;
-    let instance_dir = match selection {
-        InstanceSelection::Instance(name) => launcher_dir.join("instances").join(name),
-        InstanceSelection::Server(name) => launcher_dir.join("servers").join(name),
-    };
-    if !instance_dir.starts_with(launcher_dir) {
-        return Err(IoError::DirEscapeAttack);
-    }
-    Ok(instance_dir)
 }
 
 /// Downloads a file from the given URL into a `String`.

@@ -20,11 +20,7 @@ mod loader;
 pub mod print;
 mod progress;
 
-use std::{
-    future::Future,
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::{future::Future, path::PathBuf, sync::LazyLock};
 
 pub use error::{
     DownloadError, IntoIoError, IntoStringError, IoError, JsonDownloadError, JsonFileError,
@@ -170,20 +166,20 @@ impl InstanceSelection {
     }
 
     #[must_use]
-    pub fn get_instance_path(&self, parent: &Path) -> PathBuf {
+    pub fn get_instance_path(&self) -> PathBuf {
         match self {
-            Self::Instance(name) => parent.join("instances").join(name),
-            Self::Server(name) => parent.join("servers").join(name),
+            Self::Instance(name) => LAUNCHER_DIR.join("instances").join(name),
+            Self::Server(name) => LAUNCHER_DIR.join("servers").join(name),
         }
     }
 
     #[must_use]
-    pub fn get_dot_minecraft_path(&self, parent: &Path) -> PathBuf {
+    pub fn get_dot_minecraft_path(&self) -> PathBuf {
         match self {
             InstanceSelection::Instance(name) => {
-                parent.join("instances").join(name).join(".minecraft")
+                LAUNCHER_DIR.join("instances").join(name).join(".minecraft")
             }
-            InstanceSelection::Server(name) => parent.join("servers").join(name),
+            InstanceSelection::Server(name) => LAUNCHER_DIR.join("servers").join(name),
         }
     }
 

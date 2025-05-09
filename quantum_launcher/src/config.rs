@@ -127,12 +127,6 @@ impl LauncherConfig {
         Ok(config)
     }
 
-    /// Saves the launcher configuration.
-    ///
-    /// # Errors
-    /// - if the user doesn't have permission to access launcher directory
-    /// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-    /// - if you’re on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
     pub async fn save(&self) -> Result<(), JsonFileError> {
         let config_path = LAUNCHER_DIR.join("config.json");
         let config = serde_json::to_string(&self)?;

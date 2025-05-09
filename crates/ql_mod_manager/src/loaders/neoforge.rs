@@ -38,7 +38,7 @@ pub async fn install(
     let installer_url = format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{neoforge_version}/neoforge-{neoforge_version}-installer.jar");
     let installer_bytes = file_utils::download_file_to_bytes(&installer_url, false).await?;
 
-    let instance_dir = file_utils::get_instance_dir(&instance)?;
+    let instance_dir = instance.get_instance_path();
     let neoforge_dir = instance_dir.join("forge");
     tokio::fs::create_dir_all(&neoforge_dir)
         .await

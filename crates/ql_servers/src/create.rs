@@ -35,10 +35,6 @@ use crate::ServerError;
 /// - ...couldn't be downloaded
 /// - ...couldn't be parsed into JSON
 /// - ...doesn't have server version
-/// ## Launcher Dir
-/// - if config dir (~/.config on linux or AppData/Roaming on windows) is not found
-/// - if you're on an unsupported platform (other than Windows, Linux, macOS, Redox, any linux-like unix)
-/// - if the launcher directory couldn't be created (permissions issue)
 /// ## Version JSON...
 /// - ...couldn't be downloaded
 /// - ...couldn't be parsed into JSON

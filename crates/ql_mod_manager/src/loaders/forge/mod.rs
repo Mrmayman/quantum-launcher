@@ -58,7 +58,7 @@ impl ForgeInstaller {
         f_progress: Option<Sender<ForgeInstallProgress>>,
         instance_name: InstanceSelection,
     ) -> Result<Self, ForgeInstallError> {
-        let instance_dir = file_utils::get_instance_dir(&instance_name)?;
+        let instance_dir = instance_name.get_instance_path();
         let forge_dir = if instance_name.is_server() {
             instance_dir.clone()
         } else {

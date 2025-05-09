@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::{widget, Length};
-use ql_core::{LogType, LAUNCHER_VERSION_NAME};
+use ql_core::{InstanceSelection, LogType, LAUNCHER_VERSION_NAME};
 
 use crate::{
     icon_manager,
@@ -84,7 +84,7 @@ impl Launcher {
                             self.get_client_play_button(selected_instance_s)
                         },
                         get_mods_button(selected_instance_s),
-                        self.get_files_button(selected_instance_s),
+                        self.get_files_button(selected),
                     ]
                     .spacing(5)
                     .wrap();
@@ -412,20 +412,16 @@ impl Launcher {
 
     fn get_files_button<'a>(
         &self,
-        selected_instance: Option<&'a str>,
+        selected_instance: &'a InstanceSelection,
     ) -> widget::Button<'a, Message, LauncherTheme> {
         button_with_icon(icon_manager::folder(), "Files", 16)
-            .on_press_maybe((selected_instance.is_some()).then(|| {
-                Message::CoreOpenDir(
-                    self.dir
-                        .join("instances")
-                        .join(selected_instance.as_ref().unwrap())
-                        .join(".minecraft")
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
-                )
-            }))
+            .on_press(Message::CoreOpenDir(
+                selected_instance
+                    .get_dot_minecraft_path()
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+            ))
             .width(97)
     }
 

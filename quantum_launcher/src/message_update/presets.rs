@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::Path};
+use std::collections::HashSet;
 
 use iced::Task;
 use ql_core::{
@@ -169,7 +169,6 @@ impl Launcher {
                         inner,
                         config,
                         recommended_mods,
-                        &self.dir,
                     ) {
                         return Some(task);
                     }
@@ -217,7 +216,6 @@ impl Launcher {
         inner: &mut MenuEditPresetsInner,
         config: &mut ql_core::json::InstanceConfigJson,
         recommended_mods: &mut Option<Vec<(bool, RecommendedMod)>>,
-        dir: &Path,
     ) -> Option<Task<Message>> {
         let mod_type = config.mod_type.clone();
         let (sender, receiver) = std::sync::mpsc::channel();
@@ -228,7 +226,7 @@ impl Launcher {
         if recommended_mods.is_some() {
             return None;
         }
-        let json = VersionDetails::load_s(&selected_instance.get_instance_path(dir))?;
+        let json = VersionDetails::load_s(&selected_instance.get_instance_path())?;
         let loader = Loader::try_from(mod_type.as_str()).ok()?;
         let version = json.id.clone();
         let ids = RECOMMENDED_MODS.to_owned();

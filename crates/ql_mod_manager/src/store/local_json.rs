@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use ql_core::{file_utils, InstanceSelection, IntoIoError, JsonFileError};
+use ql_core::{info, InstanceSelection, IntoIoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
 use super::ModError;
@@ -32,7 +32,7 @@ pub struct ModIndex {
 
 impl ModIndex {
     pub async fn get(selected_instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir(selected_instance)?;
+        let dot_mc_dir = selected_instance.get_dot_minecraft_path();
 
         let mods_dir = dot_mc_dir.join("mods");
         if !mods_dir.exists() {
@@ -73,7 +73,7 @@ impl ModIndex {
     }
 
     pub fn get_s(selected_instance: &InstanceSelection) -> Result<Self, ModError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir(selected_instance)?;
+        let dot_mc_dir = selected_instance.get_dot_minecraft_path();
 
         let mods_dir = dot_mc_dir.join("mods");
         if !mods_dir.exists() {
@@ -103,10 +103,12 @@ impl ModIndex {
         }
     }
 
-    pub async fn save(&self, instance_name: &InstanceSelection) -> Result<(), ModError> {
-        let dot_mc_dir = file_utils::get_dot_minecraft_dir(instance_name)?;
+    pub async fn save(&mut self, selected_instance: &InstanceSelection) -> Result<(), ModError> {
+        self.fix(selected_instance).await?;
 
-        let index_dir = dot_mc_dir.join("mod_index.json");
+        let index_dir = selected_instance
+            .get_dot_minecraft_path()
+            .join("mod_index.json");
 
         let index_str = serde_json::to_string(&self)?;
         tokio::fs::write(&index_dir, &index_str)
@@ -120,6 +122,42 @@ impl ModIndex {
             mods: HashMap::new(),
             is_server: Some(instance_name.is_server()),
         }
+    }
+
+    pub async fn fix(&mut self, selected_instance: &InstanceSelection) -> Result<(), ModError> {
+        let mods_dir = selected_instance.get_dot_minecraft_path().join("mods");
+        if !mods_dir.exists() {
+            tokio::fs::create_dir(&mods_dir).await.path(&mods_dir)?;
+            return Ok(());
+        }
+
+        let mut removed_ids = Vec::new();
+        let mut remove_dependents = Vec::new();
+
+        for (id, mod_cfg) in &mut self.mods {
+            mod_cfg
+                .files
+                .retain(|file| mods_dir.join(&file.filename).is_file());
+            if mod_cfg.files.is_empty() {
+                info!("Cleaning deleted mod: {}", mod_cfg.name);
+                removed_ids.push(id.clone());
+            }
+            for dependent in &mod_cfg.dependents {
+                remove_dependents.push((dependent.clone(), id.clone()));
+            }
+        }
+
+        for (dependent, dependency) in remove_dependents {
+            if let Some(mod_cfg) = self.mods.get_mut(&dependent) {
+                mod_cfg.dependencies.remove(&dependency);
+            }
+        }
+
+        for id in removed_ids {
+            self.mods.remove(&id);
+        }
+
+        Ok(())
     }
 }
 

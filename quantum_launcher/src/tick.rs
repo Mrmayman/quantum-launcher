@@ -1,7 +1,6 @@
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
 };
 
 use chrono::Datelike;
@@ -63,7 +62,7 @@ impl Launcher {
             State::Create(menu) => menu.tick(),
             State::EditMods(menu) => {
                 let instance_selection = self.selected_instance.as_ref().unwrap();
-                let update_locally_installed_mods = menu.tick(instance_selection, &self.dir);
+                let update_locally_installed_mods = menu.tick(instance_selection);
                 return update_locally_installed_mods;
             }
             State::InstallFabric(menu) => {
@@ -124,13 +123,6 @@ impl Launcher {
                     }
                 }
             }
-            // State::ServerManage(_) => {
-            //     if self.java_recv.as_mut().is_some_and(ProgressBar::tick) {
-            //         self.state = State::InstallJava;
-            //         return Task::none();
-            //     }
-            //     self.tick_server_processes_and_logs();
-            // }
             State::ServerCreate(menu) => menu.tick(),
             State::ManagePresets(menu) => {
                 if let Some(progress) = &mut menu.progress {
@@ -143,6 +135,7 @@ impl Launcher {
             State::AccountLoginProgress(progress) => {
                 progress.tick();
             }
+
             // These menus don't require background ticking
             State::Error { .. }
             | State::ConfirmAction { .. }
@@ -160,8 +153,7 @@ impl Launcher {
         let Some(instance) = self.selected_instance.clone() else {
             return;
         };
-        let dir = self.dir.clone();
-        let cmd = Task::perform(Launcher::save_config(instance, config, dir), |n| {
+        let cmd = Task::perform(Launcher::save_config(instance, config), |n| {
             Message::EditInstance(EditInstanceMessage::ConfigSaved(n.strerr()))
         });
         commands.push(cmd);
@@ -305,13 +297,12 @@ impl Launcher {
     async fn save_config(
         instance: InstanceSelection,
         config: InstanceConfigJson,
-        dir: PathBuf,
     ) -> Result<(), JsonFileError> {
         let mut config = config.clone();
         if config.enable_logger.is_none() {
             config.enable_logger = Some(true);
         }
-        let config_path = instance.get_instance_path(&dir).join("config.json");
+        let config_path = instance.get_instance_path().join("config.json");
 
         let config_json = serde_json::to_string(&config)?;
         tokio::fs::write(&config_path, config_json)
@@ -430,7 +421,7 @@ pub fn sort_dependencies(
 }
 
 impl MenuEditMods {
-    fn tick(&mut self, instance_selection: &InstanceSelection, dir: &Path) -> Task<Message> {
+    fn tick(&mut self, instance_selection: &InstanceSelection) -> Task<Message> {
         self.sorted_mods_list = sort_dependencies(&self.mods.mods, &self.locally_installed_mods);
 
         if let Some(progress) = &mut self.mod_update_progress {
@@ -440,7 +431,7 @@ impl MenuEditMods {
             }
         }
 
-        MenuEditMods::update_locally_installed_mods(&self.mods, instance_selection, dir)
+        MenuEditMods::update_locally_installed_mods(&self.mods, instance_selection)
     }
 }
 

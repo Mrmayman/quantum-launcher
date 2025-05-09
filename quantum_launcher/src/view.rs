@@ -89,7 +89,7 @@ impl Launcher {
             .into(),
             State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
             State::AccountLogin { url, code, .. } => view_account_login(url, code),
-            State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap(), &self.dir),
+            State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::Create(menu) => menu.view(),
             State::ConfirmAction {
                 msg1,

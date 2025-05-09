@@ -5,7 +5,7 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, info,
+    err, info,
     json::{InstanceConfigJson, VersionDetails},
     pt, InstanceSelection, IntoIoError, ModId, SelectedMod, LAUNCHER_VERSION_NAME,
 };
@@ -57,7 +57,7 @@ impl PresetJson {
         instance_name: InstanceSelection,
         selected_mods: HashSet<SelectedMod>,
     ) -> Result<Vec<u8>, ModError> {
-        let dot_minecraft = file_utils::get_dot_minecraft_dir(&instance_name)?;
+        let dot_minecraft = instance_name.get_dot_minecraft_path();
         let mods_dir = dot_minecraft.join("mods");
         let config_dir = dot_minecraft.join("config");
 
@@ -156,7 +156,7 @@ impl PresetJson {
     ) -> Result<Vec<ModId>, ModError> {
         info!("Importing mod preset");
 
-        let main_dir = file_utils::get_dot_minecraft_dir(&instance_name)?;
+        let main_dir = instance_name.get_dot_minecraft_path();
         let mods_dir = main_dir.join("mods");
 
         let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;

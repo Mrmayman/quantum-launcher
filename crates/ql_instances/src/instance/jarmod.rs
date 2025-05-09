@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use ql_core::{
-    file_utils,
     json::{JsonOptifine, VersionDetails},
     InstanceSelection, IntoIoError, IoError, JsonFileError,
 };
@@ -11,7 +10,7 @@ use crate::instance::launch::GameLauncher;
 
 #[allow(dead_code)] // incomplete
 pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError> {
-    let instance_dir = file_utils::get_instance_dir(instance)?;
+    let instance_dir = instance.get_instance_path();
     let jarmods_dir = instance_dir.join("jarmods");
     tokio::fs::create_dir_all(&jarmods_dir)
         .await

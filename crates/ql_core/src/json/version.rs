@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Debug, path::Path};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{err, file_utils, InstanceSelection, IntoIoError, JsonFileError};
+use crate::{err, InstanceSelection, IntoIoError, JsonFileError};
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -51,7 +51,7 @@ impl VersionDetails {
     /// - `details.json` file couldn't be loaded
     /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        let path = file_utils::get_instance_dir(instance)?.join("details.json");
+        let path = instance.get_instance_path().join("details.json");
 
         let file = tokio::fs::read_to_string(&path).await.path(path)?;
 
