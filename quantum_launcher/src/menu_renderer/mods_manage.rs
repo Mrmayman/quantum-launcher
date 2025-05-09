@@ -226,7 +226,7 @@ impl MenuEditMods {
         .into()
     }
 
-    fn open_mod_folder_button<'a>(selected_instance: &'a InstanceSelection) -> Element<'a> {
+    fn open_mod_folder_button(selected_instance: &InstanceSelection) -> Element {
         let path = {
             let path = selected_instance.get_dot_minecraft_path().join("mods");
             path.exists().then_some(path.to_str().unwrap().to_owned())

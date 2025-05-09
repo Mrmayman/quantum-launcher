@@ -5,7 +5,9 @@ use std::{
 };
 
 use chrono::DateTime;
-use ql_core::{json::VersionDetails, pt, GenericProgress, JsonDownloadError, RequestError, CLIENT};
+use ql_core::{
+    json::VersionDetails, pt, GenericProgress, JsonDownloadError, ModId, RequestError, CLIENT,
+};
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
 
@@ -203,7 +205,7 @@ impl Backend for CurseforgeBackend {
         })
     }
 
-    async fn get_description(id: &str) -> Result<super::ModDescription, super::ModError> {
+    async fn get_description(id: &str) -> Result<(ModId, String), super::ModError> {
         #[derive(Deserialize)]
         struct Resp2 {
             data: String,
@@ -213,10 +215,7 @@ impl Backend for CurseforgeBackend {
         let description = send_request(&format!("mods/{id}/description"), &map).await?;
         let description: Resp2 = serde_json::from_str(&description)?;
 
-        Ok(crate::store::ModDescription {
-            id: ql_core::ModId::Curseforge(id.to_string()),
-            long_description: description.data,
-        })
+        Ok((ModId::Curseforge(id.to_string()), description.data))
     }
 
     async fn get_latest_version_date(

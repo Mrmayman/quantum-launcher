@@ -166,12 +166,11 @@ impl Launcher {
                     if let Some(results) = &menu.results {
                         let hit = results.mods.get(i).unwrap();
                         if !menu
-                            .result_data
+                            .mod_descriptions
                             .contains_key(&ModId::from_pair(&hit.id, results.backend))
                         {
-                            let id = hit.id.clone();
                             let backend = menu.backend;
-                            let id = ModId::from_pair(&id, backend);
+                            let id = ModId::from_pair(&hit.id, backend);
 
                             return Task::perform(get_description(id), |n| {
                                 Message::InstallMods(InstallModsMessage::LoadData(n.strerr()))
@@ -185,10 +184,9 @@ impl Launcher {
                     menu.opened_mod = None;
                 }
             }
-            InstallModsMessage::LoadData(Ok(info)) => {
+            InstallModsMessage::LoadData(Ok((id, description))) => {
                 if let State::ModsDownload(menu) = &mut self.state {
-                    let id = info.id.clone();
-                    menu.result_data.insert(id, *info);
+                    menu.mod_descriptions.insert(id, description);
                 }
             }
             InstallModsMessage::Download(index) => {

@@ -208,16 +208,14 @@ impl MenuModsDownload {
         backend: StoreBackendType,
     ) -> Element<'a> {
         // Parses the markdown description of the mod.
-        let markdown_description =
-            if let Some(info) = self.result_data.get(&ModId::from_pair(&hit.id, backend)) {
-                widget::column!(Self::render_markdown(
-                    &info.long_description,
-                    images,
-                    window_size
-                ))
-            } else {
-                widget::column!(widget::text("Loading..."))
-            };
+        let markdown_description = if let Some(info) = self
+            .mod_descriptions
+            .get(&ModId::from_pair(&hit.id, backend))
+        {
+            widget::column!(Self::render_markdown(info, images, window_size))
+        } else {
+            widget::column!(widget::text("Loading..."))
+        };
 
         widget::scrollable(
             widget::column!(

@@ -28,9 +28,7 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    store::{
-        ImageResult, ModConfig, ModDescription, ModIndex, QueryType, RecommendedMod, SearchResult,
-    },
+    store::{ImageResult, ModConfig, ModIndex, QueryType, RecommendedMod, SearchResult},
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -114,7 +112,7 @@ pub enum InstallModsMessage {
     ImageDownloaded(Res<ImageResult>),
     Click(usize),
     BackToMainScreen,
-    LoadData(Res<Box<ModDescription>>),
+    LoadData(Res<(ModId, String)>),
     Download(usize),
     DownloadComplete(Res<ModId>),
     IndexUpdated(Res<ModIndex>),
@@ -482,7 +480,7 @@ pub struct MenuLauncherUpdate {
 pub struct MenuModsDownload {
     pub query: String,
     pub results: Option<SearchResult>,
-    pub result_data: HashMap<ModId, ModDescription>,
+    pub mod_descriptions: HashMap<ModId, String>,
     pub config: InstanceConfigJson,
     pub json: VersionDetails,
     pub opened_mod: Option<usize>,

@@ -37,7 +37,11 @@ pub trait Backend {
         offset: usize,
         query_type: QueryType,
     ) -> Result<SearchResult, ModError>;
-    async fn get_description(id: &str) -> Result<ModDescription, ModError>;
+    /// Gets the description of a mod based on its id.
+    /// Returns the id and description `String`.
+    ///
+    /// This supports both Markdown and HTML.
+    async fn get_description(id: &str) -> Result<(ModId, String), ModError>;
     async fn get_latest_version_date(
         id: &str,
         version: &str,
@@ -54,12 +58,11 @@ pub trait Backend {
     ) -> Result<(), ModError>;
 }
 
-pub async fn get_description(id: ModId) -> Result<Box<ModDescription>, ModError> {
+pub async fn get_description(id: ModId) -> Result<(ModId, String), ModError> {
     match &id {
         ModId::Modrinth(n) => ModrinthBackend::get_description(n).await,
         ModId::Curseforge(n) => CurseforgeBackend::get_description(n).await,
     }
-    .map(Box::new)
 }
 
 pub async fn search(
@@ -213,12 +216,6 @@ pub struct SearchMod {
     pub internal_name: String,
     pub id: String,
     pub icon_url: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct ModDescription {
-    pub id: ModId,
-    pub long_description: String,
 }
 
 async fn get_loader(instance: &InstanceSelection) -> Result<Option<Loader>, ModError> {

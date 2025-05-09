@@ -38,7 +38,7 @@ impl Launcher {
             query: String::new(),
             results: None,
             opened_mod: None,
-            result_data: HashMap::new(),
+            mod_descriptions: HashMap::new(),
             mods_download_in_progress: HashSet::new(),
             mod_index,
             is_loading_continuation: false,

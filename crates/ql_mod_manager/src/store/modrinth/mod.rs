@@ -11,7 +11,7 @@ use crate::{
     store::{SearchMod, StoreBackendType},
 };
 
-use super::{Backend, ModDescription, ModError, Query, QueryType, SearchResult};
+use super::{Backend, ModError, Query, QueryType, SearchResult};
 
 mod download;
 mod info;
@@ -52,13 +52,9 @@ impl Backend for ModrinthBackend {
         Ok(res)
     }
 
-    async fn get_description(id: &str) -> Result<ModDescription, ModError> {
+    async fn get_description(id: &str) -> Result<(ModId, String), ModError> {
         let info = info::ProjectInfo::download(id).await?;
-
-        Ok(ModDescription {
-            id: ModId::Modrinth(info.id),
-            long_description: info.body,
-        })
+        Ok((ModId::Modrinth(info.id), info.body))
     }
 
     async fn get_latest_version_date(
