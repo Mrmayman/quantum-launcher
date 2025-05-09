@@ -7,7 +7,7 @@ use crate::{
     launcher_state::{
         ImageState, InstallModsMessage, ManageModsMessage, MenuModsDownload, Message,
     },
-    stylesheet::styles::LauncherTheme,
+    stylesheet::{color::Color, styles::LauncherTheme},
 };
 
 use super::{button_with_icon, Element};
@@ -99,7 +99,7 @@ impl MenuModsDownload {
                     .then_some(
                         widget::column![
                             widget::text(
-                                "You haven't installed any shader mod! Either install Fabric + Sodium + Iris (recommended), or install OptiFine"
+                                "You haven't installed any shader mod! Either install:\n- Fabric + Sodium + Iris (recommended), or\n- OptiFine"
                             ).size(12)
                         ].padding(10)
                     )
@@ -217,23 +217,29 @@ impl MenuModsDownload {
             widget::column!(widget::text("Loading..."))
         };
 
+        let url = format!(
+            "{}{}/{}",
+            match self.backend {
+                // FIXME: add resource packs and shaderpacks
+                StoreBackendType::Modrinth => "https://modrinth.com/",
+                StoreBackendType::Curseforge => "https://www.curseforge.com/minecraft/",
+            },
+            hit.project_type,
+            hit.internal_name
+        );
+
         widget::scrollable(
             widget::column!(
                 widget::row!(
                     button_with_icon(icon_manager::back(), "Back", 16)
                         .on_press(Message::InstallMods(InstallModsMessage::BackToMainScreen)),
-                    button_with_icon(icon_manager::page(), "Open Mod Page", 16).on_press(
-                        Message::CoreOpenDir(format!(
-                            "{}{}",
-                            match self.backend {
-                                // FIXME: add resource packs and shaderpacks
-                                StoreBackendType::Modrinth => "https://modrinth.com/mod/",
-                                StoreBackendType::Curseforge =>
-                                    "https://www.curseforge.com/minecraft/mc-mods/",
-                            },
-                            hit.internal_name
-                        ))
-                    ),
+                    widget::tooltip(
+                        button_with_icon(icon_manager::page(), "Open Mod Page", 16)
+                            .on_press(Message::CoreOpenDir(url.clone())),
+                        widget::text(url),
+                        widget::tooltip::Position::Bottom
+                    )
+                    .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                     button_with_icon(icon_manager::save(), "Copy ID", 16)
                         .on_press(Message::CoreCopyText(hit.id.clone())),
                 )

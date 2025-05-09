@@ -64,7 +64,7 @@ pub struct Entry {
     pub description: String,
     pub downloads: usize,
     pub slug: String,
-    // pub project_type: String,
+    pub project_type: String,
     // pub author: String,
     // pub categories: Vec<String>,
     // pub display_categories: Vec<String>,

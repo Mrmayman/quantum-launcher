@@ -196,6 +196,7 @@ impl Backend for CurseforgeBackend {
                     downloads: n.downloadCount,
                     internal_name: n.slug,
                     id: n.id.to_string(),
+                    project_type: query_type_str.to_owned(),
                     icon_url: n.logo.map(|n| n.url).unwrap_or_default(),
                 })
                 .collect(),

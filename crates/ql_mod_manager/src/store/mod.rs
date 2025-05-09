@@ -214,6 +214,7 @@ pub struct SearchMod {
     pub description: String,
     pub downloads: usize,
     pub internal_name: String,
+    pub project_type: String,
     pub id: String,
     pub icon_url: String,
 }

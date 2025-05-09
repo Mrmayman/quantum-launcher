@@ -40,6 +40,7 @@ impl Backend for ModrinthBackend {
                     description: entry.description,
                     downloads: entry.downloads,
                     internal_name: entry.slug,
+                    project_type: entry.project_type,
                     id: entry.project_id,
                     icon_url: entry.icon_url,
                 })

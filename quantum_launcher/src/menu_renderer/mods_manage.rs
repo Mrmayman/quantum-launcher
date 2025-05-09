@@ -12,7 +12,7 @@ use crate::{
 
 use super::{back_to_launch_screen, button_with_icon, Element};
 
-const MODS_MANAGE_WIDTH: u16 = 155;
+const MODS_MANAGE_WIDTH: u16 = 180;
 
 impl MenuEditMods {
     pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
@@ -215,7 +215,7 @@ impl MenuEditMods {
                 icon_manager::delete(),
                 widget::text!("Uninstall {mod_type}")
             )
-            .width(MODS_MANAGE_WIDTH + 25)
+            .width(MODS_MANAGE_WIDTH)
             .spacing(10)
             .padding(5),
         )
