@@ -8,7 +8,6 @@ env:
   PROJECT_NAME: quantum_launcher
   REPO_NAME: Mrmayman/quantum-launcher
   FINAL_NAME: quantum_launcher
-  APP_VERSION: 0.4.1
   CARGO_TERM_COLOR: always # Tell cargo to always use colors
 
 jobs:

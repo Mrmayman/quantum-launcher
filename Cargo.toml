@@ -28,7 +28,7 @@ rfd = { version = "0.15", default-features = false, features = [
 
 image = { version = "0.24", default-features = false, features = [
     # Web formats are enough
-    "avif",
+    #"avif", 
     "gif",
     "ico",
     "jpeg",

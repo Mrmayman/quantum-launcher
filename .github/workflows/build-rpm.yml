@@ -20,15 +20,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        docker: [fedora-latest, fedora-40]
         include:
         - docker: fedora-latest
           version: latest
           os: fedora
           arch: x86_64
           altarch: amd64
-        - docker: fedora-40
-          version: 40
+        - docker: fedora-41
+          version: 41
           os: fedora
           arch: x86_64
           altarch: amd64
@@ -37,8 +36,7 @@ jobs:
     steps:
       - name: Install Build Dependencies
         run: |
-          sudo dnf install rpmdevtools rpmlint @development-tools rpkg git dnf5 dnf5-plugins --refresh -y
-          sudo dnf install dnf5-command\(builddep\) -y
+          sudo dnf install rpmdevtools rpmlint @development-tools rpkg git dnf5-plugins --refresh -y
       
       - name: Clone Repo
         run: |
