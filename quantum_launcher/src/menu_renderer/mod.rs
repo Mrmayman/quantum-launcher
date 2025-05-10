@@ -41,6 +41,7 @@ pub fn button_with_icon<'element>(
 ) -> iced::widget::Button<'element, Message, LauncherTheme, iced::Renderer> {
     widget::button(
         widget::row![icon, widget::text(text).size(size)]
+            .align_y(iced::alignment::Vertical::Center)
             .spacing(10)
             .padding(5),
     )

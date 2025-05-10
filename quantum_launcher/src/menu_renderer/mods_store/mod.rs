@@ -38,56 +38,65 @@ impl MenuModsDownload {
             }
         };
         widget::row!(
-            widget::column!(
-                widget::text_input("Search...", &self.query)
-                    .on_input(|n| Message::InstallMods(InstallModsMessage::SearchInput(n))),
-                if self.mods_download_in_progress.is_empty() {
-                    widget::column!(
-                        button_with_icon(icon_manager::back(), "Back", 16)
-                            .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
-                        widget::Space::with_height(5.0),
-                        widget::text("Select store:").size(20),
-                        widget::radio(
-                            "Modrinth",
-                            StoreBackendType::Modrinth,
-                            Some(self.backend),
-                            |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
-                        ),
-                        widget::radio(
-                            "CurseForge",
-                            StoreBackendType::Curseforge,
-                            Some(self.backend),
-                            |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
-                        ),
-                        widget::Space::with_height(5),
-                        widget::text("Select Type:").size(20),
-                        widget::column(QueryType::ALL.iter().map(|n| {
-                            widget::radio(n.to_string(), *n, Some(self.query_type), |v| {
-                                Message::InstallMods(InstallModsMessage::ChangeQueryType(v))
-                            })
-                            .into()
-                        }))
+            widget::scrollable(
+                widget::column!(
+                    widget::text_input("Search...", &self.query)
+                        .on_input(|n| Message::InstallMods(InstallModsMessage::SearchInput(n))),
+                    if self.mods_download_in_progress.is_empty() {
+                        widget::column!(
+                            button_with_icon(icon_manager::back(), "Back", 16)
+                                .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+                            widget::Space::with_height(5.0),
+                            widget::text("Select store:").size(18),
+                            widget::radio(
+                                "Modrinth",
+                                StoreBackendType::Modrinth,
+                                Some(self.backend),
+                                |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
+                            )
+                            .text_size(14)
+                            .size(14),
+                            widget::radio(
+                                "CurseForge",
+                                StoreBackendType::Curseforge,
+                                Some(self.backend),
+                                |v| { Message::InstallMods(InstallModsMessage::ChangeBackend(v)) }
+                            )
+                            .text_size(14)
+                            .size(14),
+                            widget::Space::with_height(5),
+                            widget::text("Select Type:").size(18),
+                            widget::column(QueryType::ALL.iter().map(|n| {
+                                widget::radio(n.to_string(), *n, Some(self.query_type), |v| {
+                                    Message::InstallMods(InstallModsMessage::ChangeQueryType(v))
+                                })
+                                .text_size(14)
+                                .size(14)
+                                .into()
+                            }))
+                            .spacing(5)
+                        )
                         .spacing(5)
-                    )
-                    .spacing(5)
-                } else {
-                    // Mods are being installed. Can't back out.
-                    // Show list of mods being installed.
-                    widget::column!("Installing:", {
-                        widget::column(self.mods_download_in_progress.iter().filter_map(|id| {
-                            let search = self.results.as_ref()?;
-                            let hit = search
-                                .mods
-                                .iter()
-                                .find(|hit| hit.id == id.get_internal_id())?;
-                            Some(widget::text!("- {}", hit.title).into())
-                        }))
-                    })
-                },
+                    } else {
+                        // Mods are being installed. Can't back out.
+                        // Show list of mods being installed.
+                        widget::column!("Installing:", {
+                            widget::column(self.mods_download_in_progress.iter().filter_map(|id| {
+                                let search = self.results.as_ref()?;
+                                let hit = search
+                                    .mods
+                                    .iter()
+                                    .find(|hit| hit.id == id.get_internal_id())?;
+                                Some(widget::text!("- {}", hit.title).into())
+                            }))
+                        })
+                    },
+                )
+                .padding(10)
+                .spacing(10)
+                .width(200)
             )
-            .padding(10)
-            .spacing(10)
-            .width(200),
+            .style(LauncherTheme::style_scrollable_flat_dark),
             widget::Column::new()
                 .push_maybe(
                     (self.query_type == QueryType::Shaders

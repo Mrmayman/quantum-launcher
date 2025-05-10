@@ -135,9 +135,12 @@ impl ModIndex {
         let mut remove_dependents = Vec::new();
 
         for (id, mod_cfg) in &mut self.mods {
-            mod_cfg
-                .files
-                .retain(|file| mods_dir.join(&file.filename).is_file());
+            mod_cfg.files.retain(|file| {
+                mods_dir.join(&file.filename).is_file()
+                    || mods_dir
+                        .join(&format!("{}.disabled", file.filename))
+                        .is_file()
+            });
             if mod_cfg.files.is_empty() {
                 info!("Cleaning deleted mod: {}", mod_cfg.name);
                 removed_ids.push(id.clone());

@@ -12,8 +12,6 @@ use crate::{
 
 use super::{back_to_launch_screen, button_with_icon, Element};
 
-const MODS_MANAGE_WIDTH: u16 = 180;
-
 impl MenuEditMods {
     pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
@@ -27,19 +25,17 @@ impl MenuEditMods {
             widget::container(
                 widget::scrollable(
                     widget::column!(
-                        widget::button(
-                            widget::row![icon_manager::back(), "Back"]
-                                .spacing(10)
-                                .padding(5)
-                        )
-                        .on_press(back_to_launch_screen(selected_instance, None)),
+                        button_with_icon(icon_manager::back(), "Back", 15)
+                            .on_press(back_to_launch_screen(selected_instance, None)),
                         self.get_mod_installer_buttons(selected_instance),
                         widget::column!(
-                            button_with_icon(icon_manager::download(), "Download Stuff", 16)
-                                .width(MODS_MANAGE_WIDTH)
-                                .on_press(Message::InstallMods(InstallModsMessage::Open)),
-                            button_with_icon(icon_manager::save(), "Mod Presets", 16)
-                                .width(MODS_MANAGE_WIDTH)
+                            button_with_icon(
+                                icon_manager::download_with_size(14),
+                                "Download Content",
+                                15
+                            )
+                            .on_press(Message::InstallMods(InstallModsMessage::Open)),
+                            button_with_icon(icon_manager::save(), "Mod Presets", 15)
                                 .on_press(Message::EditPresets(EditPresetsMessage::Open))
                         )
                         .spacing(5),
@@ -213,9 +209,8 @@ impl MenuEditMods {
         widget::button(
             widget::row!(
                 icon_manager::delete(),
-                widget::text!("Uninstall {mod_type}")
+                widget::text!("Uninstall {mod_type}").size(15)
             )
-            .width(MODS_MANAGE_WIDTH)
             .spacing(10)
             .padding(5),
         )
@@ -232,8 +227,7 @@ impl MenuEditMods {
             path.exists().then_some(path.to_str().unwrap().to_owned())
         };
 
-        button_with_icon(icon_manager::folder(), "Mods Folder", 16)
-            .width(MODS_MANAGE_WIDTH)
+        button_with_icon(icon_manager::folder_with_size(14), "Open Mods Folder", 15)
             .on_press_maybe(path.map(Message::CoreOpenDir))
             .into()
     }
