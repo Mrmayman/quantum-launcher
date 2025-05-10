@@ -15,8 +15,6 @@ jobs:
   Flatpak:
     name: Build Flatpak
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false # don't fail other jobs if one fails
 
     steps:
       - name: Checkout sources
