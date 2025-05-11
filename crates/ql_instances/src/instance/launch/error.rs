@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use ql_core::{json::VersionDetails, DownloadError, IoError, JsonFileError};
 
-use crate::mc_auth::AuthError;
+use crate::{jarmod::JarModError, mc_auth::AuthError};
 
 #[derive(Debug, Error)]
 pub enum GameLaunchError {
@@ -38,6 +38,8 @@ pub enum GameLaunchError {
     MsAuth(#[from] AuthError),
     #[error("microsoft account token was not loaded")]
     InvalidToken,
+    #[error("while building jar mods for launching game:\n{0}")]
+    JarMod(#[from] JarModError),
 }
 
 const FORGE_UPGRADE_MESSAGE: &str = r"outdated forge install. Please uninstall and reinstall.

@@ -70,6 +70,7 @@ pub use mc_auth::{
     AccountData, AuthCodeResponse, AuthError, AuthTokenResponse, CLIENT_ID,
 };
 pub use omniarchive_api::ListEntry;
+pub use ql_core::jarmod;
 pub use ql_java_handler::delete_java_installs;
 
 use semver::{BuildMetadata, Prerelease};

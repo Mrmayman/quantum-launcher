@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use iced::{widget::image::Handle, Task};
-use ql_core::{err, info, InstanceSelection, IntoStringError, ModId};
+use ql_core::{err, info, InstanceSelection, IntoStringError, ModId, OptifineUniqueVersion};
 use ql_mod_manager::{loaders, store::get_description};
 
 mod accounts;
@@ -268,12 +268,38 @@ impl Launcher {
     pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Task<Message> {
         match message {
             InstallOptifineMessage::ScreenOpen => {
-                self.state = State::InstallOptifine(MenuInstallOptifine::default());
+                let optifine_unique_version =
+                    OptifineUniqueVersion::get(self.selected_instance.as_ref().unwrap());
+
+                if let Some(version @ OptifineUniqueVersion::B1_7_3) = optifine_unique_version {
+                    self.state = State::InstallOptifine(MenuInstallOptifine {
+                        optifine_install_progress: None,
+                        java_install_progress: None,
+                        is_java_being_installed: false,
+                        is_b173_being_installed: true,
+                        optifine_unique_version: Some(version),
+                    });
+
+                    let selected_instance = self.selected_instance.clone().unwrap();
+                    let url = version.get_url().0;
+                    return Task::perform(
+                        ql_mod_manager::loaders::optifine::install_b173(selected_instance, url),
+                        |n| Message::InstallOptifine(InstallOptifineMessage::End(n.strerr())),
+                    );
+                } else {
+                    self.state = State::InstallOptifine(MenuInstallOptifine {
+                        optifine_install_progress: None,
+                        java_install_progress: None,
+                        is_java_being_installed: false,
+                        is_b173_being_installed: false,
+                        optifine_unique_version,
+                    });
+                }
             }
             InstallOptifineMessage::SelectInstallerStart => {
                 return Task::perform(
                     rfd::AsyncFileDialog::new()
-                        .add_filter("jar", &["jar"])
+                        .add_filter("jar/zip", &["jar", "zip"])
                         .set_title("Select OptiFine Installer")
                         .pick_file(),
                     |n| Message::InstallOptifine(InstallOptifineMessage::SelectInstallerEnd(n)),
@@ -286,10 +312,17 @@ impl Launcher {
                     let (p_sender, p_recv) = std::sync::mpsc::channel();
                     let (j_sender, j_recv) = std::sync::mpsc::channel();
 
+                    let instance = self.selected_instance.as_ref().unwrap();
+                    let optifine_unique_version = OptifineUniqueVersion::get(instance);
+
+                    if let Some(OptifineUniqueVersion::B1_7_3) = optifine_unique_version {}
+
                     self.state = State::InstallOptifine(MenuInstallOptifine {
                         optifine_install_progress: Some(ProgressBar::with_recv(p_recv)),
                         java_install_progress: Some(ProgressBar::with_recv(j_recv)),
                         is_java_being_installed: false,
+                        is_b173_being_installed: false,
+                        optifine_unique_version,
                     });
 
                     let get_name = self
@@ -306,6 +339,7 @@ impl Launcher {
                             path,
                             Some(p_sender),
                             Some(j_sender),
+                            optifine_unique_version.is_some(),
                         ),
                         |n| Message::InstallOptifine(InstallOptifineMessage::End(n.strerr())),
                     );

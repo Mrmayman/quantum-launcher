@@ -8,6 +8,8 @@ chrono = { workspace = true }
 dirs = "6"
 futures = { version = "0.3", default-features = false }
 zip-extract = { workspace = true }
+zip = { workspace = true }
+walkdir = "2"
 
 colored = { workspace = true }
 reqwest = { workspace = true }

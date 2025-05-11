@@ -3750,6 +3750,8 @@ dependencies = [
  "strsim",
  "thiserror 2.0.12",
  "tokio",
+ "walkdir",
+ "zip",
  "zip-extract",
 ]
 

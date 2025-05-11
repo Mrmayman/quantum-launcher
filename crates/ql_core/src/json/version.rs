@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt::Debug, path::Path};
 
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -110,6 +111,17 @@ impl VersionDetails {
         };
 
         Some(details)
+    }
+
+    pub fn is_legacy_version(&self) -> bool {
+        let v1_5_2 = DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00").unwrap();
+        match DateTime::parse_from_rfc3339(&self.releaseTime) {
+            Ok(dt) => dt <= v1_5_2,
+            Err(e) => {
+                err!("Could not parse instance date/time: {e}");
+                false
+            }
+        }
     }
 }
 

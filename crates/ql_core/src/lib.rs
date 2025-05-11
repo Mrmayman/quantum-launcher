@@ -13,6 +13,7 @@
 mod error;
 /// Common utilities for working with files.
 pub mod file_utils;
+pub mod jarmod;
 /// JSON structs for version, instance config, Fabric, Forge, Optifine, Quilt, Neoforge, etc.
 pub mod json;
 mod loader;
@@ -20,13 +21,18 @@ mod loader;
 pub mod print;
 mod progress;
 
-use std::{future::Future, path::PathBuf, sync::LazyLock};
+use std::{
+    future::Future,
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 pub use error::{
     DownloadError, IntoIoError, IntoStringError, IoError, JsonDownloadError, JsonFileError,
 };
 pub use file_utils::{RequestError, LAUNCHER_DIR};
 use futures::StreamExt;
+use json::VersionDetails;
 pub use loader::Loader;
 pub use print::{logger_finish, LogType, LoggingState, LOGGER};
 pub use progress::{DownloadProgress, GenericProgress, Progress};
@@ -320,3 +326,48 @@ pub fn open_file_explorer(path: &str) {
 //         }
 //     };
 // }
+
+#[derive(Debug, Clone, Copy)]
+pub enum OptifineUniqueVersion {
+    V1_5_2,
+    V1_2_5,
+    B1_7_3,
+    B1_6_6,
+}
+
+impl OptifineUniqueVersion {
+    pub fn get(instance: &InstanceSelection) -> Option<Self> {
+        VersionDetails::load_s(&instance.get_instance_path()).and_then(|n| match n.id.as_str() {
+            "1.5.2" => Some(OptifineUniqueVersion::V1_5_2),
+            "1.2.5" => Some(OptifineUniqueVersion::V1_2_5),
+            "b1.7.3" => Some(OptifineUniqueVersion::B1_7_3),
+            "b1.6.6" => Some(OptifineUniqueVersion::B1_6_6),
+            _ => None,
+        })
+    }
+
+    pub fn get_url(&self) -> (&'static str, bool) {
+        match self {
+            OptifineUniqueVersion::V1_5_2 => ("https://optifine.net/adloadx?f=OptiFine_1.5.2_HD_U_D5.zip", false),
+            OptifineUniqueVersion::V1_2_5 => ("https://optifine.net/adloadx?f=OptiFine_1.5.2_HD_U_D2.zip", false),
+            OptifineUniqueVersion::B1_7_3 => ("https://b2.mcarchive.net/file/mcarchive/47df260a369eb2f79750ec24e4cfd9da93b9aac076f97a1332302974f19e6024/OptiFine_1_7_3_HD_G.zip", true),
+            OptifineUniqueVersion::B1_6_6 => ("https://optifine.net/adloadx?f=beta_OptiFog_Optimine_1.6.6.zip", false),
+        }
+    }
+}
+
+pub fn get_jar_path(
+    version_json: &VersionDetails,
+    instance_dir: &Path,
+    optifine_jar: Option<&Path>,
+) -> PathBuf {
+    optifine_jar.map_or_else(
+        || {
+            instance_dir
+                .join(".minecraft/versions")
+                .join(&version_json.id)
+                .join(format!("{}.jar", version_json.id))
+        },
+        Path::to_owned,
+    )
+}

@@ -199,8 +199,6 @@ impl MenuEditInstance {
     }
 }
 
-const OPTIFINE_DOWNLOADS: &str = "https://optifine.net/downloads";
-
 impl MenuInstallOptifine {
     pub fn view(&self) -> Element {
         if let Some(optifine) = &self.optifine_install_progress {
@@ -216,8 +214,10 @@ impl MenuInstallOptifine {
                     widget::column!()
                 },
             )
+        } else if self.is_b173_being_installed {
+            widget::column![widget::text("Installing OptiFine for Beta 1.7.3...").size(20)]
         } else {
-            Self::install_optifine_screen()
+            self.install_optifine_screen()
         }
         .padding(10)
         .spacing(10)
@@ -225,6 +225,7 @@ impl MenuInstallOptifine {
     }
 
     pub fn install_optifine_screen<'a>(
+        &self,
     ) -> iced::widget::Column<'a, Message, LauncherTheme, iced::Renderer> {
         widget::column!(
             button_with_icon(icon_manager::back(), "Back", 16)
@@ -235,7 +236,7 @@ impl MenuInstallOptifine {
                     "Step 1: Open the OptiFine download page and download the installer.",
                     "WARNING: Make sure to download the correct version.",
                     widget::button("Open download page")
-                        .on_press(Message::CoreOpenDir(OPTIFINE_DOWNLOADS.to_owned()))
+                        .on_press(Message::CoreOpenDir(self.get_url().to_owned()))
                 )
                 .padding(10)
                 .spacing(10)

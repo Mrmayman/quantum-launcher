@@ -138,7 +138,7 @@ impl ModIndex {
             mod_cfg.files.retain(|file| {
                 mods_dir.join(&file.filename).is_file()
                     || mods_dir
-                        .join(&format!("{}.disabled", file.filename))
+                        .join(format!("{}.disabled", file.filename))
                         .is_file()
             });
             if mod_cfg.files.is_empty() {

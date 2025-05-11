@@ -16,8 +16,8 @@ use ql_core::{
     err, file_utils,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
-    JsonFileError, Loader, ModId, Progress, SelectedMod, StoreBackendType, LAUNCHER_DIR,
-    LAUNCHER_VERSION_NAME,
+    JsonFileError, Loader, ModId, OptifineUniqueVersion, Progress, SelectedMod, StoreBackendType,
+    LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
     AccountData, AuthCodeResponse, AuthTokenResponse, ListEntry, LogLine, UpdateCheckInfo,
@@ -593,11 +593,23 @@ pub enum MenuServerCreate {
     },
 }
 
-#[derive(Default)]
 pub struct MenuInstallOptifine {
     pub optifine_install_progress: Option<ProgressBar<OptifineInstallProgress>>,
     pub java_install_progress: Option<ProgressBar<GenericProgress>>,
     pub is_java_being_installed: bool,
+    pub is_b173_being_installed: bool,
+    pub optifine_unique_version: Option<OptifineUniqueVersion>,
+}
+
+impl MenuInstallOptifine {
+    pub fn get_url(&self) -> &'static str {
+        const OPTIFINE_DOWNLOADS: &str = "https://optifine.net/downloads";
+
+        self.optifine_unique_version
+            .as_ref()
+            .map(|n| n.get_url().0)
+            .unwrap_or(OPTIFINE_DOWNLOADS)
+    }
 }
 
 pub struct InstanceLog {

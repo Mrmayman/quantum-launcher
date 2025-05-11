@@ -4,9 +4,8 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use chrono::DateTime;
 use ql_core::{
-    err, info,
+    info,
     json::{
         forge,
         version::{LibraryDownloadArtifact, LibraryDownloads},
@@ -18,7 +17,7 @@ use ql_core::{
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::Command;
 
-use crate::{download::GameDownloader, AccountData, CLIENT_ID};
+use crate::{download::GameDownloader, jarmod, AccountData, CLIENT_ID};
 
 use super::{error::GameLaunchError, replace_var};
 
@@ -315,21 +314,9 @@ impl GameLauncher {
             }
             // Fixes crash on old versions
             args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
-        } else {
-            // # Panics
-            // This is proven to be a correct date so won't panic.
-            let v1_5_2 = DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00").unwrap();
-            match DateTime::parse_from_rfc3339(&self.version_json.releaseTime) {
-                Ok(dt) => {
-                    if dt <= v1_5_2 {
-                        args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
-                        args.push("-Dhttp.proxyPort=11707".to_owned());
-                    }
-                }
-                Err(e) => {
-                    err!("Could not parse instance date/time: {e}");
-                }
-            }
+        } else if self.version_json.is_legacy_version() {
+            args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
+            args.push("-Dhttp.proxyPort=11707".to_owned());
         }
     }
 
@@ -502,33 +489,14 @@ impl GameLauncher {
         // classpath_entries is a HashSet that determines if an overriden
         // version of a library has already been loaded.
 
-        let jar_path = Self::get_jar_path(
-            &self.version_json,
-            &self.instance_dir,
-            optifine_json.map(|n| n.1.as_path()),
-        );
+        let instance = InstanceSelection::Instance(self.instance_name.clone());
+        let jar_path = jarmod::build(&instance).await?;
         let jar_path = jar_path
             .to_str()
             .ok_or(GameLaunchError::PathBufToString(jar_path.clone()))?;
         class_path.push_str(jar_path);
 
         Ok(class_path)
-    }
-
-    pub fn get_jar_path(
-        version_json: &VersionDetails,
-        instance_dir: &Path,
-        optifine_jar: Option<&Path>,
-    ) -> PathBuf {
-        optifine_jar.map_or_else(
-            || {
-                instance_dir
-                    .join(".minecraft/versions")
-                    .join(&version_json.id)
-                    .join(format!("{}.jar", version_json.id))
-            },
-            Path::to_owned,
-        )
     }
 
     fn classpath_fabric_and_quilt(

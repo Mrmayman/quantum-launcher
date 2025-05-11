@@ -20,6 +20,7 @@ chrono = "0.4"
 zip-extract = { version = "0.2", default-features = false, features = [
     "deflate",
 ] }
+zip = "2"
 thiserror = "2"
 rfd = { version = "0.15", default-features = false, features = [
     "xdg-portal",

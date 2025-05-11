@@ -6,15 +6,25 @@ use std::{
 };
 
 use ql_core::{
-    file_utils, info,
+    file_utils, info, jarmod,
     json::{optifine::JsonOptifine, VersionDetails},
-    no_window, GenericProgress, IntoIoError, IoError, JsonFileError, Loader, Progress,
-    RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
+    no_window, GenericProgress, InstanceSelection, IntoIoError, IoError, JsonFileError, Loader,
+    Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
 
 use super::change_instance_type;
+
+pub async fn install_b173(
+    instance: InstanceSelection,
+    url: &'static str,
+) -> Result<(), OptifineError> {
+    let bytes = file_utils::download_file_to_bytes(url, true).await?;
+    jarmod::insert(instance, bytes).await?;
+
+    Ok(())
+}
 
 // javac -cp OptiFine_1.21.1_HD_U_J1.jar OptifineInstaller.java -d .
 // java -cp OptiFine_1.21.1_HD_U_J1.jar:. OptifineInstaller
@@ -73,6 +83,7 @@ pub async fn install(
     path_to_installer: PathBuf,
     progress_sender: Option<Sender<OptifineInstallProgress>>,
     java_progress_sender: Option<Sender<GenericProgress>>,
+    optifine_unique_version: bool,
 ) -> Result<(), OptifineError> {
     if !path_to_installer.exists() || !path_to_installer.is_file() {
         return Err(OptifineError::InstallerDoesNotExist);
@@ -83,10 +94,17 @@ pub async fn install(
     info!("Started installing OptiFine");
     send_progress(progress_sender, OptifineInstallProgress::P1Start);
 
+    if optifine_unique_version {
+        let installer = tokio::fs::read(&path_to_installer)
+            .await
+            .path(&path_to_installer)?;
+        jarmod::insert(InstanceSelection::Instance(instance_name), installer).await?;
+        info!("Finished installing OptiFine for Beta 1.7.3");
+        return Ok(());
+    }
+
     let instance_path = LAUNCHER_DIR.join("instances").join(&instance_name);
-
     create_details_json(&instance_path).await?;
-
     let dot_minecraft_path = instance_path.join(".minecraft");
 
     let optifine_path = instance_path.join("optifine");
