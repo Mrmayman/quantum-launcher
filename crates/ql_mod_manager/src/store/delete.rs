@@ -21,7 +21,7 @@ pub async fn delete_mods(
     // let mut downloaded_mods = HashSet::new();
 
     for id in &ids {
-        pt!("Deleting mod {id:?}");
+        pt!("Deleting mod: {id:?}");
         delete_mod(&mut index, id, &mods_dir).await?;
         // delete_item(id, None, &mut index, &mods_dir, &mut downloaded_mods)?;
     }
@@ -61,7 +61,7 @@ pub async fn delete_mods(
 
         for (mod_id, mod_info) in &index.mods {
             if !mod_info.manually_installed && mod_info.dependents.is_empty() {
-                pt!("Deleting child {}", mod_info.name);
+                pt!("Deleting dependency: {}", mod_info.name);
                 orphaned_mods.insert(ModId::from_index_str(mod_id));
             }
         }

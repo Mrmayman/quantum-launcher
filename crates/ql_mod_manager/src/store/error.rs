@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use ql_core::{IoError, JsonDownloadError, JsonFileError, RequestError};
 use thiserror::Error;
 use zip_extract::ZipError;
@@ -26,6 +28,8 @@ pub enum ModError {
     Chrono(#[from] chrono::ParseError),
     #[error("unknown project type while downloading from store: {0}")]
     UnknownProjectType(String),
+    #[error("couldn't parse int (curseforge mod id): {0}")]
+    ParseInt(#[from] ParseIntError),
 }
 
 impl From<JsonFileError> for ModError {

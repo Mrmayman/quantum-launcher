@@ -127,22 +127,41 @@ struct CFSearchResult {
 
 impl CFSearchResult {
     async fn get_from_ids(ids: &[String]) -> Result<Self, super::ModError> {
-        let mut array_str = "[".to_owned();
-
-        let len = ids.len();
-        for (i, id) in ids.iter().enumerate() {
-            array_str.push_str(id);
-            if i + 1 < len {
-                array_str.push_str(", ");
-            }
+        if ids.is_empty() {
+            return Ok(Self { data: Vec::new() });
         }
-        array_str.push(']');
 
-        let params = HashMap::from([("body", array_str)]);
-        let response = send_request("mods", &params).await?;
+        // Convert to JSON Array
+        let ids: Vec<serde_json::Value> = ids
+            .iter()
+            .map(|s| s.parse::<u64>().map(serde_json::Value::from))
+            .collect::<Result<_, _>>()?;
 
-        let res: Self = serde_json::from_str(&response)?;
-        Ok(res)
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::ACCEPT,
+            HeaderValue::from_static("application/json"),
+        );
+        headers.insert(
+            "x-api-key",
+            HeaderValue::from_str(API_KEY).map_err(RequestError::from)?,
+        );
+        let response = CLIENT
+            .post("https://api.curseforge.com/v1/mods")
+            .headers(headers)
+            .json(&serde_json::json!({"modIds" : ids}))
+            .send()
+            .await
+            .map_err(RequestError::from)?;
+        if response.status().is_success() {
+            Ok(response.json().await.map_err(RequestError::from)?)
+        } else {
+            Err(RequestError::DownloadError {
+                code: response.status(),
+                url: response.url().clone(),
+            }
+            .into())
+        }
     }
 }
 
