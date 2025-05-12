@@ -65,11 +65,13 @@ pub async fn create_server(
         }
         ListEntry::Omniarchive {
             category,
-            name,
             url,
+            nice_name,
+            ..
         } => {
             let (jar, json) =
-                download_from_omniarchive(category, &manifest, name, sender.as_ref(), url).await?;
+                download_from_omniarchive(category, &manifest, nice_name, sender.as_ref(), url)
+                    .await?;
             tokio::fs::write(&server_jar_path, jar)
                 .await
                 .path(server_jar_path)?;
@@ -191,12 +193,14 @@ fn get_omniarchive(version: ListEntry) -> Option<OmniarchiveEntry> {
         category,
         name,
         url,
+        nice_name,
     } = version
     {
         Some(OmniarchiveEntry {
             name,
             url,
             category: category.to_string(),
+            nice_name: Some(nice_name),
         })
     } else {
         None

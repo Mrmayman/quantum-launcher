@@ -451,15 +451,21 @@ impl GameDownloader {
             ListEntry::Normal(name) => manifest
                 .find_name(name)
                 .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
-            ListEntry::Omniarchive { category, name, .. } => match category {
-                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-"),
-                MinecraftVersionCategory::Classic => manifest.find_fuzzy(name, "c0."),
-                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(name, "a1."),
-                MinecraftVersionCategory::Beta => manifest.find_fuzzy(name, "b1."),
+            ListEntry::Omniarchive {
+                category,
+                nice_name,
+                ..
+            } => match category {
+                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(nice_name, "rd-"),
+                MinecraftVersionCategory::Classic => manifest.find_fuzzy(nice_name, "c0."),
+                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(nice_name, "a1."),
+                MinecraftVersionCategory::Beta => manifest.find_fuzzy(nice_name, "b1."),
                 MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c"),
                 MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618"),
             }
-            .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
+            .ok_or(DownloadError::VersionNotFoundInManifest(
+                nice_name.to_owned(),
+            ))?,
             ListEntry::OmniarchiveClassicZipServer { .. } => {
                 return Err(DownloadError::DownloadClassicZip)
             }

@@ -106,9 +106,15 @@ async fn add_omniarchive_versions(
                 }
                 url.clone()
             };
+            let nice_name = name
+                .split('/')
+                .next_back()
+                .map(str::to_owned)
+                .unwrap_or(name.clone());
             normal_list.push(ListEntry::Omniarchive {
                 category,
                 name,
+                nice_name,
                 url,
             });
         }

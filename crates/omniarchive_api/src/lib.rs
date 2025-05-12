@@ -36,6 +36,11 @@ mod error;
 pub use entry::ListEntry;
 pub use error::{ListError, WebScrapeError};
 
+pub struct VersionEntry {
+    pub url: String,
+    pub category: MinecraftVersionCategory,
+}
+
 /// Represents a category of Minecraft versions.
 #[derive(Clone, Debug, Copy)]
 pub enum MinecraftVersionCategory {
@@ -152,7 +157,7 @@ impl MinecraftVersionCategory {
             )
             .await?;
 
-        Ok(links.into_iter().map(|n| n.1).collect())
+        Ok(links.into_iter().map(|n| n.url).collect())
     }
 
     async fn get_links(
@@ -163,7 +168,7 @@ impl MinecraftVersionCategory {
         progress: Option<&Sender<()>>,
         deeper_buffer: &Mutex<Vec<String>>,
         i: &Mutex<usize>,
-    ) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
+    ) -> Result<Vec<VersionEntry>, WebScrapeError> {
         let mut links = self.scrape_links(url, buffer, visited, progress, i).await?;
 
         let mut is_buffer_empty = buffer.lock().unwrap().is_empty();
@@ -208,7 +213,7 @@ impl MinecraftVersionCategory {
         visited: &Mutex<HashSet<String>>,
         progress: Option<&Sender<()>>,
         i: &Mutex<usize>,
-    ) -> Result<Vec<(Self, String)>, WebScrapeError> {
+    ) -> Result<Vec<VersionEntry>, WebScrapeError> {
         if !visited.lock().unwrap().insert(url.clone()) {
             return Ok(Vec::new());
         }
@@ -247,13 +252,16 @@ impl MinecraftVersionCategory {
                     .iter()
                     .find(|a| a.name.local.to_string() == "href")
                 {
-                    let link = a.value.to_string();
-                    if link.ends_with("index.html") {
-                        if link != "https://vault.omniarchive.uk/archive/java/index.html" {
-                            deeper_buffer.lock().unwrap().push(link);
+                    let url = a.value.to_string();
+                    if url.ends_with("index.html") {
+                        if url != "https://vault.omniarchive.uk/archive/java/index.html" {
+                            deeper_buffer.lock().unwrap().push(url);
                         }
-                    } else if !ends_with_extension(&link, ".exe") {
-                        links.push((*self, link));
+                    } else if !ends_with_extension(&url, ".exe") {
+                        links.push(VersionEntry {
+                            category: *self,
+                            url,
+                        });
                     }
                 }
             }
@@ -282,7 +290,7 @@ impl MinecraftVersionCategory {
 pub async fn download_all(
     progress: Option<Arc<Sender<()>>>,
     download_server: bool,
-) -> Result<Vec<(MinecraftVersionCategory, String)>, WebScrapeError> {
+) -> Result<Vec<VersionEntry>, WebScrapeError> {
     let mut links = Vec::new();
     let visited = Mutex::new(HashSet::new());
 

@@ -19,6 +19,7 @@ pub enum ListEntry {
     Omniarchive {
         category: MinecraftVersionCategory,
         name: String,
+        nice_name: String,
         url: String,
     },
     OmniarchiveClassicZipServer {
@@ -31,7 +32,9 @@ impl Display for ListEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ListEntry::Normal(name)
-            | ListEntry::Omniarchive { name, .. }
+            | ListEntry::Omniarchive {
+                nice_name: name, ..
+            }
             | ListEntry::OmniarchiveClassicZipServer { name, .. } => write!(f, "{name}"),
         }
     }

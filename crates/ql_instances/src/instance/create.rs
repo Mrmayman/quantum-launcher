@@ -59,12 +59,14 @@ pub async fn create_instance(
                 category,
                 name,
                 url,
+                nice_name,
             } = &version
             {
                 Some(OmniarchiveEntry {
                     name: name.clone(),
                     url: url.clone(),
                     category: category.to_string(),
+                    nice_name: Some(nice_name.clone()),
                 })
             } else {
                 None

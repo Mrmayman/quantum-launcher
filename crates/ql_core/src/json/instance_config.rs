@@ -110,6 +110,7 @@ pub struct InstanceConfigJson {
 pub struct OmniarchiveEntry {
     pub name: String,
     pub url: String,
+    pub nice_name: Option<String>,
     pub category: String,
 }
 
@@ -133,8 +134,9 @@ impl InstanceConfigJson {
         let config_json = tokio::fs::read_to_string(&config_json_path)
             .await
             .path(config_json_path)?;
-        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
-        Ok(config_json)
+        let mut config: Self = serde_json::from_str(&config_json)?;
+        config.fix();
+        Ok(config)
     }
 
     /// Loads the launcher-specific instance configuration from disk,
@@ -145,7 +147,23 @@ impl InstanceConfigJson {
     /// - `config.json` couldn't be parsed into valid JSON
     pub async fn read(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
         let config_path = instance.get_instance_path();
-        let config = Self::read_from_path(&config_path).await?;
+        let mut config = Self::read_from_path(&config_path).await?;
+        config.fix();
         Ok(config)
+    }
+
+    fn fix(&mut self) {
+        if let Some(entry) = &mut self.omniarchive {
+            if entry.nice_name.is_none() {
+                entry.nice_name = Some(
+                    entry
+                        .name
+                        .split('/')
+                        .next_back()
+                        .map(str::to_owned)
+                        .unwrap_or(entry.name.clone()),
+                )
+            }
+        }
     }
 }

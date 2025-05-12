@@ -46,19 +46,26 @@ async fn add_omniarchive_versions(
 ) -> Result<(), ListError> {
     let versions = omniarchive_api::download_all(progress.clone(), false).await?;
 
-    for (category, url) in versions {
-        let name = if let Some(name) = url
+    for entry in versions {
+        let name = if let Some(name) = entry
+            .url
             .strip_prefix("https://vault.omniarchive.uk/archive/java/client-")
             .and_then(|n| n.strip_suffix(".jar"))
         {
             name.to_owned()
         } else {
-            url.clone()
+            entry.url.clone()
         };
+        let nice_name = name
+            .split('/')
+            .next_back()
+            .map(str::to_owned)
+            .unwrap_or(name.clone());
         normal_list.push(ListEntry::Omniarchive {
-            category,
+            category: entry.category,
             name,
-            url,
+            nice_name,
+            url: entry.url,
         });
     }
 
