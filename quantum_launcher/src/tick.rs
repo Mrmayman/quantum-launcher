@@ -13,8 +13,9 @@ use ql_mod_manager::store::{ModConfig, ModIndex};
 
 use crate::launcher_state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
-    MenuCreateInstance, MenuEditMods, MenuEditPresetsInner, MenuInstallFabric, MenuLaunch,
-    MenuModsDownload, MenuServerCreate, Message, ModListEntry, ProgressBar, ServerProcess, State,
+    ManageJarModsMessage, MenuCreateInstance, MenuEditMods, MenuEditPresetsInner,
+    MenuInstallFabric, MenuLaunch, MenuModsDownload, MenuServerCreate, Message, ModListEntry,
+    ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -106,6 +107,17 @@ impl Launcher {
                     async move { launcher_config.save().await.strerr() },
                     Message::CoreTickConfigSaved,
                 );
+            }
+            State::EditJarMods(menu) => {
+                if menu.free_for_autosave {
+                    let mut jarmods = menu.jarmods.clone();
+                    let selected_instance = self.selected_instance.clone().unwrap();
+                    menu.free_for_autosave = false;
+                    return Task::perform(
+                        async move { (jarmods.save(&selected_instance).await.strerr(), jarmods) },
+                        |n| Message::ManageJarMods(ManageJarModsMessage::AutosaveFinished(n)),
+                    );
+                }
             }
             State::RedownloadAssets { progress } => {
                 progress.tick();

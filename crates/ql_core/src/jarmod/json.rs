@@ -1,3 +1,6 @@
+use std::path::Path;
+
+use crate::{err, IoError};
 use crate::{InstanceSelection, IntoIoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
@@ -17,14 +20,31 @@ impl JarMods {
         } else {
             let file = Self { mods: Vec::new() };
             let file_str = serde_json::to_string(&file)?;
-            println!("{path:?}");
             tokio::fs::write(&path, &file_str).await.path(&file_str)?;
+            Ok(file)
+        }
+    }
+
+    pub fn get_s(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
+        let path = instance.get_instance_path().join("jarmods.json");
+
+        if path.is_file() {
+            let file = std::fs::read_to_string(&path).path(path)?;
+            let file = serde_json::from_str(&file)?;
+            Ok(file)
+        } else {
+            let file = Self { mods: Vec::new() };
+            let file_str = serde_json::to_string(&file)?;
+            std::fs::write(&path, &file_str).path(&file_str)?;
             Ok(file)
         }
     }
 
     pub async fn save(&mut self, instance: &InstanceSelection) -> Result<(), JsonFileError> {
         self.trim(instance).await;
+        if let Err(err) = self.expand(instance).await {
+            err!("While expanding jarmods.json with new entries: {err}");
+        }
 
         let path = instance.get_instance_path().join("jarmods.json");
         let file = serde_json::to_string(self)?;
@@ -34,10 +54,27 @@ impl JarMods {
 
     async fn trim(&mut self, instance: &InstanceSelection) {
         let path = instance.get_instance_path().join("jarmods");
-        self.mods.retain(|n| {
-            path.join(&n.filename).is_file()
-                || path.join(format!("{}.disabled", n.filename)).is_file()
-        });
+        self.mods.retain(|n| path.join(&n.filename).is_file());
+    }
+
+    async fn expand(&mut self, instance: &InstanceSelection) -> Result<(), IoError> {
+        let path = instance.get_instance_path().join("jarmods");
+        let filenames = read_filenames_from_dir(&path).await?;
+
+        let existing_filenames: std::collections::HashSet<_> =
+            self.mods.iter().map(|m| m.filename.clone()).collect();
+
+        self.mods.extend(
+            filenames
+                .into_iter()
+                .filter(|f| !existing_filenames.contains(f))
+                .map(|filename| JarMod {
+                    filename,
+                    enabled: true,
+                }),
+        );
+
+        Ok(())
     }
 }
 
@@ -45,4 +82,26 @@ impl JarMods {
 pub struct JarMod {
     pub filename: String,
     pub enabled: bool,
+}
+
+async fn read_filenames_from_dir<P: AsRef<Path>>(dir: P) -> Result<Vec<String>, IoError> {
+    let dir: &Path = dir.as_ref();
+    let mut entries = tokio::fs::read_dir(dir)
+        .await
+        .map_err(|n| IoError::ReadDir {
+            error: n.to_string(),
+            parent: dir.to_owned(),
+        })?;
+    let mut filenames = Vec::new();
+
+    while let Some(entry) = entries.next_entry().await.map_err(|n| IoError::ReadDir {
+        error: n.to_string(),
+        parent: dir.to_owned(),
+    })? {
+        if let Some(name) = entry.file_name().to_str() {
+            filenames.push(name.to_string());
+        }
+    }
+
+    Ok(filenames)
 }

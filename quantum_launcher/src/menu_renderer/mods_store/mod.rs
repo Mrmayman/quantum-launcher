@@ -117,14 +117,21 @@ impl MenuModsDownload {
                     (self.query_type == QueryType::Mods
                         && self.config.mod_type == "Vanilla")
                     .then_some(
-                        widget::column![
+                        widget::container(
                             widget::text(
                                 "You haven't installed any mod loader! Install Fabric (recommended), Forge, Quilt or NeoForge"
                             ).size(12)
-                        ].padding(10)
+                        ).padding(10).width(Length::Fill).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                     )
-                )
-                .push(
+                ).push_maybe((self.query_type == QueryType::Mods && self.json.lock().unwrap().is_legacy_version())
+                    .then_some(
+                        widget::container(
+                            widget::text(
+                                "Installing Mods for old versions is experimental and may be broken"
+                            ).size(12)
+                        ).padding(10).width(Length::Fill).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+                    )
+                ).push(
                     widget::scrollable(mods_list.spacing(10).padding(10))
                         .style(|theme: &LauncherTheme, status| theme
                             .style_scrollable_flat_extra_dark(status))

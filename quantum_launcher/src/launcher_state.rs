@@ -14,6 +14,7 @@ use iced::{
 };
 use ql_core::{
     err, file_utils,
+    jarmod::JarMods,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
     JsonFileError, Loader, ModId, OptifineUniqueVersion, Progress, SelectedMod, StoreBackendType,
@@ -105,6 +106,16 @@ pub enum ManageModsMessage {
 }
 
 #[derive(Debug, Clone)]
+pub enum ManageJarModsMessage {
+    Open,
+    ToggleCheckbox(String, bool),
+    DeleteSelected,
+    ToggleSelected,
+    SelectAll,
+    AutosaveFinished((Res, JarMods)),
+}
+
+#[derive(Debug, Clone)]
 pub enum InstallModsMessage {
     SearchResult(Res<SearchResult>),
     Open,
@@ -180,6 +191,7 @@ pub enum Message {
     CreateInstance(CreateInstanceMessage),
     EditInstance(EditInstanceMessage),
     ManageMods(ManageModsMessage),
+    ManageJarMods(ManageJarModsMessage),
     InstallMods(InstallModsMessage),
     InstallOptifine(InstallOptifineMessage),
     InstallFabric(InstallFabricMessage),
@@ -430,6 +442,14 @@ impl MenuEditMods {
     }
 }
 
+pub struct MenuEditJarMods {
+    pub jarmods: JarMods,
+    pub selected_state: SelectedState,
+    pub selected_mods: HashSet<String>,
+    pub drag_and_drop_hovered: bool,
+    pub free_for_autosave: bool,
+}
+
 pub enum MenuCreateInstance {
     Loading {
         receiver: Receiver<()>,
@@ -482,7 +502,7 @@ pub struct MenuModsDownload {
     pub results: Option<SearchResult>,
     pub mod_descriptions: HashMap<ModId, String>,
     pub config: InstanceConfigJson,
-    pub json: VersionDetails,
+    pub json: Mutex<VersionDetails>,
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
     pub mods_download_in_progress: HashSet<ModId>,
@@ -542,11 +562,17 @@ pub enum MenuWelcome {
 
 /// The enum that represents which menu is opened currently.
 pub enum State {
-    Welcome(MenuWelcome),
+    /// Default home screen
     Launch(MenuLaunch),
+    /// Screen to guide new users to the launcher
+    Welcome(MenuWelcome),
     ChangeLog,
+    UpdateFound(MenuLauncherUpdate),
+
     EditMods(MenuEditMods),
+    EditJarMods(MenuEditJarMods),
     Create(MenuCreateInstance),
+
     Error {
         error: String,
     },
@@ -557,21 +583,24 @@ pub enum State {
         no: Message,
     },
     GenericMessage(String),
+
     AccountLoginProgress(ProgressBar<GenericProgress>),
     AccountLogin {
         url: String,
         code: String,
         cancel_handle: iced::task::Handle,
     },
+
     InstallPaper,
     InstallFabric(MenuInstallFabric),
     InstallForge(MenuInstallForge),
     InstallOptifine(MenuInstallOptifine),
+
     InstallJava,
     RedownloadAssets {
         progress: ProgressBar<GenericProgress>,
     },
-    UpdateFound(MenuLauncherUpdate),
+
     ModsDownload(Box<MenuModsDownload>),
     LauncherSettings(MenuLauncherSettings),
     ServerCreate(MenuServerCreate),
@@ -585,7 +614,7 @@ pub enum MenuServerCreate {
     },
     Loaded {
         name: String,
-        versions: iced::widget::combo_box::State<ListEntry>,
+        versions: Box<iced::widget::combo_box::State<ListEntry>>,
         selected_version: Option<ListEntry>,
     },
     Downloading {

@@ -5,7 +5,8 @@ use crate::{
     icon_manager,
     launcher_state::{
         EditPresetsMessage, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage,
-        ManageModsMessage, MenuEditMods, Message, ModListEntry, SelectedState,
+        ManageJarModsMessage, ManageModsMessage, MenuEditMods, Message, ModListEntry,
+        SelectedState,
     },
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -36,7 +37,9 @@ impl MenuEditMods {
                             )
                             .on_press(Message::InstallMods(InstallModsMessage::Open)),
                             button_with_icon(icon_manager::save(), "Mod Presets", 15)
-                                .on_press(Message::EditPresets(EditPresetsMessage::Open))
+                                .on_press(Message::EditPresets(EditPresetsMessage::Open)),
+                            button_with_icon(icon_manager::page(), "Jarmod Patches", 15)
+                                .on_press(Message::ManageJarMods(ManageJarModsMessage::Open))
                         )
                         .spacing(5),
                         Self::open_mod_folder_button(selected_instance),

@@ -42,6 +42,10 @@ pub struct VersionDetails {
     pub time: String,
     /// Type of version, such as alpha, beta or release.
     pub r#type: String,
+
+    /// Not actually in the *real* Minecraft JSON, but this is a QuantumLauncher-specific field
+    /// added here to cache the [`VersionDetails::is_legacy_version`] calculation.
+    pub ql_is_legacy_version: Option<bool>,
 }
 
 impl VersionDetails {
@@ -113,14 +117,20 @@ impl VersionDetails {
         Some(details)
     }
 
-    pub fn is_legacy_version(&self) -> bool {
-        let v1_5_2 = DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00").unwrap();
-        match DateTime::parse_from_rfc3339(&self.releaseTime) {
-            Ok(dt) => dt <= v1_5_2,
-            Err(e) => {
-                err!("Could not parse instance date/time: {e}");
-                false
-            }
+    pub fn is_legacy_version(&mut self) -> bool {
+        if let Some(n) = self.ql_is_legacy_version {
+            n
+        } else {
+            let v1_5_2 = DateTime::parse_from_rfc3339("2013-04-25T15:45:00+00:00").unwrap();
+            let res = match DateTime::parse_from_rfc3339(&self.releaseTime) {
+                Ok(dt) => dt <= v1_5_2,
+                Err(e) => {
+                    err!("Could not parse instance date/time: {e}");
+                    false
+                }
+            };
+            self.ql_is_legacy_version = Some(res);
+            res
         }
     }
 }

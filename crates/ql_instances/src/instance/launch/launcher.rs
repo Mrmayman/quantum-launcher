@@ -225,7 +225,10 @@ impl GameLauncher {
         Ok(())
     }
 
-    pub fn init_java_arguments(&self, is_logged_in: bool) -> Result<Vec<String>, GameLaunchError> {
+    pub fn init_java_arguments(
+        &mut self,
+        is_logged_in: bool,
+    ) -> Result<Vec<String>, GameLaunchError> {
         let natives_path = self.instance_dir.join("libraries").join("natives");
         let natives_path = natives_path
             .to_str()
@@ -290,7 +293,7 @@ impl GameLauncher {
     ///
     /// This auto adjusts the port based on version.
     #[allow(clippy::doc_markdown)]
-    fn java_arguments_betacraft(&self, args: &mut Vec<String>) {
+    fn java_arguments_betacraft(&mut self, args: &mut Vec<String>) {
         // Beta 1.9 prerelease (special case)
         if let Some(OmniarchiveEntry { name, .. }) = &self.config_json.omniarchive {
             if name.starts_with("beta/b1.9/pre/") {

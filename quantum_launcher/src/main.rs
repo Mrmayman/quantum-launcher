@@ -174,6 +174,7 @@ impl Launcher {
 
             Message::Account(msg) => return self.update_account(msg),
             Message::ManageMods(message) => return self.update_manage_mods(message),
+            Message::ManageJarMods(message) => return self.update_manage_jar_mods(message),
             Message::LaunchInstanceSelected { name, is_server } => {
                 self.selected_instance = Some(InstanceSelection::new(&name, is_server));
 
@@ -310,7 +311,7 @@ impl Launcher {
                 if let Some(cache) = &self.server_version_list_cache {
                     self.state = State::ServerCreate(MenuServerCreate::Loaded {
                         name: String::new(),
-                        versions: iced::widget::combo_box::State::new(cache.clone()),
+                        versions: Box::new(iced::widget::combo_box::State::new(cache.clone())),
                         selected_version: None,
                     });
                 } else {
@@ -372,7 +373,7 @@ impl Launcher {
             Message::ServerCreateVersionsLoaded(Ok(vec)) => {
                 self.server_version_list_cache = Some(vec.clone());
                 self.state = State::ServerCreate(MenuServerCreate::Loaded {
-                    versions: iced::widget::combo_box::State::new(vec),
+                    versions: Box::new(iced::widget::combo_box::State::new(vec)),
                     selected_version: None,
                     name: String::new(),
                 });

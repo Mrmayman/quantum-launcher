@@ -436,7 +436,8 @@ impl Launcher {
                 java_install_progress: None,
                 ..
             })
-            | State::InstallFabric(MenuInstallFabric::Loaded { progress: None, .. }) => {
+            | State::InstallFabric(MenuInstallFabric::Loaded { progress: None, .. })
+            | State::EditJarMods(_) => {
                 should_return_to_mods_screen = true;
             }
             State::ModsDownload(menu) if menu.opened_mod.is_some() => {
@@ -541,6 +542,17 @@ impl Launcher {
                         } else if let State::ManagePresets(_) = &self.state {
                             if extension == "qmp" {
                                 return self.load_qmp_from_path(&path);
+                            }
+                        } else if let State::EditJarMods(_) = &self.state {
+                            if extension == "jar" || extension == "zip" {
+                                let selected_instance = self.selected_instance.as_ref().unwrap();
+                                let new_path = selected_instance
+                                    .get_instance_path()
+                                    .join("jarmods")
+                                    .join(filename);
+                                if let Err(err) = std::fs::copy(&path, &new_path) {
+                                    err!("Couldn't drag and drop mod file in: {err}");
+                                }
                             }
                         }
                     }
@@ -674,6 +686,8 @@ impl Launcher {
         if let State::EditMods(menu) = &mut self.state {
             menu.drag_and_drop_hovered = is_hovered;
         } else if let State::ManagePresets(menu) = &mut self.state {
+            menu.drag_and_drop_hovered = is_hovered;
+        } else if let State::EditJarMods(menu) = &mut self.state {
             menu.drag_and_drop_hovered = is_hovered;
         }
     }

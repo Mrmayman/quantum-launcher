@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    sync::Mutex,
     time::Instant,
 };
 
@@ -33,7 +34,7 @@ impl Launcher {
 
         let mut menu = MenuModsDownload {
             config,
-            json: version,
+            json: Mutex::new(version),
             latest_load: Instant::now(),
             query: String::new(),
             results: None,
@@ -61,7 +62,7 @@ impl MenuModsDownload {
 
         let query = Query {
             name: self.query.clone(),
-            version: self.json.id.clone(),
+            version: self.json.lock().unwrap().id.clone(),
             loader,
             server_side: is_server,
             // open_source: false, // TODO: Add Open Source filter

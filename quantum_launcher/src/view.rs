@@ -160,6 +160,7 @@ impl Launcher {
             .height(Length::Fill)
             .into(),
             State::Welcome(menu) => menu.view(&self.config),
+            State::EditJarMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
         }
     }
 }
