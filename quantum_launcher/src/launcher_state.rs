@@ -110,9 +110,12 @@ pub enum ManageJarModsMessage {
     Open,
     ToggleCheckbox(String, bool),
     DeleteSelected,
+    AddFile,
     ToggleSelected,
     SelectAll,
     AutosaveFinished((Res, JarMods)),
+    MoveUp,
+    MoveDown,
 }
 
 #[derive(Debug, Clone)]

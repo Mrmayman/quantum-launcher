@@ -115,7 +115,7 @@ pub fn logger_finish() {
         if let Ok(lock) = logger.lock() {
             lock.finish();
         } else {
-            eprintln!("Logger thread panicked!");
+            eprintln!("ql_core::print::logger_finish(): Logger thread panicked!");
         }
     }
 }
@@ -125,7 +125,7 @@ pub fn print_to_storage(msg: &str, t: LogType) {
         if let Ok(mut lock) = logger.lock() {
             lock.write_to_storage(msg, t);
         } else {
-            eprintln!("Logger thread panicked!");
+            eprintln!("ql_core::print::print_to_storage(): Logger thread panicked!");
         }
     }
 }

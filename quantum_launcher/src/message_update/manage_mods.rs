@@ -2,7 +2,7 @@ use std::{collections::HashSet, path::PathBuf};
 
 use iced::Task;
 use ql_core::{
-    err_no_log, jarmod::JarMods, InstanceSelection, IntoIoError, IntoStringError, ModId,
+    err, err_no_log, jarmod::JarMods, InstanceSelection, IntoIoError, IntoStringError, ModId,
     SelectedMod,
 };
 use ql_mod_manager::store::ModIndex;
@@ -252,98 +252,202 @@ impl Launcher {
     pub fn update_manage_jar_mods(&mut self, msg: ManageJarModsMessage) -> Task<Message> {
         match msg {
             ManageJarModsMessage::Open => {
-                let jarmods = match JarMods::get_s(self.selected_instance.as_ref().unwrap()) {
-                    Ok(n) => n,
-                    Err(err) => {
-                        self.set_error(format!("While opening jar mods screen: {err}"));
-                        return Task::none();
-                    }
-                };
-                self.state = State::EditJarMods(MenuEditJarMods {
-                    jarmods,
-                    selected_state: SelectedState::None,
-                    selected_mods: HashSet::new(),
-                    drag_and_drop_hovered: false,
-                    free_for_autosave: true,
-                });
+                self.manage_jarmods_open();
+            }
+            ManageJarModsMessage::AddFile => {
+                self.manage_jarmods_add_file_from_picker();
             }
             ManageJarModsMessage::ToggleCheckbox(name, enable) => {
-                if let State::EditJarMods(menu) = &mut self.state {
-                    if enable {
-                        menu.selected_mods.insert(name);
-                        menu.selected_state = SelectedState::Some;
-                    } else {
-                        menu.selected_mods.remove(&name);
-                        menu.selected_state = if menu.selected_mods.is_empty() {
-                            SelectedState::None
-                        } else {
-                            SelectedState::Some
-                        };
-                    }
-                }
+                self.manage_jarmods_toggle_checkbox(name, enable);
             }
             ManageJarModsMessage::DeleteSelected => {
-                if let State::EditJarMods(menu) = &mut self.state {
-                    let jarmods_path = self
-                        .selected_instance
-                        .as_ref()
-                        .unwrap()
-                        .get_instance_path()
-                        .join("jarmods");
-
-                    for selected in &menu.selected_mods {
-                        let path = jarmods_path.join(selected);
-                        if path.is_file() {
-                            _ = std::fs::remove_file(&path);
-                        }
-                    }
-
-                    menu.selected_mods.clear();
-                }
+                self.manage_jarmods_delete_selected();
             }
             ManageJarModsMessage::ToggleSelected => {
-                if let State::EditJarMods(menu) = &mut self.state {
-                    for selected in menu.selected_mods.iter() {
-                        if let Some(jarmod) = menu
-                            .jarmods
-                            .mods
-                            .iter_mut()
-                            .find(|n| n.filename == *selected)
-                        {
-                            jarmod.enabled = !jarmod.enabled;
-                        }
-                    }
-                }
+                self.manage_jarmods_toggle_selected();
             }
             ManageJarModsMessage::SelectAll => {
-                if let State::EditJarMods(menu) = &mut self.state {
-                    match menu.selected_state {
-                        SelectedState::All => {
-                            menu.selected_mods.clear();
-                            menu.selected_state = SelectedState::None;
-                        }
-                        SelectedState::Some | SelectedState::None => {
-                            menu.selected_mods = menu
-                                .jarmods
-                                .mods
-                                .iter()
-                                .map(|mod_info| mod_info.filename.clone())
-                                .collect();
-                            menu.selected_state = SelectedState::All;
-                        }
-                    }
-                }
+                self.manage_jarmods_select_all();
             }
             ManageJarModsMessage::AutosaveFinished((res, jarmods)) => {
                 if let Err(err) = res {
                     self.set_error(format!("While autosaving jarmods index: {err}"));
                 } else if let State::EditJarMods(menu) = &mut self.state {
-                    menu.jarmods = jarmods;
+                    let set_a: HashSet<&str> = menu
+                        .jarmods
+                        .mods
+                        .iter()
+                        .map(|m| m.filename.as_str())
+                        .collect();
+                    let set_b: HashSet<&str> =
+                        jarmods.mods.iter().map(|m| m.filename.as_str()).collect();
+
+                    if set_a == set_b {
+                        menu.jarmods = jarmods;
+                    }
                     menu.free_for_autosave = true;
                 }
             }
+
+            ManageJarModsMessage::MoveUp | ManageJarModsMessage::MoveDown => {
+                self.manage_jarmods_move_up_or_down(msg);
+            }
         }
         Task::none()
+    }
+
+    fn manage_jarmods_move_up_or_down(&mut self, msg: ManageJarModsMessage) {
+        if let State::EditJarMods(menu) = &mut self.state {
+            let mut selected: Vec<usize> = menu
+                .selected_mods
+                .iter()
+                .filter_map(|selected_name| {
+                    menu.jarmods
+                        .mods
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, n)| (n.filename == *selected_name).then_some(i))
+                })
+                .collect();
+            selected.sort();
+            if let ManageJarModsMessage::MoveDown = msg {
+                selected.reverse();
+            }
+
+            for i in selected {
+                if i < menu.jarmods.mods.len() {
+                    match msg {
+                        ManageJarModsMessage::MoveUp => {
+                            if i > 0 {
+                                let removed = menu.jarmods.mods.remove(i);
+                                menu.jarmods.mods.insert(i - 1, removed);
+                            }
+                        }
+                        ManageJarModsMessage::MoveDown => {
+                            if i + 1 < menu.jarmods.mods.len() {
+                                let removed = menu.jarmods.mods.remove(i);
+                                menu.jarmods.mods.insert(i + 1, removed);
+                            }
+                        }
+                        _ => {}
+                    }
+                } else {
+                    err!(
+                        "Out of bounds in jarmods move up/down: !({i} < len:{})",
+                        menu.jarmods.mods.len()
+                    )
+                }
+            }
+        }
+    }
+
+    fn manage_jarmods_select_all(&mut self) {
+        if let State::EditJarMods(menu) = &mut self.state {
+            match menu.selected_state {
+                SelectedState::All => {
+                    menu.selected_mods.clear();
+                    menu.selected_state = SelectedState::None;
+                }
+                SelectedState::Some | SelectedState::None => {
+                    menu.selected_mods = menu
+                        .jarmods
+                        .mods
+                        .iter()
+                        .map(|mod_info| mod_info.filename.clone())
+                        .collect();
+                    menu.selected_state = SelectedState::All;
+                }
+            }
+        }
+    }
+
+    fn manage_jarmods_toggle_selected(&mut self) {
+        if let State::EditJarMods(menu) = &mut self.state {
+            for selected in menu.selected_mods.iter() {
+                if let Some(jarmod) = menu
+                    .jarmods
+                    .mods
+                    .iter_mut()
+                    .find(|n| n.filename == *selected)
+                {
+                    jarmod.enabled = !jarmod.enabled;
+                }
+            }
+        }
+    }
+
+    fn manage_jarmods_delete_selected(&mut self) {
+        if let State::EditJarMods(menu) = &mut self.state {
+            let jarmods_path = self
+                .selected_instance
+                .as_ref()
+                .unwrap()
+                .get_instance_path()
+                .join("jarmods");
+
+            for selected in &menu.selected_mods {
+                let path = jarmods_path.join(selected);
+                if path.is_file() {
+                    _ = std::fs::remove_file(&path);
+                }
+            }
+
+            menu.selected_mods.clear();
+        }
+    }
+
+    fn manage_jarmods_toggle_checkbox(&mut self, name: String, enable: bool) {
+        if let State::EditJarMods(menu) = &mut self.state {
+            if enable {
+                menu.selected_mods.insert(name);
+                menu.selected_state = SelectedState::Some;
+            } else {
+                menu.selected_mods.remove(&name);
+                menu.selected_state = if menu.selected_mods.is_empty() {
+                    SelectedState::None
+                } else {
+                    SelectedState::Some
+                };
+            }
+        }
+    }
+
+    fn manage_jarmods_add_file_from_picker(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("jar/zip", &["jar", "zip"])
+            .set_title("Pick a Jar Mod Patch (.jar/.zip)")
+            .pick_file()
+        {
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                let dest = self
+                    .selected_instance
+                    .as_ref()
+                    .unwrap()
+                    .get_instance_path()
+                    .join("jarmods")
+                    .join(filename);
+                if let Err(err) = std::fs::copy(&path, dest) {
+                    self.set_error(format!("While picking jar mod to be added: {err}"));
+                }
+            }
+        }
+    }
+
+    fn manage_jarmods_open(&mut self) {
+        let jarmods = match JarMods::get_s(self.selected_instance.as_ref().unwrap()) {
+            Ok(n) => n,
+            Err(err) => {
+                self.set_error(format!("While opening jar mods screen: {err}"));
+                return;
+            }
+        };
+        self.state = State::EditJarMods(MenuEditJarMods {
+            jarmods,
+            selected_state: SelectedState::None,
+            selected_mods: HashSet::new(),
+            drag_and_drop_hovered: false,
+            free_for_autosave: true,
+        });
     }
 }
 

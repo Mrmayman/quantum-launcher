@@ -643,21 +643,44 @@ impl MenuEditJarMods {
                 widget::scrollable(
                     widget::column!(
                         button_with_icon(icon_manager::back(), "Back", 15)
-                            .on_press(back_to_launch_screen(selected_instance, None)),
-                        {
-                            let path = {
-                                let path = selected_instance.get_instance_path().join("jarmods");
-                                path.exists().then_some(path.to_str().unwrap().to_owned())
-                            };
+                            .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+                        widget::column![
+                            {
+                                let path = {
+                                    let path =
+                                        selected_instance.get_instance_path().join("jarmods");
+                                    path.exists().then_some(path.to_str().unwrap().to_owned())
+                                };
 
-                            button_with_icon(
-                                icon_manager::folder_with_size(14),
-                                "Open JarMods Folder",
-                                15,
+                                button_with_icon(
+                                    icon_manager::folder_with_size(14),
+                                    "Open Folder",
+                                    15,
+                                )
+                                .on_press_maybe(path.map(Message::CoreOpenDir))
+                            },
+                            button_with_icon(icon_manager::create(), "Add file", 15)
+                                .on_press(Message::ManageJarMods(ManageJarModsMessage::AddFile)),
+                        ]
+                        .spacing(5),
+                        widget::row![
+                            "You can find some good jar mods at McArchive",
+                            widget::button("Open")
+                                .on_press(Message::CoreOpenDir("https://mcarchive.net".to_owned()))
+                        ]
+                        .spacing(5)
+                        .wrap(),
+                        widget::column![
+                            "WARNING: Jarmods are mainly for OLD Minecraft versions.",
+                            widget::text(
+                                "This is easier than copying .class files into Minecraft's jar"
                             )
-                            .on_press_maybe(path.map(Message::CoreOpenDir))
-                        },
-                        button_with_icon(icon_manager::create(), "Add file", 15),
+                            .size(12),
+                            widget::text(
+                                "If you just want some mods (for newer Minecraft), click Back"
+                            )
+                            .size(12),
+                        ],
                     )
                     .padding(10)
                     .spacing(10)
@@ -665,6 +688,7 @@ impl MenuEditJarMods {
                 .style(LauncherTheme::style_scrollable_flat_dark)
                 .height(Length::Fill)
             )
+            .width(250)
             .style(|n| n.style_container_sharp_box(0.0, Color::Dark)),
             self.get_mod_list()
         );
@@ -706,8 +730,10 @@ impl MenuEditJarMods {
                             "Select All"
                         })
                         .on_press(Message::ManageJarMods(ManageJarModsMessage::SelectAll)),
-                        widget::button(icon_manager::arrow_up()),
-                        widget::button(icon_manager::arrow_down()),
+                        widget::button(icon_manager::arrow_up())
+                            .on_press(Message::ManageJarMods(ManageJarModsMessage::MoveUp)),
+                        widget::button(icon_manager::arrow_down())
+                            .on_press(Message::ManageJarMods(ManageJarModsMessage::MoveDown)),
                     ]
                     .spacing(5)
                     .wrap()
