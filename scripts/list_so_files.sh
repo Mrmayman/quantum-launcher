@@ -6,7 +6,7 @@ process_jar() {
 
     # Extract the list of files in the jar and filter for *.so files
     local so_files
-    so_files=$(jar tf "$jar_file" | grep '\.so$')
+    so_files=$(jar tf "$jar_file" | grep -E '\.(so|dll|dylib|jnilib)$')
 
     # Only print if there are any .so files
     if [[ -n "$so_files" ]]; then

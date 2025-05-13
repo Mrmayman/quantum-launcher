@@ -9,7 +9,7 @@ use ql_core::{
     json::version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
-    pt, DownloadError, DownloadProgress, IntoIoError, IoError, RequestError, IS_ARM_LINUX,
+    pt, DownloadError, DownloadProgress, IntoIoError, IoError, IS_ARM_LINUX,
 };
 use zip_extract::ZipExtractError;
 
@@ -30,6 +30,9 @@ struct LwjglLibrary {
 use super::constants::{
     LWJGL_294, LWJGL_312, LWJGL_316, LWJGL_321, LWJGL_322, LWJGL_331, LWJGL_332, LWJGL_333,
 };
+
+const MACOS_ARM_LWJGL_294_1: &str = "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-osx.jar";
+const MACOS_ARM_LWJGL_294_2: &str = "https://github.com/Dungeons-Guide/lwjgl/releases/download/2.9.4-20150209-mmachina.2-syeyoung.1/lwjgl-platform-2.9.4-nightly-20150209-natives-osx-arm64.jar";
 
 impl GameDownloader {
     pub async fn download_libraries(&mut self) -> Result<(), DownloadError> {
@@ -230,14 +233,24 @@ impl GameDownloader {
         let natives_dir = libraries_dir.join("natives");
 
         for (os, download) in classifiers {
-            if !OS_NAMES
-                .iter()
-                .any(|os_name| os.starts_with(&format!("natives-{os_name}")))
-            {
+            if !(OS_NAMES.iter().any(|os_name| {
+                *os == format!("natives-{os_name}")
+                    || (cfg!(target_pointer_width = "32") && *os == format!("natives-{os_name}-32"))
+                    || (cfg!(target_pointer_width = "64") && *os == format!("natives-{os_name}-64"))
+            })) {
+                pt!("Skipping OS: {os}");
                 continue;
             }
 
-            let library = file_utils::download_file_to_bytes(&download.url, false).await?;
+            let url = if download.url == MACOS_ARM_LWJGL_294_1 {
+                info!("Patching LWJGL 2.9.4 20150209 natives for OSX ARM64 (classifiers)");
+                MACOS_ARM_LWJGL_294_2
+            } else {
+                &download.url
+            };
+            info!("Downloading natives (classifiers): {url}");
+
+            let library = file_utils::download_file_to_bytes(url, false).await?;
 
             zip_extract::extract(Cursor::new(&library), &natives_dir, true)
                 .map_err(DownloadError::NativesExtractError)?;
@@ -320,6 +333,9 @@ async fn extractlib_name_natives(
 
     // theofficialgman provides arm natives
     // https://github.com/theofficialgman/piston-meta-arm64
+    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
+    let is_from_theofficialgman = false;
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
     let is_from_theofficialgman =
         if let Some(downloads) = library.downloads.as_ref().and_then(|n| n.artifact.as_ref()) {
             downloads.url.contains("theofficialgman")
@@ -409,27 +425,31 @@ async fn extractlib_natives_field(
     let url = &artifact.url[..artifact.url.len() - 4];
     let mut natives_url = format!("{url}-{natives_name}.jar");
     if natives_url == "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-natives-linux.jar" {
-            "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".clone_into(&mut natives_url);
+        "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".clone_into(&mut natives_url);
     }
-    if natives_url.ends_with("lwjgl-core-natives-linux.jar") {
-        natives_url = natives_url.replace(
-            "lwjgl-core-natives-linux.jar",
-            "lwjgl-natives-linux-arm64.jar",
-        );
+    #[cfg(target_arch = "aarch64")]
+    {
+        if natives_url == MACOS_ARM_LWJGL_294_1 {
+            info!("Patching LWJGL 2.9.4 20150209 natives for OSX ARM64");
+            MACOS_ARM_LWJGL_294_2.clone_into(&mut natives_url);
+        }
+        if natives_url.ends_with("lwjgl-core-natives-linux.jar") {
+            natives_url = natives_url.replace(
+                "lwjgl-core-natives-linux.jar",
+                "lwjgl-natives-linux-arm64.jar",
+            );
+        }
     }
     pt!("Downloading native jar: {name}");
     let native_jar = match file_utils::download_file_to_bytes(&natives_url, false).await {
         Ok(n) => n,
-        Err(RequestError::DownloadError { code, url }) => {
-            if code.as_u16() == 404 && cfg!(target_arch = "aarch64") && cfg!(target_os = "linux") {
-                file_utils::download_file_to_bytes(
-                    &natives_url.replace("linux.jar", "linux-arm64.jar"),
-                    false,
-                )
-                .await?
-            } else {
-                return Err(RequestError::DownloadError { code, url }.into());
-            }
+        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+        Err(ql_core::RequestError::DownloadError { code, .. }) if code.as_u16() == 404 => {
+            file_utils::download_file_to_bytes(
+                &natives_url.replace("linux.jar", "linux-arm64.jar"),
+                false,
+            )
+            .await?
         }
         Err(err) => Err(err)?,
     };
