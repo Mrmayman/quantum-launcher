@@ -108,17 +108,25 @@ impl Launcher {
             State::Error { error } => widget::scrollable(
                 widget::column!(
                     widget::text!("Error: {error}"),
-                    widget::button("Back").on_press(Message::LaunchScreenOpen {
-                        message: None,
-                        clear_selection: true
-                    }),
-                    widget::button("Copy Error").on_press(Message::CoreErrorCopy),
-                    widget::button("Join Discord for help")
-                        .on_press(Message::CoreOpenDir(DISCORD.to_owned()))
+                    widget::row![
+                        widget::button("Back").on_press(Message::LaunchScreenOpen {
+                            message: None,
+                            clear_selection: true
+                        }),
+                        widget::button("Copy Error").on_press(Message::CoreErrorCopy),
+                        widget::button("Copy Error + Log").on_press(Message::CoreErrorCopyLog),
+                        widget::button("Join Discord for help")
+                            .on_press(Message::CoreOpenDir(DISCORD.to_owned()))
+                    ]
+                    .spacing(5)
+                    .wrap()
                 )
                 .padding(10)
                 .spacing(10),
             )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(LauncherTheme::style_scrollable_flat_extra_dark)
             .into(),
             State::InstallFabric(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
             State::InstallForge(menu) => menu.view(),

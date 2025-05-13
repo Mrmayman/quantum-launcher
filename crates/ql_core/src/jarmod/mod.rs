@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf, StripPrefixError};
 use crate::{
     get_jar_path,
     json::{JsonOptifine, VersionDetails},
-    pt, InstanceSelection, IntoIoError, IoError, JsonFileError,
+    pt, InstanceSelection, IntoIoError, IoError, JsonError, JsonFileError,
 };
 use thiserror::Error;
 use zip_dir::zip_directory_to_bytes;
@@ -94,7 +94,7 @@ pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError>
             continue;
         }
 
-        pt!("Jar Mod: {}", jar.filename);
+        pt!("{JARMOD_ERR_PREFIX}{}", jar.filename);
         let path = jarmods_dir.join(&jar.filename);
         let bytes = tokio::fs::read(&path).await.path(&path)?;
         zip_extract::extract(std::io::Cursor::new(&bytes), &tmp_dir, true)?;
@@ -121,22 +121,24 @@ pub async fn is_dir_empty(path: &Path) -> bool {
     dir.next_entry().await.ok().flatten().is_none()
 }
 
+const JARMOD_ERR_PREFIX: &str = "while dealing with jar mod:\n";
+
 #[derive(Error, Debug)]
 pub enum JarModError {
-    #[error("jar mod: {0}")]
+    #[error("{JARMOD_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("jar mod: (json) {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("jar mod: while walking through dir: {0}")]
+    #[error("{JARMOD_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{JARMOD_ERR_PREFIX}while walking through dir:\n{0}")]
     WalkDir(#[from] walkdir::Error),
-    #[error("jar mod: while stripping prefix of jarmods/tmp: {0}")]
+    #[error("{JARMOD_ERR_PREFIX}while stripping prefix of jarmods/tmp:\n{0}")]
     StripPrefix(#[from] StripPrefixError),
 
-    #[error("jar mod: while extracting zip: {0}")]
+    #[error("{JARMOD_ERR_PREFIX}while extracting zip:\n{0}")]
     ZipExtract(#[from] ZipExtractError),
-    #[error("jar mod: while processing zip: {0}")]
+    #[error("{JARMOD_ERR_PREFIX}while processing zip:\n{0}")]
     ZipError(#[from] ::zip::result::ZipError),
-    #[error("jar mod: while reading from zip: {0}")]
+    #[error("{JARMOD_ERR_PREFIX}while reading from zip:\n{0}")]
     ZipWriteError(std::io::Error),
 }
 

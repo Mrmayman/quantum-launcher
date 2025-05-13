@@ -28,7 +28,8 @@ use std::{
 };
 
 pub use error::{
-    DownloadError, IntoIoError, IntoStringError, IoError, JsonDownloadError, JsonFileError,
+    DownloadError, IntoIoError, IntoJsonError, IntoStringError, IoError, JsonDownloadError,
+    JsonError, JsonFileError,
 };
 pub use file_utils::{RequestError, LAUNCHER_DIR};
 use futures::StreamExt;

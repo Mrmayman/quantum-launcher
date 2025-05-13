@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ql_core::{json::InstanceConfigJson, IntoIoError, JsonFileError};
+use ql_core::{json::InstanceConfigJson, IntoIoError, IntoJsonError, JsonFileError};
 
 pub mod fabric;
 pub mod forge;
@@ -24,7 +24,7 @@ async fn change_instance_type(
 
     config.mod_type = instance_type;
 
-    let config = serde_json::to_string(&config)?;
+    let config = serde_json::to_string(&config).json_to()?;
     let config_path = instance_dir.join("config.json");
     tokio::fs::write(&config_path, config)
         .await

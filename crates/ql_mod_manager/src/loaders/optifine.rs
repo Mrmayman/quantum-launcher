@@ -8,8 +8,8 @@ use std::{
 use ql_core::{
     file_utils, info, jarmod,
     json::{optifine::JsonOptifine, VersionDetails},
-    no_window, GenericProgress, InstanceSelection, IntoIoError, IoError, JsonFileError, Loader,
-    Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
+    no_window, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonError,
+    JsonFileError, Loader, Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
@@ -318,7 +318,7 @@ async fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> 
     let details = tokio::fs::read_to_string(&details_path)
         .await
         .path(&details_path)?;
-    let details: VersionDetails = serde_json::from_str(&details)?;
+    let details: VersionDetails = serde_json::from_str(&details).json(details)?;
 
     let new_details_path = instance_path
         .join(".minecraft/versions")
@@ -332,22 +332,24 @@ async fn create_details_json(instance_path: &Path) -> Result<(), OptifineError> 
     Ok(())
 }
 
+const OPTIFINE_ERR_PREFIX: &str = "while installing OptiFine:\n";
+
 #[derive(Debug, Error)]
 pub enum OptifineError {
-    #[error("could not install optifine: {0}")]
+    #[error("{OPTIFINE_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("could not install optifine: {0}")]
+    #[error("{OPTIFINE_ERR_PREFIX}{0}")]
     JavaInstall(#[from] JavaInstallError),
-    #[error("optifine installer file does not exist")]
+    #[error("{OPTIFINE_ERR_PREFIX}The selected optifine installer file does not exist")]
     InstallerDoesNotExist,
-    #[error("could not compile optifine installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
+    #[error("{OPTIFINE_ERR_PREFIX}could not compile installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     JavacFail(String, String),
-    #[error("could not run optifine installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
+    #[error("{OPTIFINE_ERR_PREFIX}could not run installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     JavaFail(String, String),
-    #[error("could not install optifine: {0}")]
+    #[error("{OPTIFINE_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error("could not install optifine: json error: {0}")]
-    Serde(#[from] serde_json::Error),
+    #[error("{OPTIFINE_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
 }
 
 impl From<JsonFileError> for OptifineError {

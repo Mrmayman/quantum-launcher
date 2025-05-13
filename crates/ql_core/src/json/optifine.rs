@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{IntoIoError, IoError, JsonFileError, LAUNCHER_DIR};
+use crate::{IntoIoError, IntoJsonError, IoError, JsonFileError, LAUNCHER_DIR};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -46,7 +46,7 @@ impl JsonOptifine {
 
         let (json, jar) = find_and_read_json_with_jar(&optifine_version_dir).await?;
 
-        Ok((serde_json::from_str::<Self>(&json)?, jar))
+        Ok((serde_json::from_str::<Self>(&json).json(json)?, jar))
     }
 }
 

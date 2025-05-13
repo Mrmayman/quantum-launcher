@@ -1,25 +1,25 @@
-use std::{path::PathBuf, sync::mpsc::SendError};
+use std::path::PathBuf;
 
-use ql_core::{GenericProgress, IoError, JsonFileError, RequestError};
+use ql_core::{IoError, JsonError, JsonFileError, RequestError};
 use thiserror::Error;
+
+const FABRIC_INSTALL_ERR_PREFIX: &str = "while installing Fabric:\n";
 
 #[derive(Debug, Error)]
 pub enum FabricInstallError {
-    #[error("error installing fabric: {0}")]
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("error installing fabric: json error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("error installing fabric: {0}")]
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}{0}")]
     RequestError(#[from] RequestError),
-    #[error("error installing fabric: send error: {0}")]
-    Send(#[from] SendError<GenericProgress>),
-    #[error("error installing fabric: could not get path parent: {0:?}")]
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}could not get parent of path: {0:?}")]
     PathBufParentError(PathBuf),
-    #[error("error installing fabric: zip error: {0}")]
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}zip error:\n{0}")]
     ZipError(#[from] zip::result::ZipError),
-    #[error("error installing fabric: zip write at {1}: {0}")]
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}zip write failed at {1}: {0}")]
     ZipEntryWriteError(std::io::Error, String),
-    #[error("error installing fabric: zip read at {1}: {0}")]
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}zip read failed at {1}: {0}")]
     ZipEntryReadError(std::io::Error, String),
 }
 

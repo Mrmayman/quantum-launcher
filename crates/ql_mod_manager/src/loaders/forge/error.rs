@@ -1,51 +1,55 @@
 use std::{num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
-use ql_core::{IoError, JsonDownloadError, JsonFileError, RequestError};
+use ql_core::{IoError, JsonDownloadError, JsonError, JsonFileError, RequestError};
 use ql_java_handler::JavaInstallError;
 use thiserror::Error;
 use zip_extract::ZipExtractError;
 
+const FORGE_INSTALL_ERR_PREFIX: &str = "while installing Forge:\n";
+
 #[derive(Debug, Error)]
 pub enum ForgeInstallError {
-    #[error("error installing forge: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("error installing forge: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error("error installing forge: json error: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("no matching forge version found")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{FORGE_INSTALL_ERR_PREFIX}no compatible forge version found!\n\nForge/NeoForge may be unsupported for this Minecraft version")]
     NoForgeVersionFound,
-    #[error("error installing forge: parse int error: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}error parsing int number:\n{0}")]
     ParseIntError(#[from] ParseIntError),
-    #[error("error installing forge: tempfile: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}tempfile error:\n{0}")]
     TempFile(std::io::Error),
-    #[error("error installing forge: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}{0}")]
     JavaInstallError(#[from] JavaInstallError),
-    #[error("error installing forge: could not convert path to string: {0:?}")]
+    #[error(
+        "{FORGE_INSTALL_ERR_PREFIX}couldn't convert path to string (invalid characters):\n{0:?}"
+    )]
     PathBufToStr(PathBuf),
-    #[error("error compiling forge installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}error compiling installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     CompileError(String, String),
-    #[error("error running forge installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}error running installer\n\nSTDOUT = {0}\n\nSTDERR = {1}")]
     InstallerError(String, String),
-    #[error("error installing forge: could not convert bytes to string: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}couldn't convert bytes to string: {0}")]
     FromUtf8Error(#[from] FromUtf8Error),
-    #[error("error installing forge: could not find parent directory of library")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}couldn't find parent directory of library")]
     LibraryParentError,
-    #[error("error installing forge: no install json found")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}no install json found")]
     NoInstallJson,
-    #[error("error installing forge: zip extract: {0}")]
+    #[error("{FORGE_INSTALL_ERR_PREFIX}zip extract: {0}")]
     ZipExtract(#[from] ZipExtractError),
-    #[error("while installing neoforge: while checking if NeoForge supports the current version: could not parse version release date: {0}")]
+    #[error("while installing neoforge:\nwhile checking if NeoForge supports the current version:\ncouldn't parse version release date:\n{0}")]
     ChronoTime(#[from] chrono::ParseError),
     #[error("neoforge only supports Minecraft 1.20.2 and above, your version is outdated")]
-    OutdatedMinecraft,
+    NeoforgeOutdatedMinecraft,
 }
 
 impl From<JsonFileError> for ForgeInstallError {
     fn from(value: JsonFileError) -> Self {
         match value {
             JsonFileError::Io(err) => Self::Io(err),
-            JsonFileError::SerdeError(err) => Self::Serde(err),
+            JsonFileError::SerdeError(err) => Self::Json(err),
         }
     }
 }
@@ -54,7 +58,7 @@ impl From<JsonDownloadError> for ForgeInstallError {
     fn from(value: JsonDownloadError) -> Self {
         match value {
             JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Serde(err),
+            JsonDownloadError::SerdeError(err) => Self::Json(err),
         }
     }
 }

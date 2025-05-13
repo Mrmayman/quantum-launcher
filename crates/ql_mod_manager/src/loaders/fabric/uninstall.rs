@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use ql_core::{
-    info, json::FabricJSON, InstanceSelection, IntoIoError, IoError, Loader, LAUNCHER_DIR,
+    info, json::FabricJSON, InstanceSelection, IntoIoError, IntoJsonError, IoError, Loader,
+    LAUNCHER_DIR,
 };
 
 use crate::loaders::change_instance_type;
@@ -30,7 +31,7 @@ pub async fn uninstall_server(server_name: String) -> Result<(), FabricInstallEr
         let json = tokio::fs::read_to_string(&json_path)
             .await
             .path(&json_path)?;
-        let json: FabricJSON = serde_json::from_str(&json)?;
+        let json: FabricJSON = serde_json::from_str(&json).json(json)?;
         tokio::fs::remove_file(&json_path).await.path(&json_path)?;
 
         let libraries_dir = server_dir.join("libraries");
@@ -63,7 +64,7 @@ pub async fn uninstall_client(instance_name: String) -> Result<(), FabricInstall
         let fabric_json = tokio::fs::read_to_string(&fabric_json_path)
             .await
             .path(&fabric_json_path)?;
-        let fabric_json: FabricJSON = serde_json::from_str(&fabric_json)?;
+        let fabric_json: FabricJSON = serde_json::from_str(&fabric_json).json(fabric_json)?;
 
         tokio::fs::remove_file(&fabric_json_path)
             .await

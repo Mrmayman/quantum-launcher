@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::{err, IoError};
+use crate::{err, IntoJsonError, IoError};
 use crate::{InstanceSelection, IntoIoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
@@ -15,11 +15,11 @@ impl JarMods {
 
         if path.is_file() {
             let file = tokio::fs::read_to_string(&path).await.path(path)?;
-            let file = serde_json::from_str(&file)?;
+            let file = serde_json::from_str(&file).json(file)?;
             Ok(file)
         } else {
             let file = Self { mods: Vec::new() };
-            let file_str = serde_json::to_string(&file)?;
+            let file_str = serde_json::to_string(&file).json_to()?;
             tokio::fs::write(&path, &file_str).await.path(&file_str)?;
             Ok(file)
         }
@@ -30,11 +30,11 @@ impl JarMods {
 
         if path.is_file() {
             let file = std::fs::read_to_string(&path).path(path)?;
-            let file = serde_json::from_str(&file)?;
+            let file = serde_json::from_str(&file).json(file)?;
             Ok(file)
         } else {
             let file = Self { mods: Vec::new() };
-            let file_str = serde_json::to_string(&file)?;
+            let file_str = serde_json::to_string(&file).json_to()?;
             std::fs::write(&path, &file_str).path(&file_str)?;
             Ok(file)
         }
@@ -47,7 +47,7 @@ impl JarMods {
         }
 
         let path = instance.get_instance_path().join("jarmods.json");
-        let file = serde_json::to_string(self)?;
+        let file = serde_json::to_string(self).json_to()?;
         tokio::fs::write(&path, &file).await.path(file)?;
         Ok(())
     }

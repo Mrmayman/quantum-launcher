@@ -1,34 +1,36 @@
 use std::num::ParseIntError;
 
-use ql_core::{IoError, JsonDownloadError, JsonFileError, RequestError};
+use ql_core::{IoError, JsonDownloadError, JsonError, JsonFileError, RequestError};
 use thiserror::Error;
 use zip_extract::ZipError;
 
+const MOD_ERR_PREFIX: &str = "while managing mods:\n";
+
 #[derive(Debug, Error)]
 pub enum ModError {
-    #[error(transparent)]
+    #[error("{MOD_ERR_PREFIX}{0}")]
     RequestError(#[from] RequestError),
-    #[error("(mods): json error: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error(transparent)]
+    #[error("{MOD_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{MOD_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("no compatible version found for mod: {0}")]
+    #[error("{MOD_ERR_PREFIX}no compatible version found for mod: {0}")]
     NoCompatibleVersionFound(String),
-    #[error("no files found for mod")]
+    #[error("{MOD_ERR_PREFIX}no valid files found for mod")]
     NoFilesFound,
-    #[error("(mods): couldn't add entry {1} to zip: {0}")]
+    #[error("{MOD_ERR_PREFIX}couldn't add entry {1} to zip: {0}")]
     ZipIoError(std::io::Error, String),
-    #[error("(mods): zip error: {0}")]
+    #[error("{MOD_ERR_PREFIX}zip error:\n{0}")]
     Zip(#[from] ZipError),
-    #[error("no minecraft entry found in curseforge API")]
+    #[error("{MOD_ERR_PREFIX}no \"minecraft\" game entry found in curseforge API\n\nThis is a bug, please report in discord!")]
     NoMinecraftInCurseForge,
-    #[error("curseforge is blocking you from downloading the mod {0}\nGo to the official website at https://www.curseforge.com/minecraft/mc-mods/{1} and download from there")]
+    #[error("curseforge is blocking you from downloading the mod {0}\nGo to the official website at:\nhttps://www.curseforge.com/minecraft/mc-mods/{1}\nand download from there")]
     CurseforgeModNotAllowedForDownload(String, String),
-    #[error("could not parse date when checking for mod update: {0}")]
+    #[error("while checking for mod update:\ncould not parse date:\n{0}")]
     Chrono(#[from] chrono::ParseError),
-    #[error("unknown project type while downloading from store: {0}")]
+    #[error("{MOD_ERR_PREFIX}unknown project_type while downloading from store: {0}\n\nThis is a bug, please report in discord!")]
     UnknownProjectType(String),
-    #[error("couldn't parse int (curseforge mod id): {0}")]
+    #[error("{MOD_ERR_PREFIX}couldn't parse int (curseforge mod id):\n{0}")]
     ParseInt(#[from] ParseIntError),
 }
 

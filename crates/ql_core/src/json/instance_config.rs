@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{InstanceSelection, IntoIoError, JsonFileError};
+use crate::{InstanceSelection, IntoIoError, IntoJsonError, JsonFileError};
 
 /// Configuration for a specific instance.
 ///
@@ -134,7 +134,7 @@ impl InstanceConfigJson {
         let config_json = tokio::fs::read_to_string(&config_json_path)
             .await
             .path(config_json_path)?;
-        let mut config: Self = serde_json::from_str(&config_json)?;
+        let mut config: Self = serde_json::from_str(&config_json).json(config_json)?;
         config.fix();
         Ok(config)
     }

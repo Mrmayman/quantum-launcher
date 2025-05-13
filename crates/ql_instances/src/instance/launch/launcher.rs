@@ -11,8 +11,8 @@ use ql_core::{
         version::{LibraryDownloadArtifact, LibraryDownloads},
         FabricJSON, InstanceConfigJson, JsonOptifine, OmniarchiveEntry, VersionDetails,
     },
-    GenericProgress, InstanceSelection, IntoIoError, IoError, JsonFileError, CLASSPATH_SEPARATOR,
-    LAUNCHER_DIR,
+    GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonFileError,
+    CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::Command;
@@ -371,7 +371,7 @@ impl GameLauncher {
         let fabric_json = tokio::fs::read_to_string(&json_path)
             .await
             .path(json_path)?;
-        Ok(serde_json::from_str(&fabric_json)?)
+        Ok(serde_json::from_str(&fabric_json).json(fabric_json)?)
     }
 
     async fn get_forge_json(&self) -> Result<forge::JsonDetails, JsonFileError> {
@@ -387,10 +387,10 @@ impl GameLauncher {
                     // "{\"hello\" : \"world\"}"
                     // See those pesky backslashed quotes?
                     // We fix that here.
-                    let json_details: String = serde_json::from_str(&json)?;
-                    serde_json::from_str(&json_details)?
+                    let json_details: String = serde_json::from_str(&json).json(json)?;
+                    serde_json::from_str(&json_details).json(json_details)?
                 } else {
-                    return Err(err.into());
+                    return Err(err).json(json)?;
                 }
             }
         };

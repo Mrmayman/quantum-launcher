@@ -6,7 +6,8 @@ use std::{
 
 use chrono::DateTime;
 use ql_core::{
-    json::VersionDetails, pt, GenericProgress, JsonDownloadError, ModId, RequestError, CLIENT,
+    json::VersionDetails, pt, GenericProgress, IntoJsonError, JsonDownloadError, ModId,
+    RequestError, CLIENT,
 };
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
@@ -33,7 +34,7 @@ struct ModQuery {
 impl ModQuery {
     pub async fn load(id: &str) -> Result<Self, JsonDownloadError> {
         let response = send_request(&format!("mods/{id}"), &HashMap::new()).await?;
-        let response: ModQuery = serde_json::from_str(&response)?;
+        let response: ModQuery = serde_json::from_str(&response).json(response)?;
         Ok(response)
     }
 }
@@ -93,7 +94,7 @@ impl CurseforgeFileQuery {
     pub async fn load(mod_id: &str, file_id: i32) -> Result<Self, JsonDownloadError> {
         let response =
             send_request(&format!("mods/{mod_id}/files/{file_id}"), &HashMap::new()).await?;
-        let response: Self = serde_json::from_str(&response)?;
+        let response: Self = serde_json::from_str(&response).json(response)?;
         Ok(response)
     }
 }
@@ -203,7 +204,7 @@ impl Backend for CurseforgeBackend {
         }
 
         let response = send_request("mods/search", &params).await?;
-        let response: CFSearchResult = serde_json::from_str(&response)?;
+        let response: CFSearchResult = serde_json::from_str(&response).json(response)?;
 
         Ok(super::SearchResult {
             mods: response
@@ -233,7 +234,7 @@ impl Backend for CurseforgeBackend {
 
         let map = HashMap::new();
         let description = send_request(&format!("mods/{id}/description"), &map).await?;
-        let description: Resp2 = serde_json::from_str(&description)?;
+        let description: Resp2 = serde_json::from_str(&description).json(description)?;
 
         Ok((ModId::Curseforge(id.to_string()), description.data))
     }
@@ -400,7 +401,7 @@ pub async fn get_mc_id() -> Result<i32, ModError> {
         let params = HashMap::new();
 
         let response = send_request("games", &params).await?;
-        let response: Response = serde_json::from_str(&response)?;
+        let response: Response = serde_json::from_str(&response).json(response)?;
 
         let Some(minecraft) = response
             .data

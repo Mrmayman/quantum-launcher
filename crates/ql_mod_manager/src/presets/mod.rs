@@ -7,7 +7,7 @@ use std::{
 use ql_core::{
     err, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, InstanceSelection, IntoIoError, ModId, SelectedMod, LAUNCHER_VERSION_NAME,
+    pt, InstanceSelection, IntoIoError, IntoJsonError, ModId, SelectedMod, LAUNCHER_VERSION_NAME,
 };
 use serde::{Deserialize, Serialize};
 use zip::ZipWriter;
@@ -108,7 +108,7 @@ impl PresetJson {
         }
 
         zip.start_file("index.json", zip::write::FileOptions::<()>::default())?;
-        let this_str = serde_json::to_string(&this)?;
+        let this_str = serde_json::to_string(&this).json_to()?;
         let this_str = this_str.as_bytes();
         zip.write_all(this_str)
             .map_err(|n| ModError::ZipIoError(n, "index.json".to_owned()))?;
@@ -176,7 +176,11 @@ impl PresetJson {
                 let mut buf = Vec::new();
                 file.read_to_end(&mut buf)
                     .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
-                let this: Self = serde_json::from_slice(&buf)?;
+                let this: Self = serde_json::from_slice(&buf).json(
+                    String::from_utf8(buf.clone())
+                        .ok()
+                        .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string()),
+                )?;
 
                 // Only sideload mods if the version is the same
                 let instance_type = get_instance_type(&instance_name).await?;

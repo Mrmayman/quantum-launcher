@@ -3,7 +3,7 @@ mod library_downloader;
 
 use std::{
     path::{Path, PathBuf},
-    sync::mpsc::{SendError, Sender},
+    sync::mpsc::Sender,
 };
 
 use indicatif::ProgressBar;
@@ -13,7 +13,7 @@ use ql_core::{
     file_utils::{self, LAUNCHER_DIR},
     info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    DownloadError, DownloadProgress, GenericProgress, IntoIoError, IoError,
+    pt, DownloadError, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError,
 };
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -80,7 +80,7 @@ impl GameDownloader {
 
     pub async fn download_jar(&self) -> Result<(), DownloadError> {
         info!("Downloading game jar file.");
-        self.send_progress(DownloadProgress::DownloadingJar)?;
+        self.send_progress(DownloadProgress::DownloadingJar, false);
 
         let url = match &self.version {
             ListEntry::Normal(_) => &self.version_json.downloads.client.url,
@@ -111,7 +111,7 @@ impl GameDownloader {
     pub async fn download_logging_config(&self) -> Result<(), DownloadError> {
         if let Some(ref logging) = self.version_json.logging {
             info!("Downloading logging configuration.");
-            self.send_progress(DownloadProgress::DownloadingLoggingConfig)?;
+            self.send_progress(DownloadProgress::DownloadingLoggingConfig, false);
 
             let log_config_name = format!("logging-{}", logging.client.file.id);
 
@@ -134,11 +134,12 @@ impl GameDownloader {
         bar: &ProgressBar,
         progress: &Mutex<usize>,
     ) -> Result<(), DownloadError> {
-        let obj_hash = object_data["hash"]
-            .as_str()
-            .ok_or(DownloadError::SerdeFieldNotFound(
-                "asset_index.objects[].hash".to_owned(),
-            ))?;
+        let obj_hash =
+            object_data["hash"]
+                .as_str()
+                .ok_or(DownloadError::AssetsJsonFieldNotFound(
+                    "asset_index.objects[].hash".to_owned(),
+                ))?;
 
         let obj_id = &obj_hash[0..2];
 
@@ -154,10 +155,13 @@ impl GameDownloader {
                 let mut progress = progress.lock().await;
                 *progress += 1;
 
-                self.send_progress(DownloadProgress::DownloadingAssets {
-                    progress: *progress,
-                    out_of: objects_len,
-                })?;
+                self.send_progress(
+                    DownloadProgress::DownloadingAssets {
+                        progress: *progress,
+                        out_of: objects_len,
+                    },
+                    true,
+                );
             }
 
             bar.inc(1);
@@ -178,10 +182,13 @@ impl GameDownloader {
             let mut progress = progress.lock().await;
             *progress += 1;
 
-            self.send_progress(DownloadProgress::DownloadingAssets {
-                progress: *progress,
-                out_of: objects_len,
-            })?;
+            self.send_progress(
+                DownloadProgress::DownloadingAssets {
+                    progress: *progress,
+                    out_of: objects_len,
+                },
+                true,
+            );
         }
 
         bar.inc(1);
@@ -267,12 +274,9 @@ impl GameDownloader {
             self.save_asset_index_json(&assets_indexes_path, &asset_index)
                 .await?;
 
-            let objects =
-                asset_index["objects"]
-                    .as_object()
-                    .ok_or(DownloadError::SerdeFieldNotFound(
-                        "asset_index.objects".to_owned(),
-                    ))?;
+            let objects = asset_index["objects"].as_object().ok_or(
+                DownloadError::AssetsJsonFieldNotFound("asset_index.objects".to_owned()),
+            )?;
             let objects_len = objects.len();
 
             let bar = indicatif::ProgressBar::new(objects_len as u64);
@@ -387,7 +391,7 @@ impl GameDownloader {
     pub async fn create_profiles_json(&self) -> Result<(), DownloadError> {
         let profile_json = ProfileJson::default();
 
-        let profile_json = serde_json::to_string(&profile_json)?;
+        let profile_json = serde_json::to_string(&profile_json).json_to()?;
         let profile_json_path = self
             .instance_dir
             .join(".minecraft")
@@ -404,7 +408,7 @@ impl GameDownloader {
 
         tokio::fs::write(
             &json_file_path,
-            serde_json::to_string(&self.version_json)?.as_bytes(),
+            serde_json::to_string(&self.version_json).json_to()?,
         )
         .await
         .path(json_file_path)?;
@@ -427,7 +431,7 @@ impl GameDownloader {
             do_gc_tuning: None,
             close_on_start: None,
         };
-        let config_json = serde_json::to_string(&config_json)?;
+        let config_json = serde_json::to_string(&config_json).json_to()?;
 
         let config_json_path = self.instance_dir.join("config.json");
         tokio::fs::write(&config_json_path, config_json)
@@ -443,7 +447,7 @@ impl GameDownloader {
     ) -> Result<VersionDetails, DownloadError> {
         info!("Downloading version manifest JSON.");
         if let Some(sender) = sender {
-            sender.send(DownloadProgress::DownloadingJsonManifest)?;
+            _ = sender.send(DownloadProgress::DownloadingJsonManifest);
         }
         let manifest = Manifest::download().await?;
 
@@ -473,7 +477,7 @@ impl GameDownloader {
 
         info!("Downloading version details JSON.");
         if let Some(sender) = sender {
-            sender.send(DownloadProgress::DownloadingVersionJson)?;
+            _ = sender.send(DownloadProgress::DownloadingVersionJson);
         }
         Ok(file_utils::download_file_to_json(&version.url, false).await?)
     }
@@ -496,10 +500,14 @@ impl GameDownloader {
         Ok(Some(current_instance_dir))
     }
 
-    fn send_progress(&self, progress: DownloadProgress) -> Result<(), SendError<DownloadProgress>> {
+    fn send_progress(&self, progress: DownloadProgress, print: bool) {
         if let Some(ref sender) = self.sender {
-            sender.send(progress)?;
+            if sender.send(progress).is_ok() {
+                return;
+            }
         }
-        Ok(())
+        if print {
+            pt!("{progress}");
+        }
     }
 }

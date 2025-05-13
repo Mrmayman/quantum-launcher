@@ -14,7 +14,7 @@ use tokio::{
     process::{Child, ChildStderr, ChildStdout},
 };
 
-use ql_core::{err, json::VersionDetails, IoError, JsonFileError};
+use ql_core::{err, json::VersionDetails, IoError, JsonError, JsonFileError};
 
 /// Reads log output from the given instance
 /// and sends it to the given sender.
@@ -166,16 +166,18 @@ impl Display for LogLine {
     }
 }
 
+const READ_ERR_PREFIX: &str = "while reading the game log:\n";
+
 #[derive(Debug, Error)]
 pub enum ReadError {
-    #[error("error reading log: (io): {0}")]
+    #[error("{READ_ERR_PREFIX}{0}")]
     Io(#[from] std::io::Error),
-    #[error("error reading log: {0}")]
+    #[error("{READ_ERR_PREFIX}{0}")]
     IoError(#[from] IoError),
-    #[error("error reading log: send error: {0}")]
+    #[error("{READ_ERR_PREFIX}send error: {0}")]
     Send(#[from] SendError<LogLine>),
-    #[error("error reading log: json error: {0}")]
-    Json(#[from] serde_json::Error),
+    #[error("{READ_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
 }
 
 impl From<JsonFileError> for ReadError {

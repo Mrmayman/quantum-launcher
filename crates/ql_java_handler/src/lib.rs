@@ -10,7 +10,7 @@ use java_files::{JavaFile, JavaFilesJson};
 use java_list::JavaListJson;
 use ql_core::{
     do_jobs, err, file_utils, info, GenericProgress, IntoIoError, IoError, JsonDownloadError,
-    RequestError, LAUNCHER_DIR,
+    JsonError, RequestError, LAUNCHER_DIR,
 };
 
 mod compression;
@@ -319,21 +319,23 @@ async fn download_file(
     }
 }
 
+const JAVA_INSTALL_ERR_PREFIX: &str = "while installing Java:\n";
+
 #[derive(Debug, Error)]
 pub enum JavaInstallError {
-    #[error("couldn't install java: {0}")]
+    #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
     JsonDownload(#[from] JsonDownloadError),
-    #[error("couldn't install java: {0}")]
+    #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error("couldn't extract java tar.gz: {0}")]
+    #[error("{JAVA_INSTALL_ERR_PREFIX}couldn't extract java tar.gz:\n{0}")]
     TarGzExtract(std::io::Error),
-    #[error("couldn't install java: json error: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("couldn't install java: {0}")]
+    #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("couldn't find java binary")]
+    #[error("{JAVA_INSTALL_ERR_PREFIX}couldn't find java binary")]
     NoJavaBinFound,
-    #[error("couldn't install java: zip extract error: {0}")]
+    #[error("{JAVA_INSTALL_ERR_PREFIX}zip extract error:\n{0}")]
     ZipExtract(#[from] ZipExtractError),
 }
 

@@ -1,8 +1,8 @@
-use std::{path::PathBuf, sync::mpsc::SendError};
+use std::path::PathBuf;
 
 use thiserror::Error;
 
-use crate::{DownloadProgress, RequestError};
+use crate::RequestError;
 
 // macro_rules! impl_error {
 //     ($from:ident, $to:ident) => {
@@ -57,8 +57,8 @@ impl<T, E: ToString> IntoStringError<T> for Result<T, E> {
 pub enum JsonDownloadError {
     #[error(transparent)]
     RequestError(#[from] RequestError),
-    #[error("json error: {0}")]
-    SerdeError(#[from] serde_json::Error),
+    #[error(transparent)]
+    SerdeError(#[from] JsonError),
 }
 
 impl From<reqwest::Error> for JsonDownloadError {
@@ -69,33 +69,33 @@ impl From<reqwest::Error> for JsonDownloadError {
 
 #[derive(Debug, Error)]
 pub enum JsonFileError {
-    #[error("json error: {0}")]
-    SerdeError(#[from] serde_json::Error),
+    #[error(transparent)]
+    SerdeError(#[from] JsonError),
     #[error(transparent)]
     Io(#[from] IoError),
 }
 
+const DOWNLOAD_ERR_PREFIX: &str = "while creating instance:\n";
+
 #[derive(Debug, Error)]
 pub enum DownloadError {
-    #[error("json error {0}")]
-    Json(#[from] serde_json::Error),
-    #[error(transparent)]
+    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error(transparent)]
+    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("instance already exists!")]
+    #[error("an instance with that name already exists!")]
     InstanceAlreadyExists,
-    #[error("send error: {0}")]
-    SendProgress(#[from] SendError<DownloadProgress>),
-    #[error("version not found in manifest.json: {0}")]
+    #[error("{DOWNLOAD_ERR_PREFIX}version not found in manifest.json: {0}")]
     VersionNotFoundInManifest(String),
-    #[error("json field not found \"{0}\"")]
-    SerdeFieldNotFound(String),
-    #[error("could not extract native libraries: {0}")]
+    #[error("{DOWNLOAD_ERR_PREFIX}in assets JSON, field not found: \"{0}\"")]
+    AssetsJsonFieldNotFound(String),
+    #[error("{DOWNLOAD_ERR_PREFIX}could not extract native libraries:\n{0}")]
     NativesExtractError(#[from] zip_extract::ZipExtractError),
-    #[error("tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED")]
+    #[error("{DOWNLOAD_ERR_PREFIX}tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED")]
     NativesOutsideDirRemove,
-    #[error("tried to download Minecraft classic server as a client!")]
+    #[error("{DOWNLOAD_ERR_PREFIX}tried to download Minecraft classic server as a client!")]
     DownloadClassicZip,
 }
 
@@ -105,5 +105,35 @@ impl From<JsonDownloadError> for DownloadError {
             JsonDownloadError::RequestError(err) => DownloadError::from(err),
             JsonDownloadError::SerdeError(err) => DownloadError::from(err),
         }
+    }
+}
+
+const JSON_ERR_PREFIX: &str = "could not parse JSON (this is a bug! please report):\n";
+
+#[derive(Debug, Error)]
+pub enum JsonError {
+    #[error("{JSON_ERR_PREFIX}while parsing JSON:\n{error}\n\n{json}")]
+    From {
+        error: serde_json::Error,
+        json: String,
+    },
+    #[error("{JSON_ERR_PREFIX}while converting object to JSON:\n{error}")]
+    To { error: serde_json::Error },
+}
+
+pub trait IntoJsonError<T> {
+    #[allow(clippy::missing_errors_doc)]
+    fn json(self, p: String) -> Result<T, JsonError>;
+    #[allow(clippy::missing_errors_doc)]
+    fn json_to(self) -> Result<T, JsonError>;
+}
+
+impl<T> IntoJsonError<T> for Result<T, serde_json::Error> {
+    fn json(self, json: String) -> Result<T, JsonError> {
+        self.map_err(|error: serde_json::Error| JsonError::From { error, json })
+    }
+
+    fn json_to(self) -> Result<T, JsonError> {
+        self.map_err(|error: serde_json::Error| JsonError::To { error })
     }
 }

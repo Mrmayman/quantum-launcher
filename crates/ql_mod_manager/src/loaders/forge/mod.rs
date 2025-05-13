@@ -12,8 +12,8 @@ use ql_core::{
         forge::{JsonDetails, JsonDetailsLibrary, JsonInstallProfile, JsonVersions},
         VersionDetails,
     },
-    no_window, pt, GenericProgress, InstanceSelection, IntoIoError, IoError, Progress,
-    CLASSPATH_SEPARATOR,
+    no_window, pt, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError,
+    Progress, CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 
@@ -267,7 +267,8 @@ impl ForgeInstaller {
                 .await
                 .path(forge_json_path)?;
 
-            let forge_json_parsed: JsonDetails = serde_json::from_str(&forge_json)?;
+            let forge_json_parsed: JsonDetails =
+                serde_json::from_str(&forge_json).json(forge_json.clone())?;
             Ok((forge_json_parsed, forge_json))
         } else {
             let forge_json_path = temp_dir.path().join("install_profile.json");
@@ -276,7 +277,8 @@ impl ForgeInstaller {
                     .await
                     .path(forge_json_path)?;
 
-                let forge_json_parsed: JsonInstallProfile = serde_json::from_str(&forge_json)?;
+                let forge_json_parsed: JsonInstallProfile =
+                    serde_json::from_str(&forge_json).json(forge_json.clone())?;
                 Ok((forge_json_parsed.versionInfo, forge_json))
             } else {
                 Err(ForgeInstallError::NoInstallJson)
@@ -455,7 +457,7 @@ async fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInsta
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
         .path(version_json_path)?;
-    let version_json = serde_json::from_str::<VersionDetails>(&version_json)?;
+    let version_json = serde_json::from_str::<VersionDetails>(&version_json).json(version_json)?;
     let minecraft_version = version_json.id;
     Ok(minecraft_version)
 }
@@ -582,9 +584,12 @@ pub async fn install_client(
         .path(clean_classpath_path)?;
 
     let json_path = installer.forge_dir.join("details.json");
-    tokio::fs::write(&json_path, serde_json::to_string(&forge_json_str)?)
-        .await
-        .path(json_path)?;
+    tokio::fs::write(
+        &json_path,
+        serde_json::to_string(&forge_json_str).json_to()?,
+    )
+    .await
+    .path(json_path)?;
 
     change_instance_type(&installer.instance_dir, "Forge".to_owned()).await?;
 

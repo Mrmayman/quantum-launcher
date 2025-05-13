@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ql_core::JsonDownloadError;
+use ql_core::{IntoJsonError, JsonDownloadError};
 use serde::Deserialize;
 
 use crate::store::{Query, QueryType};
@@ -32,7 +32,7 @@ pub async fn do_request(
         }
     }
 
-    let filters = serde_json::to_string(&filters)?;
+    let filters = serde_json::to_string(&filters).json_to()?;
     params.insert("facets", filters);
 
     let text = ql_core::CLIENT
@@ -43,7 +43,7 @@ pub async fn do_request(
         .text()
         .await?;
 
-    let json: Search = serde_json::from_str(&text)?;
+    let json: Search = serde_json::from_str(&text).json(text)?;
 
     Ok(json)
 }

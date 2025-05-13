@@ -8,7 +8,7 @@ use std::{
 use iced::{keyboard::Key, Task};
 use ql_core::{
     err, info, info_no_log, json::instance_config::InstanceConfigJson, InstanceSelection,
-    IntoIoError, IntoStringError, JsonFileError,
+    IntoIoError, IntoJsonError, IntoStringError, JsonFileError,
 };
 use ql_instances::{AccountData, ReadError};
 use ql_mod_manager::{loaders, store::ModIndex};
@@ -160,7 +160,8 @@ impl Launcher {
         let config_path = selected_instance.get_instance_path().join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
-        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+        let config_json: InstanceConfigJson =
+            serde_json::from_str(&config_json).json(config_json)?;
 
         let slider_value = f32::log2(config_json.ram_in_mb as f32);
         let memory_mb = config_json.ram_in_mb;
@@ -184,7 +185,8 @@ impl Launcher {
         let config_path = selected_instance.get_instance_path().join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
-        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+        let config_json: InstanceConfigJson =
+            serde_json::from_str(&config_json).json(config_json)?;
 
         match ModIndex::get_s(selected_instance).strerr() {
             Ok(idx) => {
@@ -217,7 +219,8 @@ impl Launcher {
         let config_path = selected_instance.get_instance_path().join("config.json");
 
         let config_json = std::fs::read_to_string(&config_path).path(config_path)?;
-        let config_json: InstanceConfigJson = serde_json::from_str(&config_json)?;
+        let config_json: InstanceConfigJson =
+            serde_json::from_str(&config_json).json(config_json)?;
 
         let is_vanilla = config_json.mod_type == "Vanilla";
 

@@ -6,8 +6,8 @@ use std::{
 use chrono::Datelike;
 use iced::Task;
 use ql_core::{
-    err, json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoStringError, JsonFileError,
-    ModId,
+    err, json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoJsonError, IntoStringError,
+    JsonFileError, ModId,
 };
 use ql_mod_manager::store::{ModConfig, ModIndex};
 
@@ -316,7 +316,7 @@ impl Launcher {
         }
         let config_path = instance.get_instance_path().join("config.json");
 
-        let config_json = serde_json::to_string(&config)?;
+        let config_json = serde_json::to_string(&config).json_to()?;
         tokio::fs::write(&config_path, config_json)
             .await
             .path(config_path)?;

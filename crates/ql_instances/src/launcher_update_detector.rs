@@ -5,7 +5,8 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, info, GenericProgress, IntoIoError, IoError, JsonDownloadError, RequestError,
+    err, file_utils, info, GenericProgress, IntoIoError, IoError, JsonDownloadError, JsonError,
+    RequestError,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -188,15 +189,17 @@ pub async fn install_launcher_update(
     std::process::exit(0);
 }
 
+const UPDATE_ERR_PREFIX: &str = "while managing launcher update:\n";
+
 #[derive(Debug, Error)]
 pub enum UpdateError {
-    #[error("launcher update error: {0}")]
+    #[error("{UPDATE_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error("launcher update error: json error: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("no launcher update releases found")]
+    #[error("{UPDATE_ERR_PREFIX}{0}")]
+    Serde(#[from] JsonError),
+    #[error("{UPDATE_ERR_PREFIX}no Release entries found in launcher github")]
     NoReleases,
-    #[error("launcher update error: semver error: {0}")]
+    #[error("{UPDATE_ERR_PREFIX}semver error: {0}")]
     SemverError(#[from] semver::Error),
     #[error("unsupported OS for launcher update")]
     UnsupportedOS,
@@ -206,17 +209,17 @@ pub enum UpdateError {
     NoMatchingDownloadFound,
     #[error("Current launcher version is ahead of latest version! dev build?")]
     AheadOfLatestVersion,
-    #[error("launcher update error: could not get current exe path: {0}")]
+    #[error("{UPDATE_ERR_PREFIX}could not get current exe path: {0}")]
     CurrentExeError(std::io::Error),
-    #[error("launcher update error: could not get current exe parent path")]
+    #[error("{UPDATE_ERR_PREFIX}could not get current exe parent path")]
     ExeParentPathError,
-    #[error("launcher update error: could not get current exe file name")]
+    #[error("{UPDATE_ERR_PREFIX}could not get current exe file name")]
     ExeFileNameError,
-    #[error("launcher update error: could not convert OsStr to str: {0:?}")]
+    #[error("{UPDATE_ERR_PREFIX}could not convert OsStr to str: {0:?}")]
     OsStrToStr(Arc<OsStr>),
-    #[error("launcher update error: {0}")]
+    #[error("{UPDATE_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("launcher update error: zip extract error: {0}")]
+    #[error("{UPDATE_ERR_PREFIX}zip extract error: {0}")]
     Zip(#[from] zip_extract::ZipExtractError),
 }
 

@@ -4,7 +4,7 @@ use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
     json::{FabricJSON, VersionDetails},
-    GenericProgress, InstanceSelection, IntoIoError, RequestError, LAUNCHER_DIR,
+    GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, RequestError, LAUNCHER_DIR,
 };
 use serde::Deserialize;
 use version_compare::compare_versions;
@@ -40,7 +40,7 @@ pub async fn get_list_of_versions(
         let version_list =
             download_file_to_string(&format!("/versions/loader/{}", version_json.id), is_quilt)
                 .await?;
-        let versions = serde_json::from_str(&version_list)?;
+        let versions = serde_json::from_str(&version_list).json(version_list)?;
         Ok(versions)
     }
 
@@ -64,9 +64,10 @@ pub async fn install_server(
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
+    info!("Installing {loader_name} for server");
 
     if let Some(progress) = &progress {
-        progress.send(GenericProgress::default())?;
+        _ = progress.send(GenericProgress::default());
     }
 
     let server_dir = LAUNCHER_DIR.join("servers").join(server_name);
@@ -80,7 +81,7 @@ pub async fn install_server(
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
         .path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    let version_json: VersionDetails = serde_json::from_str(&version_json).json(version_json)?;
 
     let game_version = version_json.id;
 
@@ -90,7 +91,7 @@ pub async fn install_server(
     let json_path = server_dir.join("fabric.json");
     tokio::fs::write(&json_path, &json).await.path(json_path)?;
 
-    let json: FabricJSON = serde_json::from_str(&json)?;
+    let json: FabricJSON = serde_json::from_str(&json).json(json)?;
 
     let number_of_libraries = json.libraries.len();
     let mut library_files = Vec::new();
@@ -129,7 +130,7 @@ pub async fn install_server(
     change_instance_type(&server_dir, loader_name.to_owned()).await?;
 
     if let Some(progress) = &progress {
-        progress.send(GenericProgress::finished())?;
+        _ = progress.send(GenericProgress::finished());
     }
 
     info!("Finished installing {loader_name}");
@@ -163,7 +164,7 @@ pub async fn install_client(
     let version_json = tokio::fs::read_to_string(&version_json_path)
         .await
         .path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+    let version_json: VersionDetails = serde_json::from_str(&version_json).json(version_json)?;
 
     let game_version = version_json.id;
 
@@ -172,12 +173,12 @@ pub async fn install_client(
     let json = download_file_to_string(&json_url, is_quilt).await?;
     tokio::fs::write(&json_path, &json).await.path(json_path)?;
 
-    let json: FabricJSON = serde_json::from_str(&json)?;
+    let json: FabricJSON = serde_json::from_str(&json).json(json)?;
 
     info!("Started installing {loader_name}: {game_version}, {loader_version}");
 
     if let Some(progress) = &progress {
-        progress.send(GenericProgress::default())?;
+        _ = progress.send(GenericProgress::default());
     }
 
     let number_of_libraries = json.libraries.len();
@@ -201,7 +202,7 @@ pub async fn install_client(
     change_instance_type(&instance_dir, loader_name.to_owned()).await?;
 
     if let Some(progress) = &progress {
-        progress.send(GenericProgress::default())?;
+        _ = progress.send(GenericProgress::default());
     }
 
     tokio::fs::remove_file(&lock_path).await.path(lock_path)?;
@@ -242,12 +243,12 @@ fn send_progress(
     );
     info!("{message}");
     if let Some(progress) = progress {
-        progress.send(GenericProgress {
+        _ = progress.send(GenericProgress {
             done: i + 1,
             total: number_of_libraries,
             message: Some(message),
             has_finished: false,
-        })?;
+        });
     }
     Ok(())
 }

@@ -1,4 +1,6 @@
-use ql_core::{err, IntoIoError, JsonFileError, LAUNCHER_DIR, LAUNCHER_VERSION_NAME};
+use ql_core::{
+    err, IntoIoError, IntoJsonError, JsonFileError, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
@@ -129,7 +131,7 @@ impl LauncherConfig {
 
     pub async fn save(&self) -> Result<(), JsonFileError> {
         let config_path = LAUNCHER_DIR.join("config.json");
-        let config = serde_json::to_string(&self)?;
+        let config = serde_json::to_string(&self).json_to()?;
 
         tokio::fs::write(&config_path, config.as_bytes())
             .await
@@ -139,7 +141,7 @@ impl LauncherConfig {
 
     fn create(path: &Path) -> Result<Self, JsonFileError> {
         let config = LauncherConfig::default();
-        std::fs::write(path, serde_json::to_string(&config)?.as_bytes()).path(path)?;
+        std::fs::write(path, serde_json::to_string(&config).json_to()?.as_bytes()).path(path)?;
         Ok(config)
     }
 }

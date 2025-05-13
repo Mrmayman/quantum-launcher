@@ -252,16 +252,23 @@ pub async fn download_file_to_bytes_with_agent(
     retry(async || inner(&CLIENT, url, user_agent).await).await
 }
 
+const NETWORK_ERROR_MSG: &str = r"
+- Check your internet connection
+- Check if you are behind a firewall/proxy
+- Try doing the action again
+
+";
+
 #[derive(Debug, Error)]
 pub enum RequestError {
-    #[error("Download error (code {code}), url {url}\n\nTrying again might fix this")]
+    #[error("Download Error (code {code}){NETWORK_ERROR_MSG}Url: {url}")]
     DownloadError {
         code: reqwest::StatusCode,
         url: reqwest::Url,
     },
-    #[error("Request error: {0}\n\nTrying again might fix this")]
+    #[error("Network Request Error{NETWORK_ERROR_MSG}{0}")]
     ReqwestError(#[from] reqwest::Error),
-    #[error("Reqwest error: invalid header value\n\nTrying again might fix this")]
+    #[error("Download Error (invalid header value){NETWORK_ERROR_MSG}")]
     InvalidHeaderValue(#[from] InvalidHeaderValue),
 }
 

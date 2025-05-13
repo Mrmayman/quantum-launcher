@@ -4,7 +4,7 @@ use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{err, InstanceSelection, IntoIoError, JsonFileError};
+use crate::{err, InstanceSelection, IntoIoError, IntoJsonError, JsonFileError};
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -60,7 +60,7 @@ impl VersionDetails {
 
         let file = tokio::fs::read_to_string(&path).await.path(path)?;
 
-        let details: VersionDetails = serde_json::from_str(&file)?;
+        let details: VersionDetails = serde_json::from_str(&file).json(file)?;
 
         Ok(details)
     }
@@ -80,7 +80,8 @@ impl VersionDetails {
         let version_json = tokio::fs::read_to_string(&version_json_path)
             .await
             .path(version_json_path)?;
-        let version_json: VersionDetails = serde_json::from_str(&version_json)?;
+        let version_json: VersionDetails =
+            serde_json::from_str(&version_json).json(version_json)?;
         Ok(version_json)
     }
 

@@ -76,7 +76,7 @@ use launcher_state::{
 
 use ql_core::{
     err, err_no_log, file_utils, info, info_no_log, open_file_explorer, InstanceSelection,
-    IntoStringError, Loader,
+    IntoStringError, Loader, LOGGER,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -216,8 +216,24 @@ impl Launcher {
             Message::CoreOpenDir(dir) => open_file_explorer(&dir),
             Message::CoreErrorCopy => {
                 if let State::Error { error } = &self.state {
-                    return iced::clipboard::write(format!("QuantumLauncher Error: {error}"));
+                    return iced::clipboard::write(format!("(QuantumLauncher): {error}"));
                 }
+            }
+            Message::CoreErrorCopyLog => {
+                let text = {
+                    if let Some(logger) = LOGGER.as_ref() {
+                        let logger = logger.lock().unwrap();
+                        logger.text.clone()
+                    } else {
+                        Vec::new()
+                    }
+                };
+
+                let mut log = String::new();
+                for (line, _) in text {
+                    log.push_str(&line);
+                }
+                return iced::clipboard::write(format!("QuantumLauncher Log:\n{log}"));
             }
             Message::CoreTick => {
                 let mut commands = self.get_imgs_to_load();

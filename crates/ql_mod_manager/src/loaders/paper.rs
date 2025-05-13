@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonDownloadError,
+    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonDownloadError, JsonError,
     JsonFileError, Loader, RequestError, LAUNCHER_DIR,
 };
 use serde::Deserialize;
@@ -118,22 +118,24 @@ pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {
     Ok(())
 }
 
+const PAPER_INSTALL_ERR_PREFIX: &str = "while installing Paper for minecraft server:\n";
+
 #[derive(Debug, Error)]
 pub enum PaperInstallerError {
-    #[error("could not install paper: {0}")]
+    #[error("{PAPER_INSTALL_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error("could not install paper: {0}")]
+    #[error("{PAPER_INSTALL_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
-    #[error("could not install paper: json error: {0}")]
-    Serde(#[from] serde_json::Error),
-    #[error("no matching paper version found for {0}")]
+    #[error("{PAPER_INSTALL_ERR_PREFIX}json error: {0}")]
+    Json(#[from] JsonError),
+    #[error("{PAPER_INSTALL_ERR_PREFIX}no matching paper version found for {0}")]
     NoMatchingVersionFound(String),
 }
 
 impl From<JsonFileError> for PaperInstallerError {
     fn from(value: JsonFileError) -> Self {
         match value {
-            JsonFileError::SerdeError(err) => Self::Serde(err),
+            JsonFileError::SerdeError(err) => Self::Json(err),
             JsonFileError::Io(err) => Self::Io(err),
         }
     }
@@ -143,7 +145,7 @@ impl From<JsonDownloadError> for PaperInstallerError {
     fn from(value: JsonDownloadError) -> Self {
         match value {
             JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Serde(err),
+            JsonDownloadError::SerdeError(err) => Self::Json(err),
         }
     }
 }

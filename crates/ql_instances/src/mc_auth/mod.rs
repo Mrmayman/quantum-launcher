@@ -39,7 +39,10 @@
 //! login_refresh(Username, Refresh Token) ---
 //! ```
 
-use ql_core::{err, info, pt, retry, GenericProgress, IntoStringError, RequestError, CLIENT};
+use ql_core::{
+    err, info, pt, retry, GenericProgress, IntoJsonError, IntoStringError, JsonError, RequestError,
+    CLIENT,
+};
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
@@ -114,34 +117,36 @@ struct MinecraftFinalDetails {
     name: String,
 }
 
+const AUTH_ERR_PREFIX: &str = "while managing {AUTH_ERR_PREFIX}";
+
 #[derive(Debug, Error)]
 pub enum AuthError {
-    #[error("microsoft account:\n{0}")]
-    RequestError(#[from] RequestError),
-    #[error("microsoft account:\njson error: {0}\njson: {1}")]
-    SerdeError(serde_json::Error, String),
-    #[error("Invalid microsoft account access token")]
+    #[error("{AUTH_ERR_PREFIX}{0}")]
+    Request(#[from] RequestError),
+    #[error("{AUTH_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{AUTH_ERR_PREFIX}Invalid account access token!")]
     InvalidAccessToken,
-    #[error("microsoft account error: unknown error\n\nThis is a bug! Please report in discord.")]
-    UnknownError,
-    #[error("microsoft account:\nmissing json field: {0}")]
+    #[error("{AUTH_ERR_PREFIX}An unknown error has occured (code: {0})\n\nThis is a major bug! Please report in discord.")]
+    UnknownError(StatusCode),
+    #[error("{AUTH_ERR_PREFIX}missing JSON field: {0}")]
     MissingField(String),
-    #[error("no uuid found for microsoft account")]
+    #[error("{AUTH_ERR_PREFIX}no uuid found for account")]
     NoUuid,
-    #[error("microsoft account doesn't own minecraft")]
+    #[error("your microsoft account doesn't own minecraft")]
     DoesntOwnGame,
 
     #[cfg(not(target_os = "linux"))]
-    #[error("microsoft account:\nkeyring error: {0}")]
+    #[error("{AUTH_ERR_PREFIX}keyring error: {0}")]
     KeyringError(#[from] keyring::Error),
     #[cfg(target_os = "linux")]
-    #[error("microsoft account:\nkeyring error: {0}\n\nSee https://mrmayman.github.io/quantumlauncher/#keyring-error for help")]
+    #[error("{AUTH_ERR_PREFIX}keyring error: {0}\n\nSee https://mrmayman.github.io/quantumlauncher/#keyring-error for help")]
     KeyringError(#[from] keyring::Error),
 }
 
 impl From<reqwest::Error> for AuthError {
     fn from(value: reqwest::Error) -> Self {
-        Self::RequestError(RequestError::ReqwestError(value))
+        Self::Request(RequestError::ReqwestError(value))
     }
 }
 
@@ -187,8 +192,7 @@ pub async fn login_refresh(
     })
     .await?;
 
-    let data: RefreshResponse =
-        serde_json::from_str(&response).map_err(|n| AuthError::SerdeError(n, response))?;
+    let data: RefreshResponse = serde_json::from_str(&response).json(response)?;
 
     let entry = keyring::Entry::new("QuantumLauncher", &username)?;
     entry.set_password(&data.refresh_token)?;
@@ -220,8 +224,7 @@ pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
         .text()
         .await?;
 
-    let data: AuthCodeResponse =
-        serde_json::from_str(&response).map_err(|n| AuthError::SerdeError(n, response))?;
+    let data: AuthCodeResponse = serde_json::from_str(&response).json(response)?;
 
     pt!(
         "Go to {} and enter code {} (shown in menu)",
@@ -305,8 +308,7 @@ pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenRespons
         match code_resp.status() {
             StatusCode::BAD_REQUEST => {
                 let txt = code_resp.text().await?;
-                let error: AuthServiceErrorMessage =
-                    serde_json::from_str(&txt).map_err(|n| AuthError::SerdeError(n, txt))?;
+                let error: AuthServiceErrorMessage = serde_json::from_str(&txt).json(txt)?;
                 match &error.error as &str {
                     "authorization_declined" | "expired_token" | "invalid_grant" => {
                         return Err(AuthError::InvalidAccessToken);
@@ -317,12 +319,11 @@ pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenRespons
 
             StatusCode::OK => {
                 let text = code_resp.text().await?;
-                let response: AuthTokenResponse =
-                    serde_json::from_str(&text).map_err(|n| AuthError::SerdeError(n, text))?;
+                let response: AuthTokenResponse = serde_json::from_str(&text).json(text)?;
                 return Ok(response);
             }
-            _ => {
-                return Err(AuthError::UnknownError);
+            code => {
+                return Err(AuthError::UnknownError(code));
             }
         }
     }
@@ -350,8 +351,7 @@ async fn login_in_xbox_live(
         .text()
         .await?;
 
-    let xbox_res: XboxLiveAuthResponse =
-        serde_json::from_str(&xbox_res).map_err(|n| AuthError::SerdeError(n, xbox_res))?;
+    let xbox_res: XboxLiveAuthResponse = serde_json::from_str(&xbox_res).json(xbox_res)?;
     Ok(xbox_res)
 }
 
@@ -405,8 +405,8 @@ async fn login_in_minecraft(
         .text()
         .await?;
 
-    let minecraft_resp: MinecraftAuthResponse = serde_json::from_str(&minecraft_resp)
-        .map_err(|n| AuthError::SerdeError(n, minecraft_resp))?;
+    let minecraft_resp: MinecraftAuthResponse =
+        serde_json::from_str(&minecraft_resp).json(minecraft_resp)?;
     Ok(minecraft_resp)
 }
 
@@ -423,7 +423,7 @@ async fn get_final_details(
         .text()
         .await?;
 
-    serde_json::from_str(&text).map_err(|n| AuthError::SerdeError(n, text))
+    Ok(serde_json::from_str(&text).json(text)?)
 }
 
 // async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {

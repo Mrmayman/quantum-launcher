@@ -125,10 +125,13 @@ impl GameDownloader {
 
         {
             let mut library_i = library_i.lock().unwrap();
-            self.send_progress(DownloadProgress::DownloadingLibraries {
-                progress: *library_i,
-                out_of: library_len,
-            })?;
+            self.send_progress(
+                DownloadProgress::DownloadingLibraries {
+                    progress: *library_i,
+                    out_of: library_len,
+                },
+                true,
+            );
             *library_i += 1;
         }
 

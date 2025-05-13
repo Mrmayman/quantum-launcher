@@ -234,6 +234,7 @@ pub enum Message {
     UninstallLoaderEnd(Res<Loader>),
 
     CoreErrorCopy,
+    CoreErrorCopyLog,
     CoreOpenDir(String),
     CoreCopyText(String),
     CoreTick,

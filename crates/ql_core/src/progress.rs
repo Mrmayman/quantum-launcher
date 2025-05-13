@@ -10,7 +10,7 @@ use std::fmt::Display;
 /// 4) Jar
 /// 5) Libraries
 /// 6) Assets
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum DownloadProgress {
     DownloadingJsonManifest,
     DownloadingVersionJson,

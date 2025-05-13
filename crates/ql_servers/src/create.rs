@@ -4,7 +4,7 @@ use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
     file_utils, info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    pt, GenericProgress, IntoIoError, IntoStringError, LAUNCHER_DIR,
+    pt, GenericProgress, IntoIoError, IntoJsonError, IntoStringError, LAUNCHER_DIR,
 };
 
 use crate::ServerError;
@@ -139,9 +139,12 @@ async fn write_config(
         close_on_start: None,
     };
     let server_config_path = server_dir.join("config.json");
-    tokio::fs::write(&server_config_path, serde_json::to_string(&server_config)?)
-        .await
-        .path(server_config_path)?;
+    tokio::fs::write(
+        &server_config_path,
+        serde_json::to_string(&server_config).json_to()?,
+    )
+    .await
+    .path(server_config_path)?;
     Ok(())
 }
 
@@ -182,9 +185,12 @@ async fn write_json(
     version_json: VersionDetails,
 ) -> Result<(), ServerError> {
     let version_json_path = server_dir.join("details.json");
-    tokio::fs::write(&version_json_path, serde_json::to_string(&version_json)?)
-        .await
-        .path(version_json_path)?;
+    tokio::fs::write(
+        &version_json_path,
+        serde_json::to_string(&version_json).json_to()?,
+    )
+    .await
+    .path(version_json_path)?;
     Ok(())
 }
 

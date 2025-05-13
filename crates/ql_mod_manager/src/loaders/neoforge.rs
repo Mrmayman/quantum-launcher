@@ -3,7 +3,7 @@ use std::{fmt::Write, path::Path, sync::mpsc::Sender};
 use chrono::DateTime;
 use ql_core::{
     file_utils, info, json::VersionDetails, no_window, pt, GenericProgress, InstanceSelection,
-    IntoIoError, IoError, CLASSPATH_SEPARATOR,
+    IntoIoError, IntoJsonError, IoError, CLASSPATH_SEPARATOR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use serde::Deserialize;
@@ -167,7 +167,7 @@ async fn get_version_json(
         .await
         .path(&out_jar_version_path)?;
     let jar_version_json: ql_core::json::forge::JsonDetails =
-        serde_json::from_str(&jar_version_json)?;
+        serde_json::from_str(&jar_version_json).json(jar_version_json)?;
     Ok(jar_version_json)
 }
 
@@ -191,7 +191,7 @@ async fn get_neoforge_version(
 
     let v1_20_2 = DateTime::parse_from_rfc3339("2023-09-20T09:02:57+00:00")?;
     if release_time < v1_20_2 {
-        return Err(ForgeInstallError::OutdatedMinecraft);
+        return Err(ForgeInstallError::NeoforgeOutdatedMinecraft);
     }
 
     let mut start_pattern = version_json.id[2..].to_owned();

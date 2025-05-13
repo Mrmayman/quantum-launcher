@@ -1,4 +1,7 @@
-use ql_core::json::version::{LibraryDownloadArtifact, LibraryRule};
+use ql_core::{
+    json::version::{LibraryDownloadArtifact, LibraryRule},
+    IntoJsonError, JsonError,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -53,9 +56,9 @@ impl NativesEntry {
 }
 
 impl JsonNatives {
-    pub fn get(entry: NativesEntry) -> Result<Self, serde_json::Error> {
+    pub fn get(entry: NativesEntry) -> Result<Self, JsonError> {
         let json = entry.get_file();
-        let json: Self = serde_json::from_str(json)?;
+        let json: Self = serde_json::from_str(json).json(json.to_owned())?;
         Ok(json)
     }
 }
