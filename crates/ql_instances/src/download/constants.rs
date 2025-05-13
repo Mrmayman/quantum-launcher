@@ -16,7 +16,7 @@ pub const DEFAULT_RAM_MB_FOR_INSTANCE: usize = 2048;
 pub const OS_NAMES: &[&str] = &["linux"];
 
 #[cfg(target_os = "windows")]
-pub const OS_NAMES: &[&str] = &["windows", "windows-32", "windows-64"];
+pub const OS_NAMES: &[&str] = &["windows"];
 
 #[cfg(target_os = "macos")]
 pub const OS_NAMES: &[&str] = &["macos", "osx"];

@@ -54,6 +54,18 @@ impl GameDownloader {
             self.download_library_fn(lib, &num_library, total_libraries, &replaced_names)
         });
 
+        // Uncomment for synchronous downloads. WAY slower,
+        // but easier to debug/inspect logs of,
+        // if you're working on the library downloader
+
+        // for job in results {
+        //     job.await?;
+        // }
+
+        // The one below is the concurrent downloader, downloading multiple
+        // libraries at the same time. If you uncomment the above one, make sure
+        // to comment this below one out.
+        // This is WAY faster but harder to debug/inspect
         _ = do_jobs(results).await?;
 
         #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
@@ -78,18 +90,19 @@ impl GameDownloader {
                 LWJGL_333,
             ] {
                 let lib: LwjglLibrary = serde_json::from_str(lwjgl)?;
-                for lib in lib.libraries {
-                    if let Some(library) = self
+                for new_library in &lib.libraries {
+                    for library in self
                         .version_json
                         .libraries
                         .iter_mut()
-                        .find(|n| n.name == lib.name)
+                        .filter(|n| n.name == new_library.name)
                     {
-                        if let Some(name) = lib.name.clone() {
+                        if let Some(name) = new_library.name.clone() {
                             info!("Patching {name}");
                             replaced_names.push(name);
                         }
-                        *library = lib;
+
+                        *library = new_library.clone();
                     }
                 }
             },
@@ -177,21 +190,32 @@ impl GameDownloader {
         Ok(())
     }
 
-    /// Function to extract native libraries for Minecraft 1.16+
-    /// (which uses a different format).
-    pub async fn extract_native_library(
+    /// Simplified function to extract native libraries.
+    ///
+    /// This is only used to migrate from QuantumLauncher
+    /// v0.1/0.2 to 0.3 or above.
+    ///
+    /// This function only supports Windows and Linux for x86_64
+    /// since it doesn't have special library handling logic for
+    /// other platforms, because the old versions being migrated from
+    /// didn't support other platforms in the first place.
+    ///
+    /// For "real" library downloading when creating an instance
+    /// see [`GameDownloader::download_library_fn`]
+    pub async fn migrate_extract_native_library(
         instance_dir: &Path,
         library: &Library,
         jar_file: &[u8],
         artifact: &LibraryDownloadArtifact,
-        replaced_libs: &[String],
     ) -> Result<(), DownloadError> {
         let natives_path = instance_dir.join("libraries/natives");
 
-        // Why 2 functions? Because there are multiple formats
+        // Why 2 functions? Because unfortunately there are multiple formats
         // natives can come in, and we need to support all of them.
 
-        extractlib_natives_field(library, replaced_libs, jar_file, &natives_path, artifact).await?;
+        // Since old versions of the launcher (that we're migrating from)
+        // weren't available for other platforms, I'm just providing `&Vec::new()`
+        extractlib_natives_field(library, &Vec::new(), jar_file, &natives_path, artifact).await?;
 
         extractlib_name_natives(library, artifact, natives_path).await?;
 
@@ -378,7 +402,15 @@ async fn extractlib_natives_field(
     let is_valid = if IS_ARM_LINUX {
         if let Some(name) = &library.name {
             if replaced_libs.contains(name) {
-                true
+                if let Some(downloads) =
+                    library.downloads.as_ref().and_then(|n| n.artifact.as_ref())
+                {
+                    downloads.url.contains("theofficialgman")
+                        || downloads.url.contains("arm")
+                        || downloads.url.contains("aarch")
+                } else {
+                    true
+                }
             } else {
                 pt!("Didn't replace {name}");
                 false
@@ -440,7 +472,7 @@ async fn extractlib_natives_field(
             );
         }
     }
-    pt!("Downloading native jar: {name}");
+    pt!("Downloading native jar: {name}\n  ({natives_url})");
     let native_jar = match file_utils::download_file_to_bytes(&natives_url, false).await {
         Ok(n) => n,
         #[cfg(all(target_os = "linux", target_arch = "aarch64"))]

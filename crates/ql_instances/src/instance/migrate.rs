@@ -153,12 +153,11 @@ impl GameLauncher {
                 let library_path = self.instance_dir.join("libraries").join(&artifact.path);
                 let library_file = tokio::fs::read(&library_path).await.path(library_path)?;
 
-                GameDownloader::extract_native_library(
+                GameDownloader::migrate_extract_native_library(
                     &self.instance_dir,
                     library,
                     &library_file,
                     artifact,
-                    &Vec::new(),
                 )
                 .await?;
             }

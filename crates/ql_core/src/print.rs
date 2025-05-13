@@ -105,7 +105,7 @@ pub fn print_to_file(msg: &str, t: LogType) {
         if let Ok(mut lock) = logger.lock() {
             lock.write_str(msg, t);
         } else {
-            eprintln!("Could not print message due to logger panic!\n[msg]: {msg}");
+            eprintln!("ql_core::print::print_to_file(): Logger thread panicked!\n[msg]: {msg}");
         }
     }
 }
