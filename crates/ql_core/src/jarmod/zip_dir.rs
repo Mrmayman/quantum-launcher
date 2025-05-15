@@ -25,7 +25,7 @@ pub async fn zip_directory_to_bytes<P: AsRef<Path>>(dir: P) -> Result<Vec<u8>, J
 
         if path.is_file() {
             let relative_path = path.strip_prefix(base_path)?;
-            let name_in_zip = relative_path.to_string_lossy().replace("\\", "/"); // For Windows compatibility
+            let name_in_zip = relative_path.to_string_lossy().replace('\\', "/"); // For Windows compatibility
 
             zip.start_file(name_in_zip, options)?;
             let bytes = tokio::fs::read(path).await.path(path)?;

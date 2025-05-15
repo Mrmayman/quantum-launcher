@@ -33,9 +33,7 @@ pub async fn check_for_updates(
     }
     info_no_log!(
         "Checking for mod updates (loader: {})",
-        loader
-            .map(|n| format!("{n:?}"))
-            .unwrap_or("Vanilla".to_owned())
+        loader.map_or("Vanilla".to_owned(), |n| format!("{n:?}"))
     );
 
     let version = &version_json.id;
@@ -58,7 +56,7 @@ pub async fn check_for_updates(
             }),
     )
     .await;
-    let updated_mods: Vec<(ModId, String)> = updated_mods?.into_iter().filter_map(|n| n).collect();
+    let updated_mods: Vec<(ModId, String)> = updated_mods?.into_iter().flatten().collect();
 
     if updated_mods.is_empty() {
         info_no_log!("No mod updates found");

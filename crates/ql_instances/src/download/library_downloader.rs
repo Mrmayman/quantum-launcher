@@ -205,6 +205,7 @@ impl GameDownloader {
     ///
     /// For "real" library downloading when creating an instance
     /// see [`GameDownloader::download_library_fn`]
+    #[allow(clippy::doc_markdown)]
     pub async fn migrate_extract_native_library(
         instance_dir: &Path,
         library: &Library,

@@ -84,7 +84,7 @@ impl Launcher {
                             self.get_client_play_button(selected_instance_s)
                         },
                         get_mods_button(selected_instance_s),
-                        self.get_files_button(selected),
+                        Self::get_files_button(selected),
                     ]
                     .spacing(5)
                     .wrap();
@@ -412,7 +412,6 @@ impl Launcher {
     }
 
     fn get_files_button<'a>(
-        &self,
         selected_instance: &'a InstanceSelection,
     ) -> widget::Button<'a, Message, LauncherTheme> {
         button_with_icon(icon_manager::folder(), "Files", 16)

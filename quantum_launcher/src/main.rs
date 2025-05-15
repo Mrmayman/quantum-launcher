@@ -68,6 +68,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use std::{sync::Arc, time::Duration};
 
 use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
+use config::LauncherConfig;
 use iced::{Settings, Task};
 use launcher_state::{
     get_entries, LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherUpdate,
@@ -200,9 +201,6 @@ impl Launcher {
                 message,
                 clear_selection,
             } => {
-                if let State::AccountLogin { cancel_handle, .. } = &self.state {
-                    cancel_handle.abort();
-                }
                 if clear_selection {
                     self.selected_instance = None;
                 }
@@ -541,7 +539,7 @@ impl Launcher {
                     msg1: format!("uninstall {name}?"),
                     msg2: "This should be fine, you can always reinstall it later".to_owned(),
                     yes: (*msg).clone(),
-                    no: Message::ManageMods(ManageModsMessage::ScreenOpen),
+                    no: Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate),
                 }
             }
             Message::CoreEvent(event, status) => return self.iced_event(event, status),
@@ -628,11 +626,17 @@ fn main() {
     #[cfg(target_os = "windows")]
     attach_to_console();
 
-    let is_dir_err = if let Err(err) = file_utils::get_launcher_dir() {
-        err!("Couldn't get launcher dir: {err}");
-        true
-    } else {
-        false
+    let launcher_dir_res = file_utils::get_launcher_dir();
+    let mut launcher_dir = None;
+    let is_dir_err = match launcher_dir_res {
+        Ok(n) => {
+            launcher_dir = Some(n);
+            false
+        }
+        Err(err) => {
+            err!("Couldn't get launcher dir: {err}");
+            true
+        }
     };
 
     let command = arguments::command();
@@ -671,6 +675,15 @@ fn main() {
     let icon =
         iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico)).ok();
 
+    let scale = if let Some(cfg) = launcher_dir
+        .as_ref()
+        .and_then(|dir| LauncherConfig::load(dir).ok())
+    {
+        cfg.ui_scale.unwrap_or(1.0) as f32
+    } else {
+        1.0
+    };
+
     iced::application("QuantumLauncher", Launcher::update, Launcher::view)
         .subscription(Launcher::subscription)
         .scale_factor(Launcher::scale_factor)
@@ -694,8 +707,8 @@ fn main() {
             icon,
             exit_on_close_request: false,
             size: iced::Size {
-                width: WINDOW_WIDTH,
-                height: WINDOW_HEIGHT,
+                width: WINDOW_WIDTH * scale,
+                height: WINDOW_HEIGHT * scale,
             },
             min_size: Some(iced::Size {
                 width: 420.0,

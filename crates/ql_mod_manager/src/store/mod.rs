@@ -157,6 +157,7 @@ impl Display for QueryType {
 impl QueryType {
     pub const ALL: &[Self] = &[Self::Mods, Self::ResourcePacks, Self::Shaders];
 
+    #[must_use]
     pub fn to_modrinth_str(&self) -> &'static str {
         match self {
             QueryType::Mods => "mod",
@@ -165,6 +166,7 @@ impl QueryType {
         }
     }
 
+    #[must_use]
     pub fn from_modrinth_str(s: &str) -> Option<Self> {
         match s {
             "mod" => Some(QueryType::Mods),
@@ -174,6 +176,7 @@ impl QueryType {
         }
     }
 
+    #[must_use]
     pub fn to_curseforge_str(&self) -> &'static str {
         match self {
             QueryType::Mods => "mc-mods",
@@ -182,6 +185,7 @@ impl QueryType {
         }
     }
 
+    #[must_use]
     pub fn from_curseforge_str(s: &str) -> Option<Self> {
         match s {
             "mc-mods" => Some(QueryType::Mods),

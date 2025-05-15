@@ -20,8 +20,8 @@ impl MenuModsDownload {
     /// Renders the main store page, with the search bar,
     /// back button and list of searched mods.
     fn view_main<'a>(&'a self, images: &'a ImageState, tick_timer: usize) -> Element<'a> {
-        let mods_list = match self.results.as_ref() {
-            Some(results) => if results.mods.is_empty() {
+        let mods_list = if let Some(results) = self.results.as_ref() {
+            if results.mods.is_empty() {
                 widget::column!["No results found."]
             } else {
                 widget::column(
@@ -32,11 +32,10 @@ impl MenuModsDownload {
                         .map(|(i, hit)| self.view_mod_entry(i, hit, images, results.backend)),
                 )
             }
-            .push(widget::horizontal_space()),
-            None => {
-                let dots = ".".repeat((tick_timer % 3) + 1);
-                widget::column!(widget::text!("Loading{dots}"))
-            }
+            .push(widget::horizontal_space())
+        } else {
+            let dots = ".".repeat((tick_timer % 3) + 1);
+            widget::column!(widget::text!("Loading{dots}"))
         };
         widget::row!(
             widget::scrollable(

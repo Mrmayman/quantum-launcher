@@ -59,9 +59,8 @@ fn check_qlportable_file() -> Option<PathBuf> {
         if let Ok(mut n) = std::fs::read_to_string(&file_path) {
             // Handling of Home Directory `~`
             if let Some(short) = n.strip_prefix("~/") {
-                if let Some(home) = dirs::home_dir().and_then(|n| n.to_str().map(|n| n.to_owned()))
-                {
-                    n = format!("{}/{short}", home);
+                if let Some(home) = dirs::home_dir().and_then(|n| n.to_str().map(str::to_owned)) {
+                    n = format!("{home}/{short}");
                 }
             }
 
@@ -79,13 +78,15 @@ fn check_qlportable_file() -> Option<PathBuf> {
         }
     }
 
-    check_file(std::env::current_dir().ok()).or_else(|| {
-        check_file(
-            std::env::current_exe()
-                .ok()
-                .and_then(|n| n.parent().map(Path::to_owned)),
-        )
-    })
+    check_file(std::env::current_dir().ok())
+        .or_else(|| {
+            check_file(
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|n| n.parent().map(Path::to_owned)),
+            )
+        })
+        .or_else(|| check_file(dirs::config_dir().map(|n| n.join("QuantumLauncher"))))
 }
 
 /// Returns whether the user is new to QuantumLauncher,

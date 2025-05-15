@@ -96,7 +96,7 @@ pub async fn install_server(
     let number_of_libraries = json.libraries.len();
     let mut library_files = Vec::new();
     for (i, library) in json.libraries.iter().enumerate() {
-        send_progress(i, library, progress.as_ref(), number_of_libraries)?;
+        send_progress(i, library, progress.as_ref(), number_of_libraries);
 
         let library_path = libraries_dir.join(library.get_path());
 
@@ -183,7 +183,7 @@ pub async fn install_client(
 
     let number_of_libraries = json.libraries.len();
     for (i, library) in json.libraries.iter().enumerate() {
-        send_progress(i, library, progress.as_ref(), number_of_libraries)?;
+        send_progress(i, library, progress.as_ref(), number_of_libraries);
 
         let path = libraries_dir.join(library.get_path());
         let url = library.get_url();
@@ -235,7 +235,7 @@ fn send_progress(
     library: &ql_core::json::fabric::Library,
     progress: Option<&Sender<GenericProgress>>,
     number_of_libraries: usize,
-) -> Result<(), FabricInstallError> {
+) {
     let message = format!(
         "Downloading library ({} / {number_of_libraries}) {}",
         i + 1,
@@ -250,7 +250,6 @@ fn send_progress(
             has_finished: false,
         });
     }
-    Ok(())
 }
 
 /// Installs Fabric or Quilt to the given instance.

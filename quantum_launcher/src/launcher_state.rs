@@ -90,6 +90,8 @@ pub enum EditInstanceMessage {
 #[derive(Debug, Clone)]
 pub enum ManageModsMessage {
     ScreenOpen,
+    ScreenOpenWithoutUpdate,
+
     ToggleCheckbox((String, ModId), bool),
     ToggleCheckboxLocal(String, bool),
     DeleteSelected,
@@ -475,10 +477,13 @@ pub enum MenuCreateInstance {
 }
 
 pub enum MenuInstallFabric {
-    Loading(bool),
+    Loading {
+        is_quilt: bool,
+        _loading_handle: iced::task::Handle,
+    },
     Loaded {
         is_quilt: bool,
-        fabric_version: Option<String>,
+        fabric_version: String,
         fabric_versions: Vec<String>,
         progress: Option<ProgressBar<GenericProgress>>,
     },
@@ -488,7 +493,7 @@ pub enum MenuInstallFabric {
 impl MenuInstallFabric {
     pub fn is_quilt(&self) -> bool {
         match self {
-            MenuInstallFabric::Loading(is_quilt)
+            MenuInstallFabric::Loading { is_quilt, .. }
             | MenuInstallFabric::Loaded { is_quilt, .. }
             | MenuInstallFabric::Unsupported(is_quilt) => *is_quilt,
         }
@@ -597,7 +602,7 @@ pub enum State {
     AccountLogin {
         url: String,
         code: String,
-        cancel_handle: iced::task::Handle,
+        _cancel_handle: iced::task::Handle,
     },
 
     InstallPaper,
@@ -645,8 +650,7 @@ impl MenuInstallOptifine {
 
         self.optifine_unique_version
             .as_ref()
-            .map(|n| n.get_url().0)
-            .unwrap_or(OPTIFINE_DOWNLOADS)
+            .map_or(OPTIFINE_DOWNLOADS, |n| n.get_url().0)
     }
 }
 

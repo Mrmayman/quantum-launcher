@@ -19,6 +19,13 @@ impl Launcher {
                 Ok(command) => return command,
                 Err(err) => self.set_error(err),
             },
+            ManageModsMessage::ScreenOpenWithoutUpdate => {
+                match self.go_to_edit_mods_menu_without_update_check() {
+                    Ok(command) => return command,
+                    Err(err) => self.set_error(err),
+                }
+            }
+
             ManageModsMessage::ToggleCheckbox((name, id), enable) => {
                 if let State::EditMods(menu) = &mut self.state {
                     if enable {
@@ -291,13 +298,13 @@ impl Launcher {
             }
 
             ManageJarModsMessage::MoveUp | ManageJarModsMessage::MoveDown => {
-                self.manage_jarmods_move_up_or_down(msg);
+                self.manage_jarmods_move_up_or_down(&msg);
             }
         }
         Task::none()
     }
 
-    fn manage_jarmods_move_up_or_down(&mut self, msg: ManageJarModsMessage) {
+    fn manage_jarmods_move_up_or_down(&mut self, msg: &ManageJarModsMessage) {
         if let State::EditJarMods(menu) = &mut self.state {
             let mut selected: Vec<usize> = menu
                 .selected_mods
@@ -310,7 +317,7 @@ impl Launcher {
                         .find_map(|(i, n)| (n.filename == *selected_name).then_some(i))
                 })
                 .collect();
-            selected.sort();
+            selected.sort_unstable();
             if let ManageJarModsMessage::MoveDown = msg {
                 selected.reverse();
             }
@@ -336,7 +343,7 @@ impl Launcher {
                     err!(
                         "Out of bounds in jarmods move up/down: !({i} < len:{})",
                         menu.jarmods.mods.len()
-                    )
+                    );
                 }
             }
         }
@@ -364,7 +371,7 @@ impl Launcher {
 
     fn manage_jarmods_toggle_selected(&mut self) {
         if let State::EditJarMods(menu) = &mut self.state {
-            for selected in menu.selected_mods.iter() {
+            for selected in &menu.selected_mods {
                 if let Some(jarmod) = menu
                     .jarmods
                     .mods

@@ -114,7 +114,7 @@ What about the others? Well...
 - [x] Neoforge
 - [ ] OptiForge
 - [ ] OptiFabric
-- [ ] Jar Mods
+- [x] Jar Mods
 ### Sources
 - [x] Modrinth mods
 - [x] Curseforge mods
@@ -149,13 +149,17 @@ What about the others? Well...
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
-- [x] Linux Aarch64 (WIP)
-- [x] macOS Aarch64
 - [ ] macOS x86_64 (WIP)
+
+- [ ] Windows Aarch64 (WIP)
+- [x] Linux Aarch64
+- [x] macOS Aarch64
+
 - [ ] Windows i686 (WIP)
 - [ ] Linux i686 (WIP)
-- [ ] Windows Aarch64 (WIP)
-- [ ] Android (distant future?)
+
+- [ ] FreeBSD
+- [ ] Haiku
 
 <p align="center">
 

@@ -337,6 +337,7 @@ pub enum OptifineUniqueVersion {
 }
 
 impl OptifineUniqueVersion {
+    #[must_use]
     pub fn get(instance: &InstanceSelection) -> Option<Self> {
         VersionDetails::load_s(&instance.get_instance_path()).and_then(|n| match n.id.as_str() {
             "1.5.2" => Some(OptifineUniqueVersion::V1_5_2),
@@ -347,6 +348,7 @@ impl OptifineUniqueVersion {
         })
     }
 
+    #[must_use]
     pub fn get_url(&self) -> (&'static str, bool) {
         match self {
             OptifineUniqueVersion::V1_5_2 => ("https://optifine.net/adloadx?f=OptiFine_1.5.2_HD_U_D5.zip", false),

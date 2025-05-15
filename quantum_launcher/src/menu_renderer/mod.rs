@@ -229,8 +229,9 @@ impl MenuInstallOptifine {
         &self,
     ) -> iced::widget::Column<'a, Message, LauncherTheme, iced::Renderer> {
         widget::column!(
-            button_with_icon(icon_manager::back(), "Back", 16)
-                .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+            button_with_icon(icon_manager::back(), "Back", 16).on_press(Message::ManageMods(
+                ManageModsMessage::ScreenOpenWithoutUpdate
+            )),
             widget::container(
                 widget::column!(
                     widget::text("Install OptiFine").size(20),
@@ -330,17 +331,16 @@ impl MenuCreateInstance {
 impl MenuInstallFabric {
     pub fn view(&self, selected_instance: &InstanceSelection, tick_timer: usize) -> Element {
         match self {
-            MenuInstallFabric::Loading(is_quilt) => {
+            MenuInstallFabric::Loading { is_quilt, .. } => {
+                let loader_name = if *is_quilt { "Quilt" } else { "Fabric" };
                 let dots = ".".repeat((tick_timer % 3) + 1);
-                widget::column![widget::text!(
-                    "{}{dots}",
-                    if *is_quilt {
-                        "Loading Quilt version list"
-                    } else {
-                        "Loading Fabric version list"
-                    }
-                )
-                .size(20)]
+
+                widget::column![
+                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                        Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
+                    ),
+                    widget::text!("Loading {loader_name} version list{dots}",).size(20)
+                ]
             }
             MenuInstallFabric::Loaded {
                 is_quilt,
@@ -348,14 +348,11 @@ impl MenuInstallFabric {
                 fabric_versions,
                 progress,
             } => {
+                let loader_name = if *is_quilt { "Quilt" } else { "Fabric" };
+
                 if let Some(progress) = progress {
                     widget::column!(
-                        widget::text(if *is_quilt {
-                            "Installing Quilt..."
-                        } else {
-                            "Installing Fabric..."
-                        })
-                        .size(20),
+                        widget::text!("Installing {loader_name}...").size(20),
                         progress.view(),
                     )
                 } else {
@@ -363,32 +360,32 @@ impl MenuInstallFabric {
                         button_with_icon(icon_manager::back(), "Back", 16)
                             .on_press(back_to_launch_screen(selected_instance, None)),
                         widget::text!(
-                            "Select {} Version for instance {}",
-                            if *is_quilt { "Quilt" } else { "Fabric" },
+                            "Install {loader_name} (instance: {})",
                             selected_instance.get_name()
-                        ),
-                        widget::pick_list(
-                            fabric_versions.as_slice(),
-                            fabric_version.as_ref(),
-                            |n| Message::InstallFabric(InstallFabricMessage::VersionSelected(n))
-                        ),
-                        widget::button(if *is_quilt {
-                            "Install Quilt"
-                        } else {
-                            "Install Fabric"
-                        })
-                        .on_press_maybe(
-                            fabric_version.is_some().then(|| Message::InstallFabric(
-                                InstallFabricMessage::ButtonClicked
-                            ))
-                        ),
+                        )
+                        .size(20),
+                        widget::column![
+                            widget::text!("{loader_name} version:"),
+                            widget::text("Ignore if you aren't sure").size(14),
+                            widget::pick_list(
+                                fabric_versions.as_slice(),
+                                Some(fabric_version),
+                                |n| Message::InstallFabric(InstallFabricMessage::VersionSelected(
+                                    n
+                                ))
+                            ),
+                        ]
+                        .spacing(5),
+                        button_with_icon(icon_manager::download(), "Install", 16)
+                            .on_press(Message::InstallFabric(InstallFabricMessage::ButtonClicked)),
                     ]
                 }
             }
             MenuInstallFabric::Unsupported(is_quilt) => {
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back", 16)
-                        .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                        Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
+                    ),
                     if *is_quilt {
                         "Quilt is unsupported for this Minecraft version."
                     } else {

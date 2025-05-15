@@ -28,7 +28,7 @@ pub async fn do_request(
 
     if let QueryType::Mods = query_type {
         if let Some(loader) = query.loader {
-            filters.push(vec![format!("categories:'{}'", loader.to_modrinth_str())])
+            filters.push(vec![format!("categories:'{}'", loader.to_modrinth_str())]);
         }
     }
 

@@ -36,26 +36,25 @@ impl Launcher {
                 if let State::InstallFabric(MenuInstallFabric::Loaded { fabric_version, .. }) =
                     &mut self.state
                 {
-                    *fabric_version = Some(selection);
+                    *fabric_version = selection;
                 }
             }
             InstallFabricMessage::VersionsLoaded(result) => match result {
                 Ok(list_of_versions) => {
                     if let State::InstallFabric(menu) = &mut self.state {
-                        if list_of_versions.is_empty() {
-                            *menu = MenuInstallFabric::Unsupported(menu.is_quilt());
-                        } else {
-                            let first = list_of_versions.first().map(|n| n.loader.version.clone());
-                            *menu = MenuInstallFabric::Loaded {
+                        *menu = if let Some(first) = list_of_versions.first().cloned() {
+                            MenuInstallFabric::Loaded {
                                 is_quilt: menu.is_quilt(),
-                                fabric_version: first,
+                                fabric_version: first.loader.version.clone(),
                                 fabric_versions: list_of_versions
                                     .iter()
                                     .map(|ver| ver.loader.version.clone())
                                     .collect(),
                                 progress: None,
-                            };
-                        }
+                            }
+                        } else {
+                            MenuInstallFabric::Unsupported(menu.is_quilt())
+                        };
                     }
                 }
                 Err(err) => self.set_error(err),
@@ -70,7 +69,7 @@ impl Launcher {
                 {
                     let (sender, receiver) = std::sync::mpsc::channel();
                     *progress = Some(ProgressBar::with_recv(receiver));
-                    let loader_version = fabric_version.clone().unwrap();
+                    let loader_version = fabric_version.clone();
 
                     let instance_name = self.selected_instance.clone().unwrap();
                     let is_quilt = *is_quilt;
@@ -86,13 +85,19 @@ impl Launcher {
                 }
             }
             InstallFabricMessage::ScreenOpen { is_quilt } => {
-                self.state = State::InstallFabric(MenuInstallFabric::Loading(is_quilt));
-
                 let instance_name = self.selected_instance.clone().unwrap();
-                return Task::perform(
+                let (task, handle) = Task::perform(
                     loaders::fabric::get_list_of_versions(instance_name, is_quilt),
                     |m| Message::InstallFabric(InstallFabricMessage::VersionsLoaded(m.strerr())),
-                );
+                )
+                .abortable();
+
+                self.state = State::InstallFabric(MenuInstallFabric::Loading {
+                    is_quilt,
+                    _loading_handle: handle.abort_on_drop(),
+                });
+
+                return task;
             }
         }
         Task::none()
@@ -286,15 +291,15 @@ impl Launcher {
                         ql_mod_manager::loaders::optifine::install_b173(selected_instance, url),
                         |n| Message::InstallOptifine(InstallOptifineMessage::End(n.strerr())),
                     );
-                } else {
-                    self.state = State::InstallOptifine(MenuInstallOptifine {
-                        optifine_install_progress: None,
-                        java_install_progress: None,
-                        is_java_being_installed: false,
-                        is_b173_being_installed: false,
-                        optifine_unique_version,
-                    });
                 }
+
+                self.state = State::InstallOptifine(MenuInstallOptifine {
+                    optifine_install_progress: None,
+                    java_install_progress: None,
+                    is_java_being_installed: false,
+                    is_b173_being_installed: false,
+                    optifine_unique_version,
+                });
             }
             InstallOptifineMessage::SelectInstallerStart => {
                 return Task::perform(

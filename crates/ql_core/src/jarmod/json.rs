@@ -41,7 +41,7 @@ impl JarMods {
     }
 
     pub async fn save(&mut self, instance: &InstanceSelection) -> Result<(), JsonFileError> {
-        self.trim(instance).await;
+        self.trim(instance);
         if let Err(err) = self.expand(instance).await {
             err!("While expanding jarmods.json with new entries: {err}");
         }
@@ -52,13 +52,17 @@ impl JarMods {
         Ok(())
     }
 
-    async fn trim(&mut self, instance: &InstanceSelection) {
+    fn trim(&mut self, instance: &InstanceSelection) {
         let path = instance.get_instance_path().join("jarmods");
         self.mods.retain(|n| path.join(&n.filename).is_file());
     }
 
     async fn expand(&mut self, instance: &InstanceSelection) -> Result<(), IoError> {
         let path = instance.get_instance_path().join("jarmods");
+        if !path.is_dir() {
+            tokio::fs::create_dir_all(&path).await.path(path)?;
+            return Ok(());
+        }
         let filenames = read_filenames_from_dir(&path).await?;
 
         let existing_filenames: std::collections::HashSet<_> =

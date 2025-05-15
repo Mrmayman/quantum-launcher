@@ -433,6 +433,7 @@ impl Launcher {
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
             | State::LauncherSettings(_)
+            | State::AccountLogin { .. }
             | State::Welcome(_) => {
                 should_return_to_main_screen = true;
             }
@@ -452,10 +453,6 @@ impl Launcher {
             }
             State::ModsDownload(menu) if menu.mods_download_in_progress.is_empty() => {
                 should_return_to_mods_screen = true;
-            }
-            State::AccountLogin { cancel_handle, .. } => {
-                cancel_handle.abort();
-                should_return_to_main_screen = true;
             }
             State::InstallPaper
             | State::InstallForge(_)

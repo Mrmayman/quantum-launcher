@@ -162,7 +162,7 @@ impl InstanceConfigJson {
                         .next_back()
                         .map(str::to_owned)
                         .unwrap_or(entry.name.clone()),
-                )
+                );
             }
         }
     }

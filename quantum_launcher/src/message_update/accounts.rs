@@ -157,7 +157,7 @@ impl Launcher {
         self.state = State::AccountLogin {
             url: code.verification_uri,
             code: code.user_code,
-            cancel_handle: handle,
+            _cancel_handle: handle.abort_on_drop(),
         };
         task
     }
