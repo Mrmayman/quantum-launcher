@@ -118,9 +118,7 @@ impl ModDownloader {
 
         if !self.index.mods.contains_key(id) {
             self.download_file(&download_version, query_type).await?;
-            add_mod_to_index(
-                &mut self.index,
-                id,
+            self.add_mod_to_index(
                 &project_info,
                 &download_version,
                 dependency_list,
@@ -236,6 +234,42 @@ impl ModDownloader {
         }
         Ok(())
     }
+
+    fn add_mod_to_index(
+        &mut self,
+        project_info: &ProjectInfo,
+        download_version: &ModVersion,
+        dependency_list: HashSet<String>,
+        dependent: Option<&str>,
+        manually_installed: bool,
+        project_type: QueryType,
+    ) {
+        let config = ModConfig {
+            name: project_info.title.clone(),
+            description: project_info.description.clone(),
+            icon_url: project_info.icon_url.clone(),
+            project_id: project_info.id.clone(),
+            files: download_version.files.clone(),
+            supported_versions: download_version.game_versions.clone(),
+            dependencies: dependency_list,
+            dependents: if let Some(dependent) = dependent {
+                let mut set = HashSet::new();
+                set.insert(dependent.to_owned());
+                set
+            } else {
+                HashSet::new()
+            },
+            manually_installed,
+            enabled: true,
+            installed_version: download_version.version_number.clone(),
+            version_release_time: download_version.date_published.clone(),
+            project_source: SOURCE_ID_MODRINTH.to_owned(),
+        };
+
+        if let QueryType::Mods = project_type {
+            self.index.mods.insert(project_info.id.clone(), config);
+        }
+    }
 }
 
 pub fn version_sort(a: &ModVersion, b: &ModVersion) -> Ordering {
@@ -258,43 +292,6 @@ pub fn version_sort(a: &ModVersion, b: &ModVersion) -> Ordering {
     };
 
     a.cmp(&b)
-}
-
-fn add_mod_to_index(
-    index: &mut ModIndex,
-    id: &str,
-    project_info: &ProjectInfo,
-    download_version: &ModVersion,
-    dependency_list: HashSet<String>,
-    dependent: Option<&str>,
-    manually_installed: bool,
-    project_type: QueryType,
-) {
-    let config = ModConfig {
-        name: project_info.title.clone(),
-        description: project_info.description.clone(),
-        icon_url: project_info.icon_url.clone(),
-        project_id: id.to_owned(),
-        files: download_version.files.clone(),
-        supported_versions: download_version.game_versions.clone(),
-        dependencies: dependency_list,
-        dependents: if let Some(dependent) = dependent {
-            let mut set = HashSet::new();
-            set.insert(dependent.to_owned());
-            set
-        } else {
-            HashSet::new()
-        },
-        manually_installed,
-        enabled: true,
-        installed_version: download_version.version_number.clone(),
-        version_release_time: download_version.date_published.clone(),
-        project_source: SOURCE_ID_MODRINTH.to_owned(),
-    };
-
-    if let QueryType::Mods = project_type {
-        index.mods.insert(id.to_owned(), config);
-    }
 }
 
 fn print_downloading_message(project_info: &ProjectInfo, dependent: Option<&str>) {

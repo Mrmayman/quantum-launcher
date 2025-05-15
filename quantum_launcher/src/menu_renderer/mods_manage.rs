@@ -14,7 +14,11 @@ use crate::{
 use super::{back_to_launch_screen, button_with_icon, Element};
 
 impl MenuEditMods {
-    pub fn view<'a>(&'a self, selected_instance: &'a InstanceSelection) -> Element<'a> {
+    pub fn view<'a>(
+        &'a self,
+        selected_instance: &'a InstanceSelection,
+        tick_timer: usize,
+    ) -> Element<'a> {
         if let Some(progress) = &self.mod_update_progress {
             return widget::column!(widget::text("Updating mods").size(20), progress.view())
                 .padding(10)
@@ -43,7 +47,7 @@ impl MenuEditMods {
                         )
                         .spacing(5),
                         Self::open_mod_folder_button(selected_instance),
-                        widget::container(self.get_mod_update_pane()),
+                        self.get_mod_update_pane(tick_timer),
                     )
                     .padding(10)
                     .spacing(10)
@@ -68,39 +72,47 @@ impl MenuEditMods {
         }
     }
 
-    fn get_mod_update_pane(&self) -> widget::Column<'_, Message, LauncherTheme> {
-        if self.available_updates.is_empty() {
-            widget::column!()
+    fn get_mod_update_pane(&self, tick_timer: usize) -> Element {
+        if self.update_check_handle.is_some() {
+            let dots = ".".repeat((tick_timer % 3) + 1);
+            widget::text!("Checking for mod updates{dots}")
+                .size(13)
+                .into()
+        } else if self.available_updates.is_empty() {
+            widget::column!().into()
         } else {
-            widget::column!(
-                "Mod Updates Available!",
-                widget::column(self.available_updates.iter().enumerate().map(
-                    |(i, (id, name, is_enabled))| {
-                        widget::checkbox(
-                            format!(
-                                "{} - {name}",
-                                self.mods
-                                    .mods
-                                    .get(&id.get_index_str())
-                                    .map(|n| n.name.clone())
-                                    .unwrap_or_default()
-                            ),
-                            *is_enabled,
-                        )
-                        .on_toggle(move |b| {
-                            Message::ManageMods(ManageModsMessage::UpdateCheckToggle(i, b))
-                        })
-                        .text_size(12)
-                        .into()
-                    }
-                ))
-                .spacing(10),
-                button_with_icon(icon_manager::update(), "Update", 16)
-                    .on_press(Message::ManageMods(ManageModsMessage::UpdateMods)),
+            widget::container(
+                widget::column!(
+                    widget::text("Mod Updates Available!").size(15),
+                    widget::column(self.available_updates.iter().enumerate().map(
+                        |(i, (id, name, is_enabled))| {
+                            widget::checkbox(
+                                format!(
+                                    "{} - {name}",
+                                    self.mods
+                                        .mods
+                                        .get(&id.get_index_str())
+                                        .map(|n| n.name.clone())
+                                        .unwrap_or_default()
+                                ),
+                                *is_enabled,
+                            )
+                            .on_toggle(move |b| {
+                                Message::ManageMods(ManageModsMessage::UpdateCheckToggle(i, b))
+                            })
+                            .text_size(12)
+                            .into()
+                        }
+                    ))
+                    .spacing(10),
+                    button_with_icon(icon_manager::update(), "Update", 16)
+                        .on_press(Message::ManageMods(ManageModsMessage::UpdateMods)),
+                )
+                .padding(10)
+                .spacing(10)
+                .width(190),
             )
-            .padding(10)
-            .spacing(10)
-            .width(200)
+            .into()
         }
     }
 

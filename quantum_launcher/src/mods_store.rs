@@ -14,7 +14,7 @@ use ql_mod_manager::store::{ModIndex, Query, QueryType};
 use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
 impl Launcher {
-    pub fn open_mods_screen(&mut self) -> Result<Task<Message>, String> {
+    pub fn open_mods_store(&mut self) -> Result<Task<Message>, String> {
         let selection = self.selected_instance.as_ref().unwrap();
         let instances_dir = selection.get_instance_path();
 

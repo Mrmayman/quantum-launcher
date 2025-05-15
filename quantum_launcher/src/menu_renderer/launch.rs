@@ -190,15 +190,15 @@ impl Launcher {
                     widget::vertical_slider(
                         0.0..=new_text_len,
                         new_text_len - scroll as f64,
-                        move |val| { Message::LaunchLogScrollAbsolute(new_text_len.ceil() as i64 - val as i64) }
+                        move |val| { Message::LaunchLogScrollAbsolute(new_text_len.ceil() as isize - val as isize) }
                     )
                 ])
                 .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
             )
             .on_scroll(move |n| {
                 let lines = match n {
-                    iced::mouse::ScrollDelta::Lines { y, .. } => y as i64,
-                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as i64,
+                    iced::mouse::ScrollDelta::Lines { y, .. } => y as isize,
+                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as isize,
                 };
                 Message::LaunchLogScroll(lines)
             });
@@ -294,7 +294,8 @@ impl Launcher {
             ]
             .spacing(5)
         } else {
-            widget::column!["Loading..."]
+            let dots = ".".repeat((self.tick_timer % 3) + 1);
+            widget::column![widget::text!("Loading{dots}")]
         }
         .width(menu.sidebar_width))
         .push_maybe(is_hovered.then_some(

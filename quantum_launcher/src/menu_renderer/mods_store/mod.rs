@@ -19,7 +19,7 @@ mod markdown;
 impl MenuModsDownload {
     /// Renders the main store page, with the search bar,
     /// back button and list of searched mods.
-    fn view_main<'a>(&'a self, images: &'a ImageState) -> Element<'a> {
+    fn view_main<'a>(&'a self, images: &'a ImageState, tick_timer: usize) -> Element<'a> {
         let mods_list = match self.results.as_ref() {
             Some(results) => if results.mods.is_empty() {
                 widget::column!["No results found."]
@@ -34,7 +34,8 @@ impl MenuModsDownload {
             }
             .push(widget::horizontal_space()),
             None => {
-                widget::column!("Loading...")
+                let dots = ".".repeat((tick_timer % 3) + 1);
+                widget::column!(widget::text!("Loading{dots}"))
             }
         };
         widget::row!(
@@ -202,17 +203,22 @@ impl MenuModsDownload {
         .into()
     }
 
-    pub fn view<'a>(&'a self, images: &'a ImageState, window_size: (f32, f32)) -> Element<'a> {
+    pub fn view<'a>(
+        &'a self,
+        images: &'a ImageState,
+        window_size: (f32, f32),
+        tick_timer: usize,
+    ) -> Element<'a> {
         // If we opened a mod (`self.opened_mod`) then
         // render the mod description page.
         // else render the main store page.
         let (Some(selection), Some(results)) = (&self.opened_mod, &self.results) else {
-            return self.view_main(images);
+            return self.view_main(images, tick_timer);
         };
         let Some(hit) = results.mods.get(*selection) else {
-            return self.view_main(images);
+            return self.view_main(images, tick_timer);
         };
-        self.view_project_description(hit, images, window_size, results.backend)
+        self.view_project_description(hit, images, window_size, results.backend, tick_timer)
     }
 
     /// Renders the mod description page.
@@ -222,6 +228,7 @@ impl MenuModsDownload {
         images: &'a ImageState,
         window_size: (f32, f32),
         backend: StoreBackendType,
+        tick_timer: usize,
     ) -> Element<'a> {
         // Parses the markdown description of the mod.
         let markdown_description = if let Some(info) = self
@@ -230,7 +237,8 @@ impl MenuModsDownload {
         {
             widget::column!(Self::render_markdown(info, images, window_size))
         } else {
-            widget::column!(widget::text("Loading..."))
+            let dots = ".".repeat((tick_timer % 3) + 1);
+            widget::column!(widget::text!("Loading...{dots}"))
         };
 
         let url = format!(

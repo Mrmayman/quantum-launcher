@@ -236,6 +236,7 @@ impl Launcher {
                 return iced::clipboard::write(format!("QuantumLauncher Log:\n{log}"));
             }
             Message::CoreTick => {
+                self.tick_timer = self.tick_timer.wrapping_add(1);
                 let mut commands = self.get_imgs_to_load();
                 let command = self.tick();
                 commands.push(command);

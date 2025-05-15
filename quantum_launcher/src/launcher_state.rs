@@ -245,11 +245,11 @@ pub enum Message {
     CoreEvent(iced::Event, iced::event::Status),
 
     CoreLogToggle,
-    CoreLogScroll(i64),
-    CoreLogScrollAbsolute(i64),
+    CoreLogScroll(isize),
+    CoreLogScrollAbsolute(isize),
 
-    LaunchLogScroll(i64),
-    LaunchLogScrollAbsolute(i64),
+    LaunchLogScroll(isize),
+    LaunchLogScrollAbsolute(isize),
     LaunchEndedLog(Res<(ExitStatus, String)>),
     LaunchCopyLog,
 
@@ -309,7 +309,7 @@ pub struct MenuLaunch {
     pub sidebar_width: u16,
     pub sidebar_dragging: bool,
     pub is_viewing_server: bool,
-    pub log_scroll: i64,
+    pub log_scroll: isize,
 }
 
 impl Default for MenuLaunch {
@@ -384,14 +384,19 @@ impl ModListEntry {
 }
 
 pub struct MenuEditMods {
+    pub mod_update_progress: Option<ProgressBar<GenericProgress>>,
+
     pub config: InstanceConfigJson,
     pub mods: ModIndex,
+
     pub locally_installed_mods: HashSet<String>,
-    pub selected_mods: HashSet<SelectedMod>,
     pub sorted_mods_list: Vec<ModListEntry>,
+
+    pub selected_mods: HashSet<SelectedMod>,
     pub selected_state: SelectedState,
+
+    pub update_check_handle: Option<iced::task::Handle>,
     pub available_updates: Vec<(ModId, String, bool)>,
-    pub mod_update_progress: Option<ProgressBar<GenericProgress>>,
     pub drag_and_drop_hovered: bool,
 }
 
@@ -659,7 +664,8 @@ pub struct Launcher {
     pub images: ImageState,
 
     pub is_log_open: bool,
-    pub log_scroll: i64,
+    pub log_scroll: isize,
+    pub tick_timer: usize,
 
     pub java_recv: Option<ProgressBar<GenericProgress>>,
 
@@ -796,6 +802,7 @@ impl Launcher {
             accounts_dropdown,
             accounts_selected: Some(selected_account),
             keys_pressed: HashSet::new(),
+            tick_timer: 0,
         })
     }
 
@@ -841,6 +848,7 @@ impl Launcher {
             accounts_dropdown: vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()],
             accounts_selected: Some(OFFLINE_ACCOUNT_NAME.to_owned()),
             keys_pressed: HashSet::new(),
+            tick_timer: 0,
         }
     }
 

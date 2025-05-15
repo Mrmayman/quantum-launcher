@@ -203,6 +203,7 @@ impl Launcher {
                     mod_update_progress: None,
                     locally_installed_mods: HashSet::new(),
                     drag_and_drop_hovered: false,
+                    update_check_handle: None,
                 });
 
                 Ok(locally_installed_mods)
@@ -229,6 +230,17 @@ impl Launcher {
                 let locally_installed_mods =
                     MenuEditMods::update_locally_installed_mods(&idx, selected_instance);
 
+                let (update_cmd, update_check_handle) = if is_vanilla {
+                    (Task::none(), None)
+                } else {
+                    let (a, b) = Task::perform(
+                        ql_mod_manager::store::check_for_updates(selected_instance.clone()),
+                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
+                    )
+                    .abortable();
+                    (a, Some(b.abort_on_drop()))
+                };
+
                 self.state = State::EditMods(MenuEditMods {
                     config: config_json,
                     mods: idx,
@@ -239,16 +251,8 @@ impl Launcher {
                     mod_update_progress: None,
                     locally_installed_mods: HashSet::new(),
                     drag_and_drop_hovered: false,
+                    update_check_handle,
                 });
-
-                let update_cmd = if is_vanilla {
-                    Task::none()
-                } else {
-                    Task::perform(
-                        ql_mod_manager::store::check_for_updates(selected_instance.clone()),
-                        |n| Message::ManageMods(ManageModsMessage::UpdateCheckResult(n.strerr())),
-                    )
-                };
 
                 return Ok(Task::batch([locally_installed_mods, update_cmd]));
             }

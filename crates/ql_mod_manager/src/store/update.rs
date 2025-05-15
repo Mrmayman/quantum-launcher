@@ -1,7 +1,9 @@
 use std::sync::mpsc::Sender;
 
 use chrono::DateTime;
-use ql_core::{info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader};
+use ql_core::{
+    do_jobs, info_no_log, json::VersionDetails, GenericProgress, InstanceSelection, Loader,
+};
 
 use crate::store::{get_latest_version_date, get_loader};
 
@@ -21,7 +23,6 @@ pub async fn apply_updates(
 pub async fn check_for_updates(
     selected_instance: InstanceSelection,
 ) -> Result<Vec<(ModId, String)>, ModError> {
-    info_no_log!("Checking for mod updates");
     let index = ModIndex::get(&selected_instance).await?;
 
     let version_json = VersionDetails::load(&selected_instance).await?;
@@ -30,23 +31,34 @@ pub async fn check_for_updates(
     if let Some(Loader::OptiFine) = loader {
         return Ok(Vec::new());
     }
+    info_no_log!(
+        "Checking for mod updates (loader: {})",
+        loader
+            .map(|n| format!("{n:?}"))
+            .unwrap_or("Vanilla".to_owned())
+    );
 
-    let mut updated_mods = Vec::new();
+    let version = &version_json.id;
 
-    for (id, installed_mod) in index.mods {
-        let mod_id = ModId::from_index_str(&id);
+    let updated_mods: Result<Vec<Option<(ModId, String)>>, ModError> = do_jobs(
+        index
+            .mods
+            .into_iter()
+            .map(|(id, installed_mod)| async move {
+                let mod_id = ModId::from_index_str(&id);
 
-        let version = &version_json.id;
-        let (download_version_time, download_version) =
-            get_latest_version_date(loader, &mod_id, version).await?;
+                let (download_version_time, download_version) =
+                    get_latest_version_date(loader, &mod_id, version).await?;
 
-        let installed_version_time =
-            DateTime::parse_from_rfc3339(&installed_mod.version_release_time)?;
+                let installed_version_time =
+                    DateTime::parse_from_rfc3339(&installed_mod.version_release_time)?;
 
-        if download_version_time > installed_version_time {
-            updated_mods.push((mod_id, download_version));
-        }
-    }
+                Ok((download_version_time > installed_version_time)
+                    .then_some((mod_id, download_version)))
+            }),
+    )
+    .await;
+    let updated_mods: Vec<(ModId, String)> = updated_mods?.into_iter().filter_map(|n| n).collect();
 
     if updated_mods.is_empty() {
         info_no_log!("No mod updates found");

@@ -61,15 +61,17 @@ impl Launcher {
                     widget::vertical_slider(
                         0.0..=text_len,
                         text_len - self.log_scroll as f64,
-                        move |val| { Message::CoreLogScrollAbsolute(text_len as i64 - val as i64) }
+                        move |val| {
+                            Message::CoreLogScrollAbsolute(text_len as isize - val as isize)
+                        }
                     )
                 ])
                 .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
             )
             .on_scroll(move |n| {
                 let lines = match n {
-                    iced::mouse::ScrollDelta::Lines { y, .. } => y as i64,
-                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as i64,
+                    iced::mouse::ScrollDelta::Lines { y, .. } => y as isize,
+                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as isize,
                 };
                 Message::CoreLogScroll(lines)
             })
@@ -89,7 +91,9 @@ impl Launcher {
             .into(),
             State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
             State::AccountLogin { url, code, .. } => view_account_login(url, code),
-            State::EditMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::EditMods(menu) => {
+                menu.view(self.selected_instance.as_ref().unwrap(), self.tick_timer)
+            }
             State::Create(menu) => menu.view(),
             State::ConfirmAction {
                 msg1,
@@ -128,7 +132,9 @@ impl Launcher {
             .height(Length::Fill)
             .style(LauncherTheme::style_scrollable_flat_extra_dark)
             .into(),
-            State::InstallFabric(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::InstallFabric(menu) => {
+                menu.view(self.selected_instance.as_ref().unwrap(), self.tick_timer)
+            }
             State::InstallForge(menu) => menu.view(),
             State::UpdateFound(menu) => menu.view(),
             State::InstallJava => widget::column!(widget::text("Downloading Java").size(20),)
@@ -138,7 +144,7 @@ impl Launcher {
                 .into(),
             // TODO: maybe remove window_size argument?
             // It's not needed right now, but could be in the future.
-            State::ModsDownload(menu) => menu.view(&self.images, self.window_size),
+            State::ModsDownload(menu) => menu.view(&self.images, self.window_size, self.tick_timer),
             State::LauncherSettings(menu) => menu.view(&self.config),
             State::RedownloadAssets { progress, .. } => widget::column!(
                 widget::text("Redownloading Assets").size(20),
@@ -149,10 +155,13 @@ impl Launcher {
             .into(),
             State::InstallOptifine(menu) => menu.view(),
             State::ServerCreate(menu) => menu.view(),
-            State::InstallPaper => widget::column!(widget::text("Installing Paper...").size(20))
-                .padding(10)
-                .spacing(10)
-                .into(),
+            State::InstallPaper => {
+                let dots = ".".repeat((self.tick_timer % 3) + 1);
+                widget::column!(widget::text!("Installing Paper{dots}").size(20))
+                    .padding(10)
+                    .spacing(10)
+                    .into()
+            }
             State::ManagePresets(menu) => menu.view(self.window_size),
             State::ChangeLog => widget::scrollable(
                 widget::column!(

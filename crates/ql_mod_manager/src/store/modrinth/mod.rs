@@ -72,10 +72,10 @@ impl Backend for ModrinthBackend {
             .filter(|v| v.game_versions.contains(&version))
             .filter(|v| {
                 if let Some(loader) = &loader {
-                    if v.loaders.len() < 2 && (v.loaders.first().is_none_or(|n| n == "minecraft")) {
-                        v.loaders.contains(&loader.to_modrinth_str().to_owned())
-                    } else {
+                    if v.loaders.first().is_none_or(|n| n == "minecraft") {
                         true
+                    } else {
+                        v.loaders.contains(&loader.to_modrinth_str().to_owned())
                     }
                 } else {
                     true

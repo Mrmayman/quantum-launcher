@@ -328,14 +328,18 @@ impl MenuCreateInstance {
 }
 
 impl MenuInstallFabric {
-    pub fn view(&self, selected_instance: &InstanceSelection) -> Element {
+    pub fn view(&self, selected_instance: &InstanceSelection, tick_timer: usize) -> Element {
         match self {
             MenuInstallFabric::Loading(is_quilt) => {
-                widget::column![widget::text(if *is_quilt {
-                    "Loading Quilt version list..."
-                } else {
-                    "Loading Fabric version list..."
-                })
+                let dots = ".".repeat((tick_timer % 3) + 1);
+                widget::column![widget::text!(
+                    "{}{dots}",
+                    if *is_quilt {
+                        "Loading Quilt version list"
+                    } else {
+                        "Loading Fabric version list"
+                    }
+                )
                 .size(20)]
             }
             MenuInstallFabric::Loaded {

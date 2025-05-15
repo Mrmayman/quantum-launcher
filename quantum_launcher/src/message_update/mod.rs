@@ -142,7 +142,7 @@ impl Launcher {
                     }
                 }
             }
-            InstallModsMessage::Open => match self.open_mods_screen() {
+            InstallModsMessage::Open => match self.open_mods_store() {
                 Ok(command) => return command,
                 Err(err) => self.set_error(err),
             },

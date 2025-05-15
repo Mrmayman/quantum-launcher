@@ -66,7 +66,7 @@ pub struct AuthCodeResponse {
     pub user_code: String,
     pub device_code: String,
     pub verification_uri: String,
-    pub expires_in: i64,
+    pub expires_in: isize,
     pub interval: u64,
     pub message: String,
 }

@@ -169,6 +169,7 @@ impl Launcher {
                 };
 
                 if let State::EditMods(menu) = &mut self.state {
+                    menu.update_check_handle = None;
                     menu.available_updates =
                         updates.into_iter().map(|(a, b)| (a, b, true)).collect();
                 }

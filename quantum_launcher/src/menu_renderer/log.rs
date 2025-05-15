@@ -13,7 +13,7 @@ impl Launcher {
         &self,
         text: &[(String, LogType)],
         text_size: f32,
-        scroll: i64,
+        scroll: isize,
         width_reduction: f32,
         height_reduction: f32,
     ) -> (f64, Element) {
