@@ -70,30 +70,23 @@ impl Display for MinecraftVersionCategory {
 }
 
 impl MinecraftVersionCategory {
-    /// Returns a list of all client versions.
-    #[must_use]
-    pub fn all_client() -> Vec<MinecraftVersionCategory> {
-        vec![
-            MinecraftVersionCategory::PreClassic,
-            MinecraftVersionCategory::Classic,
-            MinecraftVersionCategory::Indev,
-            MinecraftVersionCategory::Infdev,
-            MinecraftVersionCategory::Alpha,
-            MinecraftVersionCategory::Beta,
-        ]
-    }
+    pub const ALL_CLIENT: [Self; 6] = [
+        MinecraftVersionCategory::PreClassic,
+        MinecraftVersionCategory::Classic,
+        MinecraftVersionCategory::Indev,
+        MinecraftVersionCategory::Infdev,
+        MinecraftVersionCategory::Alpha,
+        MinecraftVersionCategory::Beta,
+    ];
 
-    /// Returns a list of all server versions.
-    ///
-    /// Note: Pre-Classic, Indev, and Infdev do not have server versions.
-    #[must_use]
-    pub fn all_server() -> Vec<MinecraftVersionCategory> {
-        vec![
-            MinecraftVersionCategory::Classic,
-            MinecraftVersionCategory::Alpha,
-            MinecraftVersionCategory::Beta,
-        ]
-    }
+    // Note: Pre-Classic, Indev, and Infdev
+    // don't have server versions
+    // (unless you use unofficial mods)
+    pub const ALL_SERVER: [Self; 3] = [
+        MinecraftVersionCategory::Classic,
+        MinecraftVersionCategory::Alpha,
+        MinecraftVersionCategory::Beta,
+    ];
 
     /// Returns a URL to the `index.html` page of the category.
     ///
@@ -299,7 +292,7 @@ pub async fn download_all(
 
     let i = Mutex::new(1);
 
-    for category in MinecraftVersionCategory::all_client().into_iter().rev() {
+    for category in MinecraftVersionCategory::ALL_CLIENT.into_iter().rev() {
         let url = category.get_index_url(download_server);
 
         let versions = category

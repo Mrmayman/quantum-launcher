@@ -12,6 +12,18 @@ use ql_core::{err, json::Manifest, JsonDownloadError};
 ///
 /// Prints an error to log if Omniarchive versions couldn't be loaded.
 pub async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, JsonDownloadError> {
+    // TODO: Allow sideloading server jars
+    // In Minecraft Server ecosystem, it's more common
+    // to "sideload", or provide your own custom server jars.
+    //
+    // This isn't common in clients because distributing
+    // full-built jars is against Minecraft EULA.
+    // The only use case for this in clients is for running old versions.
+    // We already have that built in through Omniarchive so it's fine.
+    //
+    // I think this "sideloading" is allowed for servers so gotta
+    // provide it somehow.
+
     let manifest = Manifest::download().await?;
     let mut version_list: Vec<ListEntry> = manifest
         .versions
@@ -90,7 +102,7 @@ async fn add_omniarchive_versions(
     normal_list: &mut Vec<ListEntry>,
     progress: Option<Arc<Sender<()>>>,
 ) -> Result<(), ListError> {
-    for category in MinecraftVersionCategory::all_server().into_iter().rev() {
+    for category in MinecraftVersionCategory::ALL_SERVER.into_iter().rev() {
         let versions = category.download_index(progress.clone(), true).await?;
         for url in versions.into_iter().rev() {
             let name = url.strip_prefix("https://vault.omniarchive.uk/archive/java/server-");
