@@ -32,7 +32,7 @@ pub struct LauncherConfig {
         since = "0.2.0",
         note = "removed feature, field left here for backwards compatibility"
     )]
-    pub java_installs: Vec<String>,
+    pub java_installs: Option<Vec<String>>,
 
     /// The theme (Light/Dark) set by the user.
     ///
@@ -96,7 +96,7 @@ impl Default for LauncherConfig {
             sidebar_width: Some(SIDEBAR_WIDTH_DEFAULT),
             accounts: None,
             ui_scale: None,
-            java_installs: Vec::new(),
+            java_installs: Some(Vec::new()),
         }
     }
 }
@@ -119,13 +119,21 @@ impl LauncherConfig {
         }
 
         let config = std::fs::read_to_string(&config_path).path(&config_path)?;
-        let config = match serde_json::from_str(&config) {
+        let mut config: Self = match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(err) => {
                 err!("Invalid launcher config! This may be a sign of corruption! Please report if this happens to you.\nError: {err}");
                 return LauncherConfig::create(&config_path);
             }
         };
+
+        #[allow(deprecated)]
+        {
+            if config.java_installs.is_none() {
+                config.java_installs = Some(Vec::new());
+            }
+        }
+
         Ok(config)
     }
 

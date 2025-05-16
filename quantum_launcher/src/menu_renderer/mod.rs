@@ -357,16 +357,16 @@ impl MenuInstallFabric {
                     )
                 } else {
                     widget::column![
-                        button_with_icon(icon_manager::back(), "Back", 16)
-                            .on_press(back_to_launch_screen(selected_instance, None)),
+                        button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                            Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
+                        ),
                         widget::text!(
                             "Install {loader_name} (instance: {})",
                             selected_instance.get_name()
                         )
                         .size(20),
                         widget::column![
-                            widget::text!("{loader_name} version:"),
-                            widget::text("Ignore if you aren't sure").size(14),
+                            widget::text!("{loader_name} version: (Ignore if you aren't sure)"),
                             widget::pick_list(
                                 fabric_versions.as_slice(),
                                 Some(fabric_version),
