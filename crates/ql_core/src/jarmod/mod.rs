@@ -94,7 +94,7 @@ pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError>
             continue;
         }
 
-        pt!("{JARMOD_ERR_PREFIX}{}", jar.filename);
+        pt!("{}", jar.filename);
         let path = jarmods_dir.join(&jar.filename);
         let bytes = tokio::fs::read(&path).await.path(&path)?;
         zip_extract::extract(std::io::Cursor::new(&bytes), &tmp_dir, true)?;

@@ -193,11 +193,10 @@ impl Launcher {
     fn tick_client_processes_and_logs(&mut self) {
         let mut killed_processes = Vec::new();
         for (name, process) in &self.client_processes {
+            Launcher::read_game_logs(&mut self.client_logs, process, name);
             if let Ok(Some(_)) = process.child.lock().unwrap().try_wait() {
                 // Game process has exited.
                 killed_processes.push(name.to_owned());
-            } else {
-                Launcher::read_game_logs(&mut self.client_logs, process, name);
             }
         }
         for name in killed_processes {

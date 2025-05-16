@@ -61,7 +61,7 @@ pub use download::constants::OS_NAME;
 pub use instance::create::create_instance;
 pub use instance::launch::launch;
 pub use instance::list_versions::list_versions;
-pub use instance::read_log::{read_logs, LogEvent, LogLine, LogMessage, ReadError};
+pub use instance::read_log::{read_logs, LogEvent, LogLine, ReadError};
 pub use launcher_update_detector::{
     check_for_launcher_updates, install_launcher_update, UpdateCheckInfo, UpdateError,
 };

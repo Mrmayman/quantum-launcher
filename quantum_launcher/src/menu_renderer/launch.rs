@@ -203,32 +203,23 @@ impl Launcher {
                 Message::LaunchLogScroll(lines)
             });
 
-            widget::column!(
+            widget::column![
                 widget::row!(
-                    widget::button("Copy Log").on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
+                    widget::button(widget::text("Copy Log").size(14)).on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
+                    widget::button(widget::text("Join Discord").size(14)).on_press(Message::CoreOpenDir(DISCORD.to_owned())),
                     widget::text("Having issues? Copy and send the game log for support").size(12),
-                ).spacing(10),
-                if *has_crashed {
-                    widget::column!(
-                        widget::text!("The {} has crashed!", if is_server {"server"} else {"game"}).size(14),
-                        widget::text("Go to Edit -> Enable Logging (disable it) then launch the game again.").size(12),
-                        widget::text("Then copy the text in the second terminal window for crash information").size(12),
-                        log
-                    )
-                } else if is_server {
-                    widget::column!(
-                        widget::text_input("Enter command...", command)
-                            .on_input(move |n| Message::ServerManageEditCommand(selected_instance.unwrap().to_owned(), n))
-                            .on_submit(Message::ServerManageSubmitCommand(selected_instance.unwrap().to_owned()))
-                            .width(190),
-                        log
-                    )
-                } else {
-                    widget::column![
-                        log,
-                    ]
-                },
-            )
+                ).spacing(10)
+            ]
+            .push_maybe(has_crashed.then_some(
+                widget::text!("The {} has crashed!", if is_server {"server"} else {"game"}).size(18)
+            ))
+            .push_maybe(is_server.then_some(
+                widget::text_input("Enter command...", command)
+                    .on_input(move |n| Message::ServerManageEditCommand(selected_instance.unwrap().to_owned(), n))
+                    .on_submit(Message::ServerManageSubmitCommand(selected_instance.unwrap().to_owned()))
+                    .width(190)
+            ))
+            .push(log)
         } else {
             get_no_logs_message()
         }

@@ -117,7 +117,7 @@ struct MinecraftFinalDetails {
     name: String,
 }
 
-const AUTH_ERR_PREFIX: &str = "while managing {AUTH_ERR_PREFIX}";
+const AUTH_ERR_PREFIX: &str = "while managing microsoft account:\n";
 
 #[derive(Debug, Error)]
 pub enum AuthError {

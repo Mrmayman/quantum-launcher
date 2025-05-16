@@ -3558,10 +3558,10 @@ dependencies = [
  "omniarchive_api",
  "ql_core",
  "ql_java_handler",
+ "quick-xml",
  "reqwest",
  "semver",
  "serde",
- "serde-xml-rs",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
@@ -3661,7 +3661,9 @@ version = "0.37.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
 dependencies = [
+ "encoding_rs",
  "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -4194,18 +4196,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-xml-rs"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "176b7ff880ab6ead7a020e773e9c096467fe347615a3e22ac29300cbdef67a5d"
-dependencies = [
- "log",
- "serde",
- "thiserror 1.0.69",
- "xml-rs",
 ]
 
 [[package]]

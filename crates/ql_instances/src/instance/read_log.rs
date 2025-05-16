@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -46,6 +46,14 @@ pub async fn read_logs(
     sender: Sender<LogLine>,
     instance_name: String,
 ) -> Result<(ExitStatus, String), ReadError> {
+    // TODO: Use the "newfangled" approach of the Modrinth launcher:
+    // https://github.com/modrinth/code/blob/main/packages/app-lib/src/state/process.rs#L208
+    //
+    // It uses tokio and quick_xml's async features.
+    // It also looks a lot less "magic" than my approach.
+    // Also, the Modrinth app is GNU GPLv3 so I guess it's
+    // safe for me to take some code.
+
     let uses_xml = is_xml(&instance_name).await?;
 
     let mut stdout_reader = BufReader::new(stdout).lines();
@@ -113,12 +121,12 @@ fn xml_parse(
         _ => &xml,
     };
 
-    if let Ok(log_event) = serde_xml_rs::from_str(text) {
+    if let Ok(log_event) = quick_xml::de::from_str(text) {
         sender.send(LogLine::Info(log_event))?;
         xml_cache.clear();
     } else {
         let no_unicode = any_ascii::any_ascii(text);
-        match serde_xml_rs::from_str(&no_unicode) {
+        match quick_xml::de::from_str(&no_unicode) {
             Ok(log_event) => {
                 sender.send(LogLine::Info(log_event))?;
                 xml_cache.clear();
@@ -160,7 +168,7 @@ impl Display for LogLine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LogLine::Info(event) => write!(f, "{event}"),
-            LogLine::Error(error) => write!(f, "! {error}"),
+            LogLine::Error(error) => write!(f, "{error}"),
             LogLine::Message(message) => write!(f, "{message}"),
         }
     }
@@ -193,14 +201,18 @@ impl From<JsonFileError> for ReadError {
 /// Contains advanced information about the log line
 /// like the timestamp, class name, level and thread.
 /// This is used for XML logs.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct LogEvent {
+    #[serde(rename = "@logger")]
     pub logger: String,
+    #[serde(rename = "@timestamp")]
     pub timestamp: String,
+    #[serde(rename = "@level")]
     pub level: String,
+    #[serde(rename = "@thread")]
     pub thread: String,
     #[serde(rename = "Message")]
-    pub message: LogMessage,
+    pub message: Option<String>,
 }
 
 impl LogEvent {
@@ -222,21 +234,59 @@ impl Display for LogEvent {
         let date = self.get_time().unwrap_or_else(|| self.timestamp.clone());
         writeln!(
             f,
-            "[{date}:{}:{}] [{}] {}",
-            self.thread,
-            self.logger,
-            self.level,
-            if let Some(n) = &self.message.content {
-                &n
-            } else {
-                ""
-            }
+            "[{level}] [{date}:{thread}:{class}] {msg}",
+            level = self.level,
+            thread = self.thread,
+            class = self.logger,
+            msg = if let Some(n) = &self.message { &n } else { "" }
         )
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LogMessage {
-    #[serde(rename = "$value")]
-    pub content: Option<String>,
+// "Better" implementation of this whole damn thing
+// using `std::io::pipe`, which was added in Rust 1.87.0
+// It is cleaner and more elegant, but... my MSRV :(
+/*
+pub async fn read_logs(
+    stream: PipeReader,
+    child: Arc<Mutex<(Child, Option<PipeReader>)>>,
+    sender: Sender<LogLine>,
+    instance_name: String,
+) -> Result<(ExitStatus, String), ReadError> {
+    let uses_xml = is_xml(&instance_name).await?;
+    let mut xml_cache = String::new();
+
+    let mut stream = BufReader::new(stream);
+
+    loop {
+        let mut line = String::new();
+        let bytes = stream.read_line(&mut line).map_err(ReadError::Io)?;
+
+        if bytes == 0 {
+            let status = {
+                // If the child has failed to lock
+                // (because the `Mutex` was poisoned)
+                // then we know something else has panicked,
+                // so might as well panic too.
+                //
+                // (this is a methaphor for real life lol WTF: )
+                let mut child = child.lock().unwrap();
+                child.0.try_wait()
+            };
+            if let Ok(Some(status)) = status {
+                // Game has exited.
+                if !xml_cache.is_empty() {
+                    sender.send(LogLine::Message(xml_cache))?;
+                }
+                return Ok((status, instance_name));
+            }
+        } else {
+            if uses_xml {
+                xml_parse(&sender, &mut xml_cache, &line)?;
+            } else {
+                sender.send(LogLine::Message(line))?;
+            }
+        }
+    }
 }
+*/
