@@ -135,9 +135,13 @@ impl Launcher {
             Message::CoreListLoaded,
         );
 
+        let log_cmd = Task::perform(file_utils::clean_log_spam(), |n| {
+            Message::CoreLogCleanComplete(n.strerr())
+        });
+
         (
             Launcher::load_new(None, is_new_user).unwrap_or_else(Launcher::with_error),
-            Task::batch([check_for_updates_command, get_entries_command]),
+            Task::batch([check_for_updates_command, get_entries_command, log_cmd]),
         )
     }
 
@@ -153,9 +157,10 @@ impl Launcher {
                 }
             }
 
-            Message::UpdateCheckResult(Err(err)) => {
+            Message::UpdateCheckResult(Err(err)) | Message::CoreLogCleanComplete(Err(err)) => {
                 err_no_log!("{err}");
             }
+            Message::CoreLogCleanComplete(Ok(())) => {}
 
             Message::ServerCreateEnd(Err(err))
             | Message::ServerCreateVersionsLoaded(Err(err))

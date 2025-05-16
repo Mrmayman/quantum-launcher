@@ -2,9 +2,9 @@ use ql_java_handler::JavaInstallError;
 use std::path::PathBuf;
 use thiserror::Error;
 
-use ql_core::{json::VersionDetails, DownloadError, IoError, JsonFileError};
+use ql_core::{json::VersionDetails, IoError, JsonFileError};
 
-use crate::{jarmod::JarModError, mc_auth::AuthError};
+use crate::{download::DownloadError, jarmod::JarModError, mc_auth::AuthError};
 
 const GAME_ERR_PREFIX: &str = "while launching game:\n";
 

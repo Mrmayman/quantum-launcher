@@ -90,12 +90,7 @@ pub struct JarMod {
 
 async fn read_filenames_from_dir<P: AsRef<Path>>(dir: P) -> Result<Vec<String>, IoError> {
     let dir: &Path = dir.as_ref();
-    let mut entries = tokio::fs::read_dir(dir)
-        .await
-        .map_err(|n| IoError::ReadDir {
-            error: n.to_string(),
-            parent: dir.to_owned(),
-        })?;
+    let mut entries = tokio::fs::read_dir(dir).await.dir(dir)?;
     let mut filenames = Vec::new();
 
     while let Some(entry) = entries.next_entry().await.map_err(|n| IoError::ReadDir {

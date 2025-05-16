@@ -1,4 +1,5 @@
 use std::{
+    fs::Metadata,
     path::{Path, PathBuf},
     sync::LazyLock,
 };
@@ -6,6 +7,7 @@ use std::{
 use reqwest::{header::InvalidHeaderValue, Client};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
+use tokio::fs::DirEntry;
 
 use crate::{error::IoError, info_no_log, retry, IntoIoError, JsonDownloadError, CLIENT};
 
@@ -321,4 +323,46 @@ pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
             symlink_file(src, dest).path(src)
         }
     }
+}
+
+pub async fn clean_log_spam() -> Result<(), IoError> {
+    const SIZE_LIMIT_BYTES: u64 = 100 * 1024 * 1024; // 100 MB
+
+    let logs_dir = LAUNCHER_DIR.join("logs");
+    let mut total_size = 0;
+    let mut files: Vec<(DirEntry, Metadata)> = Vec::new();
+
+    let mut read_dir = tokio::fs::read_dir(&logs_dir).await.dir(&logs_dir)?;
+
+    while let Some(entry) = read_dir.next_entry().await.dir(&logs_dir)? {
+        let metadata = entry.metadata().await.path(entry.path())?;
+        if metadata.is_file() {
+            total_size += metadata.len();
+            files.push((entry, metadata));
+        }
+    }
+
+    if total_size <= SIZE_LIMIT_BYTES {
+        return Ok(());
+    }
+
+    info_no_log!(
+        "Log exceeded {} MB, cleaning up",
+        SIZE_LIMIT_BYTES / (1024 * 1024)
+    );
+    files.sort_unstable_by_key(|(_, metadata)| {
+        metadata.modified().unwrap_or(std::time::SystemTime::now())
+    });
+
+    for (file, metadata) in files {
+        let path = file.path();
+        tokio::fs::remove_file(&path).await.path(path)?;
+        total_size -= metadata.len();
+
+        if total_size <= SIZE_LIMIT_BYTES {
+            break;
+        }
+    }
+
+    Ok(())
 }

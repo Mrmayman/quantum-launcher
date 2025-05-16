@@ -1,11 +1,14 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    info, json::OmniarchiveEntry, DownloadError, DownloadProgress, IntoIoError, LAUNCHER_DIR,
+    info, json::OmniarchiveEntry, DownloadProgress, IntoIoError, LAUNCHER_DIR,
     LAUNCHER_VERSION_NAME,
 };
 
-use crate::{download::GameDownloader, ListEntry};
+use crate::{
+    download::{DownloadError, GameDownloader},
+    ListEntry,
+};
 
 /// Creates a Minecraft instance.
 ///

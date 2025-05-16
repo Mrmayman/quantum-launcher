@@ -13,14 +13,49 @@ use ql_core::{
     file_utils::{self, LAUNCHER_DIR},
     info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    pt, DownloadError, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError,
+    pt, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError, JsonDownloadError,
+    JsonError, RequestError,
 };
 use serde_json::Value;
+use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::{json_profiles::ProfileJson, ListEntry};
 
 use self::constants::DEFAULT_RAM_MB_FOR_INSTANCE;
+
+const DOWNLOAD_ERR_PREFIX: &str = "while creating instance:\n";
+
+#[derive(Debug, Error)]
+pub enum DownloadError {
+    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
+    Json(#[from] JsonError),
+    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
+    Request(#[from] RequestError),
+    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
+    Io(#[from] IoError),
+    #[error("an instance with that name already exists!")]
+    InstanceAlreadyExists,
+    #[error("{DOWNLOAD_ERR_PREFIX}version not found in manifest.json: {0}")]
+    VersionNotFoundInManifest(String),
+    #[error("{DOWNLOAD_ERR_PREFIX}in assets JSON, field not found: \"{0}\"")]
+    AssetsJsonFieldNotFound(String),
+    #[error("{DOWNLOAD_ERR_PREFIX}could not extract native libraries:\n{0}")]
+    NativesExtractError(#[from] zip_extract::ZipExtractError),
+    #[error("{DOWNLOAD_ERR_PREFIX}tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED")]
+    NativesOutsideDirRemove,
+    #[error("{DOWNLOAD_ERR_PREFIX}tried to download Minecraft classic server as a client!")]
+    DownloadClassicZip,
+}
+
+impl From<JsonDownloadError> for DownloadError {
+    fn from(value: JsonDownloadError) -> Self {
+        match value {
+            JsonDownloadError::RequestError(err) => DownloadError::from(err),
+            JsonDownloadError::SerdeError(err) => DownloadError::from(err),
+        }
+    }
+}
 
 const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 

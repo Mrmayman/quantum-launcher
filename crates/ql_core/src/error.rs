@@ -31,6 +31,8 @@ pub enum IoError {
 pub trait IntoIoError<T> {
     #[allow(clippy::missing_errors_doc)]
     fn path(self, p: impl Into<PathBuf>) -> Result<T, IoError>;
+    #[allow(clippy::missing_errors_doc)]
+    fn dir(self, p: impl Into<PathBuf>) -> Result<T, IoError>;
 }
 
 impl<T> IntoIoError<T> for std::io::Result<T> {
@@ -38,6 +40,13 @@ impl<T> IntoIoError<T> for std::io::Result<T> {
         self.map_err(|err: std::io::Error| IoError::Io {
             error: err.to_string(),
             path: (p.into()).clone(),
+        })
+    }
+
+    fn dir(self, p: impl Into<PathBuf>) -> Result<T, IoError> {
+        self.map_err(|err: std::io::Error| IoError::ReadDir {
+            error: err.to_string(),
+            parent: p.into(),
         })
     }
 }
@@ -73,39 +82,6 @@ pub enum JsonFileError {
     SerdeError(#[from] JsonError),
     #[error(transparent)]
     Io(#[from] IoError),
-}
-
-const DOWNLOAD_ERR_PREFIX: &str = "while creating instance:\n";
-
-#[derive(Debug, Error)]
-pub enum DownloadError {
-    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
-    Json(#[from] JsonError),
-    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
-    Request(#[from] RequestError),
-    #[error("{DOWNLOAD_ERR_PREFIX}{0}")]
-    Io(#[from] IoError),
-    #[error("an instance with that name already exists!")]
-    InstanceAlreadyExists,
-    #[error("{DOWNLOAD_ERR_PREFIX}version not found in manifest.json: {0}")]
-    VersionNotFoundInManifest(String),
-    #[error("{DOWNLOAD_ERR_PREFIX}in assets JSON, field not found: \"{0}\"")]
-    AssetsJsonFieldNotFound(String),
-    #[error("{DOWNLOAD_ERR_PREFIX}could not extract native libraries:\n{0}")]
-    NativesExtractError(#[from] zip_extract::ZipExtractError),
-    #[error("{DOWNLOAD_ERR_PREFIX}tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED")]
-    NativesOutsideDirRemove,
-    #[error("{DOWNLOAD_ERR_PREFIX}tried to download Minecraft classic server as a client!")]
-    DownloadClassicZip,
-}
-
-impl From<JsonDownloadError> for DownloadError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => DownloadError::from(err),
-            JsonDownloadError::SerdeError(err) => DownloadError::from(err),
-        }
-    }
 }
 
 const JSON_ERR_PREFIX: &str = "could not parse JSON (this is a bug! please report):\n";

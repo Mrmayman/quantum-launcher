@@ -9,7 +9,7 @@ use ql_core::{
     json::version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
-    pt, DownloadError, DownloadProgress, IntoIoError, IoError, IS_ARM_LINUX,
+    pt, DownloadProgress, IntoIoError, IoError, IS_ARM_LINUX,
 };
 use zip_extract::ZipExtractError;
 
@@ -18,7 +18,7 @@ use crate::{
     OS_NAME,
 };
 
-use super::{constants::OS_NAMES, GameDownloader};
+use super::{constants::OS_NAMES, DownloadError, GameDownloader};
 
 #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
 #[derive(serde::Deserialize)]
