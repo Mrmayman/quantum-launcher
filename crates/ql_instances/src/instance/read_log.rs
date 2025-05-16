@@ -61,6 +61,8 @@ pub async fn read_logs(
 
     let mut xml_cache = String::new();
 
+    let mut has_errored = false;
+
     loop {
         let status = {
             // If the child has failed to lock
@@ -68,7 +70,7 @@ pub async fn read_logs(
             // then we know something else has panicked,
             // so might as well panic too.
             //
-            // (this is a methaphor for real life lol WTF: )
+            // WTF: (this is a methaphor for real life lol)
             let mut child = child.lock().unwrap();
             child.try_wait()
         };
@@ -81,7 +83,7 @@ pub async fn read_logs(
             line = stdout_reader.next_line() => {
                 if let Some(line) = line? {
                     if uses_xml {
-                        xml_parse(&sender, &mut xml_cache, &line)?;
+                        xml_parse(&sender, &mut xml_cache, &line, &mut has_errored)?;
                     } else {
                         sender.send(LogLine::Message(line))?;
                     }
@@ -100,6 +102,7 @@ fn xml_parse(
     sender: &Sender<LogLine>,
     xml_cache: &mut String,
     line: &str,
+    has_errored: &mut bool,
 ) -> Result<(), ReadError> {
     if !line.starts_with("  </log4j:Event>") {
         xml_cache.push_str(line);
@@ -132,7 +135,13 @@ fn xml_parse(
                 xml_cache.clear();
             }
             Err(err) => {
-                err!("Could not parse XML: {err}\n{text}\n");
+                // Prevents HORRIBLE log spam
+                // I once had a user complain about a 35 GB logs folder
+                // because this thing printed the same error again and again
+                if !*has_errored {
+                    err!("Could not parse XML: {err}\n{text}\n");
+                    *has_errored = true;
+                }
             }
         }
     }
@@ -203,8 +212,16 @@ impl From<JsonFileError> for ReadError {
 /// This is used for XML logs.
 #[derive(Debug, Deserialize)]
 pub struct LogEvent {
+    /// The Java Class that logged the message.
+    /// It's usually obfuscated so not useful most of the time,
+    /// but might be useful for debugging mod-related crashes.
     #[serde(rename = "@logger")]
     pub logger: String,
+    /// Logging timestamp in milliseconds,
+    /// since the UNIX epoch.
+    ///
+    /// Use [`LogEvent::get_time`] to convert
+    /// to `HH:MM:SS` time.
     #[serde(rename = "@timestamp")]
     pub timestamp: String,
     #[serde(rename = "@level")]
