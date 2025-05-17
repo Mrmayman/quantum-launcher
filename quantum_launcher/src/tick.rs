@@ -155,6 +155,7 @@ impl Launcher {
             | State::Welcome(_)
             | State::AccountLogin { .. }
             | State::GenericMessage(_)
+            | State::CurseforgeManualDownload(_)
             | State::InstallPaper => {}
         }
 

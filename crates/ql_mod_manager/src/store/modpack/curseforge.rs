@@ -1,11 +1,15 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    file_utils,
+    do_jobs,
     json::{InstanceConfigJson, VersionDetails},
-    pt, GenericProgress, InstanceSelection, IntoIoError,
+    pt, GenericProgress, InstanceSelection, IntoIoError, RequestError, CLIENT,
 };
 use serde::Deserialize;
+use tokio::sync::Mutex;
+
+use futures::StreamExt;
+use tokio_util::io::StreamReader;
 
 use crate::store::{
     curseforge::{get_query_type, CurseforgeFileQuery, ModQuery},
@@ -48,11 +52,11 @@ pub struct PackFile {
 impl PackFile {
     pub async fn download(
         &self,
-        not_allowed: &mut Vec<CurseforgeNotAllowed>,
+        not_allowed: &Mutex<Vec<CurseforgeNotAllowed>>,
         instance: &InstanceSelection,
         json: &VersionDetails,
         sender: Option<&Sender<GenericProgress>>,
-        (i, len): (usize, usize),
+        (i, len): (&Mutex<usize>, usize),
     ) -> Result<(), PackError> {
         if !self.required {
             return Ok(());
@@ -62,30 +66,18 @@ impl PackFile {
 
         let mod_info = ModQuery::load(&project_id).await?;
         let query = CurseforgeFileQuery::load(&project_id, self.fileID as i32).await?;
-
-        if let Some(sender) = sender {
-            _ = sender.send(GenericProgress {
-                done: i,
-                total: len,
-                message: Some(format!(
-                    "Modpack: Installing mod (curseforge): {} ({i}/{len})",
-                    mod_info.data.name,
-                    i = i + 1
-                )),
-                has_finished: false,
-            });
-        }
+        let query_type = get_query_type(mod_info.data.classId).await?;
 
         let Some(url) = query.data.downloadUrl.clone() else {
-            not_allowed.push(CurseforgeNotAllowed {
+            not_allowed.lock().await.push(CurseforgeNotAllowed {
                 name: mod_info.data.name,
                 slug: mod_info.data.slug,
-                id: self.fileID,
+                file_id: self.fileID,
+                project_type: query_type.to_curseforge_str().to_owned(),
+                filename: query.data.fileName,
             });
             return Ok(());
         };
-
-        let query_type = get_query_type(mod_info.data.classId).await?;
 
         let (dir_mods, dir_res_packs, dir_shader) =
             get_mods_resourcepacks_shaderpacks_dir(instance, json).await?;
@@ -95,9 +87,57 @@ impl PackFile {
             QueryType::Shaders => dir_shader,
         };
 
-        let bytes = file_utils::download_file_to_bytes(&url, true).await?;
         let path = dir.join(query.data.fileName);
-        tokio::fs::write(&path, &bytes).await.path(&path)?;
+        if path.is_file() {
+            let metadata = tokio::fs::metadata(&path).await.path(&path)?;
+            let got_len = metadata.len();
+            if query.data.fileLength == got_len {
+                pt!("Already installed {}, skipping", mod_info.data.name);
+                return Ok(());
+            }
+        }
+
+        let response = CLIENT
+            .get(&url)
+            .header("User-Agent", "quantumlauncher")
+            .send()
+            .await
+            .map_err(RequestError::from)?;
+
+        if response.status().is_success() {
+            let stream = response
+                .bytes_stream()
+                .map(|n| n.map_err(|err| std::io::Error::other(err)));
+            let mut stream = StreamReader::new(stream);
+            let mut file = tokio::fs::File::create(&path).await.path(&path)?;
+            tokio::io::copy(&mut stream, &mut file).await.path(&path)?;
+        } else {
+            Err(RequestError::DownloadError {
+                code: response.status(),
+                url: response.url().clone(),
+            })?;
+        }
+
+        if let Some(sender) = sender {
+            let mut i = i.lock().await;
+            _ = sender.send(GenericProgress {
+                done: *i,
+                total: len,
+                message: Some(format!(
+                    "Modpack: Installed mod (curseforge) ({i}/{len}):\n{}",
+                    mod_info.data.name,
+                    i = *i + 1,
+                )),
+                has_finished: false,
+            });
+            pt!(
+                "Installed mod (curseforge) ({i}/{len}): {}",
+                mod_info.data.name,
+                i = *i + 1,
+            );
+            *i += 1;
+        }
+
         Ok(())
     }
 }
@@ -137,14 +177,22 @@ pub async fn install(
         return Err(expect_got_curseforge(index, config));
     }
 
-    let mut not_allowed = Vec::new();
+    let not_allowed = Mutex::new(Vec::new());
     let len = index.files.len();
-    for (i, file) in index.files.iter().enumerate() {
-        file.download(&mut not_allowed, instance, json, sender, (i, len))
-            .await?;
-    }
 
-    Ok(not_allowed)
+    let i = Mutex::new(0);
+
+    let jobs: Result<Vec<()>, PackError> = do_jobs(
+        index
+            .files
+            .iter()
+            .map(|file| file.download(&not_allowed, instance, json, sender, (&i, len))),
+    )
+    .await;
+    jobs?;
+
+    let not_allowed = not_allowed.lock().await;
+    Ok(not_allowed.clone())
 }
 
 fn expect_got_curseforge(index: &PackIndex, config: &InstanceConfigJson) -> PackError {

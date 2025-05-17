@@ -290,5 +290,7 @@ async fn get_mods_resourcepacks_shaderpacks_dir(
 pub struct CurseforgeNotAllowed {
     pub name: String,
     pub slug: String,
-    pub id: usize,
+    pub filename: String,
+    pub project_type: String,
+    pub file_id: usize,
 }

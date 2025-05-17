@@ -8,8 +8,8 @@ use ql_core::{
 use ql_mod_manager::store::ModIndex;
 
 use crate::launcher_state::{
-    Launcher, ManageJarModsMessage, ManageModsMessage, MenuEditJarMods, MenuEditMods, Message,
-    ProgressBar, SelectedState, State,
+    Launcher, ManageJarModsMessage, ManageModsMessage, MenuCurseforgeManualDownload,
+    MenuEditJarMods, MenuEditMods, Message, ProgressBar, SelectedState, State,
 };
 
 impl Launcher {
@@ -64,14 +64,14 @@ impl Launcher {
                 }
             }
             ManageModsMessage::AddFileDone(n) => match n {
-                Ok(n) => {
-                    if !n.is_empty() {
-                        // TODO: implement curseforge not allowed mod handling
-                        err!("TODO: implement curseforge \"not allowed\" mod handling");
-                    } else {
-                        if let Err(err) = self.go_to_edit_mods_menu_without_update_check() {
-                            self.set_error(err);
-                        }
+                Ok(unsupported) => {
+                    if !unsupported.is_empty() {
+                        self.state =
+                            State::CurseforgeManualDownload(MenuCurseforgeManualDownload {
+                                unsupported,
+                            });
+                    } else if let Err(err) = self.go_to_edit_mods_menu_without_update_check() {
+                        self.set_error(err);
                     }
                 }
                 Err(err) => self.set_error(err),

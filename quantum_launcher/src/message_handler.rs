@@ -472,6 +472,7 @@ impl Launcher {
             | State::GenericMessage(_)
             | State::AccountLoginProgress(_)
             | State::ImportModpack(_)
+            | State::CurseforgeManualDownload(_)
             | State::Launch(_) => {}
         }
 

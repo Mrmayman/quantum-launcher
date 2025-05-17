@@ -89,26 +89,31 @@ pub async fn install(
                     return Ok(());
                 }
 
+                let bytes = file_utils::download_file_to_bytes(download, true).await?;
+                let bytes_path = mc_dir.join(&file.path);
+                tokio::fs::write(&bytes_path, &bytes)
+                    .await
+                    .path(bytes_path)?;
+
                 if let Some(sender) = sender {
                     let mut i = i.lock().await;
                     _ = sender.send(GenericProgress {
                         done: *i,
                         total: len,
                         message: Some(format!(
-                            "Modpack: Installing mod (modrinth): {} ({i}/{len})",
+                            "Modpack: Installed mod (modrinth) ({i}/{len}):\n{}",
                             file.path,
                             i = *i + 1
                         )),
                         has_finished: false,
                     });
+                    pt!(
+                        "Installed mod (modrinth) ({i}/{len}): {}",
+                        file.path,
+                        i = *i + 1,
+                    );
                     *i += 1;
                 }
-
-                let bytes = file_utils::download_file_to_bytes(download, true).await?;
-                let bytes_path = mc_dir.join(&file.path);
-                tokio::fs::write(&bytes_path, &bytes)
-                    .await
-                    .path(bytes_path)?;
 
                 Ok(())
             }),

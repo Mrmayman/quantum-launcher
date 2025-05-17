@@ -583,19 +583,24 @@ pub enum MenuWelcome {
     P3Auth,
 }
 
+pub struct MenuCurseforgeManualDownload {
+    pub unsupported: HashSet<CurseforgeNotAllowed>,
+}
+
 /// The enum that represents which menu is opened currently.
 pub enum State {
     /// Default home screen
     Launch(MenuLaunch),
+    Create(MenuCreateInstance),
     /// Screen to guide new users to the launcher
     Welcome(MenuWelcome),
     ChangeLog,
     UpdateFound(MenuLauncherUpdate),
 
     EditMods(MenuEditMods),
-    ImportModpack(ProgressBar<GenericProgress>),
     EditJarMods(MenuEditJarMods),
-    Create(MenuCreateInstance),
+    ImportModpack(ProgressBar<GenericProgress>),
+    CurseforgeManualDownload(MenuCurseforgeManualDownload),
 
     Error {
         error: String,

@@ -7,9 +7,9 @@ use crate::{
     launcher_state::{
         CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallOptifineMessage,
         LauncherSettingsMessage, ManageJarModsMessage, ManageModsMessage, MenuCreateInstance,
-        MenuEditInstance, MenuEditJarMods, MenuInstallFabric, MenuInstallForge,
-        MenuInstallOptifine, MenuLauncherSettings, MenuLauncherUpdate, Message, ProgressBar,
-        SelectedState,
+        MenuCurseforgeManualDownload, MenuEditInstance, MenuEditJarMods, MenuInstallFabric,
+        MenuInstallForge, MenuInstallOptifine, MenuLauncherSettings, MenuLauncherUpdate, Message,
+        ProgressBar, SelectedState,
     },
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -780,6 +780,45 @@ impl MenuEditJarMods {
         .style(LauncherTheme::style_scrollable_flat_extra_dark)
         .width(Length::Fill)
         .height(Length::Fill)
+        .into()
+    }
+}
+
+impl MenuCurseforgeManualDownload {
+    pub fn view(&self) -> Element {
+        widget::column![
+            "Some Curseforge mods have blocked this launcher!\nYou need to manually download the files and add them to your mods",
+
+            widget::scrollable(
+                widget::column(self.unsupported.iter().map(|entry| {
+                    let url = format!(
+                        "https://www.curseforge.com/minecraft/{}/{}/download/{}",
+                        entry.project_type,
+                        entry.slug,
+                        entry.file_id
+                    );
+
+                    widget::row![
+                        widget::button(widget::text("Open link").size(14)).on_press(Message::CoreOpenDir(url)),
+                        widget::text(&entry.name)
+                    ]
+                    .align_y(iced::Alignment::Center)
+                    .spacing(10)
+                    .into()
+                }))
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(LauncherTheme::style_scrollable_flat_extra_dark),
+
+            "Warning: Ignoring this may lead to crashes!",
+            widget::row![
+                widget::button("+ Select above downloaded files").on_press(Message::ManageMods(ManageModsMessage::AddFile)),
+                widget::button("Continue").on_press(Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)),
+            ].spacing(5)
+        ]
+        .padding(10)
+        .spacing(10)
         .into()
     }
 }

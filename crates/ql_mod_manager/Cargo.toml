@@ -26,3 +26,5 @@ image = { workspace = true }
 chrono = { workspace = true }
 regex = "1"
 zip = { workspace = true }
+futures = { workspace = true }
+tokio-util = "0.7"

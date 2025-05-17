@@ -108,6 +108,7 @@ pub struct CurseforgeFile {
     pub dependencies: Vec<Dependency>,
     pub fileDate: String,
     pub displayName: String,
+    pub fileLength: u64,
 }
 
 #[derive(Deserialize, Clone, Debug)]

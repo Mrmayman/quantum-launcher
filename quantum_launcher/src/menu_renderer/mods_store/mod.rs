@@ -243,7 +243,6 @@ impl MenuModsDownload {
         let url = format!(
             "{}{}/{}",
             match self.backend {
-                // FIXME: add resource packs and shaderpacks
                 StoreBackendType::Modrinth => "https://modrinth.com/",
                 StoreBackendType::Curseforge => "https://www.curseforge.com/minecraft/",
             },
