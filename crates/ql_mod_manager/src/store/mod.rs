@@ -12,6 +12,7 @@ mod delete;
 mod error;
 mod image;
 mod local_json;
+mod modpack;
 mod modrinth;
 mod recommended;
 mod toggle;
@@ -22,6 +23,7 @@ pub use delete::delete_mods;
 pub use error::ModError;
 pub use image::{download_image, ImageResult};
 pub use local_json::{ModConfig, ModFile, ModIndex};
+pub use modpack::install_modpack;
 pub use modrinth::ModrinthBackend;
 pub use recommended::{RecommendedMod, RECOMMENDED_MODS};
 pub use toggle::{flip_filename, toggle_mods, toggle_mods_local};
@@ -280,4 +282,10 @@ async fn get_mods_resourcepacks_shaderpacks_dir(
         .path(&shader_packs_dir)?;
 
     Ok((mods_dir, resource_packs_dir, shader_packs_dir))
+}
+
+pub struct CurseforgeNotAllowed {
+    pub name: String,
+    pub slug: String,
+    pub id: usize,
 }

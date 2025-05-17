@@ -27,8 +27,8 @@ const NOT_LOADED: i32 = -1;
 pub static MC_ID: AtomicI32 = AtomicI32::new(NOT_LOADED);
 
 #[derive(Deserialize, Clone, Debug)]
-struct ModQuery {
-    data: Mod,
+pub struct ModQuery {
+    pub data: Mod,
 }
 
 impl ModQuery {
@@ -41,15 +41,15 @@ impl ModQuery {
 
 #[derive(Deserialize, Clone, Debug)]
 #[allow(non_snake_case)]
-struct Mod {
-    name: String,
-    slug: String,
-    summary: String,
-    downloadCount: usize,
-    logo: Option<Logo>,
-    id: i32,
-    latestFilesIndexes: Vec<CurseforgeFileIdx>,
-    classId: i32,
+pub struct Mod {
+    pub name: String,
+    pub slug: String,
+    pub summary: String,
+    pub downloadCount: usize,
+    pub logo: Option<Logo>,
+    pub id: i32,
+    pub latestFilesIndexes: Vec<CurseforgeFileIdx>,
+    pub classId: i32,
     // latestFiles: Vec<CurseforgeFile>,
 }
 
@@ -78,7 +78,7 @@ impl Mod {
 
 #[derive(Deserialize, Clone, Debug)]
 #[allow(non_snake_case)]
-struct CurseforgeFileIdx {
+pub struct CurseforgeFileIdx {
     // filename: String,
     gameVersion: String,
     fileId: i32,
@@ -86,8 +86,8 @@ struct CurseforgeFileIdx {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-struct CurseforgeFileQuery {
-    data: CurseforgeFile,
+pub struct CurseforgeFileQuery {
+    pub data: CurseforgeFile,
 }
 
 impl CurseforgeFileQuery {
@@ -101,23 +101,23 @@ impl CurseforgeFileQuery {
 
 #[derive(Deserialize, Clone, Debug)]
 #[allow(non_snake_case)]
-struct CurseforgeFile {
-    fileName: String,
-    downloadUrl: Option<String>,
-    gameVersions: Vec<String>,
-    dependencies: Vec<Dependency>,
-    fileDate: String,
-    displayName: String,
+pub struct CurseforgeFile {
+    pub fileName: String,
+    pub downloadUrl: Option<String>,
+    pub gameVersions: Vec<String>,
+    pub dependencies: Vec<Dependency>,
+    pub fileDate: String,
+    pub displayName: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[allow(non_snake_case)]
-struct Dependency {
+pub struct Dependency {
     modId: usize,
 }
 
 #[derive(Deserialize, Clone, Debug)]
-struct Logo {
+pub struct Logo {
     url: String,
 }
 
@@ -354,7 +354,10 @@ impl Backend for CurseforgeBackend {
     }
 }
 
-async fn send_request(api: &str, params: &HashMap<&str, String>) -> Result<String, RequestError> {
+pub async fn send_request(
+    api: &str,
+    params: &HashMap<&str, String>,
+) -> Result<String, RequestError> {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(
         reqwest::header::ACCEPT,
@@ -419,7 +422,7 @@ pub async fn get_mc_id() -> Result<i32, ModError> {
     }
 }
 
-async fn get_query_type(class_id: i32) -> Result<QueryType, ModError> {
+pub async fn get_query_type(class_id: i32) -> Result<QueryType, ModError> {
     let categories = get_categories().await?;
     Ok(
         if let Some(category) = categories.data.iter().find(|n| n.id == class_id) {
