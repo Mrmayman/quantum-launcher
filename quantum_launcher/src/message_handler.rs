@@ -19,7 +19,7 @@ use crate::{
     launcher_state::{
         ClientProcess, EditPresetsMessage, MenuCreateInstance, MenuEditInstance, MenuEditMods,
         MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate,
-        NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
+        MenuServerCreate, NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
     },
     Launcher, ManageModsMessage, Message, ProgressBar, SelectedState, ServerProcess, State,
 };
@@ -429,7 +429,10 @@ impl Launcher {
                 mod_update_progress: None,
                 ..
             })
+            | State::Create(MenuCreateInstance::Loading { .. })
             | State::Create(MenuCreateInstance::Loaded { progress: None, .. })
+            | State::ServerCreate(MenuServerCreate::LoadingList { .. })
+            | State::ServerCreate(MenuServerCreate::Loaded { .. })
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
             | State::LauncherSettings(_)
@@ -468,6 +471,7 @@ impl Launcher {
             | State::ServerCreate(_)
             | State::GenericMessage(_)
             | State::AccountLoginProgress(_)
+            | State::ImportModpack(_)
             | State::Launch(_) => {}
         }
 

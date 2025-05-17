@@ -144,7 +144,7 @@ impl Launcher {
                     progress.tick();
                 }
             }
-            State::AccountLoginProgress(progress) => {
+            State::AccountLoginProgress(progress) | State::ImportModpack(progress) => {
                 progress.tick();
             }
 

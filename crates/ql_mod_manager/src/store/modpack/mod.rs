@@ -1,12 +1,12 @@
 use std::{
     io::{Cursor, Read},
-    path::Path,
+    sync::mpsc::Sender,
 };
 
 use ql_core::{
-    err, file_utils, info,
+    err, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, InstanceSelection, IntoIoError, IntoJsonError,
+    GenericProgress, InstanceSelection, IntoIoError, IntoJsonError,
 };
 
 mod curseforge;
@@ -15,7 +15,13 @@ mod modrinth;
 
 pub use error::PackError;
 
-pub async fn install_modpack(file: Vec<u8>, instance: InstanceSelection) -> Result<(), PackError> {
+use super::CurseforgeNotAllowed;
+
+pub async fn install_modpack(
+    file: Vec<u8>,
+    instance: InstanceSelection,
+    sender: Option<&Sender<GenericProgress>>,
+) -> Result<Vec<CurseforgeNotAllowed>, PackError> {
     let mut zip = zip::ZipArchive::new(Cursor::new(file))?;
 
     info!("Installing modpack");
@@ -35,18 +41,33 @@ pub async fn install_modpack(file: Vec<u8>, instance: InstanceSelection) -> Resu
     let json = VersionDetails::load(&instance).await?;
 
     if let Some(index) = index_json_modrinth {
-        install_modrinth(&instance, &mc_dir, &config, &json, &index).await?;
+        modrinth::install(&instance, &mc_dir, &config, &json, &index, sender).await?;
     }
-    if let Some(index) = index_json_curseforge {
-        install_curseforge(&instance, &config, &json, &index).await?;
-    }
+    let not_allowed = if let Some(index) = index_json_curseforge {
+        curseforge::install(&instance, &config, &json, &index, sender).await?
+    } else {
+        Vec::new()
+    };
 
-    for i in 0..zip.len() {
+    let len = zip.len();
+    for i in 0..len {
         let mut file = zip.by_index(i)?;
         let name = file.name().to_owned();
 
         if name == "modrinth.index.json" || name == "manifest.json" || name == "modlist.html" {
             continue;
+        }
+
+        if let Some(sender) = sender {
+            _ = sender.send(GenericProgress {
+                done: i,
+                total: len,
+                message: Some(format!(
+                    "Modpack: Creating overrides: {name} ({i}/{len})",
+                    i = i + 1
+                )),
+                has_finished: false,
+            });
         }
 
         if let Some(name) = name
@@ -76,119 +97,7 @@ pub async fn install_modpack(file: Vec<u8>, instance: InstanceSelection) -> Resu
         }
     }
 
-    Ok(())
-}
-
-async fn install_modrinth(
-    instance: &InstanceSelection,
-    mc_dir: &Path,
-    config: &InstanceConfigJson,
-    json: &VersionDetails,
-    index: &modrinth::PackIndex,
-) -> Result<(), PackError> {
-    if let Some(version) = index.dependencies.get("minecraft") {
-        if json.id != *version {
-            return Err(PackError::GameVersion {
-                expect: version.clone(),
-                got: json.id.clone(),
-            });
-        }
-    }
-
-    pt!("Modrinth Modpack: {}", index.name);
-    let loader = match config.mod_type.as_str() {
-        "Forge" => "forge",
-        "Fabric" => "fabric-loader",
-        "Quilt" => "quilt-loader",
-        "NeoForge" => "neoforge",
-        _ => {
-            return Err(expect_got_modrinth(index, config));
-        }
-    };
-    if !index.dependencies.contains_key(loader) {
-        return Err(expect_got_modrinth(index, config));
-    }
-
-    for file in &index.files {
-        let required_field = match instance {
-            InstanceSelection::Instance(_) => &file.env.client,
-            InstanceSelection::Server(_) => &file.env.server,
-        };
-        if required_field != "required" {
-            pt!("Skipping {} (optional)", file.path);
-            continue;
-        }
-
-        let Some(download) = file.downloads.first() else {
-            pt!("No downloads found for {}, skipping...", file.path);
-            continue;
-        };
-
-        let bytes = file_utils::download_file_to_bytes(download, true).await?;
-        let bytes_path = mc_dir.join(&file.path);
-        tokio::fs::write(&bytes_path, &bytes)
-            .await
-            .path(bytes_path)?;
-    }
-
-    Ok(())
-}
-
-async fn install_curseforge(
-    instance: &InstanceSelection,
-    config: &InstanceConfigJson,
-    json: &VersionDetails,
-    index: &curseforge::PackIndex,
-) -> Result<(), PackError> {
-    if json.id != index.minecraft.version {
-        return Err(PackError::GameVersion {
-            expect: index.minecraft.version.clone(),
-            got: json.id.clone(),
-        });
-    }
-
-    pt!("CurseForge Modpack: {}", index.name);
-
-    let loader = match config.mod_type.as_str() {
-        "Forge" => "forge",
-        "Fabric" => "fabric",
-        "Quilt" => "quilt",
-        "NeoForge" => "neoforge",
-        _ => {
-            return Err(expect_got_curseforge(index, config));
-        }
-    };
-
-    if !index
-        .minecraft
-        .modLoaders
-        .iter()
-        .filter_map(|n| n.get("id"))
-        .any(|n| n.starts_with(loader))
-    {
-        return Err(expect_got_curseforge(index, config));
-    }
-
-    let mut not_allowed = Vec::new();
-    for file in &index.files {
-        file.download(&mut not_allowed, instance, json).await?;
-    }
-
-    Ok(())
-}
-
-fn expect_got_curseforge(index: &curseforge::PackIndex, config: &InstanceConfigJson) -> PackError {
-    PackError::Loader {
-        expect: index
-            .minecraft
-            .modLoaders
-            .iter()
-            .filter_map(|l| l.get("id"))
-            .map(|l| l.split('-').next().unwrap_or(l))
-            .collect::<Vec<&str>>()
-            .join(", "),
-        got: config.mod_type.clone(),
-    }
+    Ok(not_allowed)
 }
 
 fn read_json_from_zip<T: serde::de::DeserializeOwned>(
@@ -211,25 +120,4 @@ fn read_json_from_zip<T: serde::de::DeserializeOwned>(
     } else {
         None
     })
-}
-
-fn expect_got_modrinth(index_json: &modrinth::PackIndex, config: &InstanceConfigJson) -> PackError {
-    match index_json
-        .dependencies
-        .iter()
-        .filter_map(|(k, _)| (k != "minecraft").then_some(k.clone()))
-        .map(|loader| {
-            loader
-                .strip_suffix("-loader")
-                .map(|n| n.to_owned())
-                .unwrap_or(loader)
-        })
-        .next()
-    {
-        Some(expect) => PackError::Loader {
-            expect,
-            got: config.mod_type.clone(),
-        },
-        None => PackError::NoLoadersSpecified,
-    }
 }

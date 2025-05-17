@@ -9,7 +9,7 @@ use ql_mod_manager::store::ModIndex;
 
 use crate::launcher_state::{
     Launcher, ManageJarModsMessage, ManageModsMessage, MenuEditJarMods, MenuEditMods, Message,
-    SelectedState, State,
+    ProgressBar, SelectedState, State,
 };
 
 impl Launcher {
@@ -43,6 +43,39 @@ impl Launcher {
                     }
                 }
             }
+            ManageModsMessage::AddFile => {
+                if let Some(paths) = rfd::FileDialog::new()
+                    .add_filter("Mod/Modpack", &["jar", "zip", "mrpack", "qmp"])
+                    .set_title("Add Mod, Modpack or Preset")
+                    .pick_files()
+                {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+
+                    self.state = State::ImportModpack(ProgressBar::with_recv(receiver));
+
+                    return Task::perform(
+                        ql_mod_manager::add_files(
+                            self.selected_instance.clone().unwrap(),
+                            paths,
+                            Some(sender),
+                        ),
+                        |n| Message::ManageMods(ManageModsMessage::AddFileDone(n.strerr())),
+                    );
+                }
+            }
+            ManageModsMessage::AddFileDone(n) => match n {
+                Ok(n) => {
+                    if !n.is_empty() {
+                        // TODO: implement curseforge not allowed mod handling
+                        err!("TODO: implement curseforge \"not allowed\" mod handling");
+                    } else {
+                        if let Err(err) = self.go_to_edit_mods_menu_without_update_check() {
+                            self.set_error(err);
+                        }
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
             ManageModsMessage::ToggleCheckboxLocal(name, enable) => {
                 if let State::EditMods(menu) = &mut self.state {
                     if enable {

@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::store::ModError;
 
-const PACK_ERR_PREFIX: &str = "while installing modpack:\n";
+const PACK_ERR_PREFIX: &str = "while installing modpack/mod:\n";
 
 #[derive(Debug, Error)]
 pub enum PackError {

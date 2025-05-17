@@ -56,7 +56,7 @@ impl From<&DownloadProgress> for f32 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenericProgress {
     pub done: usize,
     pub total: usize,

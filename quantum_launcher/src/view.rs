@@ -178,6 +178,12 @@ impl Launcher {
             .into(),
             State::Welcome(menu) => menu.view(&self.config),
             State::EditJarMods(menu) => menu.view(self.selected_instance.as_ref().unwrap()),
+            State::ImportModpack(progress) => {
+                widget::column![widget::text("Installing modpack..."), progress.view()]
+                    .padding(10)
+                    .spacing(10)
+                    .into()
+            }
         }
     }
 }

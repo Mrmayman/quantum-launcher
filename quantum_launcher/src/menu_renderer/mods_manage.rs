@@ -30,8 +30,13 @@ impl MenuEditMods {
             widget::container(
                 widget::scrollable(
                     widget::column!(
-                        button_with_icon(icon_manager::back(), "Back", 15)
-                            .on_press(back_to_launch_screen(selected_instance, None)),
+                        widget::row![
+                            button_with_icon(icon_manager::back_with_size(14), "Back", 14)
+                                .on_press(back_to_launch_screen(selected_instance, None)),
+                            button_with_icon(icon_manager::create_with_size(14), "Add File", 14)
+                                .on_press(Message::ManageMods(ManageModsMessage::AddFile))
+                        ]
+                        .spacing(7),
                         self.get_mod_installer_buttons(selected_instance),
                         widget::column!(
                             button_with_icon(
@@ -222,12 +227,13 @@ impl MenuEditMods {
 
     fn get_uninstall_panel(mod_type: &str, uninstall_loader_message: Message) -> Element {
         widget::button(
-            widget::row!(
-                icon_manager::delete(),
+            widget::row![
+                icon_manager::delete_with_size(14),
                 widget::text!("Uninstall {mod_type}").size(15)
-            )
-            .spacing(10)
-            .padding(5),
+            ]
+            .align_y(iced::alignment::Vertical::Center)
+            .spacing(11)
+            .padding(3),
         )
         .on_press(Message::UninstallLoaderConfirm(
             Box::new(uninstall_loader_message),
@@ -261,20 +267,20 @@ impl MenuEditMods {
                 widget::column![
                     widget::text("Select some mods to perform actions on them").size(14),
                     widget::row![
-                        button_with_icon(icon_manager::delete(), "Delete", 14)
+                        button_with_icon(icon_manager::delete_with_size(13), "Delete", 13)
                             .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
-                        button_with_icon(icon_manager::toggle(), "Toggle", 14)
+                        button_with_icon(icon_manager::toggle_with_size(13), "Toggle", 13)
                             .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
                         button_with_icon(
-                            icon_manager::tick(),
+                            icon_manager::tick_with_size(13),
                             if matches!(self.selected_state, SelectedState::All) {
                                 "Unselect All"
                             } else {
                                 "Select All"
                             },
-                            14
+                            13
                         )
-                        .on_press(Message::ManageMods(ManageModsMessage::SelectAll))
+                        .on_press(Message::ManageMods(ManageModsMessage::SelectAll)),
                     ]
                     .spacing(5)
                     .wrap()

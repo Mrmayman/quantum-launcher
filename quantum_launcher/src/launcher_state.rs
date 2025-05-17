@@ -28,7 +28,10 @@ use ql_mod_manager::{
         fabric::FabricVersionListItem, forge::ForgeInstallProgress,
         optifine::OptifineInstallProgress,
     },
-    store::{ImageResult, ModConfig, ModIndex, QueryType, RecommendedMod, SearchResult},
+    store::{
+        CurseforgeNotAllowed, ImageResult, ModConfig, ModIndex, QueryType, RecommendedMod,
+        SearchResult,
+    },
 };
 use tokio::process::{Child, ChildStdin};
 
@@ -93,17 +96,23 @@ pub enum ManageModsMessage {
 
     ToggleCheckbox((String, ModId), bool),
     ToggleCheckboxLocal(String, bool),
+
     DeleteSelected,
     DeleteFinished(Res<Vec<ModId>>),
     LocalDeleteFinished(Res),
     LocalIndexLoaded(HashSet<String>),
+
     ToggleSelected,
     ToggleFinished(Res),
+
     UpdateMods,
     UpdateModsFinished(Res),
     UpdateCheckResult(Res<Vec<(ModId, String)>>),
     UpdateCheckToggle(usize, bool),
+
     SelectAll,
+    AddFile,
+    AddFileDone(Res<HashSet<CurseforgeNotAllowed>>),
 }
 
 #[derive(Debug, Clone)]
@@ -584,6 +593,7 @@ pub enum State {
     UpdateFound(MenuLauncherUpdate),
 
     EditMods(MenuEditMods),
+    ImportModpack(ProgressBar<GenericProgress>),
     EditJarMods(MenuEditJarMods),
     Create(MenuCreateInstance),
 

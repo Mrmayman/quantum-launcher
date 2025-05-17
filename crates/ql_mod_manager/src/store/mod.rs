@@ -7,6 +7,7 @@ use ql_core::{
     GenericProgress, InstanceSelection, IntoIoError, Loader, ModId, StoreBackendType,
 };
 
+mod add_file;
 mod curseforge;
 mod delete;
 mod error;
@@ -18,6 +19,7 @@ mod recommended;
 mod toggle;
 mod update;
 
+pub use add_file::add_files;
 pub use curseforge::CurseforgeBackend;
 pub use delete::delete_mods;
 pub use error::ModError;
@@ -284,6 +286,7 @@ async fn get_mods_resourcepacks_shaderpacks_dir(
     Ok((mods_dir, resource_packs_dir, shader_packs_dir))
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct CurseforgeNotAllowed {
     pub name: String,
     pub slug: String,
