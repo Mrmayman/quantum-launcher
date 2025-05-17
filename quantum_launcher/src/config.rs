@@ -102,9 +102,7 @@ impl Default for LauncherConfig {
 }
 
 impl LauncherConfig {
-    /// Load the launcher configuration. You must supply the launcher
-    /// directory in the `launcher_dir` argument. It can be obtained from
-    /// [`file_utils::get_launcher_dir`].
+    /// Load the launcher configuration.
     ///
     /// # Errors
     /// - if the user doesn't have permission to access launcher directory
@@ -112,8 +110,8 @@ impl LauncherConfig {
     /// This function is designed to *not* fail fast,
     /// resetting the config if it's nonexistent or corrupted
     /// (with an error log message).
-    pub fn load(launcher_dir: &Path) -> Result<Self, JsonFileError> {
-        let config_path = launcher_dir.join("config.json");
+    pub fn load_s() -> Result<Self, JsonFileError> {
+        let config_path = LAUNCHER_DIR.join("config.json");
         if !config_path.exists() {
             return LauncherConfig::create(&config_path);
         }

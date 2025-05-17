@@ -98,10 +98,14 @@ impl MenuEditInstance {
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
                     widget::column![
-                        widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
-                            .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
-                        widget::text("Enabled by default, disable if you want to see some advanced crash messages in the terminal.").size(12),
-                        widget::horizontal_space(),
+                        widget::column![
+                            widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
+                                .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
+                            widget::text("- Recommended to enable this (default) for most cases").size(12),
+                            widget::text("- Disable if logs aren't visible properly for some reason").size(12),
+                            widget::text("- Once disabled, logs will be printed in launcher STDOUT. Run the launcher executable from the terminal/command prompt to see it").size(12),
+                            widget::horizontal_space(),
+                        ].spacing(5)
                     ].push_maybe((!selected_instance.is_server()).then_some(widget::column![
                         widget::checkbox("Close launcher after game opens", self.config.close_on_start.unwrap_or(false))
                             .on_toggle(|t| Message::EditInstance(EditInstanceMessage::CloseLauncherToggle(t))),

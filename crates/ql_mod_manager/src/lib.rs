@@ -3,17 +3,17 @@
 //! This crate provides a way to manage mods for Quantum Launcher.
 //!
 //! # Features
-//! ## Modrinth
-//! - Install mods
-//! - Uninstall mods
-//! - Update mods
-//! - Search for mods
-//! ## Loaders: Install and uninstall:
+//! - Interacting with Modrinth and Curseforge API to
+//!   search, install, uninstall and update mods.
+//! - Packaging mods into single-file presets
+//!   (see [`presets`] for more info)
+//! ## Installing and uninstalling:
 //! - Fabric
 //! - Forge
 //! - Optifine
 //! - Quilt
-//! - Paper
+//! - NeoForge
+//! - Paper (for servers)
 
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::doc_markdown)]
@@ -23,6 +23,6 @@
 pub mod loaders;
 mod presets;
 mod rate_limiter;
-/// Mod manager integrated with Modrinth.
+/// Mod manager integrated with Modrinth and Curseforge.
 pub mod store;
 pub use presets::PresetJson;

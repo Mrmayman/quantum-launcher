@@ -1,61 +1,55 @@
-<p align="center">
 
-# <img src="assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
+
+# <img src="https://github.com/Mrmayman/quantum-launcher/raw/main/assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
 ## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5)
 
 A minimalistic Minecraft launcher for Windows, macOS and Linux.
 
-<img src="quantum_launcher.png" width="100%" />
-
-</p>
+![Quantum Launcher running a Minecraft Instance](https://github.com/Mrmayman/quantum-launcher/raw/main/quantum_launcher.png)
 
 QuantumLauncher is written in *Rust* with the *iced* framework,
 offering a lightweight and responsive experience.
 It is designed to be simple and easy to use, with a focus on performance and features.
 
-<p align="center">
-
 # Features
 
 ## Lightweight and responsive
 
-<img src="assets/screenshots/lightweight.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/lightweight.png)
 
 ## Install fabric, forge or optifine with ease
 
-<img src="assets/screenshots/install_loader.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/install_loader.png)
 
 ## Build in mod store to download your favorite mods
 
-<img src="assets/screenshots/mod_store.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/mod_store.png)
 
 ## Isolate your different game versions with instances!
 
-<img src="assets/screenshots/new.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/new.png)
 
 ## Full support for old minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
 
-<img src="assets/screenshots/old_mc.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/old_mc.png)
 
 ## Neatly package your mods into presets, and share it with your friends!
 
-<img src="assets/screenshots/presets.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/presets.png)
 
 ## Built in themes!
 
-<img src="assets/screenshots/themes.png" width="70%" />
+![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/themes.png)
 <br><br>
 
 # Downloads and Building
-
-</p>
 
 You can download the stable version from the website linked above, or from the *Releases* button
 
 Or, you can compile the launcher to get the latest experimental version (with potentially broken and untested features).
 To compile the launcher:
 
-```
+```sh
 git clone https://github.com/Mrmayman/quantum-launcher.git
 cd quantum-launcher
 cargo run --release
@@ -75,11 +69,7 @@ What about the others? Well...
 - Legacy Launcher isn't as feature rich as this
 - TLauncher is *suspected* to be malware
 
-<p align="center">
-
 # File Locations
-
-</p>
 
 - On *Windows*, the launcher files are at `C:/Users/YOUR_USERNAME/AppData/Roaming/QuantumLauncher/`.
 - You probably won't see the `AppData` folder. Press Windows + R and paste this path, and hit enter.
@@ -90,11 +80,7 @@ What about the others? Well...
 
 <br>
 
-<p align="center">
-
 # To-do (in the future)
-
-</p>
 
 (note: WIP means work-in-progress)
 
@@ -161,20 +147,12 @@ What about the others? Well...
 - [ ] FreeBSD
 - [ ] Haiku
 
-<p align="center">
-
 # MSRV (Minimum Supported Rust Version)
-
-</p>
 
 - The exact MSRV is unknown (feel free to find out for yourselves).
 - However, at least Rust 1.78.0 is required.
 
-<p align="center">
-
 # Contributing
-
-</p>
 
 There are many ways you can help me out! I'm open to any contribution:
 
@@ -194,30 +172,63 @@ There are many ways you can help me out! I'm open to any contribution:
 
 There's a more in-depth guide on the codebase in [main.rs](quantum_launcher/src/main.rs) at the top.
 
-## Contributors
+# Codebase
+This section will mainly focus on what the
+codebase is like for any potential contributors.
+
+## Crate Structure
+- `quantum_launcher` - The GUI frontend
+- `ql_instances` - Instance management, updating and launching
+- `ql_mod_manager` - Mod management and installation
+- `ql_servers` - A self-hosted server management system (incomplete)
+- `ql_core` - Core utilities and shared code
+- `ql_java_handler` - A library to auto-install and provide java runtimes
+
+## Brief Overview of the codebase
+The architecture of the launcher is based on the
+Model-View-Controller pattern (AKA the thing used in iced).
+
+- The `Launcher` struct is the main controller of the application.
+- `view()` renders the app's view based on the current state.
+- `update()` processes messages and updates the state accordingly.
+- The `launcher_state::State` enum determines which menu is currently open.
+
+So it's a back-and-forth between `Message`s coming from interaction,
+and code to deal with the messages in `update()`.
+
+## Comments
+I tend to be loose, for better or for worse,
+when it comes to using comments.
+Have something complicated-looking that could
+be better explained? Add comments. Clippy bugging you
+about not documenting something? Add doc comments.
+
+**The only rule of thumb is: Do it well or don't do it**.
+
+Half-baked useless comments are worse than no comments
+(yes I'm guilty of this sometimes).
+
+Heck, feel free to make it informal if that seems better.
+(maybe add a `WTF: ` tag so people can search for it for fun).
+
+Btw, if you have any questions, feel free to ask me on discord!
+
+# Contributors
 - [Mrmayman](https://github.com/Mrmayman) (lead developer)
 - [apicalshark](https://github.com/apicalshark) (github CI, packaging, distribution)
 - Aurlt (@exsclt_35289 on Discord) (icon design)
 
-<p align="center">
-
 # Licensing and Credits
 
-</p>
-
 A lot of this launcher's design, including the code for creating and launching the game,
-and installing forge, is inspired by https://github.com/alexivkin/minecraft-launcher/.
+and installing forge, is inspired by <https://github.com/alexivkin/minecraft-launcher/>.
 
 Nearly all of this launcher is licensed under the **GNU General Public License v3**,
 however there are a few exceptions (such as github actions and assets).
 Visit [the assets README](assets/README.md) for more information.
-
-<p align="center">
 
 # Note on Piracy
 
 If you pirate the game, it's at your own risk. I am not responsible for any issues caused.
 I recommend that you buy the game, but if you don't have the means, feel free to use this launcher.
 If anyone has any issues/complaints, just open an issue in the repo.
-
-</p>

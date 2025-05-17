@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
-    path::Path,
     process::ExitStatus,
     str::FromStr,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -715,17 +714,14 @@ pub struct ServerProcess {
 
 impl Launcher {
     pub fn load_new(message: Option<String>, is_new_user: bool) -> Result<Self, JsonFileError> {
-        let launcher_dir = match file_utils::get_launcher_dir() {
-            Ok(n) => n,
-            Err(err) => {
-                err!("Could not get launcher dir (This is a bug):");
-                return Ok(Self::with_error(format!(
-                    "Could not get launcher dir: {err}"
-                )));
-            }
+        if let Err(err) = file_utils::get_launcher_dir() {
+            err!("Could not get launcher dir (This is a bug):");
+            return Ok(Self::with_error(format!(
+                "Could not get launcher dir: {err}"
+            )));
         };
 
-        let (mut config, theme) = load_config_and_theme(&launcher_dir)?;
+        let (mut config, theme) = load_config_and_theme()?;
 
         let mut launch = if let Some(message) = message {
             MenuLaunch::with_message(message)
@@ -821,7 +817,7 @@ impl Launcher {
 
         let (config, theme) = launcher_dir
             .as_ref()
-            .and_then(|n| match load_config_and_theme(n) {
+            .and_then(|_| match load_config_and_theme() {
                 Ok(n) => Some(n),
                 Err(err) => {
                     err!("Error loading config: {err}");
@@ -880,10 +876,8 @@ impl Launcher {
     }
 }
 
-fn load_config_and_theme(
-    launcher_dir: &Path,
-) -> Result<(LauncherConfig, LauncherTheme), JsonFileError> {
-    let config = LauncherConfig::load(launcher_dir)?;
+fn load_config_and_theme() -> Result<(LauncherConfig, LauncherTheme), JsonFileError> {
+    let config = LauncherConfig::load_s()?;
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherThemeLightness::Dark,
         Some("Light") => LauncherThemeLightness::Light,

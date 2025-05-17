@@ -26,8 +26,7 @@ use crate::store::{ModConfig, ModError, ModIndex};
 /// - Mod configuration
 ///
 /// # How to use this?
-/// See the [`PresetJson::generate`], [`PresetJson::load`],
-/// and [`PresetJson::download_entries_w`] functions.
+/// See the [`PresetJson::generate`] and [`PresetJson::load`],
 ///
 /// # Format
 /// Mod presets consist of a `.qmp` file
@@ -53,18 +52,33 @@ pub struct PresetJson {
 }
 
 impl PresetJson {
+    /// Generates a "Mod Preset" from the mods
+    /// installed in the `instance`.
+    ///
+    /// This packages the contents of
+    /// `.minecraft/mods` and `.minecraft/config`
+    /// into a `.qmp` file (a specialized ZIP file).
+    ///
+    /// You have to manually provide which of the
+    /// instance's mods you want through the `selected_mods`
+    /// argument. You *can't* leave it empty, or nothing
+    /// will generate.
+    ///
+    /// This returns a `Result` of `Vec<u8>`, containing
+    /// the bytes of the final `.qmp` file that you can save
+    /// anywhere you want.
     pub async fn generate(
-        instance_name: InstanceSelection,
+        instance: InstanceSelection,
         selected_mods: HashSet<SelectedMod>,
     ) -> Result<Vec<u8>, ModError> {
-        let dot_minecraft = instance_name.get_dot_minecraft_path();
+        let dot_minecraft = instance.get_dot_minecraft_path();
         let mods_dir = dot_minecraft.join("mods");
         let config_dir = dot_minecraft.join("config");
 
-        let minecraft_version = get_minecraft_version(&instance_name).await?;
-        let instance_type = get_instance_type(&instance_name).await?;
+        let minecraft_version = get_minecraft_version(&instance).await?;
+        let instance_type = get_instance_type(&instance).await?;
 
-        let index = ModIndex::get(&instance_name).await?;
+        let index = ModIndex::get(&instance).await?;
 
         let mut entries_modrinth = HashMap::new();
         let mut entries_local: Vec<(String, Vec<u8>)> = Vec::new();
@@ -119,7 +133,7 @@ impl PresetJson {
         Ok(file)
     }
 
-    /// Loads a `.qmp` file as a "Mod Preset".
+    /// Installs a `.qmp` file as a "Mod Preset".
     ///
     /// See the module documentation for what a preset is.
     ///
@@ -130,24 +144,19 @@ impl PresetJson {
     ///   The `.qmp` file in binary form. Must be read from
     ///   disk earlier.
     ///
-    /// Returns a Vec<String> of modrinth mod id's to be installed
+    /// Returns a `Vec<String>` of modrinth mod id's to be installed
     /// to "complete" the installation. You pass this to
-    /// [`PresetJson::download_entries_w`]
+    /// [`crate::store::download_mods_bulk`]
     ///
     /// # Errors
     /// - The provided `zip` is not a valid `.zip` file.
     /// - `index.json` in the zip file isn't valid JSON
     /// - User lacks permission to access `QuantumLauncher/` folder
-    /// ---
-    /// - `details.json` file couldn't be loaded
-    /// - `details.json` couldn't be parsed into valid JSON
-    /// ---
-    /// - `config.json` file couldn't be loaded
-    /// - `config.json` couldn't be parsed into valid JSON
-    /// ---
     /// - instance directory is outside the launcher directory (escape attack)
-    /// - config dir (~/.config on linux or AppData/Roaming on windows) is not found
-    /// - the launcher directory could not be created (permissions issue)
+    /// ---
+    /// `details.json` and `config.json` (in instance dir):
+    /// - couldn't be loaded from disk
+    /// - couldn't be parsed into valid JSON
     /// ---
     /// - And many other stuff I probably forgot
     pub async fn load(

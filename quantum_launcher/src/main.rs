@@ -16,49 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//! Quantum Launcher is a Minecraft launcher written in Rust using the Iced GUI framework.
-//!
-//! For more information see the `../../README.md` file.
-//!
-//! This section will mainly focus on what the
-//! codebase is like for any potential contributors.
-//!
-//! # Crate Structure
-//! - `quantum_launcher` - The GUI frontend
-//! - `ql_instances` - Instance management, updating and launching
-//! - `ql_mod_manager` - Mod management and installation
-//! - `ql_servers` - A self-hosted server management system (incomplete)
-//! - `ql_core` - Core utilities and shared code
-//! - `ql_java_handler` - A library to auto-install and provide java runtimes
-//!
-//! # Brief Overview of the codebase
-//! The architecture of the launcher is based on the
-//! Model-View-Controller pattern (AKA the thing used in iced).
-//!
-//! - The `Launcher` struct is the main controller of the application.
-//! - `view()` renders the app's view based on the current state.
-//! - `update()` processes messages and updates the state accordingly.
-//!
-//! So it's a back-and-forth between `Message`s coming from interaction,
-//! and code to deal with the messages in `update()`.
-//!
-//! # Comments
-//! I tend to be loose, for better or for worse,
-//! when it comes to using comments.
-//!
-//! Have something complicated-looking that could
-//! be better explained? Add comments. Clippy bugging you
-//! about not documenting something? Add doc comments.
-//!
-//! **The only rule of thumb is: Do it well or don't do it**.
-//! Half-baked useless comments are worse than no comments
-//! (yes I'm guilty of this sometimes).
-//!
-//! Heck, feel free to make it informal if that seems better.
-//! (maybe add a `WTF: ` tag so people can search for it for fun).
-//!
-//! Btw, if you have any questions, feel free to ask me on discord!
-
+#![doc = include_str!("../../README.md")]
 #![windows_subsystem = "windows"]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::cast_possible_truncation)]
@@ -682,7 +640,7 @@ fn main() {
 
     let scale = if let Some(cfg) = launcher_dir
         .as_ref()
-        .and_then(|dir| LauncherConfig::load(dir).ok())
+        .and_then(|_| LauncherConfig::load_s().ok())
     {
         cfg.ui_scale.unwrap_or(1.0) as f32
     } else {

@@ -57,7 +57,7 @@ mod json_profiles;
 mod launcher_update_detector;
 mod mc_auth;
 
-pub use download::constants::OS_NAME;
+pub use download::{constants::OS_NAME, DownloadError};
 pub use instance::create::create_instance;
 pub use instance::launch::launch;
 pub use instance::list_versions::list_versions;
