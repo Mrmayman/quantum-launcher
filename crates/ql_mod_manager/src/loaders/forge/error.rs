@@ -1,6 +1,6 @@
 use std::{num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
-use ql_core::{IoError, JsonDownloadError, JsonError, JsonFileError, RequestError};
+use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
 use ql_java_handler::JavaInstallError;
 use thiserror::Error;
 use zip_extract::ZipExtractError;
@@ -45,23 +45,7 @@ pub enum ForgeInstallError {
     NeoforgeOutdatedMinecraft,
 }
 
-impl From<JsonFileError> for ForgeInstallError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::Io(err) => Self::Io(err),
-            JsonFileError::SerdeError(err) => Self::Json(err),
-        }
-    }
-}
-
-impl From<JsonDownloadError> for ForgeInstallError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Json(err),
-        }
-    }
-}
+impl_3_errs_jri!(ForgeInstallError, Json, Request, Io);
 
 pub trait Is404NotFound {
     fn is_not_found(&self) -> bool;

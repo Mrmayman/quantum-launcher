@@ -6,10 +6,10 @@ use std::{
 };
 
 use ql_core::{
-    file_utils, info, jarmod,
+    file_utils, impl_3_errs_jri, info, jarmod,
     json::{optifine::JsonOptifine, VersionDetails},
     no_window, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonError,
-    JsonFileError, Loader, Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
+    Loader, Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
@@ -352,11 +352,4 @@ pub enum OptifineError {
     Json(#[from] JsonError),
 }
 
-impl From<JsonFileError> for OptifineError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::SerdeError(err) => err.into(),
-            JsonFileError::Io(err) => err.into(),
-        }
-    }
-}
+impl_3_errs_jri!(OptifineError, Json, Request, Io);

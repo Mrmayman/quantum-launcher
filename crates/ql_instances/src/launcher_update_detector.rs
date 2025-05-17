@@ -5,7 +5,7 @@ use std::{
 };
 
 use ql_core::{
-    err, file_utils, info, GenericProgress, IntoIoError, IoError, JsonDownloadError, JsonError,
+    err, file_utils, impl_3_errs_jri, info, GenericProgress, IntoIoError, IoError, JsonError,
     RequestError,
 };
 use serde::Deserialize;
@@ -223,14 +223,7 @@ pub enum UpdateError {
     Zip(#[from] zip_extract::ZipExtractError),
 }
 
-impl From<JsonDownloadError> for UpdateError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Serde(err),
-        }
-    }
-}
+impl_3_errs_jri!(UpdateError, Serde, Request, Io);
 
 #[derive(Deserialize)]
 struct GithubRelease {

@@ -3541,6 +3541,7 @@ dependencies = [
  "strsim",
  "thiserror 2.0.12",
  "tokio",
+ "tokio-util",
  "walkdir",
  "zip",
  "zip-extract",
@@ -3590,7 +3591,6 @@ version = "0.4.1"
 dependencies = [
  "chrono",
  "colored",
- "futures",
  "image",
  "ql_core",
  "ql_java_handler",
@@ -3601,7 +3601,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
- "tokio-util",
  "zip",
  "zip-extract",
 ]

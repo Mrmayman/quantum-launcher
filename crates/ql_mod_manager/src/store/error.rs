@@ -1,6 +1,6 @@
 use std::num::ParseIntError;
 
-use ql_core::{IoError, JsonDownloadError, JsonError, JsonFileError, RequestError};
+use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
 use thiserror::Error;
 use zip_extract::ZipError;
 
@@ -34,20 +34,4 @@ pub enum ModError {
     ParseInt(#[from] ParseIntError),
 }
 
-impl From<JsonFileError> for ModError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::SerdeError(err) => err.into(),
-            JsonFileError::Io(err) => err.into(),
-        }
-    }
-}
-
-impl From<JsonDownloadError> for ModError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::SerdeError(err) => err.into(),
-            JsonDownloadError::RequestError(err) => err.into(),
-        }
-    }
-}
+impl_3_errs_jri!(ModError, Json, RequestError, Io);

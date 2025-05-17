@@ -4,17 +4,58 @@ use thiserror::Error;
 
 use crate::RequestError;
 
-// macro_rules! impl_error {
-//     ($from:ident, $to:ident) => {
-//         impl From<$from> for LauncherError {
-//             fn from(value: $from) -> Self {
-//                 LauncherError::$to(value)
-//             }
-//         }
-//     };
-// }
-
-// impl_error!(JsonDownloadError, JsonDownloadError);
+/// Quickly implement `From<>` the "big 3" generic error types
+/// ([`JsonFileError`], [`JsonDownloadError`], [`DownloadFileError`])
+/// for your error types.
+///
+/// Pass in the name of your error `enum` and the specific variants in the correct order.
+/// The JRI stands for the order of arguments: "Json, Request, Io".
+///
+/// Usage:
+///
+/// ```no_run
+/// use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
+///
+/// enum MyError {
+///     IoErr(IoError),
+///     Req(RequestError),
+///     Json(JsonError)
+/// }
+///
+/// impl_3_errs_jri!(MyError, Json, Req, IoErr);
+/// // impl From<ql_core::JsonDownloadError> for MyError
+/// // impl From<ql_core::JsonFileError> for MyError
+/// // impl From<ql_core::DownloadFileError> for MyError
+/// ```
+#[macro_export]
+macro_rules! impl_3_errs_jri {
+    ($target:ident, $json_variant:ident, $request_variant:ident, $io_variant:ident) => {
+        impl From<$crate::JsonFileError> for $target {
+            fn from(value: $crate::JsonFileError) -> Self {
+                match value {
+                    $crate::JsonFileError::SerdeError(err) => Self::$json_variant(err),
+                    $crate::JsonFileError::Io(err) => Self::$io_variant(err),
+                }
+            }
+        }
+        impl From<$crate::JsonDownloadError> for $target {
+            fn from(value: $crate::JsonDownloadError) -> Self {
+                match value {
+                    $crate::JsonDownloadError::RequestError(err) => Self::$request_variant(err),
+                    $crate::JsonDownloadError::SerdeError(err) => Self::$json_variant(err),
+                }
+            }
+        }
+        impl From<$crate::DownloadFileError> for $target {
+            fn from(value: $crate::DownloadFileError) -> Self {
+                match value {
+                    $crate::DownloadFileError::Request(err) => Self::$request_variant(err),
+                    $crate::DownloadFileError::Io(err) => Self::$io_variant(err),
+                }
+            }
+        }
+    };
+}
 
 #[derive(Clone, Debug, Error)]
 pub enum IoError {
@@ -73,6 +114,20 @@ pub enum JsonDownloadError {
 impl From<reqwest::Error> for JsonDownloadError {
     fn from(value: reqwest::Error) -> Self {
         Self::RequestError(RequestError::ReqwestError(value))
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum DownloadFileError {
+    #[error(transparent)]
+    Request(#[from] RequestError),
+    #[error(transparent)]
+    Io(#[from] IoError),
+}
+
+impl From<reqwest::Error> for DownloadFileError {
+    fn from(value: reqwest::Error) -> Self {
+        Self::Request(RequestError::ReqwestError(value))
     }
 }
 

@@ -1,4 +1,4 @@
-use ql_core::{IoError, JsonDownloadError, JsonError, JsonFileError, RequestError};
+use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
 use thiserror::Error;
 
 use crate::store::ModError;
@@ -27,20 +27,4 @@ pub enum PackError {
     Mod(#[from] ModError),
 }
 
-impl From<JsonFileError> for PackError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::SerdeError(err) => Self::Json(err),
-            JsonFileError::Io(err) => Self::Io(err),
-        }
-    }
-}
-
-impl From<JsonDownloadError> for PackError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Json(err),
-        }
-    }
-}
+impl_3_errs_jri!(PackError, Json, Request, Io);

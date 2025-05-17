@@ -1,15 +1,12 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    do_jobs,
+    do_jobs, file_utils,
     json::{InstanceConfigJson, VersionDetails},
-    pt, GenericProgress, InstanceSelection, IntoIoError, RequestError, CLIENT,
+    pt, GenericProgress, InstanceSelection, IntoIoError,
 };
 use serde::Deserialize;
 use tokio::sync::Mutex;
-
-use futures::StreamExt;
-use tokio_util::io::StreamReader;
 
 use crate::store::{
     curseforge::{get_query_type, CurseforgeFileQuery, ModQuery},
@@ -97,26 +94,7 @@ impl PackFile {
             }
         }
 
-        let response = CLIENT
-            .get(&url)
-            .header("User-Agent", "quantumlauncher")
-            .send()
-            .await
-            .map_err(RequestError::from)?;
-
-        if response.status().is_success() {
-            let stream = response
-                .bytes_stream()
-                .map(|n| n.map_err(|err| std::io::Error::other(err)));
-            let mut stream = StreamReader::new(stream);
-            let mut file = tokio::fs::File::create(&path).await.path(&path)?;
-            tokio::io::copy(&mut stream, &mut file).await.path(&path)?;
-        } else {
-            Err(RequestError::DownloadError {
-                code: response.status(),
-                url: response.url().clone(),
-            })?;
-        }
+        file_utils::download_file_to_path(&url, true, &path).await?;
 
         if let Some(sender) = sender {
             let mut i = i.lock().await;

@@ -4,12 +4,17 @@ use std::{
     sync::LazyLock,
 };
 
-use reqwest::{header::InvalidHeaderValue, Client};
+use futures::StreamExt;
+use reqwest::header::InvalidHeaderValue;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::fs::DirEntry;
+use tokio_util::io::StreamReader;
 
-use crate::{error::IoError, info_no_log, retry, IntoIoError, JsonDownloadError, CLIENT};
+use crate::{
+    error::{DownloadFileError, IoError},
+    info_no_log, retry, IntoIoError, JsonDownloadError, CLIENT,
+};
 
 /// The path to the QuantumLauncher root folder.
 ///
@@ -115,11 +120,12 @@ pub fn is_new_user() -> bool {
 /// # Errors
 /// Returns an error if:
 /// - Error sending request
+/// - Request is rejected (HTTP status code)
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
 pub async fn download_file_to_string(url: &str, user_agent: bool) -> Result<String, RequestError> {
-    async fn inner(client: &Client, url: &str, user_agent: bool) -> Result<String, RequestError> {
-        let mut get = client.get(url);
+    async fn inner(url: &str, user_agent: bool) -> Result<String, RequestError> {
+        let mut get = CLIENT.get(url);
         if user_agent {
             get = get.header(
                 "User-Agent",
@@ -137,7 +143,7 @@ pub async fn download_file_to_string(url: &str, user_agent: bool) -> Result<Stri
         }
     }
 
-    retry(async || inner(&CLIENT, url, user_agent).await).await
+    retry(async || inner(url, user_agent).await).await
 }
 
 /// Downloads a file from the given URL into a JSON.
@@ -153,6 +159,7 @@ pub async fn download_file_to_string(url: &str, user_agent: bool) -> Result<Stri
 /// # Errors
 /// Returns an error if:
 /// - Error sending request
+/// - Request is rejected (HTTP status code)
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
 pub async fn download_file_to_json<T: DeserializeOwned>(
@@ -160,11 +167,10 @@ pub async fn download_file_to_json<T: DeserializeOwned>(
     user_agent: bool,
 ) -> Result<T, JsonDownloadError> {
     async fn inner<T: DeserializeOwned>(
-        client: &Client,
         url: &str,
         user_agent: bool,
     ) -> Result<T, JsonDownloadError> {
-        let mut get = client.get(url);
+        let mut get = CLIENT.get(url);
         if user_agent {
             get = get.header(
                 "User-Agent",
@@ -184,7 +190,7 @@ pub async fn download_file_to_json<T: DeserializeOwned>(
         }
     }
 
-    retry(async || inner(&CLIENT, url, user_agent).await).await
+    retry(async || inner(url, user_agent).await).await
 }
 
 /// Downloads a file from the given URL into a `Vec<u8>`.
@@ -197,11 +203,12 @@ pub async fn download_file_to_json<T: DeserializeOwned>(
 /// # Errors
 /// Returns an error if:
 /// - Error sending request
+/// - Request is rejected (HTTP status code)
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
 pub async fn download_file_to_bytes(url: &str, user_agent: bool) -> Result<Vec<u8>, RequestError> {
-    async fn inner(client: &Client, url: &str, user_agent: bool) -> Result<Vec<u8>, RequestError> {
-        let mut get = client.get(url);
+    async fn inner(url: &str, user_agent: bool) -> Result<Vec<u8>, RequestError> {
+        let mut get = CLIENT.get(url);
         if user_agent {
             get = get.header("User-Agent", "quantumlauncher");
         }
@@ -216,7 +223,56 @@ pub async fn download_file_to_bytes(url: &str, user_agent: bool) -> Result<Vec<u
         }
     }
 
-    retry(async || inner(&CLIENT, url, user_agent).await).await
+    retry(async || inner(url, user_agent).await).await
+}
+
+/// Downloads a file from the given URL and saves it to a path.
+///
+/// This uses `tokio` streams internally allowing for highly
+/// efficient downloading.
+///
+/// # Arguments
+/// - `url`: the URL to download from
+/// - `user_agent`: whether to use the quantum launcher
+///   user agent (required for modrinth)
+/// - `path`: the `&Path` to save the files to
+///
+/// # Errors
+/// Returns an error if:
+/// - Error sending request
+/// - Request is rejected (HTTP status code)
+/// - Redirect loop detected
+/// - Redirect limit exhausted.
+pub async fn download_file_to_path(
+    url: &str,
+    user_agent: bool,
+    path: &Path,
+) -> Result<(), DownloadFileError> {
+    async fn inner(url: &str, user_agent: bool, path: &Path) -> Result<(), DownloadFileError> {
+        let mut get = CLIENT.get(url);
+        if user_agent {
+            get = get.header("User-Agent", "quantumlauncher");
+        }
+        let response = get.send().await?;
+
+        if response.status().is_success() {
+            let stream = response
+                .bytes_stream()
+                .map(|n| n.map_err(std::io::Error::other));
+            let mut stream = StreamReader::new(stream);
+            let mut file = tokio::fs::File::create(&path).await.path(path)?;
+            tokio::io::copy(&mut stream, &mut file).await.path(path)?;
+            Ok(())
+        } else {
+            Err(RequestError::DownloadError {
+                code: response.status(),
+                url: response.url().clone(),
+            }
+            .into())
+        }
+    }
+
+    retry(async || inner(url, user_agent, path).await).await
 }
 
 /// Downloads a file from the given URL into a `Vec<u8>`,
@@ -230,14 +286,15 @@ pub async fn download_file_to_bytes(url: &str, user_agent: bool) -> Result<Vec<u
 /// # Errors
 /// Returns an error if:
 /// - Error sending request
+/// - Request is rejected (HTTP status code)
 /// - Redirect loop detected
 /// - Redirect limit exhausted.
 pub async fn download_file_to_bytes_with_agent(
     url: &str,
     user_agent: &str,
 ) -> Result<Vec<u8>, RequestError> {
-    async fn inner(client: &Client, url: &str, user_agent: &str) -> Result<Vec<u8>, RequestError> {
-        let response = client
+    async fn inner(url: &str, user_agent: &str) -> Result<Vec<u8>, RequestError> {
+        let response = CLIENT
             .get(url)
             .header("User-Agent", user_agent)
             .send()
@@ -252,7 +309,7 @@ pub async fn download_file_to_bytes_with_agent(
         }
     }
 
-    retry(async || inner(&CLIENT, url, user_agent).await).await
+    retry(async || inner(url, user_agent).await).await
 }
 
 const NETWORK_ERROR_MSG: &str = r"

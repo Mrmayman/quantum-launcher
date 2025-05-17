@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::Path};
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, IntoIoError, IoError, JsonDownloadError, JsonError,
-    JsonFileError, Loader, RequestError, LAUNCHER_DIR,
+    file_utils, impl_3_errs_jri, info, json::VersionDetails, pt, IntoIoError, IoError, JsonError,
+    Loader, RequestError, LAUNCHER_DIR,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -132,20 +132,4 @@ pub enum PaperInstallerError {
     NoMatchingVersionFound(String),
 }
 
-impl From<JsonFileError> for PaperInstallerError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::SerdeError(err) => Self::Json(err),
-            JsonFileError::Io(err) => Self::Io(err),
-        }
-    }
-}
-
-impl From<JsonDownloadError> for PaperInstallerError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => Self::Request(err),
-            JsonDownloadError::SerdeError(err) => Self::Json(err),
-        }
-    }
-}
+impl_3_errs_jri!(PaperInstallerError, Json, Request, Io);

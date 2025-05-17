@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ql_core::{IoError, JsonDownloadError, JsonError, JsonFileError, RequestError};
+use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
 use ql_java_handler::JavaInstallError;
 
 mod create;
@@ -23,8 +23,6 @@ const SERVER_ERR_PREFIX: &str = "while managing server:\n";
 
 #[derive(Debug, Error)]
 pub enum ServerError {
-    #[error("{SERVER_ERR_PREFIX}{0}")]
-    JsonDownload(#[from] JsonDownloadError),
     #[error("{SERVER_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
     #[error("while downloading server\nserver version not found in manifest: {0}")]
@@ -51,11 +49,4 @@ pub enum ServerError {
     PathBufToStr(PathBuf),
 }
 
-impl From<JsonFileError> for ServerError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::SerdeError(error) => Self::Json(error),
-            JsonFileError::Io(error) => Self::Io(error),
-        }
-    }
-}
+impl_3_errs_jri!(ServerError, Json, Request, Io);

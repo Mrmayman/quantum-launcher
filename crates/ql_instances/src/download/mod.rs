@@ -11,10 +11,10 @@ use omniarchive_api::MinecraftVersionCategory;
 use ql_core::{
     do_jobs, err,
     file_utils::{self, LAUNCHER_DIR},
-    info,
+    impl_3_errs_jri, info,
     json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    pt, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError, JsonDownloadError,
-    JsonError, RequestError,
+    pt, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError, JsonError,
+    RequestError,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -48,14 +48,7 @@ pub enum DownloadError {
     DownloadClassicZip,
 }
 
-impl From<JsonDownloadError> for DownloadError {
-    fn from(value: JsonDownloadError) -> Self {
-        match value {
-            JsonDownloadError::RequestError(err) => DownloadError::from(err),
-            JsonDownloadError::SerdeError(err) => DownloadError::from(err),
-        }
-    }
-}
+impl_3_errs_jri!(DownloadError, Json, Request, Io);
 
 const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 

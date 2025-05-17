@@ -28,8 +28,8 @@ use std::{
 };
 
 pub use error::{
-    IntoIoError, IntoJsonError, IntoStringError, IoError, JsonDownloadError, JsonError,
-    JsonFileError,
+    DownloadFileError, IntoIoError, IntoJsonError, IntoStringError, IoError, JsonDownloadError,
+    JsonError, JsonFileError,
 };
 pub use file_utils::{RequestError, LAUNCHER_DIR};
 use futures::StreamExt;
@@ -71,6 +71,7 @@ pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::ne
 ///
 /// # Example
 /// ```no_run
+/// # use ql_core::do_jobs;
 /// # async fn download_file(url: &str) -> Result<String, String> {
 /// #     Ok("Hello".to_owned())
 /// # }
@@ -81,6 +82,7 @@ pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::ne
 ///     // No need to await
 ///     download_file(url)
 /// })).await?;
+/// #   Ok(())
 /// # }
 /// ```
 ///
@@ -130,6 +132,7 @@ pub async fn do_jobs<T, E>(
 ///
 /// # Example
 /// ```no_run
+/// # use ql_core::retry;
 /// # async fn download_file(url: &str) -> Result<String, String> {
 /// #     Ok("Hi".to_owned())
 /// # }
