@@ -5,22 +5,14 @@ use std::{
 };
 
 use chrono::DateTime;
-use ql_core::{
-    json::VersionDetails, pt, GenericProgress, IntoJsonError, JsonDownloadError, ModId,
-    RequestError, CLIENT,
-};
+use download::ModDownloader;
+use ql_core::{pt, GenericProgress, IntoJsonError, JsonDownloadError, ModId, RequestError, CLIENT};
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
 
-use crate::{
-    rate_limiter::RATE_LIMITER,
-    store::{get_loader, ModIndex, SearchMod},
-};
+use crate::{rate_limiter::RATE_LIMITER, store::SearchMod};
 
-use super::{
-    get_mods_resourcepacks_shaderpacks_dir, Backend, CurseforgeNotAllowed, ModError, QueryType,
-    SearchResult,
-};
+use super::{Backend, CurseforgeNotAllowed, ModError, QueryType, SearchResult};
 use categories::get_categories;
 
 mod categories;
@@ -64,7 +56,7 @@ impl Mod {
         version: &str,
         loader: Option<&str>,
         query_type: QueryType,
-    ) -> Result<CurseforgeFileQuery, ModError> {
+    ) -> Result<(CurseforgeFileQuery, i32), ModError> {
         let Some(file) = self.latestFilesIndexes.iter().find(|n| {
             let is_loader_compatible = loader == n.modLoader.map(|n| n.to_string()).as_deref();
             let is_version_compatible = n.gameVersion == version;
@@ -75,7 +67,7 @@ impl Mod {
 
         let file_query = CurseforgeFileQuery::load(id, file.fileId).await?;
 
-        Ok(file_query)
+        Ok((file_query, file.fileId))
     }
 }
 
@@ -252,7 +244,7 @@ impl Backend for CurseforgeBackend {
         let loader = loader.map(|n| n.to_curseforge());
 
         let query_type = get_query_type(response.data.classId).await?;
-        let file_query = response
+        let (file_query, _) = response
             .data
             .get_file(response.data.name.clone(), id, version, loader, query_type)
             .await?;
@@ -267,33 +259,11 @@ impl Backend for CurseforgeBackend {
         instance: &ql_core::InstanceSelection,
         sender: Option<Sender<GenericProgress>>,
     ) -> Result<HashSet<CurseforgeNotAllowed>, super::ModError> {
-        let version_json = VersionDetails::load(instance).await?;
-        let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
-        let mut index = ModIndex::get(instance).await?;
+        let mut downloader = ModDownloader::new(instance.clone(), sender.as_ref()).await?;
+        downloader.download(id, None).await?;
+        downloader.index.save(instance).await?;
 
-        let (mods_dir, resourcepacks_dir, shaderpacks_dir) =
-            get_mods_resourcepacks_shaderpacks_dir(instance, &version_json).await?;
-
-        let mut cache = HashMap::new();
-        let mut not_allowed = HashSet::new();
-
-        download::download(
-            id,
-            &version_json.id,
-            loader,
-            &mut index,
-            (&mods_dir, &resourcepacks_dir, &shaderpacks_dir),
-            None,
-            &mut cache,
-            instance,
-            sender.as_ref(),
-            &mut not_allowed,
-        )
-        .await?;
-
-        index.save(instance).await?;
-
-        Ok(not_allowed)
+        Ok(downloader.not_allowed)
     }
 
     async fn download_bulk(
@@ -303,25 +273,18 @@ impl Backend for CurseforgeBackend {
         set_manually_installed: bool,
         sender: Option<&Sender<GenericProgress>>,
     ) -> Result<HashSet<CurseforgeNotAllowed>, super::ModError> {
-        let version_json = VersionDetails::load(instance).await?;
-        let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
-        let mut index = ModIndex::get(instance).await?;
-
-        let (mods_dir, resourcepacks_dir, shaderpacks_dir) =
-            get_mods_resourcepacks_shaderpacks_dir(instance, &version_json).await?;
-
-        let mut cache = CFSearchResult::get_from_ids(ids)
-            .await?
-            .data
-            .into_iter()
-            .map(|n| (n.id.to_string(), n))
-            .collect();
-
-        let mut not_allowed = HashSet::new();
+        let mut downloader = ModDownloader::new(instance.clone(), sender).await?;
+        downloader.query_cache.extend(
+            CFSearchResult::get_from_ids(ids)
+                .await?
+                .data
+                .into_iter()
+                .map(|n| (n.id.to_string(), n)),
+        );
 
         let len = ids.len();
         for (i, id) in ids.iter().enumerate() {
-            if let Some(sender) = &sender {
+            if let Some(sender) = &downloader.sender {
                 _ = sender.send(GenericProgress {
                     done: i,
                     total: len,
@@ -330,19 +293,7 @@ impl Backend for CurseforgeBackend {
                 });
             }
 
-            let result = download::download(
-                id,
-                &version_json.id,
-                loader,
-                &mut index,
-                (&mods_dir, &resourcepacks_dir, &shaderpacks_dir),
-                None,
-                &mut cache,
-                instance,
-                sender,
-                &mut not_allowed,
-            )
-            .await;
+            let result = downloader.download(id, None).await;
 
             if let Err(ModError::NoCompatibleVersionFound(name)) = &result {
                 if ignore_incompatible {
@@ -353,19 +304,19 @@ impl Backend for CurseforgeBackend {
             result?;
 
             if set_manually_installed {
-                if let Some(config) = index.mods.get_mut(id) {
+                if let Some(config) = downloader.index.mods.get_mut(id) {
                     config.manually_installed = true;
                 }
             }
         }
 
-        index.save(instance).await?;
+        downloader.index.save(instance).await?;
         pt!("Finished");
-        if let Some(sender) = &sender {
+        if let Some(sender) = &downloader.sender {
             _ = sender.send(GenericProgress::finished());
         }
 
-        Ok(not_allowed)
+        Ok(downloader.not_allowed)
     }
 }
 
