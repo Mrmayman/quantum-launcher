@@ -89,8 +89,20 @@ pub async fn install(
                     return Ok(());
                 }
 
+                let mut download = download.clone();
+
+                // Known broken mods, included in Re-Console modpack
+                // https://modrinth.com/modpack/legacy-minecraft
+                // These fix the crash, but I still get a black screen
+                if download == "https://cdn.modrinth.com/data/u58R1TMW/versions/WFiIDhbD/connector-2.0.0-beta.2%2B1.21.1-full.jar" {
+                    "https://cdn.modrinth.com/data/u58R1TMW/versions/k3UrqfQk/connector-2.0.0-beta.6%2B1.21.1-full.jar".clone_into(&mut download);
+                } else if download == "https://cdn.modrinth.com/data/gHvKJofA/versions/GvTZJhPo/Legacy4J-1.21-1.7.2-neoforge.jar"
+                    || download == "https://cdn.modrinth.com/data/gHvKJofA/versions/fYlGcfZd/Legacy4J-1.21-1.7.3-neoforge.jar" {
+                    "https://cdn.modrinth.com/data/gHvKJofA/versions/RD8XgI0Y/Legacy4J-1.21-1.7.4-neoforge.jar".clone_into(&mut download);
+                }
+
                 let bytes_path = mc_dir.join(&file.path);
-                file_utils::download_file_to_path(download, true, &bytes_path).await?;
+                file_utils::download_file_to_path(&download, true, &bytes_path).await?;
 
                 if let Some(sender) = sender {
                     let mut i = i.lock().await;

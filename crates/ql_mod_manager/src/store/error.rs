@@ -4,6 +4,8 @@ use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
 use thiserror::Error;
 use zip_extract::ZipError;
 
+use super::modpack::PackError;
+
 const MOD_ERR_PREFIX: &str = "while managing mods:\n";
 
 #[derive(Debug, Error)]
@@ -32,6 +34,8 @@ pub enum ModError {
     UnknownProjectType(String),
     #[error("{MOD_ERR_PREFIX}couldn't parse int (curseforge mod id):\n{0}")]
     ParseInt(#[from] ParseIntError),
+    #[error("{MOD_ERR_PREFIX}{0}")]
+    Pack(#[from] Box<PackError>),
 }
 
 impl_3_errs_jri!(ModError, Json, RequestError, Io);

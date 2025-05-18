@@ -7,8 +7,9 @@ use ql_core::{
 use ql_mod_manager::store::{RecommendedMod, RECOMMENDED_MODS};
 
 use crate::launcher_state::{
-    EditPresetsMessage, Launcher, MenuEditPresets, MenuEditPresetsInner, Message, ProgressBar,
-    SelectedState, State, PRESET_INNER_BUILD, PRESET_INNER_RECOMMENDED,
+    EditPresetsMessage, Launcher, MenuCurseforgeManualDownload, MenuEditPresets,
+    MenuEditPresetsInner, Message, ProgressBar, SelectedState, State, PRESET_INNER_BUILD,
+    PRESET_INNER_RECOMMENDED,
 };
 
 macro_rules! iflet_manage_preset {
@@ -75,7 +76,18 @@ impl Launcher {
             },
             EditPresetsMessage::Load => return Ok(self.load_preset()),
             EditPresetsMessage::LoadComplete(result) => {
-                return result.and_then(|()| self.go_to_edit_mods_menu().strerr());
+                return result.and_then(|not_allowed| {
+                    if not_allowed.is_empty() {
+                        self.go_to_edit_mods_menu().strerr()
+                    } else {
+                        self.state =
+                            State::CurseforgeManualDownload(MenuCurseforgeManualDownload {
+                                unsupported: not_allowed,
+                                is_store: false,
+                            });
+                        Ok(Task::none())
+                    }
+                });
             }
             EditPresetsMessage::RecommendedModCheck(result) => {
                 if let State::ManagePresets(MenuEditPresets {

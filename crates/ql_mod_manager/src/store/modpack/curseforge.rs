@@ -1,4 +1,4 @@
-use std::sync::mpsc::Sender;
+use std::{collections::HashSet, sync::mpsc::Sender};
 
 use ql_core::{
     do_jobs, file_utils,
@@ -49,7 +49,7 @@ pub struct PackFile {
 impl PackFile {
     pub async fn download(
         &self,
-        not_allowed: &Mutex<Vec<CurseforgeNotAllowed>>,
+        not_allowed: &Mutex<HashSet<CurseforgeNotAllowed>>,
         instance: &InstanceSelection,
         json: &VersionDetails,
         sender: Option<&Sender<GenericProgress>>,
@@ -66,7 +66,7 @@ impl PackFile {
         let query_type = get_query_type(mod_info.data.classId).await?;
 
         let Some(url) = query.data.downloadUrl.clone() else {
-            not_allowed.lock().await.push(CurseforgeNotAllowed {
+            not_allowed.lock().await.insert(CurseforgeNotAllowed {
                 name: mod_info.data.name,
                 slug: mod_info.data.slug,
                 file_id: self.fileID,
@@ -82,6 +82,7 @@ impl PackFile {
             QueryType::Mods => dir_mods,
             QueryType::ResourcePacks => dir_res_packs,
             QueryType::Shaders => dir_shader,
+            QueryType::ModPacks => return Err(PackError::ModpackInModpack),
         };
 
         let path = dir.join(query.data.fileName);
@@ -126,7 +127,7 @@ pub async fn install(
     json: &VersionDetails,
     index: &PackIndex,
     sender: Option<&Sender<GenericProgress>>,
-) -> Result<Vec<CurseforgeNotAllowed>, PackError> {
+) -> Result<HashSet<CurseforgeNotAllowed>, PackError> {
     if json.id != index.minecraft.version {
         return Err(PackError::GameVersion {
             expect: index.minecraft.version.clone(),
@@ -155,7 +156,7 @@ pub async fn install(
         return Err(expect_got_curseforge(index, config));
     }
 
-    let not_allowed = Mutex::new(Vec::new());
+    let not_allowed = Mutex::new(HashSet::new());
     let len = index.files.len();
 
     let i = Mutex::new(0);

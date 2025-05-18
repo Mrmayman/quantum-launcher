@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Sender, time::Instant};
+use std::{collections::HashSet, sync::mpsc::Sender, time::Instant};
 
 use chrono::DateTime;
 use download::version_sort;
@@ -11,7 +11,7 @@ use crate::{
     store::{SearchMod, StoreBackendType},
 };
 
-use super::{Backend, ModError, Query, QueryType, SearchResult};
+use super::{Backend, CurseforgeNotAllowed, ModError, Query, QueryType, SearchResult};
 
 mod download;
 mod info;
@@ -103,7 +103,11 @@ impl Backend for ModrinthBackend {
         Ok((download_version_time, download_version.name))
     }
 
-    async fn download(id: &str, instance: &InstanceSelection) -> Result<(), ModError> {
+    async fn download(
+        id: &str,
+        instance: &InstanceSelection,
+        sender: Option<Sender<GenericProgress>>,
+    ) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
         // Download one mod at a time
         let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
             g
@@ -112,14 +116,14 @@ impl Backend for ModrinthBackend {
             MOD_DOWNLOAD_LOCK.lock().await
         };
 
-        let mut downloader = download::ModDownloader::new(instance).await?;
+        let mut downloader = download::ModDownloader::new(instance, sender).await?;
         downloader.download_project(id, None, true).await?;
 
         downloader.index.save(instance).await?;
 
         pt!("Finished");
 
-        Ok(())
+        Ok(HashSet::new())
     }
 
     async fn download_bulk(
@@ -128,7 +132,7 @@ impl Backend for ModrinthBackend {
         ignore_incompatible: bool,
         set_manually_installed: bool,
         sender: Option<&Sender<GenericProgress>>,
-    ) -> Result<(), ModError> {
+    ) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
         // Download one mod at a time
         let _guard = if let Ok(g) = MOD_DOWNLOAD_LOCK.try_lock() {
             g
@@ -137,7 +141,7 @@ impl Backend for ModrinthBackend {
             MOD_DOWNLOAD_LOCK.lock().await
         };
 
-        let mut downloader = download::ModDownloader::new(instance).await?;
+        let mut downloader = download::ModDownloader::new(instance, None).await?;
         let bulk_info = ProjectInfo::download_bulk(ids).await?;
 
         downloader
@@ -182,6 +186,6 @@ impl Backend for ModrinthBackend {
             _ = sender.send(GenericProgress::finished());
         }
 
-        Ok(())
+        Ok(HashSet::new())
     }
 }

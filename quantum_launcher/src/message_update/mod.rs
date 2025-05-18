@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use iced::{widget::image::Handle, Task};
 use ql_core::{err, info, InstanceSelection, IntoStringError, ModId, OptifineUniqueVersion};
-use ql_mod_manager::{loaders, store::get_description};
+use ql_mod_manager::{
+    loaders,
+    store::{get_description, QueryType},
+};
 
 mod accounts;
 mod create_instance;
@@ -13,8 +16,8 @@ mod presets;
 use crate::{
     launcher_state::{
         self, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage, Launcher,
-        LauncherSettingsMessage, MenuInstallFabric, MenuInstallOptifine, Message, ProgressBar,
-        State,
+        LauncherSettingsMessage, MenuCurseforgeManualDownload, MenuInstallFabric,
+        MenuInstallOptifine, Message, ProgressBar, State,
     },
     stylesheet::styles::{LauncherThemeColor, LauncherThemeLightness},
 };
@@ -199,9 +202,27 @@ impl Launcher {
                     return value;
                 }
             }
-            InstallModsMessage::DownloadComplete(Ok(id)) => {
-                if let State::ModsDownload(menu) = &mut self.state {
+            InstallModsMessage::DownloadComplete(Ok((id, not_allowed))) => {
+                let task = if let State::ModsDownload(menu) = &mut self.state {
                     menu.mods_download_in_progress.remove(&id);
+                    Task::none()
+                } else {
+                    match self.open_mods_store() {
+                        Ok(n) => n,
+                        Err(err) => {
+                            self.set_error(err);
+                            Task::none()
+                        }
+                    }
+                };
+
+                if not_allowed.is_empty() {
+                    return task;
+                } else {
+                    self.state = State::CurseforgeManualDownload(MenuCurseforgeManualDownload {
+                        unsupported: not_allowed,
+                        is_store: true,
+                    });
                 }
             }
             InstallModsMessage::IndexUpdated(Ok(idx)) => {
@@ -260,11 +281,20 @@ impl Launcher {
         let backend = menu.backend;
         let id = ModId::from_pair(&project_id, backend);
 
+        let sender = if let QueryType::ModPacks = menu.query_type {
+            let (sender, receiver) = std::sync::mpsc::channel();
+            // TODO: Add confirmation
+            self.state = State::ImportModpack(ProgressBar::with_recv(receiver));
+            Some(sender)
+        } else {
+            None
+        };
+
         Some(Task::perform(
             async move {
-                ql_mod_manager::store::download_mod(&id, &selected_instance)
+                ql_mod_manager::store::download_mod(&id, &selected_instance, sender)
                     .await
-                    .map(|()| ModId::Modrinth(project_id))
+                    .map(|not_allowed| (ModId::Modrinth(project_id), not_allowed))
             },
             |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
         ))

@@ -1,13 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
+    sync::mpsc::Sender,
 };
 
-use ql_core::{file_utils, info, pt, ModId};
+use ql_core::{file_utils, info, pt, GenericProgress, InstanceSelection, ModId};
 
 use crate::store::{
     curseforge::{get_query_type, ModQuery},
-    ModConfig, ModError, ModFile, ModIndex, QueryType, SOURCE_ID_CURSEFORGE,
+    install_modpack, CurseforgeNotAllowed, ModConfig, ModError, ModFile, ModIndex, QueryType,
+    SOURCE_ID_CURSEFORGE,
 };
 
 use super::Mod;
@@ -20,6 +22,9 @@ pub async fn download(
     (mods_dir, resourcepacks_dir, shaderpacks_dir): (&PathBuf, &PathBuf, &PathBuf),
     dependent: Option<&str>,
     query_cache: &mut HashMap<String, Mod>,
+    instance: &InstanceSelection,
+    sender: Option<&Sender<GenericProgress>>,
+    not_allowed: &mut HashSet<CurseforgeNotAllowed>,
 ) -> Result<(), ModError> {
     // Mod already installed.
     if let Some(config) = index.mods.get_mut(id) {
@@ -69,6 +74,14 @@ pub async fn download(
         QueryType::Mods => mods_dir,
         QueryType::ResourcePacks => resourcepacks_dir,
         QueryType::Shaders => shaderpacks_dir,
+        QueryType::ModPacks => {
+            let bytes = file_utils::download_file_to_bytes(&url, true).await?;
+            let not_allowed_new = install_modpack(bytes, instance.clone(), sender)
+                .await
+                .map_err(Box::new)?;
+            not_allowed.extend(not_allowed_new);
+            return Ok(());
+        }
     };
 
     let file_dir = dir.join(&file_query.data.fileName);
@@ -88,6 +101,9 @@ pub async fn download(
             (mods_dir, resourcepacks_dir, shaderpacks_dir),
             Some(id),
             query_cache,
+            instance,
+            sender,
+            not_allowed,
         ))
         .await?;
     }

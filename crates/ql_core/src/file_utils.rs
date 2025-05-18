@@ -260,6 +260,13 @@ pub async fn download_file_to_path(
                 .bytes_stream()
                 .map(|n| n.map_err(std::io::Error::other));
             let mut stream = StreamReader::new(stream);
+
+            if let Some(parent) = path.parent() {
+                if !parent.is_dir() {
+                    tokio::fs::create_dir_all(&parent).await.path(&parent)?;
+                }
+            }
+
             let mut file = tokio::fs::File::create(&path).await.path(path)?;
             tokio::io::copy(&mut stream, &mut file).await.path(path)?;
             Ok(())

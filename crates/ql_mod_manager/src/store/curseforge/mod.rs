@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{atomic::AtomicI32, mpsc::Sender},
     time::Instant,
 };
@@ -17,7 +17,10 @@ use crate::{
     store::{get_loader, ModIndex, SearchMod},
 };
 
-use super::{get_mods_resourcepacks_shaderpacks_dir, Backend, ModError, QueryType, SearchResult};
+use super::{
+    get_mods_resourcepacks_shaderpacks_dir, Backend, CurseforgeNotAllowed, ModError, QueryType,
+    SearchResult,
+};
 use categories::get_categories;
 
 mod categories;
@@ -187,7 +190,7 @@ impl Backend for CurseforgeBackend {
             ("index", offset.to_string()),
         ]);
 
-        if let QueryType::Mods = query_type {
+        if let QueryType::Mods | QueryType::ModPacks = query_type {
             if let Some(loader) = query.loader {
                 params.insert("modLoaderType", loader.to_curseforge().to_owned());
             }
@@ -262,7 +265,8 @@ impl Backend for CurseforgeBackend {
     async fn download(
         id: &str,
         instance: &ql_core::InstanceSelection,
-    ) -> Result<(), super::ModError> {
+        sender: Option<Sender<GenericProgress>>,
+    ) -> Result<HashSet<CurseforgeNotAllowed>, super::ModError> {
         let version_json = VersionDetails::load(instance).await?;
         let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
         let mut index = ModIndex::get(instance).await?;
@@ -271,6 +275,8 @@ impl Backend for CurseforgeBackend {
             get_mods_resourcepacks_shaderpacks_dir(instance, &version_json).await?;
 
         let mut cache = HashMap::new();
+        let mut not_allowed = HashSet::new();
+
         download::download(
             id,
             &version_json.id,
@@ -279,12 +285,15 @@ impl Backend for CurseforgeBackend {
             (&mods_dir, &resourcepacks_dir, &shaderpacks_dir),
             None,
             &mut cache,
+            instance,
+            sender.as_ref(),
+            &mut not_allowed,
         )
         .await?;
 
         index.save(instance).await?;
 
-        Ok(())
+        Ok(not_allowed)
     }
 
     async fn download_bulk(
@@ -293,7 +302,7 @@ impl Backend for CurseforgeBackend {
         ignore_incompatible: bool,
         set_manually_installed: bool,
         sender: Option<&Sender<GenericProgress>>,
-    ) -> Result<(), super::ModError> {
+    ) -> Result<HashSet<CurseforgeNotAllowed>, super::ModError> {
         let version_json = VersionDetails::load(instance).await?;
         let loader = get_loader(instance).await?.map(|n| n.to_curseforge());
         let mut index = ModIndex::get(instance).await?;
@@ -307,6 +316,8 @@ impl Backend for CurseforgeBackend {
             .into_iter()
             .map(|n| (n.id.to_string(), n))
             .collect();
+
+        let mut not_allowed = HashSet::new();
 
         let len = ids.len();
         for (i, id) in ids.iter().enumerate() {
@@ -327,6 +338,9 @@ impl Backend for CurseforgeBackend {
                 (&mods_dir, &resourcepacks_dir, &shaderpacks_dir),
                 None,
                 &mut cache,
+                instance,
+                sender,
+                &mut not_allowed,
             )
             .await;
 
@@ -351,7 +365,7 @@ impl Backend for CurseforgeBackend {
             _ = sender.send(GenericProgress::finished());
         }
 
-        Ok(())
+        Ok(not_allowed)
     }
 }
 

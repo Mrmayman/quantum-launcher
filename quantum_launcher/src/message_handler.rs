@@ -539,18 +539,17 @@ impl Launcher {
                     ) {
                         if let State::EditMods(_) = &self.state {
                             if extension == "jar" || extension == "disabled" {
-                                let selected_instance = self.selected_instance.as_ref().unwrap();
-                                let new_path = selected_instance
-                                    .get_dot_minecraft_path()
-                                    .join("mods")
-                                    .join(filename);
-                                if let Err(err) = std::fs::copy(&path, &new_path) {
-                                    err!("Couldn't drag and drop mod file in: {err}");
-                                }
+                                self.load_jar_from_path(&path, filename);
+                            } else if extension == "qmp" {
+                                return self.load_qmp_from_path(&path);
+                            } else if extension == "zip" || extension == "mrpack" {
+                                return self.load_modpack_from_path(path);
                             }
                         } else if let State::ManagePresets(_) = &self.state {
                             if extension == "qmp" {
                                 return self.load_qmp_from_path(&path);
+                            } else if extension == "zip" || extension == "mrpack" {
+                                return self.load_modpack_from_path(path);
                             }
                         } else if let State::EditJarMods(_) = &self.state {
                             if extension == "jar" || extension == "zip" {
@@ -659,6 +658,32 @@ impl Launcher {
             iced::Event::Touch(_) => {}
         }
         Task::none()
+    }
+
+    fn load_modpack_from_path(&mut self, path: PathBuf) -> Task<Message> {
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        self.state = State::ImportModpack(ProgressBar::with_recv(receiver));
+
+        Task::perform(
+            ql_mod_manager::add_files(
+                self.selected_instance.clone().unwrap(),
+                vec![path],
+                Some(sender),
+            ),
+            |n| Message::ManageMods(ManageModsMessage::AddFileDone(n.strerr())),
+        )
+    }
+
+    fn load_jar_from_path(&mut self, path: &PathBuf, filename: &str) {
+        let selected_instance = self.selected_instance.as_ref().unwrap();
+        let new_path = selected_instance
+            .get_dot_minecraft_path()
+            .join("mods")
+            .join(filename);
+        if let Err(err) = std::fs::copy(path, &new_path) {
+            err!("Couldn't drag and drop mod file in: {err}");
+        }
     }
 
     pub fn load_qmp_from_path(&mut self, path: &Path) -> Task<Message> {

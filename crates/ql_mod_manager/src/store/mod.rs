@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::PathBuf, sync::mpsc::Sender, time::Instant};
+use std::{collections::HashSet, fmt::Display, path::PathBuf, sync::mpsc::Sender, time::Instant};
 
 use chrono::DateTime;
 use ql_core::{
@@ -52,14 +52,19 @@ pub trait Backend {
         loader: Option<Loader>,
     ) -> Result<(DateTime<chrono::FixedOffset>, String), ModError>;
 
-    async fn download(id: &str, instance: &InstanceSelection) -> Result<(), ModError>;
+    async fn download(
+        id: &str,
+        instance: &InstanceSelection,
+        sender: Option<Sender<GenericProgress>>,
+    ) -> Result<HashSet<CurseforgeNotAllowed>, ModError>;
+
     async fn download_bulk(
         ids: &[String],
         instance: &InstanceSelection,
         ignore_incompatible: bool,
         set_manually_installed: bool,
         sender: Option<&Sender<GenericProgress>>,
-    ) -> Result<(), ModError>;
+    ) -> Result<HashSet<CurseforgeNotAllowed>, ModError>;
 }
 
 pub async fn get_description(id: ModId) -> Result<(ModId, String), ModError> {
@@ -81,10 +86,14 @@ pub async fn search(
     }
 }
 
-pub async fn download_mod(id: &ModId, instance: &InstanceSelection) -> Result<(), ModError> {
+pub async fn download_mod(
+    id: &ModId,
+    instance: &InstanceSelection,
+    sender: Option<Sender<GenericProgress>>,
+) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
     match id {
-        ModId::Modrinth(n) => ModrinthBackend::download(n, instance).await,
-        ModId::Curseforge(n) => CurseforgeBackend::download(n, instance).await,
+        ModId::Modrinth(n) => ModrinthBackend::download(n, instance, sender).await,
+        ModId::Curseforge(n) => CurseforgeBackend::download(n, instance, sender).await,
     }
 }
 
@@ -92,7 +101,7 @@ pub async fn download_mods_bulk(
     ids: Vec<ModId>,
     instance_name: InstanceSelection,
     sender: Option<Sender<GenericProgress>>,
-) -> Result<(), ModError> {
+) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
     let (modrinth, other): (Vec<ModId>, Vec<ModId>) = ids.into_iter().partition(|n| match n {
         ModId::Modrinth(_) => true,
         ModId::Curseforge(_) => false,
@@ -112,12 +121,16 @@ pub async fn download_mods_bulk(
     //     err!("Unimplemented downloading for mods: {other:#?}");
     // }
 
-    ModrinthBackend::download_bulk(&modrinth, &instance_name, true, true, sender.as_ref()).await?;
+    let not_allowed =
+        ModrinthBackend::download_bulk(&modrinth, &instance_name, true, true, sender.as_ref())
+            .await?;
+    debug_assert!(not_allowed.is_empty());
 
-    CurseforgeBackend::download_bulk(&curseforge, &instance_name, true, true, sender.as_ref())
-        .await?;
+    let not_allowed =
+        CurseforgeBackend::download_bulk(&curseforge, &instance_name, true, true, sender.as_ref())
+            .await?;
 
-    Ok(())
+    Ok(not_allowed)
 }
 
 pub async fn get_latest_version_date(
@@ -138,10 +151,10 @@ pub enum QueryType {
     Mods,
     ResourcePacks,
     Shaders,
+    ModPacks,
     // TODO:
     // DataPacks,
     // Plugins,
-    // ModPacks,
 }
 
 impl Display for QueryType {
@@ -153,13 +166,19 @@ impl Display for QueryType {
                 QueryType::Mods => "Mods",
                 QueryType::ResourcePacks => "Resource Packs",
                 QueryType::Shaders => "Shaders",
+                QueryType::ModPacks => "Modpacks",
             }
         )
     }
 }
 
 impl QueryType {
-    pub const ALL: &[Self] = &[Self::Mods, Self::ResourcePacks, Self::Shaders];
+    pub const ALL: &[Self] = &[
+        Self::Mods,
+        Self::ResourcePacks,
+        Self::Shaders,
+        Self::ModPacks,
+    ];
 
     #[must_use]
     pub fn to_modrinth_str(&self) -> &'static str {
@@ -167,6 +186,7 @@ impl QueryType {
             QueryType::Mods => "mod",
             QueryType::ResourcePacks => "resourcepack",
             QueryType::Shaders => "shader",
+            QueryType::ModPacks => "modpack",
         }
     }
 
@@ -176,6 +196,7 @@ impl QueryType {
             "mod" => Some(QueryType::Mods),
             "resourcepack" => Some(QueryType::ResourcePacks),
             "shader" => Some(QueryType::Shaders),
+            "modpack" => Some(QueryType::ModPacks),
             _ => None,
         }
     }
@@ -186,6 +207,7 @@ impl QueryType {
             QueryType::Mods => "mc-mods",
             QueryType::ResourcePacks => "texture-packs",
             QueryType::Shaders => "shaders",
+            QueryType::ModPacks => "modpacks",
         }
     }
 
@@ -195,6 +217,7 @@ impl QueryType {
             "mc-mods" => Some(QueryType::Mods),
             "texture-packs" => Some(QueryType::ResourcePacks),
             "shaders" => Some(QueryType::Shaders),
+            "modpacks" => Some(QueryType::ModPacks),
             _ => None,
         }
     }
@@ -286,6 +309,7 @@ async fn get_mods_resourcepacks_shaderpacks_dir(
     Ok((mods_dir, resource_packs_dir, shader_packs_dir))
 }
 
+#[must_use]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct CurseforgeNotAllowed {
     pub name: String,

@@ -59,7 +59,7 @@ impl Launcher {
                             paths,
                             Some(sender),
                         ),
-                        |n| Message::ManageMods(ManageModsMessage::AddFileDone(n.strerr())),
+                        move |n| Message::ManageMods(ManageModsMessage::AddFileDone(n.strerr())),
                     );
                 }
             }
@@ -69,6 +69,7 @@ impl Launcher {
                         self.state =
                             State::CurseforgeManualDownload(MenuCurseforgeManualDownload {
                                 unsupported,
+                                is_store: false,
                             });
                     } else if let Err(err) = self.go_to_edit_mods_menu_without_update_check() {
                         self.set_error(err);

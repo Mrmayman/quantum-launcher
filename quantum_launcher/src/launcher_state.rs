@@ -138,7 +138,7 @@ pub enum InstallModsMessage {
     BackToMainScreen,
     LoadData(Res<(ModId, String)>),
     Download(usize),
-    DownloadComplete(Res<ModId>),
+    DownloadComplete(Res<(ModId, HashSet<CurseforgeNotAllowed>)>),
     IndexUpdated(Res<ModIndex>),
     Scrolled(widget::scrollable::Viewport),
 
@@ -164,11 +164,11 @@ pub enum EditPresetsMessage {
     BuildYourOwn,
     BuildYourOwnEnd(Res<Vec<u8>>),
     Load,
-    LoadComplete(Res),
+    LoadComplete(Res<HashSet<CurseforgeNotAllowed>>),
     RecommendedModCheck(Res<Vec<RecommendedMod>>),
     RecommendedToggle(usize, bool),
     RecommendedDownload,
-    RecommendedDownloadEnd(Res),
+    RecommendedDownloadEnd(Res<HashSet<CurseforgeNotAllowed>>),
 }
 
 #[derive(Debug, Clone)]
@@ -585,6 +585,7 @@ pub enum MenuWelcome {
 
 pub struct MenuCurseforgeManualDownload {
     pub unsupported: HashSet<CurseforgeNotAllowed>,
+    pub is_store: bool,
 }
 
 /// The enum that represents which menu is opened currently.

@@ -26,7 +26,7 @@ pub async fn do_request(
         vec![format!("versions:{}", query.version)],
     ];
 
-    if let QueryType::Mods = query_type {
+    if let QueryType::Mods | QueryType::ModPacks = query_type {
         if let Some(loader) = query.loader {
             filters.push(vec![format!("categories:'{}'", loader.to_modrinth_str())]);
         }

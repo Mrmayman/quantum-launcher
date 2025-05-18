@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::{Cursor, Read},
     sync::mpsc::Sender,
 };
@@ -17,11 +18,31 @@ pub use error::PackError;
 
 use super::CurseforgeNotAllowed;
 
+/// Installs a modpack file.
+///
+/// Not to be confused with [`PresetJson`]
+/// (`.qmp` mod presets). Those are QuantumLauncher-only,
+/// but these ones are found across the internet.
+///
+/// This function supports both Curseforge and Modrinth modpacks,
+/// it doesn't matter which one you put in.
+///
+/// # Arguments
+/// - `file: Vec<u8>`: The bytes of the modpack file.
+/// - `instance: InstanceSelection`: The selected instance you want to download this pack to.
+/// - `sender: Option<&Sender<GenericProgress>>`: Supply a [`std::sync::mpsc::Sender`] if you want
+///   to see the progress of installation. Leave `None` if otherwise.
+///
+/// # Returns
+/// - `Ok(HashSet<CurseforgeNotAllowed)` - The list of mods that
+///   Curseforge blocked the launcher from automatically downloading. The user must
+///   manually download these from the browser and import them.
+/// - `Err` - Any error that occured.
 pub async fn install_modpack(
     file: Vec<u8>,
     instance: InstanceSelection,
     sender: Option<&Sender<GenericProgress>>,
-) -> Result<Vec<CurseforgeNotAllowed>, PackError> {
+) -> Result<HashSet<CurseforgeNotAllowed>, PackError> {
     let mut zip = zip::ZipArchive::new(Cursor::new(file))?;
 
     info!("Installing modpack");
@@ -46,7 +67,7 @@ pub async fn install_modpack(
     let not_allowed = if let Some(index) = index_json_curseforge {
         curseforge::install(&instance, &config, &json, &index, sender).await?
     } else {
-        Vec::new()
+        HashSet::new()
     };
 
     let len = zip.len();

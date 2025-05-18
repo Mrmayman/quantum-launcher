@@ -2,20 +2,21 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
+    sync::mpsc::Sender,
 };
 
 use chrono::DateTime;
 use ql_core::{
     err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, InstanceSelection,
+    pt, GenericProgress, InstanceSelection,
 };
 
 use crate::store::{
-    get_mods_resourcepacks_shaderpacks_dir,
+    get_mods_resourcepacks_shaderpacks_dir, install_modpack,
     local_json::{ModConfig, ModIndex},
     modrinth::versions::ModVersion,
-    ModError, QueryType, SOURCE_ID_MODRINTH,
+    CurseforgeNotAllowed, ModError, QueryType, SOURCE_ID_MODRINTH,
 };
 
 use super::info::ProjectInfo;
@@ -26,6 +27,8 @@ pub struct ModDownloader {
     loader: Option<String>,
     currently_installing_mods: HashSet<String>,
     pub info: HashMap<String, ProjectInfo>,
+    instance: InstanceSelection,
+    sender: Option<Sender<GenericProgress>>,
 
     mods_dir: PathBuf,
     resourcepacks_dir: PathBuf,
@@ -33,13 +36,16 @@ pub struct ModDownloader {
 }
 
 impl ModDownloader {
-    pub async fn new(instance_name: &InstanceSelection) -> Result<ModDownloader, ModError> {
-        let version_json = VersionDetails::load(instance_name).await?;
+    pub async fn new(
+        instance: &InstanceSelection,
+        sender: Option<Sender<GenericProgress>>,
+    ) -> Result<ModDownloader, ModError> {
+        let version_json = VersionDetails::load(instance).await?;
         let (mods_dir, resourcepacks_dir, shaderpacks_dir) =
-            get_mods_resourcepacks_shaderpacks_dir(instance_name, &version_json).await?;
+            get_mods_resourcepacks_shaderpacks_dir(instance, &version_json).await?;
 
-        let index = ModIndex::get(instance_name).await?;
-        let loader = get_loader_type(instance_name).await?;
+        let index = ModIndex::get(instance).await?;
+        let loader = get_loader_type(instance).await?;
         let currently_installing_mods = HashSet::new();
         Ok(ModDownloader {
             version: version_json.id,
@@ -47,6 +53,8 @@ impl ModDownloader {
             loader,
             currently_installing_mods,
             info: HashMap::new(),
+            instance: instance.clone(),
+            sender,
 
             mods_dir,
             resourcepacks_dir,
@@ -79,7 +87,7 @@ impl ModDownloader {
 
         info!("Getting project info (id: {id})");
 
-        if let QueryType::Mods = query_type {
+        if let QueryType::Mods | QueryType::ModPacks = query_type {
             if !self.has_compatible_loader(&project_info) {
                 if let Some(loader) = &self.loader {
                     pt!("Mod {} doesn't support {loader}", project_info.title);
@@ -96,28 +104,35 @@ impl ModDownloader {
             .get_download_version(id, project_info.title.clone(), query_type)
             .await?;
 
-        pt!("Getting dependencies");
         let mut dependency_list = HashSet::new();
 
-        for dependency in &download_version.dependencies {
-            let Some(ref dep_id) = dependency.project_id else {
-                continue;
-            };
+        if QueryType::ModPacks != query_type {
+            pt!("Getting dependencies");
+            for dependency in &download_version.dependencies {
+                let Some(ref dep_id) = dependency.project_id else {
+                    continue;
+                };
 
-            if dependency.dependency_type != "required" {
-                pt!(
-                    "Skipping dependency (not required: {}) {dep_id}",
-                    dependency.dependency_type,
-                );
-                continue;
-            }
-            if dependency_list.insert(dep_id.clone()) {
-                Box::pin(self.download_project(dep_id, Some(id), false)).await?;
+                if dependency.dependency_type != "required" {
+                    pt!(
+                        "Skipping dependency (not required: {}) {dep_id}",
+                        dependency.dependency_type,
+                    );
+                    continue;
+                }
+                if dependency_list.insert(dep_id.clone()) {
+                    Box::pin(self.download_project(dep_id, Some(id), false)).await?;
+                }
             }
         }
 
         if !self.index.mods.contains_key(id) {
-            self.download_file(&download_version, query_type).await?;
+            let not_allowed = self.download_file(&download_version, query_type).await?;
+            // A modrinth modpack shouldn't download curseforge mods,
+            // and curseforge mods can't be accidentally downloaded from modrinth.
+            debug_assert!(not_allowed.is_empty());
+            drop(not_allowed);
+
             self.add_mod_to_index(
                 &project_info,
                 &download_version,
@@ -183,7 +198,9 @@ impl ModDownloader {
             .iter()
             .filter(|v| v.game_versions.contains(&self.version))
             .filter(|v| {
-                if let (Some(loader), QueryType::Mods) = (&self.loader, project_type) {
+                if let (Some(loader), QueryType::Mods | QueryType::ModPacks) =
+                    (&self.loader, project_type)
+                {
                     v.loaders.contains(loader)
                 } else {
                     true
@@ -203,11 +220,12 @@ impl ModDownloader {
         Ok(download_version)
     }
 
-    fn get_dir(&self, project_type: QueryType) -> &Path {
+    fn get_dir(&self, project_type: QueryType) -> Option<&Path> {
         match project_type {
-            QueryType::Mods => &self.mods_dir,
-            QueryType::ResourcePacks => &self.resourcepacks_dir,
-            QueryType::Shaders => &self.shaderpacks_dir,
+            QueryType::Mods => Some(&self.mods_dir),
+            QueryType::ResourcePacks => Some(&self.resourcepacks_dir),
+            QueryType::Shaders => Some(&self.shaderpacks_dir),
+            QueryType::ModPacks => None,
         }
     }
 
@@ -215,18 +233,39 @@ impl ModDownloader {
         &self,
         download_version: &ModVersion,
         project_type: QueryType,
-    ) -> Result<(), ModError> {
+    ) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
         if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
-            let file_path = self.get_dir(project_type).join(&primary_file.filename);
-            file_utils::download_file_to_path(&primary_file.url, true, &file_path).await?;
+            if let QueryType::ModPacks = project_type {
+                let bytes = file_utils::download_file_to_bytes(&primary_file.url, true).await?;
+                return Ok(
+                    install_modpack(bytes, self.instance.clone(), self.sender.as_ref())
+                        .await
+                        .map_err(Box::new)?,
+                );
+            } else {
+                let file_path = self
+                    .get_dir(project_type)
+                    .unwrap()
+                    .join(&primary_file.filename);
+                file_utils::download_file_to_path(&primary_file.url, true, &file_path).await?;
+            }
         } else {
             pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
-                let file_path = self.get_dir(project_type).join(&file.filename);
-                file_utils::download_file_to_path(&file.url, true, &file_path).await?;
+                if let QueryType::ModPacks = project_type {
+                    let bytes = file_utils::download_file_to_bytes(&file.url, true).await?;
+                    return Ok(
+                        install_modpack(bytes, self.instance.clone(), self.sender.as_ref())
+                            .await
+                            .map_err(Box::new)?,
+                    );
+                } else {
+                    let file_path = self.get_dir(project_type).unwrap().join(&file.filename);
+                    file_utils::download_file_to_path(&file.url, true, &file_path).await?;
+                }
             }
         }
-        Ok(())
+        Ok(HashSet::new())
     }
 
     fn add_mod_to_index(

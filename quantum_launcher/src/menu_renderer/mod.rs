@@ -5,11 +5,11 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     launcher_state::{
-        CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallOptifineMessage,
-        LauncherSettingsMessage, ManageJarModsMessage, ManageModsMessage, MenuCreateInstance,
-        MenuCurseforgeManualDownload, MenuEditInstance, MenuEditJarMods, MenuInstallFabric,
-        MenuInstallForge, MenuInstallOptifine, MenuLauncherSettings, MenuLauncherUpdate, Message,
-        ProgressBar, SelectedState,
+        CreateInstanceMessage, EditInstanceMessage, InstallFabricMessage, InstallModsMessage,
+        InstallOptifineMessage, LauncherSettingsMessage, ManageJarModsMessage, ManageModsMessage,
+        MenuCreateInstance, MenuCurseforgeManualDownload, MenuEditInstance, MenuEditJarMods,
+        MenuInstallFabric, MenuInstallForge, MenuInstallOptifine, MenuLauncherSettings,
+        MenuLauncherUpdate, Message, ProgressBar, SelectedState,
     },
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -814,7 +814,11 @@ impl MenuCurseforgeManualDownload {
             "Warning: Ignoring this may lead to crashes!",
             widget::row![
                 widget::button("+ Select above downloaded files").on_press(Message::ManageMods(ManageModsMessage::AddFile)),
-                widget::button("Continue").on_press(Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)),
+                widget::button("Continue").on_press(if self.is_store {
+                    Message::InstallMods(InstallModsMessage::Open)
+                } else {
+                    Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
+                }),
             ].spacing(5)
         ]
         .padding(10)

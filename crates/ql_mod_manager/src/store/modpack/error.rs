@@ -25,6 +25,8 @@ pub enum PackError {
     NoLoadersSpecified,
     #[error("{PACK_ERR_PREFIX}{0}")]
     Mod(#[from] ModError),
+    #[error("{PACK_ERR_PREFIX}found modpack inside modpack!")]
+    ModpackInModpack,
 }
 
 impl_3_errs_jri!(PackError, Json, Request, Io);
