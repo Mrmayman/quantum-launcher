@@ -106,11 +106,8 @@ pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {
         .ok_or(PaperInstallerError::NoMatchingVersionFound(json.id.clone()))?;
 
     pt!("Downloading jar");
-    let jar_file = file_utils::download_file_to_bytes(url, true).await?;
     let jar_path = server_dir.join("paper_server.jar");
-    tokio::fs::write(&jar_path, &jar_file)
-        .await
-        .path(jar_path)?;
+    file_utils::download_file_to_path(url, true, &jar_path).await?;
 
     change_instance_type(&server_dir, "Paper".to_owned()).await?;
 

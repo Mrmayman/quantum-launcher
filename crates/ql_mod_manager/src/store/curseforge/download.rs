@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use ql_core::{file_utils, info, pt, IntoIoError, ModId};
+use ql_core::{file_utils, info, pt, ModId};
 
 use crate::store::{
     curseforge::{get_query_type, ModQuery},
@@ -71,9 +71,8 @@ pub async fn download(
         QueryType::Shaders => shaderpacks_dir,
     };
 
-    let bytes = file_utils::download_file_to_bytes(&url, true).await?;
     let file_dir = dir.join(&file_query.data.fileName);
-    tokio::fs::write(&file_dir, &bytes).await.path(&file_dir)?;
+    file_utils::download_file_to_path(&url, true, &file_dir).await?;
 
     let id_str = response.id.to_string();
     let id_mod = ModId::Curseforge(id_str.clone());

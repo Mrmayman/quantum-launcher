@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path, sync::mpsc::Sender};
 use ql_core::{
     do_jobs, file_utils,
     json::{InstanceConfigJson, VersionDetails},
-    pt, GenericProgress, InstanceSelection, IntoIoError,
+    pt, GenericProgress, InstanceSelection,
 };
 use serde::Deserialize;
 use tokio::sync::Mutex;
@@ -89,11 +89,8 @@ pub async fn install(
                     return Ok(());
                 }
 
-                let bytes = file_utils::download_file_to_bytes(download, true).await?;
                 let bytes_path = mc_dir.join(&file.path);
-                tokio::fs::write(&bytes_path, &bytes)
-                    .await
-                    .path(bytes_path)?;
+                file_utils::download_file_to_path(download, true, &bytes_path).await?;
 
                 if let Some(sender) = sender {
                     let mut i = i.lock().await;

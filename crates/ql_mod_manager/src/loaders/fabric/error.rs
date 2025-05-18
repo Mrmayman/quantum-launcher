@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ql_core::{IoError, JsonError, JsonFileError, RequestError};
+use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
 use thiserror::Error;
 
 const FABRIC_INSTALL_ERR_PREFIX: &str = "while installing Fabric:\n";
@@ -23,11 +23,4 @@ pub enum FabricInstallError {
     ZipEntryReadError(std::io::Error, String),
 }
 
-impl From<JsonFileError> for FabricInstallError {
-    fn from(value: JsonFileError) -> Self {
-        match value {
-            JsonFileError::SerdeError(err) => Self::Json(err),
-            JsonFileError::Io(err) => Self::Io(err),
-        }
-    }
-}
+impl_3_errs_jri!(FabricInstallError, Json, RequestError, Io);

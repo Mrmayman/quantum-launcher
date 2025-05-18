@@ -117,7 +117,6 @@ impl GameDownloader {
                 return Err(DownloadError::DownloadClassicZip)
             }
         };
-        let jar_bytes = file_utils::download_file_to_bytes(url, false).await?;
 
         let version_dir = self
             .instance_dir
@@ -129,9 +128,8 @@ impl GameDownloader {
             .path(&version_dir)?;
 
         let jar_path = version_dir.join(format!("{}.jar", self.version_json.id));
-        tokio::fs::write(&jar_path, jar_bytes)
-            .await
-            .path(jar_path)?;
+
+        file_utils::download_file_to_path(url, false, &jar_path).await?;
 
         Ok(())
     }
@@ -196,15 +194,8 @@ impl GameDownloader {
             return Ok(());
         }
 
-        let obj_data = file_utils::download_file_to_bytes(
-            &format!("{OBJECTS_URL}/{obj_id}/{obj_hash}"),
-            false,
-        )
-        .await?;
-
-        tokio::fs::write(&obj_file_path, &obj_data)
-            .await
-            .path(obj_file_path)?;
+        let url = format!("{OBJECTS_URL}/{obj_id}/{obj_hash}");
+        file_utils::download_file_to_path(&url, false, &obj_file_path).await?;
 
         {
             let mut progress = progress.lock().await;

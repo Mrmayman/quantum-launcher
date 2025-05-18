@@ -249,10 +249,7 @@ async fn download_libraries(
         if jar_path.exists() {
             continue;
         }
-        let jar_bytes = file_utils::download_file_to_bytes(&url, false).await?;
-        tokio::fs::write(&jar_path, jar_bytes)
-            .await
-            .path(jar_path)?;
+        file_utils::download_file_to_path(&url, false, &jar_path).await?;
     }
     Ok(())
 }

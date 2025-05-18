@@ -108,11 +108,7 @@ pub async fn install_server(
             .await
             .path(library_parent_dir)?;
 
-        let url = library.get_url();
-        let file = file_utils::download_file_to_bytes(&url, false).await?;
-        tokio::fs::write(&library_path, &file)
-            .await
-            .path(library_path)?;
+        file_utils::download_file_to_path(&library.get_url(), false, &library_path).await?;
     }
 
     let shade_libraries = compare_versions(&loader_version, "0.12.5").is_le();
@@ -188,15 +184,13 @@ pub async fn install_client(
         let path = libraries_dir.join(library.get_path());
         let url = library.get_url();
 
-        let bytes = file_utils::download_file_to_bytes(&url, false).await?;
-
         let parent_dir = path
             .parent()
             .ok_or(FabricInstallError::PathBufParentError(path.clone()))?;
         tokio::fs::create_dir_all(parent_dir)
             .await
             .path(parent_dir)?;
-        tokio::fs::write(&path, &bytes).await.path(path)?;
+        file_utils::download_file_to_path(&url, false, &path).await?;
     }
 
     change_instance_type(&instance_dir, loader_name.to_owned()).await?;

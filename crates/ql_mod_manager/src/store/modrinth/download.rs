@@ -8,7 +8,7 @@ use chrono::DateTime;
 use ql_core::{
     err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
-    pt, InstanceSelection, IntoIoError,
+    pt, InstanceSelection,
 };
 
 use crate::store::{
@@ -217,19 +217,13 @@ impl ModDownloader {
         project_type: QueryType,
     ) -> Result<(), ModError> {
         if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
-            let file_bytes = file_utils::download_file_to_bytes(&primary_file.url, true).await?;
             let file_path = self.get_dir(project_type).join(&primary_file.filename);
-            tokio::fs::write(&file_path, &file_bytes)
-                .await
-                .path(file_path)?;
+            file_utils::download_file_to_path(&primary_file.url, true, &file_path).await?;
         } else {
             pt!("Didn't find primary file, checking secondary files...");
             for file in &download_version.files {
-                let file_bytes = file_utils::download_file_to_bytes(&file.url, true).await?;
                 let file_path = self.get_dir(project_type).join(&file.filename);
-                tokio::fs::write(&file_path, &file_bytes)
-                    .await
-                    .path(file_path)?;
+                file_utils::download_file_to_path(&file.url, true, &file_path).await?;
             }
         }
         Ok(())
