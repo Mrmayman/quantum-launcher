@@ -569,15 +569,6 @@ impl Launcher {
     fn scale_factor(&self) -> f64 {
         self.config.ui_scale.unwrap_or(1.0).max(0.05)
     }
-
-    fn split_string_at_intervals(input: &str, interval: usize) -> Vec<String> {
-        input
-            .chars()
-            .collect::<Vec<char>>()
-            .chunks(interval)
-            .map(|chunk| chunk.iter().collect())
-            .collect()
-    }
 }
 
 const DEBUG_LOG_BUTTON_HEIGHT: f32 = 16.0;

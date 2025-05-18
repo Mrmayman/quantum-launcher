@@ -141,6 +141,7 @@ pub enum InstallModsMessage {
     DownloadComplete(Res<(ModId, HashSet<CurseforgeNotAllowed>)>),
     IndexUpdated(Res<ModIndex>),
     Scrolled(widget::scrollable::Viewport),
+    InstallModpack(ModId),
 
     ChangeBackend(StoreBackendType),
     ChangeQueryType(QueryType),

@@ -264,29 +264,41 @@ impl MenuEditMods {
 
         widget::container(
             widget::column!(
-                widget::column![
-                    widget::text("Select some mods to perform actions on them").size(14),
-                    widget::row![
-                        button_with_icon(icon_manager::delete_with_size(13), "Delete", 13)
-                            .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
-                        button_with_icon(icon_manager::toggle_with_size(13), "Toggle", 13)
-                            .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
-                        button_with_icon(
-                            icon_manager::tick_with_size(13),
-                            if matches!(self.selected_state, SelectedState::All) {
-                                "Unselect All"
-                            } else {
-                                "Select All"
-                            },
-                            13
+                widget::column![]
+                    .push_maybe(
+                        (self.config.mod_type == "Vanilla" && !self.sorted_mods_list.is_empty())
+                        .then_some(
+                            widget::container(
+                                widget::text(
+                                    // WARN: No loader installed
+                                    "You haven't installed any mod loader! Install Fabric/Forge/Quilt/NeoForge as per your mods"
+                                ).size(12)
+                            ).padding(10).width(Length::Fill).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                         )
-                        .on_press(Message::ManageMods(ManageModsMessage::SelectAll)),
-                    ]
-                    .spacing(5)
-                    .wrap()
-                ]
-                .padding(10)
-                .spacing(5),
+                    )
+                    .push(widget::text("Select some mods to perform actions on them").size(14))
+                    .push(
+                        widget::row![
+                            button_with_icon(icon_manager::delete_with_size(13), "Delete", 13)
+                                .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
+                            button_with_icon(icon_manager::toggle_with_size(13), "Toggle", 13)
+                                .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
+                            button_with_icon(
+                                icon_manager::tick_with_size(13),
+                                if matches!(self.selected_state, SelectedState::All) {
+                                    "Unselect All"
+                                } else {
+                                    "Select All"
+                                },
+                                13
+                            )
+                            .on_press(Message::ManageMods(ManageModsMessage::SelectAll)),
+                        ]
+                        .spacing(5)
+                        .wrap()
+                    )
+                    .padding(10)
+                    .spacing(5),
                 self.get_mod_list_contents(),
             )
             .spacing(10),

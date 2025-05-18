@@ -233,9 +233,9 @@ impl MenuInstallOptifine {
         &self,
     ) -> iced::widget::Column<'a, Message, LauncherTheme, iced::Renderer> {
         widget::column!(
-            button_with_icon(icon_manager::back(), "Back", 16).on_press(Message::ManageMods(
-                ManageModsMessage::ScreenOpenWithoutUpdate
-            )),
+            button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
+                Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
+            ),
             widget::container(
                 widget::column!(
                     widget::text("Install OptiFine").size(20),
@@ -265,7 +265,8 @@ impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
             MenuCreateInstance::Loading {
-                number: progress_number, ..
+                number: progress_number,
+                ..
             } => widget::column![
                 button_with_icon(icon_manager::back(), "Back", 16)
                     .on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
@@ -288,7 +289,6 @@ impl MenuCreateInstance {
                 combo_state,
                 ..
             } => {
-
                 widget::scrollable(
                     widget::column![
                         widget::button(
@@ -319,6 +319,7 @@ impl MenuCreateInstance {
                         (cfg!(target_os = "linux") && cfg!(target_arch = "x86"))
                             .then_some(
                                 widget::column![
+                                    // WARN: Linux i686
                                     widget::text("Warning: On your platform (Linux 32 bit) only Minecraft 1.16.5 and below are supported.").size(20),
                                     "If your computer isn't outdated, you might have wanted to download QuantumLauncher 64 bit (x86_64)",
                                 ]
@@ -326,6 +327,9 @@ impl MenuCreateInstance {
                     .spacing(10)
                     .padding(10),
                 )
+                .style(LauncherTheme::style_scrollable_flat_dark)
+                .width(Length::Fill)
+                .height(Length::Fill)
                 .into()
             }
         }
@@ -340,7 +344,7 @@ impl MenuInstallFabric {
                 let dots = ".".repeat((tick_timer % 3) + 1);
 
                 widget::column![
-                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                    button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
                         Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
                     ),
                     widget::text!("Loading {loader_name} version list{dots}",).size(20)
@@ -361,7 +365,7 @@ impl MenuInstallFabric {
                     )
                 } else {
                     widget::column![
-                        button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                        button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
                             Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
                         ),
                         widget::text!(
@@ -387,7 +391,7 @@ impl MenuInstallFabric {
             }
             MenuInstallFabric::Unsupported(is_quilt) => {
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                    button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
                         Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
                     ),
                     if *is_quilt {
@@ -443,10 +447,12 @@ impl MenuLauncherUpdate {
                         .on_press(Message::CoreOpenDir("https://mrmayman.github.com/quantumlauncher".to_owned())),
                 ).push_maybe((cfg!(target_os = "linux")).then_some(
                     widget::column!(
+                        // WARN: Package manager
                         "Note: If you installed this launcher from a package manager (apt/dnf/pacman/..) it's recommended to update from there",
                         "If you just downloaded it from the website then it's fine."
                     )
                 )).push_maybe((cfg!(target_os = "macos")).then_some(
+                    // WARN: macOS updater
                     "Note: The updater may be broken on macOS so download the new version from the website"
                 ))
                 .spacing(5),

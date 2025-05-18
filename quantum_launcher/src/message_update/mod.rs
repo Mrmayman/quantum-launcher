@@ -245,6 +245,21 @@ impl Launcher {
                     return menu.search_store(is_server, 0);
                 }
             }
+            InstallModsMessage::InstallModpack(id) => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                self.state = State::ImportModpack(ProgressBar::with_recv(receiver));
+
+                let selected_instance = self.selected_instance.clone().unwrap();
+
+                return Task::perform(
+                    async move {
+                        ql_mod_manager::store::download_mod(&id, &selected_instance, Some(sender))
+                            .await
+                            .map(|not_allowed| (id, not_allowed))
+                    },
+                    |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
+                );
+            }
         }
         Task::none()
     }
@@ -281,23 +296,24 @@ impl Launcher {
         let backend = menu.backend;
         let id = ModId::from_pair(&project_id, backend);
 
-        let sender = if let QueryType::ModPacks = menu.query_type {
-            let (sender, receiver) = std::sync::mpsc::channel();
-            // TODO: Add confirmation
-            self.state = State::ImportModpack(ProgressBar::with_recv(receiver));
-            Some(sender)
-        } else {
+        if let QueryType::ModPacks = menu.query_type {
+            self.state = State::ConfirmAction {
+                msg1: format!("install the modpack: {}", hit.title),
+                msg2: format!("This might take a while and install many files..."),
+                yes: Message::InstallMods(InstallModsMessage::InstallModpack(id)),
+                no: Message::InstallMods(InstallModsMessage::Open),
+            };
             None
-        };
-
-        Some(Task::perform(
-            async move {
-                ql_mod_manager::store::download_mod(&id, &selected_instance, sender)
-                    .await
-                    .map(|not_allowed| (ModId::Modrinth(project_id), not_allowed))
-            },
-            |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
-        ))
+        } else {
+            Some(Task::perform(
+                async move {
+                    ql_mod_manager::store::download_mod(&id, &selected_instance, None)
+                        .await
+                        .map(|not_allowed| (ModId::Modrinth(project_id), not_allowed))
+                },
+                |n| Message::InstallMods(InstallModsMessage::DownloadComplete(n.strerr())),
+            ))
+        }
     }
 
     pub fn update_install_optifine(&mut self, message: InstallOptifineMessage) -> Task<Message> {

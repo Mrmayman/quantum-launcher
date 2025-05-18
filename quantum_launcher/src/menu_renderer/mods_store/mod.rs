@@ -119,6 +119,7 @@ impl MenuModsDownload {
                     .then_some(
                         widget::container(
                             widget::text(
+                                // WARN: No loader installed
                                 "You haven't installed any mod loader! Install Fabric (recommended), Forge, Quilt or NeoForge"
                             ).size(12)
                         ).padding(10).width(Length::Fill).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
@@ -127,6 +128,7 @@ impl MenuModsDownload {
                     .then_some(
                         widget::container(
                             widget::text(
+                                // WARN: Store for old versions
                                 "Installing Mods for old versions is experimental and may be broken"
                             ).size(12)
                         ).padding(10).width(Length::Fill).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
