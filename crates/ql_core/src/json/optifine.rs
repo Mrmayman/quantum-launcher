@@ -51,38 +51,34 @@ impl JsonOptifine {
 }
 
 async fn find_and_read_json_with_jar(dir_path: &Path) -> Result<(String, PathBuf), IoError> {
-    // Read the directory entries
     let mut entries = tokio::fs::read_dir(dir_path).await.path(dir_path)?;
 
     let mut json_content: Option<String> = None;
     let mut jar_path: Option<PathBuf> = None;
 
-    // Iterate over the directory entries
+    // Scans through the directory, looking for both a Jar and JSON file
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
 
-        // Check if the entry is a file
         if !path.is_file() {
             continue;
         }
         if let Some(extension) = path.extension() {
             if extension == "json" {
-                // Read the contents of the JSON file
                 let contents = tokio::fs::read_to_string(&path).await.path(path)?;
                 json_content = Some(contents);
             } else if extension == "jar" {
-                // Record the path to the .jar file
                 jar_path = Some(path);
             }
         }
 
-        // If both the JSON content and JAR path are found, break early
+        // Make sure we read both JSON and Jar
         if json_content.is_some() && jar_path.is_some() {
             break;
         }
     }
 
-    // Ensure both JSON content and JAR path are found
+    // Ehh... should I brutalize std::io::Error like this?
     let json_content = json_content.ok_or({
         IoError::Io {
             error: std::io::Error::new(

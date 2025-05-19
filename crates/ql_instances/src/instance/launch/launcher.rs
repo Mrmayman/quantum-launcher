@@ -24,10 +24,20 @@ use super::{error::GameLaunchError, replace_var};
 pub struct GameLauncher {
     username: String,
     instance_name: String,
+
+    /// If the required Java version isn't installed,
+    /// and it has to be installed before launching game,
+    /// then you can use this to send *download progress updates*
+    /// to the GUI for the **progress bar**.
     java_install_progress_sender: Option<Sender<GenericProgress>>,
-    asset_redownload_progress: Option<Sender<GenericProgress>>,
+
+    /// Client: `QuantumLauncher/instances/NAME/`
+    /// Server: `QuantumLauncher/servers/NAME/`
     pub instance_dir: PathBuf,
+    /// Client: `QuantumLauncher/instances/NAME/.minecraft/`
+    /// Server: `QuantumLauncher/servers/NAME/`
     pub minecraft_dir: PathBuf,
+
     pub config_json: InstanceConfigJson,
     pub version_json: VersionDetails,
 }
@@ -37,7 +47,6 @@ impl GameLauncher {
         instance_name: String,
         username: String,
         java_install_progress_sender: Option<Sender<GenericProgress>>,
-        asset_redownload_progress: Option<Sender<GenericProgress>>,
     ) -> Result<Self, GameLaunchError> {
         let instance_dir = get_instance_dir(&instance_name).await?;
 
@@ -55,7 +64,6 @@ impl GameLauncher {
             username,
             instance_name,
             java_install_progress_sender,
-            asset_redownload_progress,
             instance_dir,
             minecraft_dir,
             config_json,
@@ -148,80 +156,36 @@ impl GameLauncher {
             .join(&self.version_json.assetIndex.id);
 
         let old_assets_path_v1 = self.instance_dir.join("assets");
+        let assets_path = launcher_dir.join("assets/dir");
 
-        if self.version_json.assetIndex.id == "legacy" {
-            let assets_path = launcher_dir.join("assets/legacy_assets");
-
-            if old_assets_path_v2.exists() {
-                self.redownload_legacy_assets().await?;
-                tokio::fs::remove_dir_all(&old_assets_path_v2)
-                    .await
-                    .path(old_assets_path_v2)?;
-            }
-
-            if old_assets_path_v1.exists() {
-                self.redownload_legacy_assets().await?;
-                tokio::fs::remove_dir_all(&old_assets_path_v1)
-                    .await
-                    .path(old_assets_path_v1)?;
-            }
-
-            let assets_path_fixed = if assets_path.exists() {
-                assets_path
-            } else {
-                launcher_dir.join("assets/null")
-            };
-
-            let Some(assets_path) = assets_path_fixed.to_str() else {
-                return Err(GameLaunchError::PathBufToString(assets_path_fixed));
-            };
-            replace_var(argument, "assets_root", assets_path);
-            replace_var(argument, "game_assets", assets_path);
-        } else {
-            let assets_path = launcher_dir.join("assets/dir");
-
-            if old_assets_path_v2.exists() {
-                info!("Migrating old assets to new path...");
-                copy_dir_recursive(&old_assets_path_v2, &assets_path).await?;
-                tokio::fs::remove_dir_all(&old_assets_path_v2)
-                    .await
-                    .path(old_assets_path_v2)?;
-            }
-
-            if old_assets_path_v1.exists() {
-                migrate_to_new_assets_path(&old_assets_path_v1, &assets_path).await?;
-            }
-
-            let assets_path_fixed = if assets_path.exists() {
-                assets_path
-            } else {
-                launcher_dir.join("assets/null")
-            };
-            let Some(assets_path) = assets_path_fixed.to_str() else {
-                return Err(GameLaunchError::PathBufToString(assets_path_fixed));
-            };
-            replace_var(argument, "assets_root", assets_path);
-            replace_var(argument, "game_assets", assets_path);
+        if old_assets_path_v2.exists() {
+            info!("Migrating old assets to new path...");
+            copy_dir_recursive(&old_assets_path_v2, &assets_path).await?;
+            tokio::fs::remove_dir_all(&old_assets_path_v2)
+                .await
+                .path(old_assets_path_v2)?;
         }
+
+        if old_assets_path_v1.exists() {
+            migrate_to_new_assets_path(&old_assets_path_v1, &assets_path).await?;
+        }
+
+        let assets_path_fixed = if assets_path.exists() {
+            assets_path
+        } else {
+            launcher_dir.join("assets/null")
+        };
+        let Some(assets_path) = assets_path_fixed.to_str() else {
+            return Err(GameLaunchError::PathBufToString(assets_path_fixed));
+        };
+        replace_var(argument, "assets_root", assets_path);
+        replace_var(argument, "game_assets", assets_path);
         Ok(())
     }
 
     pub async fn create_mods_dir(&self) -> Result<(), IoError> {
         let mods_dir = self.minecraft_dir.join("mods");
         tokio::fs::create_dir_all(&mods_dir).await.path(mods_dir)?;
-        Ok(())
-    }
-
-    async fn redownload_legacy_assets(&self) -> Result<(), GameLaunchError> {
-        info!("Redownloading legacy assets");
-        let game_downloader = GameDownloader::with_existing_instance(
-            self.version_json.clone(),
-            self.instance_dir.clone(),
-            None,
-        );
-        game_downloader
-            .download_assets(self.asset_redownload_progress.as_ref())
-            .await?;
         Ok(())
     }
 
@@ -299,8 +263,8 @@ impl GameLauncher {
             if name.starts_with("beta/b1.9/pre/") {
                 args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
                 args.push("-Dhttp.proxyPort=11706".to_owned());
+                return;
             }
-            return;
         }
 
         if self.version_json.r#type == "old_beta" || self.version_json.r#type == "old_alpha" {
@@ -318,6 +282,7 @@ impl GameLauncher {
             // Fixes crash on old versions
             args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
         } else if self.version_json.is_legacy_version() {
+            // Release 1.0 - 1.5.2
             args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
             args.push("-Dhttp.proxyPort=11707".to_owned());
         }

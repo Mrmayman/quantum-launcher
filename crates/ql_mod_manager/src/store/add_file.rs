@@ -65,7 +65,6 @@ pub async fn add_files(
             }
             extension => {
                 err!("While adding mod files: Unrecognized extension: .{extension}");
-                continue;
             }
         }
     }

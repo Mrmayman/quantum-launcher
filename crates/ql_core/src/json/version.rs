@@ -9,15 +9,10 @@ use crate::{err, InstanceSelection, IntoIoError, IntoJsonError, JsonFileError};
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionDetails {
-    /// The list of command line arguments.
-    ///
-    /// Used in new Minecraft versions, whereas `minecraftArguments` is used in old versions.
-    pub arguments: Option<Arguments>,
     /// An index/list of assets (music/sounds) to be downloaded.
     pub assetIndex: AssetIndex,
     /// Which version of the assets to be downloaded.
     pub assets: String,
-    // pub complianceLevel: Option<usize>,
     /// Where to download the client/server jar.
     pub downloads: Downloads,
     /// Name of the version.
@@ -30,16 +25,30 @@ pub struct VersionDetails {
     pub logging: Option<Logging>,
     /// Which is the main class in the jar that has the main function.
     pub mainClass: String,
+
     /// The list of command line arguments.
     ///
-    /// Used in old Minecraft versions, whereas `arguments` is used in new versions.
+    /// This one is used in Minecraft 1.12.2 and below,
+    /// whereas `arguments` is used in 1.13 and above
     pub minecraftArguments: Option<String>,
-    /// Minimum version of the official launcher that is supported. Not applicable here.
+    /// The list of command line arguments.
+    ///
+    /// This is used in Minecraft 1.13 and above,
+    /// whereas `minecraftArguments` is used in 1.12.2 and below.
+    pub arguments: Option<Arguments>,
+
+    /// Minimum version of the official launcher that is supported.
+    ///
+    /// This is a (kinda) useless field but removing
+    /// it would break backwards compatibility.
+    /// Who knows? Maybe I could need it in the future,
+    /// and I could thank myself for keeping it here.
     pub minimumLauncherVersion: usize,
-    /// When was this version released. I don't know the difference between time and releaseTime.
+
+    // TODO: Find difference between `releaseTime` and `time`
     pub releaseTime: String,
-    /// When was this version released. I don't know the difference between time and releaseTime.
     pub time: String,
+
     /// Type of version, such as alpha, beta or release.
     pub r#type: String,
 

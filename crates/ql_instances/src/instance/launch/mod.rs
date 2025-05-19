@@ -26,7 +26,6 @@ pub async fn launch(
     instance_name: String,
     username: String,
     java_install_progress_sender: Option<Sender<GenericProgress>>,
-    asset_redownload_progress: Option<Sender<GenericProgress>>,
     auth: Option<AccountData>,
 ) -> Result<Arc<Mutex<Child>>, GameLaunchError> {
     if username.is_empty() {
@@ -36,13 +35,8 @@ pub async fn launch(
         return Err(GameLaunchError::UsernameHasSpaces);
     }
 
-    let mut game_launcher = GameLauncher::new(
-        instance_name,
-        username,
-        java_install_progress_sender,
-        asset_redownload_progress,
-    )
-    .await?;
+    let mut game_launcher =
+        GameLauncher::new(instance_name, username, java_install_progress_sender).await?;
 
     game_launcher.migrate_old_instances().await?;
     game_launcher.create_mods_dir().await?;

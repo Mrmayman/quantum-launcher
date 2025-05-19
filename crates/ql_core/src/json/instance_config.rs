@@ -5,8 +5,13 @@ use serde::{Deserialize, Serialize};
 use crate::{InstanceSelection, IntoIoError, IntoJsonError, JsonFileError};
 
 /// Configuration for a specific instance.
+/// Not to be confused with [`crate::json::VersionDetails`]. That one
+/// is launcher agnostic data provided from mojang, this one is
+/// Quantumlauncher-specific information.
 ///
-/// Stored in `QuantumLauncher/instances/<instance_name>/config.json`.
+/// Stored in:
+/// - Client: `QuantumLauncher/instances/<instance_name>/config.json`
+/// - Server: `QuantumLauncher/servers/<instance_name>/config.json`
 ///
 /// See the documentation of each field for more information.
 #[derive(Serialize, Deserialize, Clone, Debug)]

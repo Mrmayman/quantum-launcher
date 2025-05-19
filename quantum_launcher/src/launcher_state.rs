@@ -314,7 +314,6 @@ impl std::fmt::Display for LaunchTabId {
 /// The home screen of the launcher.
 pub struct MenuLaunch {
     pub message: String,
-    pub asset_recv: Option<Receiver<GenericProgress>>,
     pub login_progress: Option<ProgressBar<GenericProgress>>,
     pub tab: LaunchTabId,
     pub edit_instance: Option<MenuEditInstance>,
@@ -334,7 +333,6 @@ impl MenuLaunch {
     pub fn with_message(message: String) -> Self {
         Self {
             message,
-            asset_recv: None,
             tab: LaunchTabId::default(),
             edit_instance: None,
             login_progress: None,
@@ -628,9 +626,6 @@ pub enum State {
     InstallOptifine(MenuInstallOptifine),
 
     InstallJava,
-    RedownloadAssets {
-        progress: ProgressBar<GenericProgress>,
-    },
 
     ModsDownload(Box<MenuModsDownload>),
     LauncherSettings(MenuLauncherSettings),

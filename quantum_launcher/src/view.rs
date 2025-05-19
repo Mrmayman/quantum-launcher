@@ -146,13 +146,6 @@ impl Launcher {
             // It's not needed right now, but could be in the future.
             State::ModsDownload(menu) => menu.view(&self.images, self.window_size, self.tick_timer),
             State::LauncherSettings(menu) => menu.view(&self.config),
-            State::RedownloadAssets { progress, .. } => widget::column!(
-                widget::text("Redownloading Assets").size(20),
-                progress.view()
-            )
-            .padding(10)
-            .spacing(10)
-            .into(),
             State::InstallOptifine(menu) => menu.view(),
             State::ServerCreate(menu) => menu.view(),
             State::InstallPaper => {

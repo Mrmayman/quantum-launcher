@@ -377,3 +377,26 @@ pub fn get_jar_path(
         Path::to_owned,
     )
 }
+
+/// Find the launch jar file for a Forge server.
+/// The name is `forge-*-shim.jar`, this performs a search for it.
+pub async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
+    if !dir.is_dir() {
+        return None;
+    }
+
+    let mut dir = tokio::fs::read_dir(dir).await.ok()?;
+    while let Ok(Some(entry)) = dir.next_entry().await {
+        let path = entry.path();
+
+        if path.is_file() {
+            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+                if file_name.starts_with("forge-") && file_name.ends_with("-shim.jar") {
+                    return Some(path);
+                }
+            }
+        }
+    }
+
+    None
+}

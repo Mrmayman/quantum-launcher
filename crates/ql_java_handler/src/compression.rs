@@ -51,7 +51,11 @@ pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> 
                 .map_err(|_| {
                     std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        format!("Could not strip prefix {entry_path:?}, {top_level:?}"),
+                        format!(
+                            "Could not strip prefix {}, {}",
+                            entry_path.display(),
+                            top_level.display()
+                        ),
                     )
                 })?
                 .to_path_buf(),

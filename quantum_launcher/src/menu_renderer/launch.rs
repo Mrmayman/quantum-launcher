@@ -304,8 +304,7 @@ impl Launcher {
     }
 
     fn get_accounts_bar(&self, menu: &MenuLaunch) -> Element {
-        let something_is_happening =
-            self.java_recv.is_some() || menu.asset_recv.is_some() || menu.login_progress.is_some();
+        let something_is_happening = self.java_recv.is_some() || menu.login_progress.is_some();
 
         let dropdown: Element = if something_is_happening {
             widget::text_input("", self.accounts_selected.as_deref().unwrap_or_default())

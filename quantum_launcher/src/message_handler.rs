@@ -30,50 +30,35 @@ pub const SIDEBAR_LIMIT_LEFT: f32 = 135.0;
 
 impl Launcher {
     pub fn launch_game(&mut self, account_data: Option<AccountData>) -> Task<Message> {
-        if let State::Launch(ref mut menu_launch) = self.state {
-            let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
-            let username = if let Some(account_data) = &account_data {
-                // Microsoft account
-                account_data.username.clone()
-            } else {
-                // Offline username
-                self.config.username.clone()
-            };
+        let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
+        let username = if let Some(account_data) = &account_data {
+            // Microsoft account
+            account_data.username.clone()
+        } else {
+            // Offline username
+            self.config.username.clone()
+        };
 
-            let (sender, receiver) = std::sync::mpsc::channel();
-            self.java_recv = Some(ProgressBar::with_recv(receiver));
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.java_recv = Some(ProgressBar::with_recv(receiver));
 
-            let (asset_sender, asset_receiver) = std::sync::mpsc::channel();
-            menu_launch.asset_recv = Some(asset_receiver);
+        if let Some(log) = self.client_logs.get_mut(selected_instance) {
+            log.log.clear();
+        }
 
-            if let Some(log) = self.client_logs.get_mut(selected_instance) {
-                log.log.clear();
-            }
-
-            let instance_name = selected_instance.to_owned();
-            return Task::perform(
-                async move {
-                    ql_instances::launch(
-                        instance_name,
-                        username,
-                        Some(sender),
-                        Some(asset_sender),
-                        account_data,
-                    )
+        let instance_name = selected_instance.to_owned();
+        Task::perform(
+            async move {
+                ql_instances::launch(instance_name, username, Some(sender), account_data)
                     .await
                     .strerr()
-                },
-                Message::LaunchEnd,
-            );
-        }
-        Task::none()
+            },
+            Message::LaunchEnd,
+        )
     }
 
     pub fn finish_launching(&mut self, result: Result<Arc<Mutex<Child>>, String>) -> Task<Message> {
         self.java_recv = None;
-        if let State::Launch(menu) = &mut self.state {
-            menu.asset_recv = None;
-        }
         match result {
             Ok(child) => {
                 let Some(InstanceSelection::Instance(selected_instance)) =
@@ -462,7 +447,6 @@ impl Launcher {
             | State::InstallJava
             | State::InstallOptifine(_)
             | State::UpdateFound(_)
-            | State::RedownloadAssets { .. }
             | State::InstallFabric(_)
             | State::EditMods(_)
             | State::Create(_)

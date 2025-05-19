@@ -117,7 +117,7 @@ impl Backend for ModrinthBackend {
         };
 
         let mut downloader = download::ModDownloader::new(instance, sender).await?;
-        downloader.download_project(id, None, true).await?;
+        downloader.download(id, None, true).await?;
 
         downloader.index.save(instance).await?;
 
@@ -163,7 +163,7 @@ impl Backend for ModrinthBackend {
                 });
             }
 
-            let result = downloader.download_project(id, None, true).await;
+            let result = downloader.download(id, None, true).await;
             if let Err(ModError::NoCompatibleVersionFound(name)) = &result {
                 if ignore_incompatible {
                     pt!("No compatible version found for mod {name} ({id}), skipping...");

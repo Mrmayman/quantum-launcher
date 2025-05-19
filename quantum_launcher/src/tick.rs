@@ -15,33 +15,20 @@ use crate::launcher_state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
     ManageJarModsMessage, MenuCreateInstance, MenuEditMods, MenuEditPresetsInner,
     MenuInstallFabric, MenuLaunch, MenuModsDownload, MenuServerCreate, Message, ModListEntry,
-    ProgressBar, ServerProcess, State,
+    ServerProcess, State,
 };
 
 impl Launcher {
     pub fn tick(&mut self) -> Task<Message> {
         match &mut self.state {
             State::Launch(MenuLaunch {
-                asset_recv,
-                edit_instance,
-                tab,
-                ..
+                edit_instance, tab, ..
             }) => {
                 if let Some(receiver) = &mut self.java_recv {
                     if receiver.tick() {
                         self.state = State::InstallJava;
                         return Task::none();
                     }
-                }
-
-                if let Some(receiver) = asset_recv.take() {
-                    if receiver.try_recv().is_ok() {
-                        self.state = State::RedownloadAssets {
-                            progress: ProgressBar::with_recv(receiver),
-                        };
-                        return Task::none();
-                    }
-                    *asset_recv = Some(receiver);
                 }
 
                 let mut commands = Vec::new();
@@ -117,12 +104,6 @@ impl Launcher {
                         async move { (jarmods.save(&selected_instance).await.strerr(), jarmods) },
                         |n| Message::ManageJarMods(ManageJarModsMessage::AutosaveFinished(n)),
                     );
-                }
-            }
-            State::RedownloadAssets { progress } => {
-                progress.tick();
-                if progress.progress.has_finished {
-                    return self.go_to_launch_screen(Some("Redownloaded Assets"));
                 }
             }
             State::InstallOptifine(menu) => {

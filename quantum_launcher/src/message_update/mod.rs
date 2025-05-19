@@ -299,7 +299,8 @@ impl Launcher {
         if let QueryType::ModPacks = menu.query_type {
             self.state = State::ConfirmAction {
                 msg1: format!("install the modpack: {}", hit.title),
-                msg2: format!("This might take a while and install many files..."),
+                msg2: "This might take a while, install many files, and use a lot of network..."
+                    .to_owned(),
                 yes: Message::InstallMods(InstallModsMessage::InstallModpack(id)),
                 no: Message::InstallMods(InstallModsMessage::Open),
             };

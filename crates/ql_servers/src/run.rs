@@ -5,7 +5,7 @@ use std::{
 };
 
 use ql_core::{
-    err, info,
+    err, find_forge_shim_file, info,
     json::{InstanceConfigJson, VersionDetails},
     no_window, GenericProgress, IntoIoError, LAUNCHER_DIR,
 };
@@ -138,26 +138,4 @@ async fn get_java_path(
     }
     let path = get_java_binary(version, "java", Some(&java_install_progress)).await?;
     Ok(path)
-}
-
-async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
-    if !dir.is_dir() {
-        return None; // Ensure the path is a directory
-    }
-
-    let mut dir = tokio::fs::read_dir(dir).await.ok()?;
-
-    while let Ok(Some(entry)) = dir.next_entry().await {
-        let path = entry.path();
-
-        if path.is_file() {
-            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
-                if file_name.starts_with("forge-") && file_name.ends_with("-shim.jar") {
-                    return Some(path);
-                }
-            }
-        }
-    }
-
-    None // Return None if no matching file is found
 }

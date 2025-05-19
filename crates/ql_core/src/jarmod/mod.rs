@@ -1,3 +1,21 @@
+//! Utilities to directly patch the Minecraft jar.
+//!
+//! Old versions of Minecraft have a different way of modding;
+//! instead of installing a loader and putting mods in the `.minecraft/mods/`
+//! folder, you directly patch or modify the Minecraft jar file
+//! (`.minecraft/versions/<VERSION>/<VERSION>.jar`).
+//!
+//! QuantumLauncher facilitates this by providing a flexible API
+//! for jarmods. Instead of directly modifying the Minecraft jar file:
+//!
+//! - You can put your jarmods (which are "patches" to the jar),
+//!   in a `jarmods` folder
+//! - And optionally add them (and specify their order)
+//!   in the `jarmods.json` file.
+//! - And the launcher will automatically build a patched jar.
+//!
+//! This module provides helpful functions to deal with jarmods.
+
 use std::path::{Path, PathBuf, StripPrefixError};
 
 use crate::{

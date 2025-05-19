@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use ql_core::{InstanceSelection, IntoIoError, Loader, LAUNCHER_DIR};
+use ql_core::{find_forge_shim_file, InstanceSelection, IntoIoError, Loader, LAUNCHER_DIR};
 
 use crate::loaders::change_instance_type;
 
@@ -60,25 +60,4 @@ async fn delete_file(run_sh_path: &Path) -> Result<(), ForgeInstallError> {
             .path(run_sh_path)?;
     }
     Ok(())
-}
-
-async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
-    if !dir.is_dir() {
-        return None; // Ensure the path is a directory
-    }
-
-    let mut dir = tokio::fs::read_dir(dir).await.ok()?;
-    while let Ok(Some(entry)) = dir.next_entry().await {
-        let path = entry.path();
-
-        if path.is_file() {
-            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
-                if file_name.starts_with("forge-") && file_name.ends_with("-shim.jar") {
-                    return Some(path);
-                }
-            }
-        }
-    }
-
-    None // Return None if no matching file is found
 }

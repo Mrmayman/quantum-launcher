@@ -92,7 +92,7 @@ impl GameDownloader {
         })
     }
 
-    pub fn with_existing_instance(
+    /*pub fn with_existing_instance(
         version_json: VersionDetails,
         instance_dir: PathBuf,
         sender: Option<Sender<DownloadProgress>>,
@@ -104,7 +104,7 @@ impl GameDownloader {
             version,
             sender,
         }
-    }
+    }*/
 
     pub async fn download_jar(&self) -> Result<(), DownloadError> {
         info!("Downloading game jar file.");

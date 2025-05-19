@@ -263,7 +263,7 @@ pub async fn download_file_to_path(
 
             if let Some(parent) = path.parent() {
                 if !parent.is_dir() {
-                    tokio::fs::create_dir_all(&parent).await.path(&parent)?;
+                    tokio::fs::create_dir_all(&parent).await.path(parent)?;
                 }
             }
 

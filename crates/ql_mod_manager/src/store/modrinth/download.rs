@@ -16,7 +16,7 @@ use crate::store::{
     get_mods_resourcepacks_shaderpacks_dir, install_modpack,
     local_json::{ModConfig, ModIndex},
     modrinth::versions::ModVersion,
-    CurseforgeNotAllowed, ModError, QueryType, SOURCE_ID_MODRINTH,
+    ModError, QueryType, SOURCE_ID_MODRINTH,
 };
 
 use super::info::ProjectInfo;
@@ -62,20 +62,21 @@ impl ModDownloader {
         })
     }
 
-    pub async fn download_project(
+    pub async fn download(
         &mut self,
         id: &str,
         dependent: Option<&str>,
         manually_installed: bool,
     ) -> Result<(), ModError> {
         let project_info = if let Some(n) = self.info.get(id) {
+            info!("Getting project info (name: {})", n.title);
             n.clone()
         } else {
+            info!("Getting project info (id: {id})");
             let info = ProjectInfo::download(id).await?;
             self.info.insert(id.to_owned(), info.clone());
             info
         };
-
         if self.is_already_installed(id, dependent, &project_info.title) {
             pt!("Already installed mod {id}, skipping.");
             return Ok(());
@@ -84,8 +85,6 @@ impl ModDownloader {
         let query_type = QueryType::from_modrinth_str(&project_info.project_type).ok_or(
             ModError::UnknownProjectType(project_info.project_type.clone()),
         )?;
-
-        info!("Getting project info (id: {id})");
 
         if let QueryType::Mods | QueryType::ModPacks = query_type {
             if !self.has_compatible_loader(&project_info) {
@@ -99,39 +98,26 @@ impl ModDownloader {
         }
 
         print_downloading_message(&project_info, dependent);
-
         let download_version = self
             .get_download_version(id, project_info.title.clone(), query_type)
             .await?;
 
         let mut dependency_list = HashSet::new();
-
         if QueryType::ModPacks != query_type {
             pt!("Getting dependencies");
-            for dependency in &download_version.dependencies {
-                let Some(ref dep_id) = dependency.project_id else {
-                    continue;
-                };
-
-                if dependency.dependency_type != "required" {
-                    pt!(
-                        "Skipping dependency (not required: {}) {dep_id}",
-                        dependency.dependency_type,
-                    );
-                    continue;
-                }
-                if dependency_list.insert(dep_id.clone()) {
-                    Box::pin(self.download_project(dep_id, Some(id), false)).await?;
-                }
-            }
+            self.download_dependencies(id, &download_version, &mut dependency_list)
+                .await?;
         }
 
         if !self.index.mods.contains_key(id) {
-            let not_allowed = self.download_file(&download_version, query_type).await?;
-            // A modrinth modpack shouldn't download curseforge mods,
-            // and curseforge mods can't be accidentally downloaded from modrinth.
-            debug_assert!(not_allowed.is_empty());
-            drop(not_allowed);
+            if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
+                self.download_file(query_type, primary_file).await?;
+            } else {
+                pt!("Didn't find primary file, checking secondary files...");
+                for file in &download_version.files {
+                    self.download_file(query_type, file).await?;
+                }
+            }
 
             self.add_mod_to_index(
                 &project_info,
@@ -143,6 +129,31 @@ impl ModDownloader {
             );
         }
 
+        Ok(())
+    }
+
+    async fn download_dependencies(
+        &mut self,
+        id: &str,
+        download_version: &ModVersion,
+        dependency_list: &mut HashSet<String>,
+    ) -> Result<(), ModError> {
+        for dependency in &download_version.dependencies {
+            let Some(ref dep_id) = dependency.project_id else {
+                continue;
+            };
+
+            if dependency.dependency_type != "required" {
+                pt!(
+                    "Skipping dependency (not required: {}) {dep_id}",
+                    dependency.dependency_type,
+                );
+                continue;
+            }
+            if dependency_list.insert(dep_id.clone()) {
+                Box::pin(self.download(dep_id, Some(id), false)).await?;
+            }
+        }
         Ok(())
     }
 
@@ -231,41 +242,23 @@ impl ModDownloader {
 
     async fn download_file(
         &self,
-        download_version: &ModVersion,
         project_type: QueryType,
-    ) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
-        if let Some(primary_file) = download_version.files.iter().find(|file| file.primary) {
-            if let QueryType::ModPacks = project_type {
-                let bytes = file_utils::download_file_to_bytes(&primary_file.url, true).await?;
-                return Ok(
-                    install_modpack(bytes, self.instance.clone(), self.sender.as_ref())
-                        .await
-                        .map_err(Box::new)?,
-                );
-            } else {
-                let file_path = self
-                    .get_dir(project_type)
-                    .unwrap()
-                    .join(&primary_file.filename);
-                file_utils::download_file_to_path(&primary_file.url, true, &file_path).await?;
-            }
-        } else {
-            pt!("Didn't find primary file, checking secondary files...");
-            for file in &download_version.files {
-                if let QueryType::ModPacks = project_type {
-                    let bytes = file_utils::download_file_to_bytes(&file.url, true).await?;
-                    return Ok(
-                        install_modpack(bytes, self.instance.clone(), self.sender.as_ref())
-                            .await
-                            .map_err(Box::new)?,
-                    );
-                } else {
-                    let file_path = self.get_dir(project_type).unwrap().join(&file.filename);
-                    file_utils::download_file_to_path(&file.url, true, &file_path).await?;
-                }
-            }
+        file: &crate::store::ModFile,
+    ) -> Result<(), ModError> {
+        if let QueryType::ModPacks = project_type {
+            let bytes = file_utils::download_file_to_bytes(&file.url, true).await?;
+            let incompatible = install_modpack(bytes, self.instance.clone(), self.sender.as_ref())
+                .await
+                .map_err(Box::new)?;
+            debug_assert!(
+                incompatible.is_empty(),
+                "modrinth mod being blocked as a curseforge error?"
+            );
+            return Ok(());
         }
-        Ok(HashSet::new())
+        let file_path = self.get_dir(project_type).unwrap().join(&file.filename);
+        file_utils::download_file_to_path(&file.url, true, &file_path).await?;
+        Ok(())
     }
 
     fn add_mod_to_index(
