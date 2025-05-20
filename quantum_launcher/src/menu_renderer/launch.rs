@@ -15,7 +15,7 @@ use crate::{
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
 
-use super::{button_with_icon, Element};
+use super::{button_with_icon, shortcut_ctrl, tooltip, Element};
 
 pub const TAB_HEIGHT: f32 = 31.0;
 
@@ -280,7 +280,12 @@ impl Launcher {
                     }
                 })))
                 .height(Length::Fill)
-                .style(LauncherTheme::style_scrollable_flat_extra_dark),
+                .style(LauncherTheme::style_scrollable_flat_extra_dark)
+                .id(iced::widget::scrollable::Id::new("MenuLaunch:sidebar"))
+                .on_scroll(|n| {
+                    let total = n.content_bounds().height - n.bounds().height;
+                    Message::LaunchScrollSidebar(total)
+                }),
                 self.get_accounts_bar(menu),
             ]
             .spacing(5)
@@ -366,38 +371,26 @@ impl Launcher {
         let is_account_selected = self.is_account_selected();
 
         if self.config.username.is_empty() && !is_account_selected {
-            widget::tooltip(
-                play_button,
-                "Username is empty!",
-                widget::tooltip::Position::FollowCursor,
-            )
-            .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
-            .into()
+            tooltip(play_button, "Username is empty!")
         } else if self.config.username.contains(' ') && !is_account_selected {
-            widget::tooltip(
-                play_button,
-                "Username contains spaces!",
-                widget::tooltip::Position::FollowCursor,
-            )
-            .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
-            .into()
+            tooltip(play_button, "Username contains spaces!")
         } else if let Some(selected_instance) = selected_instance {
             if self.client_processes.contains_key(selected_instance) {
-                button_with_icon(icon_manager::play(), "Kill", 16)
-                    .on_press(Message::LaunchKill)
-                    .width(98)
+                tooltip(
+                    button_with_icon(icon_manager::play(), "Kill", 16)
+                        .on_press(Message::LaunchKill)
+                        .width(98),
+                    shortcut_ctrl("Backspace"),
+                )
             } else {
-                play_button.on_press(Message::LaunchStart)
+                tooltip(
+                    play_button.on_press(Message::LaunchStart),
+                    shortcut_ctrl("Enter"),
+                )
             }
             .into()
         } else {
-            widget::tooltip(
-                play_button,
-                "Select an instance first!",
-                widget::tooltip::Position::FollowCursor,
-            )
-            .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
-            .into()
+            tooltip(play_button, "Select an instance first!")
         }
     }
 
@@ -417,26 +410,23 @@ impl Launcher {
 
     fn get_server_play_button<'a>(&self, selected_server: Option<&'a str>) -> Element<'a> {
         if selected_server.is_some_and(|n| self.server_processes.contains_key(n)) {
-            button_with_icon(icon_manager::play(), "Stop", 16)
-                .width(97)
-                .on_press_maybe(
-                    (selected_server.is_some()).then(|| {
+            tooltip(
+                button_with_icon(icon_manager::play(), "Stop", 16)
+                    .width(97)
+                    .on_press_maybe((selected_server.is_some()).then(|| {
                         Message::ServerManageKillServer(selected_server.unwrap().to_owned())
-                    }),
-                )
-                .into()
+                    })),
+                shortcut_ctrl("Escape"),
+            )
         } else {
-            widget::tooltip(
+            tooltip(
                 button_with_icon(icon_manager::play(), "Start", 16)
                     .width(97)
                     .on_press_maybe((selected_server.is_some()).then(|| {
                         Message::ServerManageStartServer(selected_server.unwrap().to_owned())
                     })),
                 "By starting the server, you agree to the EULA",
-                widget::tooltip::Position::FollowCursor,
             )
-            .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark))
-            .into()
         }
     }
 }

@@ -387,27 +387,7 @@ impl Launcher {
                 }
             }
             Message::ServerManageKillServer(server) => {
-                if let Some(ServerProcess {
-                    stdin: Some(stdin),
-                    is_classic_server,
-                    child,
-                    has_issued_stop_command,
-                    ..
-                }) = self.server_processes.get_mut(&server)
-                {
-                    *has_issued_stop_command = true;
-                    if *is_classic_server {
-                        if let Err(err) = child.lock().unwrap().start_kill() {
-                            err!("Could not kill classic server: {err}");
-                        }
-                    } else {
-                        let future = stdin.write_all("stop\n".as_bytes());
-                        tokio::runtime::Runtime::new()
-                            .unwrap()
-                            .block_on(future)
-                            .unwrap();
-                    };
-                }
+                self.kill_selected_server(&server);
             }
             Message::ServerManageEditCommand(selected_server, command) => {
                 if let Some(log) = self.server_logs.get_mut(&selected_server) {
@@ -544,8 +524,37 @@ impl Launcher {
                     *log_scroll = lines;
                 }
             }
+            Message::LaunchScrollSidebar(total) => {
+                if let State::Launch(MenuLaunch { sidebar_height, .. }) = &mut self.state {
+                    *sidebar_height = total;
+                }
+            }
         }
         Task::none()
+    }
+
+    fn kill_selected_server(&mut self, server: &str) {
+        if let Some(ServerProcess {
+            stdin: Some(stdin),
+            is_classic_server,
+            child,
+            has_issued_stop_command,
+            ..
+        }) = self.server_processes.get_mut(server)
+        {
+            *has_issued_stop_command = true;
+            if *is_classic_server {
+                if let Err(err) = child.lock().unwrap().start_kill() {
+                    err!("Could not kill classic server: {err}");
+                }
+            } else {
+                let future = stdin.write_all("stop\n".as_bytes());
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(future)
+                    .unwrap();
+            };
+        }
     }
 
     // Iced expects a `fn(&self)` so we're putting `&self`

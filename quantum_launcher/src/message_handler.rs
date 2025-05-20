@@ -5,7 +5,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use iced::{keyboard::Key, Task};
+use iced::{
+    keyboard::{key::Named, Key},
+    Task,
+};
 use ql_core::{
     err, info, info_no_log, json::instance_config::InstanceConfigJson, InstanceSelection,
     IntoIoError, IntoJsonError, IntoStringError, JsonFileError,
@@ -563,23 +566,37 @@ impl Launcher {
                     ..
                 } => {
                     if let iced::event::Status::Ignored = status {
-                        if let Key::Named(iced::keyboard::key::Named::Escape) = key {
+                        if let Key::Named(Named::Escape) = key {
                             return self.key_escape_back();
                         }
-                        if let Key::Named(iced::keyboard::key::Named::ArrowUp) = key {
-                            self.key_change_selected_instance(false);
-                        } else if let Key::Named(iced::keyboard::key::Named::ArrowDown) = key {
-                            self.key_change_selected_instance(true);
+                        if let Key::Named(Named::ArrowUp) = key {
+                            return self.key_change_selected_instance(false);
+                        } else if let Key::Named(Named::ArrowDown) = key {
+                            return self.key_change_selected_instance(true);
+                        } else if let Key::Named(Named::Enter) = key {
+                            if modifiers.command() {
+                                return self.launch_start();
+                            }
+                        } else if let Key::Named(Named::Backspace) = key {
+                            match self.selected_instance.clone() {
+                                Some(InstanceSelection::Instance(_)) => {
+                                    return self.kill_selected_instance();
+                                }
+                                Some(InstanceSelection::Server(server)) => {
+                                    self.kill_selected_server(&server);
+                                }
+                                None => {}
+                            }
                         } else if let Key::Character(ch) = &key {
                             let instances_not_running = self.client_processes.is_empty()
                                 && self.server_processes.is_empty();
-                            if ch == "q" && modifiers.control() && instances_not_running {
+
+                            if ch == "q" && modifiers.command() && instances_not_running {
                                 info_no_log!("CTRL-Q pressed, closing launcher...");
                                 std::process::exit(1);
                             }
                         }
 
-                        // TODO: Ctrl Q to quit
                         self.keys_pressed.insert(key);
                     } else {
                         // FUTURE
@@ -632,9 +649,10 @@ impl Launcher {
                 }
                 iced::mouse::Event::WheelScrolled { delta } => {
                     if let iced::event::Status::Ignored = status {
-                        if self.keys_pressed.contains(&iced::keyboard::Key::Named(
-                            iced::keyboard::key::Named::Control,
-                        )) {
+                        if self
+                            .keys_pressed
+                            .contains(&iced::keyboard::Key::Named(Named::Control))
+                        {
                             match delta {
                                 iced::mouse::ScrollDelta::Lines { y, .. }
                                 | iced::mouse::ScrollDelta::Pixels { y, .. } => {
@@ -657,43 +675,70 @@ impl Launcher {
         Task::none()
     }
 
-    fn key_change_selected_instance(&mut self, down: bool) {
-        if let State::Launch(menu) = &self.state {
-            let list = if menu.is_viewing_server {
-                &self.server_list
-            } else {
-                &self.client_list
-            };
-            if let Some(list) = list {
-                if let Some(selected_instance) = &mut self.selected_instance {
-                    if let Some(idx) = list
-                        .iter()
-                        .enumerate()
-                        .find_map(|(i, n)| (n == selected_instance.get_name()).then_some(i))
-                    {
-                        if down {
-                            if idx + 1 < list.len() {
-                                *selected_instance = InstanceSelection::new(
-                                    list.get(idx + 1).unwrap(),
-                                    menu.is_viewing_server,
-                                );
-                            }
-                        } else {
-                            if idx > 0 {
-                                *selected_instance = InstanceSelection::new(
-                                    list.get(idx - 1).unwrap(),
-                                    menu.is_viewing_server,
-                                );
-                            }
-                        }
+    fn key_change_selected_instance(&mut self, down: bool) -> Task<Message> {
+        let State::Launch(menu) = &self.state else {
+            return Task::none();
+        };
+        let list = if menu.is_viewing_server {
+            &self.server_list
+        } else {
+            &self.client_list
+        };
+
+        let Some(list) = list else {
+            return Task::none();
+        };
+
+        let idx = if let Some(selected_instance) = &mut self.selected_instance {
+            if let Some(idx) = list
+                .iter()
+                .enumerate()
+                .find_map(|(i, n)| (n == selected_instance.get_name()).then_some(i))
+            {
+                if down {
+                    if idx + 1 < list.len() {
+                        *selected_instance = InstanceSelection::new(
+                            list.get(idx + 1).unwrap(),
+                            menu.is_viewing_server,
+                        );
+                        idx + 1
+                    } else {
+                        idx
                     }
                 } else {
-                    self.selected_instance = list
-                        .first()
-                        .map(|n| InstanceSelection::new(n, menu.is_viewing_server));
+                    if idx > 0 {
+                        *selected_instance = InstanceSelection::new(
+                            list.get(idx - 1).unwrap(),
+                            menu.is_viewing_server,
+                        );
+                        idx - 1
+                    } else {
+                        idx
+                    }
                 }
+            } else {
+                debug_assert!(
+                    false,
+                    "Selected instance {selected_instance:?}, not found in list?"
+                );
+                0
             }
-        }
+        } else {
+            self.selected_instance = list
+                .first()
+                .map(|n| InstanceSelection::new(n, menu.is_viewing_server));
+            0
+        };
+
+        let scroll_pos = idx as f32 / (list.len() as f32 - 1.0);
+        let scroll_pos = scroll_pos * menu.sidebar_height;
+        return iced::widget::scrollable::scroll_to(
+            iced::widget::scrollable::Id::new("MenuLaunch:sidebar"),
+            iced::widget::scrollable::AbsoluteOffset {
+                x: 0.0,
+                y: scroll_pos,
+            },
+        );
     }
 
     fn load_modpack_from_path(&mut self, path: PathBuf) -> Task<Message> {
@@ -786,10 +831,10 @@ impl Launcher {
     }
 
     pub fn kill_selected_instance(&mut self) -> Task<Message> {
-        if let Some(process) = self
-            .client_processes
-            .remove(self.selected_instance.as_ref().unwrap().get_name())
-        {
+        let Some(selected_instance) = &self.selected_instance else {
+            return Task::none();
+        };
+        if let Some(process) = self.client_processes.remove(selected_instance.get_name()) {
             Task::perform(
                 {
                     async move {
@@ -820,6 +865,26 @@ impl Launcher {
     }
 
     pub fn launch_start(&mut self) -> Task<Message> {
+        let Some(selected_instance) = &self.selected_instance else {
+            return Task::none();
+        };
+
+        if let Some(account) = &self.accounts_selected {
+            if account == OFFLINE_ACCOUNT_NAME {
+                if self.config.username.is_empty() || self.config.username.contains(' ') {
+                    return Task::none();
+                }
+            }
+        }
+
+        let is_alive = match selected_instance {
+            InstanceSelection::Instance(name) => self.client_processes.contains_key(name),
+            InstanceSelection::Server(name) => self.server_processes.contains_key(name),
+        };
+        if is_alive {
+            return Task::none();
+        }
+
         let account_data = if let Some(account) = &self.accounts_selected {
             if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
                 None

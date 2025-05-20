@@ -227,6 +227,8 @@ pub enum Message {
     LaunchKillEnd(Res),
     LaunchChangeTab(LaunchTabId),
 
+    LaunchScrollSidebar(f32),
+
     DeleteInstanceMenu,
     DeleteInstance,
 
@@ -317,8 +319,11 @@ pub struct MenuLaunch {
     pub login_progress: Option<ProgressBar<GenericProgress>>,
     pub tab: LaunchTabId,
     pub edit_instance: Option<MenuEditInstance>,
+
     pub sidebar_width: u16,
+    pub sidebar_height: f32,
     pub sidebar_dragging: bool,
+
     pub is_viewing_server: bool,
     pub log_scroll: isize,
 }
@@ -337,6 +342,7 @@ impl MenuLaunch {
             edit_instance: None,
             login_progress: None,
             sidebar_width: SIDEBAR_WIDTH_DEFAULT as u16,
+            sidebar_height: 100.0,
             sidebar_dragging: false,
             is_viewing_server: false,
             log_scroll: 0,

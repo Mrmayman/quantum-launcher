@@ -35,6 +35,12 @@ fn center_x<'a>(e: impl Into<Element<'a>>) -> Element<'a> {
     .into()
 }
 
+pub fn tooltip<'a>(e: impl Into<Element<'a>>, tooltip: impl Into<Element<'a>>) -> Element<'a> {
+    widget::tooltip(e, tooltip, widget::tooltip::Position::Bottom)
+        .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark))
+        .into()
+}
+
 pub fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
@@ -46,6 +52,14 @@ pub fn button_with_icon<'element>(
             .spacing(10)
             .padding(3),
     )
+}
+
+pub fn shortcut_ctrl<'a>(key: &str) -> Element<'a> {
+    #[cfg(target_os = "macos")]
+    return widget::text!("Command + {key}").size(12).into();
+
+    #[cfg(not(target_os = "macos"))]
+    return widget::text!("Control + {key}").size(12).into();
 }
 
 impl MenuEditInstance {
@@ -301,10 +315,10 @@ impl MenuCreateInstance {
                             }),
                         widget::text_input("Enter instance name...", instance_name)
                             .on_input(|n| Message::CreateInstance(CreateInstanceMessage::NameInput(n))),
-                        widget::tooltip(
+                        tooltip(
                             widget::checkbox("Download assets?", *download_assets).on_toggle(|t| Message::CreateInstance(CreateInstanceMessage::ChangeAssetToggle(t))),
                             widget::text("If disabled, creating instance will be MUCH faster, but no sound or music will play in-game").size(12),
-                            widget::tooltip::Position::FollowCursor).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+                        ),
                         widget::button(widget::row![icon_manager::create(), "Create Instance"]
                                 .spacing(10)
                                 .padding(5)
