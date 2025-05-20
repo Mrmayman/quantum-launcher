@@ -166,6 +166,14 @@ impl GameLauncher {
         Ok(())
     }
 
+    /// Old QuantumLauncher versions didn't have
+    /// `classpath_entries` for Forge libraries.
+    /// So this is just migration to fix a dumb
+    /// mistake I made in the past.
+    ///
+    /// What are `classpath_entries`? Well,
+    /// see the comment in [`GameLauncher::get_class_path`]
+    /// for more info.
     pub async fn migrate_create_forge_clean_classpath(
         &self,
         forge_classpath: String,
@@ -177,6 +185,7 @@ impl GameLauncher {
             .to_str()
             .ok_or(GameLaunchError::PathBufToString(forge_libs_dir.clone()))?;
         let mut temp_forge_classpath_entries = String::new();
+
         for entry in forge_classpath
             .split(CLASSPATH_SEPARATOR)
             .filter(|n| n.split_whitespace().any(|n| !n.is_empty()))

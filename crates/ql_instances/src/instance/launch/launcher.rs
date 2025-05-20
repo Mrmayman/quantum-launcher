@@ -436,7 +436,12 @@ impl GameLauncher {
         forge_json: Option<&forge::JsonDetails>,
         optifine_json: Option<&(JsonOptifine, PathBuf)>,
     ) -> Result<String, GameLaunchError> {
+        // `class_path` is the actual classpath argument
+        // string that will be passed to Minecraft as a Java argument.
         let mut class_path = String::new();
+        // `classpath_entries` is a `HashSet` that's only responsible for
+        // detecting and eliminating duplicate entries
+        // (because Minecraft doesn't like them).
         let mut classpath_entries = HashSet::new();
 
         self.classpath_forge_and_neoforge(forge_json, &mut class_path, &mut classpath_entries)
