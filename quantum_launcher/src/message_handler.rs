@@ -403,7 +403,7 @@ impl Launcher {
         Some(self.selected_instance.as_ref()?.get_dot_minecraft_path())
     }
 
-    fn escape_back_button(&mut self) -> Task<Message> {
+    fn key_escape_back(&mut self) -> Task<Message> {
         let mut should_return_to_main_screen = false;
         let mut should_return_to_mods_screen = false;
         let mut should_return_to_download_screen = false;
@@ -559,13 +559,26 @@ impl Launcher {
                 iced::keyboard::Event::KeyPressed {
                     key,
                     // location,
-                    // modifiers,
+                    modifiers,
                     ..
                 } => {
                     if let iced::event::Status::Ignored = status {
                         if let Key::Named(iced::keyboard::key::Named::Escape) = key {
-                            return self.escape_back_button();
+                            return self.key_escape_back();
                         }
+                        if let Key::Named(iced::keyboard::key::Named::ArrowUp) = key {
+                            self.key_change_selected_instance(false);
+                        } else if let Key::Named(iced::keyboard::key::Named::ArrowDown) = key {
+                            self.key_change_selected_instance(true);
+                        } else if let Key::Character(ch) = &key {
+                            let instances_not_running = self.client_processes.is_empty()
+                                && self.server_processes.is_empty();
+                            if ch == "q" && modifiers.control() && instances_not_running {
+                                info_no_log!("CTRL-Q pressed, closing launcher...");
+                                std::process::exit(1);
+                            }
+                        }
+
                         // TODO: Ctrl Q to quit
                         self.keys_pressed.insert(key);
                     } else {
@@ -642,6 +655,45 @@ impl Launcher {
             iced::Event::Touch(_) => {}
         }
         Task::none()
+    }
+
+    fn key_change_selected_instance(&mut self, down: bool) {
+        if let State::Launch(menu) = &self.state {
+            let list = if menu.is_viewing_server {
+                &self.server_list
+            } else {
+                &self.client_list
+            };
+            if let Some(list) = list {
+                if let Some(selected_instance) = &mut self.selected_instance {
+                    if let Some(idx) = list
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, n)| (n == selected_instance.get_name()).then_some(i))
+                    {
+                        if down {
+                            if idx + 1 < list.len() {
+                                *selected_instance = InstanceSelection::new(
+                                    list.get(idx + 1).unwrap(),
+                                    menu.is_viewing_server,
+                                );
+                            }
+                        } else {
+                            if idx > 0 {
+                                *selected_instance = InstanceSelection::new(
+                                    list.get(idx - 1).unwrap(),
+                                    menu.is_viewing_server,
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    self.selected_instance = list
+                        .first()
+                        .map(|n| InstanceSelection::new(n, menu.is_viewing_server));
+                }
+            }
+        }
     }
 
     fn load_modpack_from_path(&mut self, path: PathBuf) -> Task<Message> {

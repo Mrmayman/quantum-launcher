@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use iced::{widget::image::Handle, Task};
+use iced::{
+    widget::{image::Handle, scrollable::AbsoluteOffset},
+    Task,
+};
 use ql_core::{err, info, InstanceSelection, IntoStringError, ModId, OptifineUniqueVersion};
 use ql_mod_manager::{
     loaders,
@@ -135,9 +138,11 @@ impl Launcher {
             InstallModsMessage::Scrolled(viewport) => {
                 let total_height =
                     viewport.content_bounds().height - (viewport.bounds().height * 2.0);
-                let scroll_px = viewport.absolute_offset().y;
+                let absolute_offset = viewport.absolute_offset();
+                let scroll_px = absolute_offset.y;
 
                 if let State::ModsDownload(menu) = &mut self.state {
+                    menu.scroll_offset = absolute_offset;
                     if (scroll_px > total_height) && !menu.is_loading_continuation {
                         menu.is_loading_continuation = true;
 
@@ -190,6 +195,10 @@ impl Launcher {
             InstallModsMessage::BackToMainScreen => {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.opened_mod = None;
+                    return iced::widget::scrollable::scroll_to(
+                        iced::widget::scrollable::Id::new("MenuModsDownload:main:mods_list"),
+                        menu.scroll_offset,
+                    );
                 }
             }
             InstallModsMessage::LoadData(Ok((id, description))) => {
@@ -235,6 +244,7 @@ impl Launcher {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.backend = backend;
                     menu.results = None;
+                    menu.scroll_offset = AbsoluteOffset::default();
                     return menu.search_store(is_server, 0);
                 }
             }
@@ -242,6 +252,7 @@ impl Launcher {
                 if let State::ModsDownload(menu) = &mut self.state {
                     menu.query_type = query;
                     menu.results = None;
+                    menu.scroll_offset = AbsoluteOffset::default();
                     return menu.search_store(is_server, 0);
                 }
             }

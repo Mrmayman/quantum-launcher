@@ -8,7 +8,7 @@ use std::{
 };
 
 use iced::{
-    widget::{self, image::Handle},
+    widget::{self, image::Handle, scrollable::AbsoluteOffset},
     Task,
 };
 use ql_core::{
@@ -523,11 +523,13 @@ pub struct MenuModsDownload {
     pub query: String,
     pub results: Option<SearchResult>,
     pub mod_descriptions: HashMap<ModId, String>,
-    pub config: InstanceConfigJson,
     pub json: Mutex<VersionDetails>,
     pub opened_mod: Option<usize>,
     pub latest_load: Instant,
     pub mods_download_in_progress: HashSet<ModId>,
+    pub scroll_offset: AbsoluteOffset,
+
+    pub config: InstanceConfigJson,
     pub mod_index: ModIndex,
 
     pub backend: StoreBackendType,

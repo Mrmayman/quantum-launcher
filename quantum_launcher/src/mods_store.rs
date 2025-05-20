@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use iced::Task;
+use iced::{widget::scrollable::AbsoluteOffset, Task};
 use ql_core::{
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     InstanceSelection, IntoIoError, IntoStringError, Loader, StoreBackendType,
@@ -33,6 +33,7 @@ impl Launcher {
         let mod_index = ModIndex::get_s(selection).strerr()?;
 
         let mut menu = MenuModsDownload {
+            scroll_offset: AbsoluteOffset::default(),
             config,
             json: Mutex::new(version),
             latest_load: Instant::now(),
