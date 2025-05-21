@@ -667,7 +667,7 @@ impl MenuEditJarMods {
             widget::container(
                 widget::scrollable(
                     widget::column!(
-                        button_with_icon(icon_manager::back(), "Back", 15)
+                        button_with_icon(icon_manager::back_with_size(14), "Back", 14)
                             .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                         widget::column![
                             {

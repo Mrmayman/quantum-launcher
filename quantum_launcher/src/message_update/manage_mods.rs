@@ -428,6 +428,16 @@ impl Launcher {
                 .join("jarmods");
 
             for selected in &menu.selected_mods {
+                if let Some(n) = menu
+                    .jarmods
+                    .mods
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, n)| (n.filename == *selected).then_some(i))
+                {
+                    menu.jarmods.mods.remove(n);
+                }
+
                 let path = jarmods_path.join(selected);
                 if path.is_file() {
                     _ = std::fs::remove_file(&path);

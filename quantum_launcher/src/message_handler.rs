@@ -545,8 +545,10 @@ impl Launcher {
                                     .get_instance_path()
                                     .join("jarmods")
                                     .join(filename);
-                                if let Err(err) = std::fs::copy(&path, &new_path) {
-                                    err!("Couldn't drag and drop mod file in: {err}");
+                                if path != new_path {
+                                    if let Err(err) = std::fs::copy(&path, &new_path) {
+                                        err!("Couldn't drag and drop mod file in: {err}");
+                                    }
                                 }
                             }
                         }
@@ -758,8 +760,10 @@ impl Launcher {
             .get_dot_minecraft_path()
             .join("mods")
             .join(filename);
-        if let Err(err) = std::fs::copy(path, &new_path) {
-            err!("Couldn't drag and drop mod file in: {err}");
+        if *path != new_path {
+            if let Err(err) = std::fs::copy(path, &new_path) {
+                err!("Couldn't drag and drop mod file in: {err}");
+            }
         }
     }
 
