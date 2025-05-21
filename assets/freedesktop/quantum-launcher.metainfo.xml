@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- Copyright 2025 Mrmayman -->
 <component type="desktop-application">
-    <id>io.github.Mrmayman.quantumlauncher</id>
-    <icon type="stock">io.github.Mrmayman.quantumlauncher</icon>
+    <id>io.github.Mrmayman.QuantumLauncher</id>
+    <icon type="stock">io.github.Mrmayman.QuantumLauncher</icon>
     <name>Quantum Launcher</name>
     <developer id="io.github.Mrmayman">
         <name>Mrmayman</name>
@@ -48,7 +48,7 @@
     <content_rating type="oars-1.1" />
     <launchable
         type="desktop-id"
-    >io.github.Mrmayman.quantumlauncher.desktop</launchable>
+    >io.github.Mrmayman.QuantumLauncher.desktop</launchable>
 
     <screenshots>
         <screenshot type="default">

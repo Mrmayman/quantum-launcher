@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>quantum_launcher</string>
     <key>CFBundleIdentifier</key>
-    <string>io.github.Mrmayman.quantumlauncher</string>
+    <string>io.github.Mrmayman.QuantumLauncher</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
