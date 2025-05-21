@@ -27,7 +27,7 @@ rfd = { version = "0.15", default-features = false, features = [
 zip-extract = { version = "0.3", default-features = false, features = [
     "deflate",
 ] }
-zip = "3"
+zip = { version = "3", default-features = false, features = ["deflate"] }
 
 image = { version = "0.24", default-features = false, features = [
     # Web formats are enough

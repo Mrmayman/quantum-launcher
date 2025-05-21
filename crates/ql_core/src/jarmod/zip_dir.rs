@@ -12,9 +12,7 @@ use super::JarModError;
 pub async fn zip_directory_to_bytes<P: AsRef<Path>>(dir: P) -> Result<Vec<u8>, JarModError> {
     let mut buffer = Cursor::new(Vec::new());
     let mut zip = ZipWriter::new(&mut buffer);
-    let options = FileOptions::<()>::default()
-        .compression_method(zip::CompressionMethod::Deflated)
-        .unix_permissions(0o755);
+    let options = FileOptions::<()>::default().unix_permissions(0o755);
 
     let dir = dir.as_ref();
     let base_path = dir;

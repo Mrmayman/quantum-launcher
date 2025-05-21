@@ -31,8 +31,10 @@ pub async fn install_amazon_corretto_java(
     );
     if url.ends_with("tar.gz") {
         extract_tar_gz(&file_bytes, install_dir).map_err(JavaInstallError::TarGzExtract)?;
-    } else {
+    } else if url.ends_with("zip") {
         zip_extract::extract(Cursor::new(&file_bytes), install_dir, true)?;
+    } else {
+        return Err(JavaInstallError::UnknownExtension(url.to_owned()));
     }
     Ok(())
 }

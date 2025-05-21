@@ -327,16 +327,19 @@ pub enum JavaInstallError {
     JsonDownload(#[from] JsonDownloadError),
     #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
-    #[error("{JAVA_INSTALL_ERR_PREFIX}couldn't extract java tar.gz:\n{0}")]
-    TarGzExtract(std::io::Error),
     #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
     Json(#[from] JsonError),
     #[error("{JAVA_INSTALL_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
     #[error("{JAVA_INSTALL_ERR_PREFIX}couldn't find java binary")]
     NoJavaBinFound,
+
     #[error("{JAVA_INSTALL_ERR_PREFIX}zip extract error:\n{0}")]
     ZipExtract(#[from] ZipExtractError),
+    #[error("{JAVA_INSTALL_ERR_PREFIX}couldn't extract java tar.gz:\n{0}")]
+    TarGzExtract(std::io::Error),
+    #[error("{JAVA_INSTALL_ERR_PREFIX}unknown extension for java: {0}\n\nTHIS IS A BUG, PLEASE REPORT ON DISCORD")]
+    UnknownExtension(String),
 }
 
 pub fn delete_java_installs() {
