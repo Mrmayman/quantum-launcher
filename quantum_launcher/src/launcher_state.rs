@@ -151,7 +151,6 @@ pub enum InstallModsMessage {
 pub enum InstallOptifineMessage {
     ScreenOpen,
     SelectInstallerStart,
-    SelectInstallerEnd(Option<rfd::FileHandle>),
     End(Res),
 }
 

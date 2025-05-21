@@ -19,8 +19,6 @@ pub enum ForgeInstallError {
     NoForgeVersionFound,
     #[error("{FORGE_INSTALL_ERR_PREFIX}error parsing int number:\n{0}")]
     ParseIntError(#[from] ParseIntError),
-    #[error("{FORGE_INSTALL_ERR_PREFIX}tempfile error:\n{0}")]
-    TempFile(std::io::Error),
     #[error("{FORGE_INSTALL_ERR_PREFIX}{0}")]
     JavaInstallError(#[from] JavaInstallError),
     #[error(
@@ -35,14 +33,19 @@ pub enum ForgeInstallError {
     FromUtf8Error(#[from] FromUtf8Error),
     #[error("{FORGE_INSTALL_ERR_PREFIX}couldn't find parent directory of library")]
     LibraryParentError,
-    #[error("{FORGE_INSTALL_ERR_PREFIX}no install json found")]
-    NoInstallJson,
-    #[error("{FORGE_INSTALL_ERR_PREFIX}zip extract: {0}")]
-    ZipExtract(#[from] ZipExtractError),
+    #[error("{FORGE_INSTALL_ERR_PREFIX}no install json found for Minecraft version: {0}\n\nThis is a bug! Please report!")]
+    NoInstallJson(String),
     #[error("while installing neoforge:\nwhile checking if NeoForge supports the current version:\ncouldn't parse version release date:\n{0}")]
     ChronoTime(#[from] chrono::ParseError),
     #[error("neoforge only supports Minecraft 1.20.2 and above, your version is outdated")]
     NeoforgeOutdatedMinecraft,
+
+    #[error("{FORGE_INSTALL_ERR_PREFIX}zip extract: {0}")]
+    ZipExtract(#[from] ZipExtractError),
+    #[error("{FORGE_INSTALL_ERR_PREFIX}zip: {0}")]
+    Zip(#[from] zip::result::ZipError),
+    #[error("{FORGE_INSTALL_ERR_PREFIX}couldn't read file {1} from zip:\n{0}")]
+    ZipIoError(std::io::Error, String),
 }
 
 impl_3_errs_jri!(ForgeInstallError, Json, Request, Io);

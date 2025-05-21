@@ -1,5 +1,6 @@
 use std::{
     fmt::Write,
+    io::{Cursor, Read},
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc::Sender,
@@ -35,6 +36,7 @@ struct ForgeInstaller {
     instance_dir: PathBuf,
     forge_dir: PathBuf,
     is_server: bool,
+    minecraft_version: String,
 }
 
 impl ForgeInstaller {
@@ -101,6 +103,7 @@ impl ForgeInstaller {
             instance_dir,
             forge_dir,
             is_server: instance_name.is_server(),
+            minecraft_version,
         })
     }
 
@@ -258,32 +261,46 @@ impl ForgeInstaller {
     }
 
     async fn get_forge_json(
+        &self,
         installer_file: &[u8],
     ) -> Result<(JsonDetails, String), ForgeInstallError> {
-        let temp_dir = Self::extract_zip_file(installer_file)?;
-        let forge_json_path = temp_dir.path().join("version.json");
-        if forge_json_path.exists() {
-            let forge_json = tokio::fs::read_to_string(&forge_json_path)
-                .await
-                .path(forge_json_path)?;
+        let mut zip =
+            zip::ZipArchive::new(Cursor::new(installer_file)).map_err(ForgeInstallError::Zip)?;
 
-            let forge_json_parsed: JsonDetails =
-                serde_json::from_str(&forge_json).json(forge_json.clone())?;
-            Ok((forge_json_parsed, forge_json))
-        } else {
-            let forge_json_path = temp_dir.path().join("install_profile.json");
-            if forge_json_path.exists() {
-                let forge_json = tokio::fs::read_to_string(&forge_json_path)
-                    .await
-                    .path(forge_json_path)?;
+        for i in 0..zip.len() {
+            let mut file = zip.by_index(i).map_err(ForgeInstallError::Zip)?;
+            let name = file.name().to_owned();
 
+            if name == "version.json" {
+                let mut forge_json = Vec::new();
+                file.read_to_end(&mut forge_json)
+                    .map_err(|n| ForgeInstallError::ZipIoError(n, name.clone()))?;
+
+                let forge_json_str = String::from_utf8(forge_json.clone())
+                    .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
+                let forge_json_parsed: JsonDetails =
+                    serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
+
+                return Ok((forge_json_parsed, forge_json_str));
+            } else if name == "install_profile.json" {
+                let mut forge_json = Vec::new();
+                file.read_to_end(&mut forge_json)
+                    .map_err(|n| ForgeInstallError::ZipIoError(n, name.clone()))?;
+
+                let forge_json_str = String::from_utf8(forge_json.clone())
+                    .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
                 let forge_json_parsed: JsonInstallProfile =
-                    serde_json::from_str(&forge_json).json(forge_json.clone())?;
-                Ok((forge_json_parsed.versionInfo, forge_json))
-            } else {
-                Err(ForgeInstallError::NoInstallJson)
+                    serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
+
+                let to_string =
+                    serde_json::to_string(&forge_json_parsed.versionInfo).unwrap_or(forge_json_str);
+                return Ok((forge_json_parsed.versionInfo, to_string));
             }
         }
+
+        Err(ForgeInstallError::NoInstallJson(
+            self.minecraft_version.clone(),
+        ))
     }
 
     async fn download_library(
@@ -397,19 +414,6 @@ impl ForgeInstaller {
             )
         };
         Ok((file, path))
-    }
-
-    pub fn extract_zip_file(archive: &[u8]) -> Result<tempfile::TempDir, ForgeInstallError> {
-        let temp_dir = match tempfile::TempDir::new() {
-            Ok(temp_dir) => temp_dir,
-            Err(err) => return Err(ForgeInstallError::TempFile(err)),
-        };
-
-        let target_dir = std::path::PathBuf::from(temp_dir.path());
-
-        zip_extract::extract(std::io::Cursor::new(archive), &target_dir, true)?;
-
-        Ok(temp_dir)
     }
 }
 
@@ -547,7 +551,7 @@ pub async fn install_client(
 
     let mut clean_classpath = String::new();
 
-    let (forge_json, forge_json_str) = ForgeInstaller::get_forge_json(&installer_file).await?;
+    let (forge_json, forge_json_str) = installer.get_forge_json(&installer_file).await?;
 
     let num_libraries = forge_json
         .libraries

@@ -360,18 +360,11 @@ impl Launcher {
                 });
             }
             InstallOptifineMessage::SelectInstallerStart => {
-                return Task::perform(
-                    rfd::AsyncFileDialog::new()
-                        .add_filter("jar/zip", &["jar", "zip"])
-                        .set_title("Select OptiFine Installer")
-                        .pick_file(),
-                    |n| Message::InstallOptifine(InstallOptifineMessage::SelectInstallerEnd(n)),
-                )
-            }
-            InstallOptifineMessage::SelectInstallerEnd(handle) => {
-                if let Some(handle) = handle {
-                    let path = handle.path().to_owned();
-
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("jar/zip", &["jar", "zip"])
+                    .set_title("Select OptiFine Installer")
+                    .pick_file()
+                {
                     let (p_sender, p_recv) = std::sync::mpsc::channel();
                     let (j_sender, j_recv) = std::sync::mpsc::channel();
 

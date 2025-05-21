@@ -24,10 +24,10 @@ rfd = { version = "0.15", default-features = false, features = [
     "tokio",
 ] }
 
-zip-extract = { version = "0.2", default-features = false, features = [
+zip-extract = { version = "0.3", default-features = false, features = [
     "deflate",
 ] }
-zip = "2"
+zip = "3"
 
 image = { version = "0.24", default-features = false, features = [
     # Web formats are enough

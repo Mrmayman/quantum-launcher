@@ -1,4 +1,9 @@
-use std::{fmt::Write, path::Path, sync::mpsc::Sender};
+use std::{
+    fmt::Write,
+    io::{Cursor, Read},
+    path::Path,
+    sync::mpsc::Sender,
+};
 
 use chrono::DateTime;
 use ql_core::{
@@ -29,7 +34,7 @@ pub async fn install(
     j_progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ForgeInstallError> {
     info!("Installing NeoForge");
-    let neoforge_version = get_neoforge_version(f_progress.as_ref(), &instance).await?;
+    let (neoforge_version, json) = get_neoforge_version(f_progress.as_ref(), &instance).await?;
 
     send_progress(
         f_progress.as_ref(),
@@ -66,7 +71,7 @@ pub async fn install(
     delete(&neoforge_dir, "launcher_profiles_microsoft_store.json").await?;
 
     if !instance.is_server() {
-        let jar_version_json = get_version_json(&installer_bytes, &neoforge_dir).await?;
+        let jar_version_json = get_version_json(&installer_bytes, &neoforge_dir, &json).await?;
 
         let libraries_path = neoforge_dir.join("libraries");
         tokio::fs::create_dir_all(&libraries_path)
@@ -156,19 +161,34 @@ pub async fn install(
 async fn get_version_json(
     installer_bytes: &[u8],
     neoforge_dir: &Path,
+    json: &VersionDetails,
 ) -> Result<ql_core::json::forge::JsonDetails, ForgeInstallError> {
-    let temp_extract = extract_zip_file(installer_bytes)?;
-    let jar_version_path = temp_extract.path().join("version.json");
-    let jar_version_json = tokio::fs::read_to_string(&jar_version_path)
-        .await
-        .path(&jar_version_path)?;
-    let out_jar_version_path = neoforge_dir.join("details.json");
-    tokio::fs::write(&out_jar_version_path, &jar_version_json)
-        .await
-        .path(&out_jar_version_path)?;
-    let jar_version_json: ql_core::json::forge::JsonDetails =
-        serde_json::from_str(&jar_version_json).json(jar_version_json)?;
-    Ok(jar_version_json)
+    let mut zip =
+        zip::ZipArchive::new(Cursor::new(installer_bytes)).map_err(ForgeInstallError::Zip)?;
+
+    for i in 0..zip.len() {
+        let mut file = zip.by_index(i).map_err(ForgeInstallError::Zip)?;
+        let name = file.name().to_owned();
+
+        if name == "version.json" {
+            let mut forge_json = Vec::new();
+            file.read_to_end(&mut forge_json)
+                .map_err(|n| ForgeInstallError::ZipIoError(n, name.clone()))?;
+
+            let out_jar_version_path = neoforge_dir.join("details.json");
+            tokio::fs::write(&out_jar_version_path, &forge_json)
+                .await
+                .path(&out_jar_version_path)?;
+
+            let jar_version_json: ql_core::json::forge::JsonDetails =
+                serde_json::from_slice(&forge_json)
+                    .json(String::from_utf8_lossy(&forge_json).to_string())?;
+
+            return Ok(jar_version_json);
+        }
+    }
+
+    Err(ForgeInstallError::NoInstallJson(json.id.clone()))
 }
 
 fn send_progress(f_progress: Option<&Sender<ForgeInstallProgress>>, message: ForgeInstallProgress) {
@@ -180,7 +200,7 @@ fn send_progress(f_progress: Option<&Sender<ForgeInstallProgress>>, message: For
 async fn get_neoforge_version(
     f_progress: Option<&Sender<ForgeInstallProgress>>,
     instance_selection: &InstanceSelection,
-) -> Result<String, ForgeInstallError> {
+) -> Result<(String, VersionDetails), ForgeInstallError> {
     pt!("Checking NeoForge versions");
     send_progress(f_progress, ForgeInstallProgress::P2DownloadingJson);
     let versions: NeoforgeVersions =
@@ -209,7 +229,7 @@ async fn get_neoforge_version(
         .ok_or(ForgeInstallError::NoForgeVersionFound)?
         .clone();
 
-    Ok(neoforge_version)
+    Ok((neoforge_version, version_json))
 }
 
 async fn delete(dir: &Path, path: &str) -> Result<(), IoError> {
@@ -295,17 +315,4 @@ async fn create_required_jsons(neoforge_dir: &Path) -> Result<(), ForgeInstallEr
         .path(launcher_profiles_json_microsoft_store_path)?;
 
     Ok(())
-}
-
-pub fn extract_zip_file(archive: &[u8]) -> Result<tempfile::TempDir, ForgeInstallError> {
-    let temp_dir = match tempfile::TempDir::new() {
-        Ok(temp_dir) => temp_dir,
-        Err(err) => return Err(ForgeInstallError::TempFile(err)),
-    };
-
-    let target_dir = std::path::PathBuf::from(temp_dir.path());
-
-    zip_extract::extract(std::io::Cursor::new(archive), &target_dir, true)?;
-
-    Ok(temp_dir)
 }

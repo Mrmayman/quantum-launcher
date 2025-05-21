@@ -355,7 +355,13 @@ impl GameLauncher {
                     let json_details: String = serde_json::from_str(&json).json(json)?;
                     serde_json::from_str(&json_details).json(json_details)?
                 } else {
-                    return Err(err).json(json)?;
+                    let new: Result<forge::JsonInstallProfile, serde_json::Error> =
+                        serde_json::from_str(&json);
+                    if let Ok(new) = new {
+                        new.versionInfo
+                    } else {
+                        return Err(err).json(json)?;
+                    }
                 }
             }
         };
