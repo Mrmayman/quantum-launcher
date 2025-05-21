@@ -7,7 +7,7 @@ use std::{
 use chrono::DateTime;
 use download::ModDownloader;
 use ql_core::{pt, GenericProgress, IntoJsonError, JsonDownloadError, ModId, RequestError, CLIENT};
-use reqwest::header::HeaderValue;
+use ql_reqwest::header::HeaderValue;
 use serde::Deserialize;
 
 use crate::{rate_limiter::RATE_LIMITER, store::SearchMod};
@@ -134,9 +134,9 @@ impl CFSearchResult {
             .map(|s| s.parse::<u64>().map(serde_json::Value::from))
             .collect::<Result<_, _>>()?;
 
-        let mut headers = reqwest::header::HeaderMap::new();
+        let mut headers = ql_reqwest::header::HeaderMap::new();
         headers.insert(
-            reqwest::header::ACCEPT,
+            ql_reqwest::header::ACCEPT,
             HeaderValue::from_static("application/json"),
         );
         headers.insert(
@@ -324,9 +324,9 @@ pub async fn send_request(
     api: &str,
     params: &HashMap<&str, String>,
 ) -> Result<String, RequestError> {
-    let mut headers = reqwest::header::HeaderMap::new();
+    let mut headers = ql_reqwest::header::HeaderMap::new();
     headers.insert(
-        reqwest::header::ACCEPT,
+        ql_reqwest::header::ACCEPT,
         HeaderValue::from_static("application/json"),
     );
     headers.insert("x-api-key", HeaderValue::from_str(API_KEY)?);

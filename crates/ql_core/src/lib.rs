@@ -55,7 +55,7 @@ macro_rules! no_window {
     };
 }
 
-pub static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+pub static CLIENT: LazyLock<ql_reqwest::Client> = LazyLock::new(ql_reqwest::Client::new);
 
 /// Perform multiple async tasks concurrently. Useful for things like
 /// downloading lots of files at the same time.

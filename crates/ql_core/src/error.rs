@@ -111,8 +111,8 @@ pub enum JsonDownloadError {
     SerdeError(#[from] JsonError),
 }
 
-impl From<reqwest::Error> for JsonDownloadError {
-    fn from(value: reqwest::Error) -> Self {
+impl From<ql_reqwest::Error> for JsonDownloadError {
+    fn from(value: ql_reqwest::Error) -> Self {
         Self::RequestError(RequestError::ReqwestError(value))
     }
 }
@@ -125,8 +125,8 @@ pub enum DownloadFileError {
     Io(#[from] IoError),
 }
 
-impl From<reqwest::Error> for DownloadFileError {
-    fn from(value: reqwest::Error) -> Self {
+impl From<ql_reqwest::Error> for DownloadFileError {
+    fn from(value: ql_reqwest::Error) -> Self {
         Self::Request(RequestError::ReqwestError(value))
     }
 }

@@ -705,16 +705,12 @@ impl Launcher {
                     } else {
                         idx
                     }
+                } else if idx > 0 {
+                    *selected_instance =
+                        InstanceSelection::new(list.get(idx - 1).unwrap(), menu.is_viewing_server);
+                    idx - 1
                 } else {
-                    if idx > 0 {
-                        *selected_instance = InstanceSelection::new(
-                            list.get(idx - 1).unwrap(),
-                            menu.is_viewing_server,
-                        );
-                        idx - 1
-                    } else {
-                        idx
-                    }
+                    idx
                 }
             } else {
                 debug_assert!(
@@ -732,13 +728,13 @@ impl Launcher {
 
         let scroll_pos = idx as f32 / (list.len() as f32 - 1.0);
         let scroll_pos = scroll_pos * menu.sidebar_height;
-        return iced::widget::scrollable::scroll_to(
+        iced::widget::scrollable::scroll_to(
             iced::widget::scrollable::Id::new("MenuLaunch:sidebar"),
             iced::widget::scrollable::AbsoluteOffset {
                 x: 0.0,
                 y: scroll_pos,
             },
-        );
+        )
     }
 
     fn load_modpack_from_path(&mut self, path: PathBuf) -> Task<Message> {
@@ -870,10 +866,10 @@ impl Launcher {
         };
 
         if let Some(account) = &self.accounts_selected {
-            if account == OFFLINE_ACCOUNT_NAME {
-                if self.config.username.is_empty() || self.config.username.contains(' ') {
-                    return Task::none();
-                }
+            if account == OFFLINE_ACCOUNT_NAME
+                && (self.config.username.is_empty() || self.config.username.contains(' '))
+            {
+                return Task::none();
             }
         }
 

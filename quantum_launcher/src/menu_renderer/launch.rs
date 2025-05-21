@@ -388,7 +388,6 @@ impl Launcher {
                     shortcut_ctrl("Enter"),
                 )
             }
-            .into()
         } else {
             tooltip(play_button, "Select an instance first!")
         }

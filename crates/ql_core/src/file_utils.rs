@@ -5,7 +5,7 @@ use std::{
 };
 
 use futures::StreamExt;
-use reqwest::header::InvalidHeaderValue;
+use ql_reqwest::header::InvalidHeaderValue;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::fs::DirEntry;
@@ -330,11 +330,11 @@ const NETWORK_ERROR_MSG: &str = r"
 pub enum RequestError {
     #[error("Download Error (code {code}){NETWORK_ERROR_MSG}Url: {url}")]
     DownloadError {
-        code: reqwest::StatusCode,
-        url: reqwest::Url,
+        code: ql_reqwest::StatusCode,
+        url: ql_reqwest::Url,
     },
     #[error("Network Request Error{NETWORK_ERROR_MSG}{0}")]
-    ReqwestError(#[from] reqwest::Error),
+    ReqwestError(#[from] ql_reqwest::Error),
     #[error("Download Error (invalid header value){NETWORK_ERROR_MSG}")]
     InvalidHeaderValue(#[from] InvalidHeaderValue),
 }

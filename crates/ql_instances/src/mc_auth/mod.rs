@@ -43,7 +43,7 @@ use ql_core::{
     err, info, pt, retry, GenericProgress, IntoJsonError, IntoStringError, JsonError, RequestError,
     CLIENT,
 };
-use reqwest::{Client, StatusCode};
+use ql_reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -144,8 +144,8 @@ pub enum AuthError {
     KeyringError(#[from] keyring::Error),
 }
 
-impl From<reqwest::Error> for AuthError {
-    fn from(value: reqwest::Error) -> Self {
+impl From<ql_reqwest::Error> for AuthError {
+    fn from(value: ql_reqwest::Error) -> Self {
         Self::Request(RequestError::ReqwestError(value))
     }
 }

@@ -1,0 +1,19 @@
+[package]
+name = "ql_reqwest"
+version = "0.1.0"
+edition = "2024"
+
+# Default for all platforms (native-tls backend)
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# Override for Linux to use rustls
+[target.'cfg(target_os = "linux")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "stream",
+    "rustls-tls",
+    # Default features
+    "charset",
+    "http2",
+] }

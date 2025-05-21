@@ -7,11 +7,11 @@ members = [
     "crates/omniarchive_api",
     "crates/ql_servers",
     "crates/ql_java_handler",
+    "crates/ql_reqwest",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-reqwest = { version = "0.12", features = ["json", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["fs", "macros", "process"] }
