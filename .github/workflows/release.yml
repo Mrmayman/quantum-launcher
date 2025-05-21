@@ -175,7 +175,7 @@ jobs:
           cp assets/freedesktop/manifest.yml .
           flatpak-builder --user build manifest.yml
           flatpak build-export export build
-          exec flatpak build-bundle export quantum-launcher.flatpak com.mrmayman.quantumlauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+          exec flatpak build-bundle export quantum-launcher.flatpak io.github.Mrmayman.quantumlauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 
       - name: Copy Flatpak
         run: |

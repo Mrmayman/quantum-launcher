@@ -1,4 +1,4 @@
-app-id: com.mrmayman.quantumlauncher
+app-id: io.github.Mrmayman.quantumlauncher
 runtime: org.freedesktop.Platform
 runtime-version: "24.08"
 sdk: org.freedesktop.Sdk
@@ -34,15 +34,16 @@ modules:
         path: assets/freedesktop/quantum-launcher.desktop
       - type: file
         path: assets/freedesktop/quantum-launcher.metainfo.xml
-      - type: file
-        path: assets/icon/ql_logo.png
     build-commands:
       - cargo build --profile release-ql
       - strip --strip-all target/release-ql/quantum_launcher
       - install -Dm755 target/release-ql/quantum_launcher /app/bin/quantum-launcher
-      - install -Dm644 quantum-launcher.desktop /app/share/applications/com.mrmayman.quantumlauncher.desktop
-      - install -Dm644 quantum-launcher.metainfo.xml /app/share/metainfo/com.mrmayman.quantumlauncher.metainfo.xml
-      - install -Dm644 ql_logo.png /app/share/icons/hicolor/128x128/apps/com.mrmayman.quantumlauncher.png
+      - install -Dm644 quantum-launcher.desktop /app/share/applications/io.github.Mrmayman.quantumlauncher.desktop
+      - install -Dm644 quantum-launcher.metainfo.xml /app/share/metainfo/io.github.Mrmayman.quantumlauncher.metainfo.xml
+      - install -Dm644 assets/icon/32x32/ql_logo.png /app/share/icons/hicolor/32x32/apps/io.github.Mrmayman.quantumlauncher.png
+      - install -Dm644 assets/icon/128x128/ql_logo.png /app/share/icons/hicolor/128x128/apps/io.github.Mrmayman.quantumlauncher.png
+      - install -Dm644 assets/icon/256x256/ql_logo.png /app/share/icons/hicolor/256x256/apps/io.github.Mrmayman.quantumlauncher.png
+      - install -Dm644 assets/icon/512x512/ql_logo.png /app/share/icons/hicolor/512x512/apps/io.github.Mrmayman.quantumlauncher.png
     build-options:
       append-path: "/usr/lib/sdk/rust-stable/bin"
       build-args:
