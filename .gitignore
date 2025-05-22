@@ -22,5 +22,6 @@ logs/
 perf.data
 flamegraph.svg
 perf.data.old
+flatpak-cargo-generator.py
 
 build

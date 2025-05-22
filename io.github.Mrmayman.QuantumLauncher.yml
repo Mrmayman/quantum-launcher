@@ -13,7 +13,7 @@ finish-args:
   # X11 + XShm access
   - --share=ipc
   - --socket=x11
-  # It's Minecraft, so needs access to as many devices as possible for modding
+  # Controller and other devices
   - --device=all
   - --device=shm
   # Access to PulseAudio
@@ -29,22 +29,28 @@ modules:
     sources:
       - type: git
         url: https://github.com/Mrmayman/quantum-launcher
-        branch: main
+        tag: v0.4
+        commit: b33f02205ef391a6e1ae3a49d59d584b2ab4578c
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
       - type: file
         path: assets/freedesktop/quantum-launcher.desktop
       - type: file
         path: assets/freedesktop/quantum-launcher.metainfo.xml
+      - flathub-sources.json
     build-commands:
-      - cargo build --profile release-ql
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --profile release-ql --verbose
       - strip --strip-all target/release-ql/quantum_launcher
       - install -Dm755 target/release-ql/quantum_launcher /app/bin/quantum-launcher
       - install -Dm644 quantum-launcher.desktop /app/share/applications/io.github.Mrmayman.QuantumLauncher.desktop
       - install -Dm644 quantum-launcher.metainfo.xml /app/share/metainfo/io.github.Mrmayman.QuantumLauncher.metainfo.xml
-      - install -Dm644 assets/icon/32x32/ql_logo.png /app/share/icons/hicolor/32x32/apps/io.github.Mrmayman.QuantumLauncher.png
-      - install -Dm644 assets/icon/128x128/ql_logo.png /app/share/icons/hicolor/128x128/apps/io.github.Mrmayman.QuantumLauncher.png
       - install -Dm644 assets/icon/256x256/ql_logo.png /app/share/icons/hicolor/256x256/apps/io.github.Mrmayman.QuantumLauncher.png
       - install -Dm644 assets/icon/512x512/ql_logo.png /app/share/icons/hicolor/512x512/apps/io.github.Mrmayman.QuantumLauncher.png
     build-options:
       append-path: "/usr/lib/sdk/rust-stable/bin"
-      build-args:
-        - "--share=network"
+      env:
+        CARGO_HOME: /run/build/QuantumLauncher/cargo
+
+      

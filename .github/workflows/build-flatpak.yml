@@ -6,11 +6,6 @@ name: Build-Flatpak
 on:
   workflow_dispatch: # allows manual triggering
 
-env:
-  BIN_NAME: quantum_launcher
-  PROJECT_NAME: quantum_launcher
-  REPO_NAME: Mrmayman/quantum-launcher
-
 jobs:
   Flatpak:
     name: Build Flatpak
@@ -29,16 +24,12 @@ jobs:
         
       - name: Build Flatpak
         run: |
-          cp assets/freedesktop/manifest.yml .
-          flatpak-builder --user build manifest.yml
+          flatpak-builder --user build io.github.Mrmayman.QuantumLauncher.yml
           flatpak build-export export build
-          exec flatpak build-bundle export quantum-launcher.flatpak com.mrmayman.quantumlauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+          exec flatpak build-bundle export io.github.Mrmayman.QuantumLauncher.flatpak io.github.Mrmayman.QuantumLauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 
-      - name: Copy Flatpak
-        run: |
-          mv quantum-launcher.flatpak quantum_launcher.flatpak
 
       - uses: actions/upload-artifact@v4
         with:
           name: quantum-launcher-flatpak_x86_64
-          path: quantum_launcher.flatpak
+          path: io.github.Mrmayman.QuantumLauncher.flatpak
