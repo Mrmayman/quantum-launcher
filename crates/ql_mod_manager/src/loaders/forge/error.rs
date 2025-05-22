@@ -1,6 +1,6 @@
 use std::{num::ParseIntError, path::PathBuf, string::FromUtf8Error};
 
-use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};
+use ql_core::{impl_3_errs_jri, DownloadFileError, IoError, JsonError, RequestError};
 use ql_java_handler::JavaInstallError;
 use thiserror::Error;
 use zip_extract::ZipExtractError;
@@ -66,8 +66,18 @@ impl<T, E: Is404NotFound> Is404NotFound for Result<T, E> {
 
 impl Is404NotFound for ForgeInstallError {
     fn is_not_found(&self) -> bool {
-        if let ForgeInstallError::Request(RequestError::DownloadError { code, .. }) = &self {
-            code.as_u16() == 404
+        if let ForgeInstallError::Request(err) = &self {
+            err.is_not_found()
+        } else {
+            false
+        }
+    }
+}
+
+impl Is404NotFound for DownloadFileError {
+    fn is_not_found(&self) -> bool {
+        if let DownloadFileError::Request(err) = &self {
+            err.is_not_found()
         } else {
             false
         }

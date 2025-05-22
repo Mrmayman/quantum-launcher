@@ -258,9 +258,7 @@ impl Launcher {
                     .client_logs
                     .get(self.selected_instance.as_ref().unwrap().get_name())
                 {
-                    return iced::clipboard::write(
-                        log.log.iter().fold(String::new(), |n, v| n + v + "\n"),
-                    );
+                    return iced::clipboard::write(log.log.join(""));
                 }
             }
             Message::UpdateCheckResult(Ok(info)) => match info {

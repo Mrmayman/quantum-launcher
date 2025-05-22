@@ -120,10 +120,10 @@ impl ForgeInstaller {
         self.send_progress(ForgeInstallProgress::P3DownloadingInstaller);
 
         let installer_file = self.try_downloading_from_urls(&[
-            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type}.jar", self.short_version, self.short_version),
-            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type}.jar", self.norm_forge_version, self.norm_forge_version),
-            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type_flipped}.jar", self.short_version, self.short_version),
-            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-{file_type_flipped}.jar", self.norm_forge_version, self.norm_forge_version),
+            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type}.jar", ver = self.short_version),
+            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type}.jar", ver = self.norm_forge_version),
+            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type_flipped}.jar", ver = self.short_version),
+            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type_flipped}.jar", ver = self.norm_forge_version),
             // TODO: Minecraft 1.1: Needs Jarmod support
             // &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.short_version, self.short_version),
             // &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.norm_forge_version, self.norm_forge_version),
@@ -149,7 +149,10 @@ impl ForgeInstaller {
             let result = file_utils::download_file_to_bytes(url, false).await;
 
             match result {
-                Ok(file) => return Ok(file),
+                Ok(file) => {
+                    pt!("({url})");
+                    return Ok(file);
+                }
                 Err(err) => {
                     let is_last_url = i + 1 == num_urls;
                     if err.is_not_found() && !is_last_url {
@@ -267,40 +270,40 @@ impl ForgeInstaller {
         let mut zip =
             zip::ZipArchive::new(Cursor::new(installer_file)).map_err(ForgeInstallError::Zip)?;
 
-        for i in 0..zip.len() {
-            let mut file = zip.by_index(i).map_err(ForgeInstallError::Zip)?;
-            let name = file.name().to_owned();
+        if let Ok(file) = zip.by_name("version.json") {
+            let forge_json: Result<Vec<u8>, std::io::Error> = file.bytes().collect();
+            let forge_json = forge_json
+                .map_err(|n| ForgeInstallError::ZipIoError(n, "version.json".to_owned()))?;
 
-            if name == "version.json" {
-                let mut forge_json = Vec::new();
-                file.read_to_end(&mut forge_json)
-                    .map_err(|n| ForgeInstallError::ZipIoError(n, name.clone()))?;
+            let forge_json_str = String::from_utf8(forge_json.clone())
+                .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
+            let forge_json_parsed: JsonDetails =
+                serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
 
-                let forge_json_str = String::from_utf8(forge_json.clone())
-                    .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
-                let forge_json_parsed: JsonDetails =
-                    serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
+            return Ok((forge_json_parsed, forge_json_str));
+        }
+        if let Ok(file) = zip.by_name("install_profile.json") {
+            let forge_json: Result<Vec<u8>, std::io::Error> = file.bytes().collect();
+            let forge_json = forge_json
+                .map_err(|n| ForgeInstallError::ZipIoError(n, "install_profile.json".to_owned()))?;
 
-                return Ok((forge_json_parsed, forge_json_str));
-            } else if name == "install_profile.json" {
-                let mut forge_json = Vec::new();
-                file.read_to_end(&mut forge_json)
-                    .map_err(|n| ForgeInstallError::ZipIoError(n, name.clone()))?;
-
-                let forge_json_str = String::from_utf8(forge_json.clone())
-                    .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
-                let forge_json_parsed: JsonInstallProfile =
-                    serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
+            let forge_json_str = String::from_utf8(forge_json.clone())
+                .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
+            return if let Ok(forge_json_parsed) = serde_json::from_slice(&forge_json) {
+                let forge_json_parsed: JsonInstallProfile = forge_json_parsed;
 
                 let to_string =
                     serde_json::to_string(&forge_json_parsed.versionInfo).unwrap_or(forge_json_str);
-                return Ok((forge_json_parsed.versionInfo, to_string));
-            }
+                Ok((forge_json_parsed.versionInfo, to_string))
+            } else {
+                let forge_json_parsed: JsonDetails =
+                    serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
+                Ok((forge_json_parsed, forge_json_str))
+            };
         }
-
-        Err(ForgeInstallError::NoInstallJson(
+        return Err(ForgeInstallError::NoInstallJson(
             self.minecraft_version.clone(),
-        ))
+        ));
     }
 
     async fn download_library(
@@ -365,7 +368,7 @@ impl ForgeInstaller {
                 library.name
             );
 
-            let result = file_utils::download_file_to_bytes(&url, false).await;
+            let result = file_utils::download_file_to_path(&url, false, &dest).await;
             if result.is_not_found() {
                 err!("Error 404 not found. Skipping...");
                 return Ok(());

@@ -60,14 +60,8 @@ comrak = { version = "0.38", default-features = false } # Markdown rendering
 image = { workspace = true }                            # Image loading
 html5ever = { workspace = true }                        # HTML rendering
 markup5ever_rcdom = { workspace = true }                #
-
 # iced::widget::markdown doesn't have inline
 # HTML support so I made my own renderer.
-
-# Shenanigans to get Reqwest building everywhere
-# this is probably not a good idea but whatever.
-[target.'cfg(all(target_os = "linux", any(target_env = "musl", not(target_arch = "x86_64"))))'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = ["Win32_System_Console"] }

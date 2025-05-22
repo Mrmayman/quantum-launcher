@@ -3500,7 +3500,6 @@ dependencies = [
  "iced",
  "image",
  "markup5ever_rcdom",
- "openssl",
  "paste",
  "ql_core",
  "ql_instances",
