@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use ql_core::{
     file_utils, impl_3_errs_jri, info, json::VersionDetails, pt, IntoIoError, IoError, JsonError,
-    Loader, RequestError, LAUNCHER_DIR,
+    RequestError, LAUNCHER_DIR,
 };
 use serde::Deserialize;
 use thiserror::Error;
@@ -60,7 +60,7 @@ async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     Ok(())
 }
 
-pub async fn uninstall(instance_name: String) -> Result<Loader, PaperInstallerError> {
+pub async fn uninstall(instance_name: String) -> Result<(), PaperInstallerError> {
     let server_dir = LAUNCHER_DIR.join("servers").join(instance_name);
 
     let jar_path = server_dir.join("paper_server.jar");
@@ -87,7 +87,7 @@ pub async fn uninstall(instance_name: String) -> Result<Loader, PaperInstallerEr
 
     change_instance_type(&server_dir, "Vanilla".to_owned()).await?;
 
-    Ok(Loader::Paper)
+    Ok(())
 }
 
 pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {

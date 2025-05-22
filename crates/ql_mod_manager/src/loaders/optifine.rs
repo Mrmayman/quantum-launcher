@@ -9,7 +9,7 @@ use ql_core::{
     file_utils, impl_3_errs_jri, info, jarmod,
     json::{optifine::JsonOptifine, VersionDetails},
     no_window, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonError,
-    Loader, Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
+    Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
 use thiserror::Error;
@@ -149,7 +149,7 @@ fn send_progress(
     }
 }
 
-pub async fn uninstall(instance_name: String) -> Result<Loader, OptifineError> {
+pub async fn uninstall(instance_name: String) -> Result<(), OptifineError> {
     let instance_path = LAUNCHER_DIR.join("instances").join(&instance_name);
 
     let optifine_path = instance_path.join("optifine");
@@ -188,7 +188,7 @@ pub async fn uninstall(instance_name: String) -> Result<Loader, OptifineError> {
             }
         }
     }
-    Ok(Loader::OptiFine)
+    Ok(())
 }
 
 async fn create_hook_java_file(

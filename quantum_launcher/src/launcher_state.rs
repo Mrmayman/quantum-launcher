@@ -16,7 +16,7 @@ use ql_core::{
     jarmod::JarMods,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
-    JsonFileError, Loader, ModId, OptifineUniqueVersion, Progress, SelectedMod, StoreBackendType,
+    JsonFileError, ModId, OptifineUniqueVersion, Progress, SelectedMod, StoreBackendType,
     LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
@@ -243,7 +243,7 @@ pub enum Message {
     UninstallLoaderForgeStart,
     UninstallLoaderOptiFineStart,
     UninstallLoaderPaperStart,
-    UninstallLoaderEnd(Res<Loader>),
+    UninstallLoaderEnd(Res),
 
     CoreErrorCopy,
     CoreErrorCopyLog,

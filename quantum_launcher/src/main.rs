@@ -35,7 +35,7 @@ use launcher_state::{
 
 use ql_core::{
     err, err_no_log, file_utils, info, info_no_log, open_file_explorer, InstanceSelection,
-    IntoStringError, Loader, LOGGER,
+    IntoStringError, LOGGER,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -229,18 +229,11 @@ impl Launcher {
                     Message::UninstallLoaderEnd,
                 );
             }
-            Message::UninstallLoaderEnd(Ok(loader)) => {
-                let message = format!(
-                    "Uninstalled {}",
-                    if let Loader::Fabric = loader {
-                        "Fabric/Quilt".to_owned()
-                    } else {
-                        // TODO: If the debug printing gets a bit too debug-ey
-                        // in the future, this may scare off users.
-                        format!("{loader:?}")
-                    }
-                );
-                return self.go_to_main_menu_with_message(Some(message));
+            Message::UninstallLoaderEnd(Ok(_)) => {
+                match self.go_to_edit_mods_menu_without_update_check() {
+                    Ok(n) => return n,
+                    Err(err) => self.set_error(err),
+                }
             }
             Message::InstallForgeStart { is_neoforge } => {
                 return self.install_forge(is_neoforge);

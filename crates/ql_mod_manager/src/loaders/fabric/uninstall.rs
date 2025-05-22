@@ -1,8 +1,7 @@
 use std::path::Path;
 
 use ql_core::{
-    info, json::FabricJSON, InstanceSelection, IntoIoError, IntoJsonError, IoError, Loader,
-    LAUNCHER_DIR,
+    info, json::FabricJSON, InstanceSelection, IntoIoError, IntoJsonError, IoError, LAUNCHER_DIR,
 };
 
 use crate::loaders::change_instance_type;
@@ -84,10 +83,9 @@ pub async fn uninstall_client(instance_name: String) -> Result<(), FabricInstall
     Ok(())
 }
 
-pub async fn uninstall(instance_name: InstanceSelection) -> Result<Loader, FabricInstallError> {
+pub async fn uninstall(instance_name: InstanceSelection) -> Result<(), FabricInstallError> {
     match instance_name {
         InstanceSelection::Instance(n) => uninstall_client(n).await,
         InstanceSelection::Server(n) => uninstall_server(n).await,
     }
-    .map(|()| Loader::Fabric)
 }

@@ -1,17 +1,16 @@
 use std::path::Path;
 
-use ql_core::{find_forge_shim_file, InstanceSelection, IntoIoError, Loader, LAUNCHER_DIR};
+use ql_core::{find_forge_shim_file, InstanceSelection, IntoIoError, LAUNCHER_DIR};
 
 use crate::loaders::change_instance_type;
 
 use super::error::ForgeInstallError;
 
-pub async fn uninstall(instance: InstanceSelection) -> Result<Loader, ForgeInstallError> {
+pub async fn uninstall(instance: InstanceSelection) -> Result<(), ForgeInstallError> {
     match instance {
         InstanceSelection::Instance(instance) => uninstall_client(&instance).await,
         InstanceSelection::Server(instance) => uninstall_server(&instance).await,
     }
-    .map(|()| Loader::Forge)
 }
 
 pub async fn uninstall_client(instance: &str) -> Result<(), ForgeInstallError> {
