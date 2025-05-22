@@ -1,7 +1,5 @@
-
-
 # <img src="https://github.com/Mrmayman/quantum-launcher/raw/main/assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
-## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5)
+## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5) | [Changelogs](https://github.com/Mrmayman/quantum-launcher/raw/main/CHANGELOGS.md)
 
 A minimalistic Minecraft launcher for Windows, macOS and Linux.
 
