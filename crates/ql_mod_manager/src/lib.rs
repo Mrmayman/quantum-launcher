@@ -1,6 +1,9 @@
-//! # A crate for dealing with mods
+//! # A crate for dealing with Minecraft mods
 //!
-//! This crate provides a way to manage mods for Quantum Launcher.
+//! **Not recommended to use this in your own projects!**
+//!
+//! This crate provides a way to manage mods for
+//! [Quantum Launcher](https://mrmayman.github.io/quantumlauncher).
 //!
 //! # Features
 //! - Interacting with Modrinth and Curseforge API to

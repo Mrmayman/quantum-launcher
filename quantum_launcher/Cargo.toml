@@ -4,7 +4,7 @@ version = "0.4.1"
 edition = "2021"
 
 authors = ["Mrmayman <navneetkrishna22@gmail.com>"]
-description = "A simple Minecraft Launcher written in Rust."
+description = "A simple, powerful Minecraft Launcher"
 keywords = ["minecraft", "mc", "launcher"]
 license = "GPL-3.0-only"
 homepage = "https://mrmayman.github.io/quantumlauncher"

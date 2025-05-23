@@ -1,5 +1,6 @@
-//! A shim library that wraps reqwest.
-//! Seriously, this is the entire library:
+//! A shim library for
+//! [Quantum Launcher](https://mrmayman.github.io/quantumlauncher)
+//! that wraps reqwest. Seriously, this is the entire library:
 //!
 //! ```no_run
 //! pub use reqwest::*;
@@ -9,5 +10,7 @@
 //! fine-grained control over reqwest's build process across
 //! platforms, and correctly tweak the TLS implementation and
 //! other crate features.
+//!
+//! # Not recommended to use this in your own projects!
 
 pub use reqwest::*;

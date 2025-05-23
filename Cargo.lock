@@ -3381,7 +3381,7 @@ checksum = "afbdc74edc00b6f6a218ca6a5364d6226a259d4b8ea1af4a0ea063f27e179f4d"
 
 [[package]]
 name = "ql_core"
-version = "0.4.1"
+version = "0.0.0"
 dependencies = [
  "chrono",
  "colored",
@@ -3401,7 +3401,7 @@ dependencies = [
 
 [[package]]
 name = "ql_instances"
-version = "0.4.1"
+version = "0.0.0"
 dependencies = [
  "any_ascii",
  "chrono",
@@ -3423,7 +3423,7 @@ dependencies = [
 
 [[package]]
 name = "ql_java_handler"
-version = "0.4.1"
+version = "0.0.0"
 dependencies = [
  "colored",
  "flate2",
@@ -3439,7 +3439,7 @@ dependencies = [
 
 [[package]]
 name = "ql_mod_manager"
-version = "0.4.1"
+version = "0.0.0"
 dependencies = [
  "chrono",
  "colored",
@@ -3458,14 +3458,14 @@ dependencies = [
 
 [[package]]
 name = "ql_reqwest"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "reqwest",
 ]
 
 [[package]]
 name = "ql_servers"
-version = "0.4.1"
+version = "0.0.0"
 dependencies = [
  "colored",
  "omniarchive_api",

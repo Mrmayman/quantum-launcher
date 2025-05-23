@@ -1,5 +1,10 @@
 //! # Omniarchive API
-//! This crate provides an API to scrape the Omniarchive website for Minecraft versions.
+//! This crate provides an API to scrape the Omniarchive website
+//! for Minecraft versions.
+//!
+//! It's used by [Quantum Launcher](https://mrmayman.github.io/quantumlauncher).
+//!
+//! **Not recommended to use in your own projects, but go ahead if you wish**
 //!
 //! It supports both client and server versions of the following categories:
 //!

@@ -1,4 +1,8 @@
-//! Core utilities shared between the various crates.
+//! Core utilities for
+//! [Quantum Launcher](https://mrmayman.github.io/quantumlauncher)
+//! used by the various crates.
+//!
+//! **Not recommended to use in your own projects!**
 //!
 //! # Contains
 //! - Java auto-installer

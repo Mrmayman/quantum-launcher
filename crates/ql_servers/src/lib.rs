@@ -1,3 +1,11 @@
+//! # A crate for managing Minecraft servers
+//!
+//! **Not recommended to use this in your own projects!**
+//!
+//! This is a crate of
+//! [Quantum Launcher](https://mrmayman.github.io/quantumlauncher)
+//! for managing Minecraft servers.
+
 use std::path::PathBuf;
 
 use ql_core::{impl_3_errs_jri, IoError, JsonError, RequestError};

@@ -1,13 +1,23 @@
 //! # A module for creating, managing and running Minecraft client instances
 //!
+//! This is a crate of
+//! [Quantum Launcher](https://mrmayman.github.io/quantumlauncher)
+//! for dealing with many operations of Minecraft instances.
+//!
+//! **Not recommended to use in your own projects!**
+//!
 //! This module contains functions to:
 //! - Create an instance
 //! - Launch the instance
 //! - Update the launcher
 //! - Read logs
 //! - List versions available for download
+//! - Authenticate with Microsoft Accounts
 //!
 //! # A rant about natives
+//!
+//! (probably not relevant for you)
+//!
 //! ## What are natives?
 //! Natives are libraries that are platform-specific.
 //! They are used by Minecraft to interface with the operating system.
