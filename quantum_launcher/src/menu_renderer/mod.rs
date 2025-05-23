@@ -154,15 +154,14 @@ impl MenuLauncherUpdate {
                 ).push_maybe((cfg!(target_os = "linux")).then_some(
                     widget::column!(
                         // WARN: Package manager
-                        "Note: If you installed this launcher from a package manager (apt/dnf/pacman/..) it's recommended to update from there",
-                        "If you just downloaded it from the website then it's fine."
+                        "Note: If you installed this launcher from a package manager (flatpak/apt/dnf/pacman/..) it's recommended to update from there",
+                        "If you just downloaded it from the website then continue from here."
                     )
                 )).push_maybe((cfg!(target_os = "macos")).then_some(
                     // WARN: macOS updater
-                    "Note: The updater may be broken on macOS so download the new version from the website"
+                    "Note: The updater may be broken on macOS, so download the new version from the website"
                 ))
                 .spacing(5),
-                "Note: If you downloaded this from a package manager or store, update it from there, not here."
             )
         }
         .padding(10)

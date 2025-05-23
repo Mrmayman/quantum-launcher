@@ -38,6 +38,99 @@ pub static IMG_LOGO: LazyLock<Handle> = LazyLock::new(|| {
     Handle::from_bytes(include_bytes!("../../../assets/icon/ql_logo.png").as_slice())
 });
 
+pub fn changelog_0_4_1<'a>() -> Element<'a> {
+    widget::column![
+        widget::text("QuantumLauncher v0.4.1 is here!").size(40),
+
+        widget::container(
+            widget::column![
+                widget::text("TL;DR").size(32),
+                "- Shaders, Resource Pack, Modpack stores added",
+                "- Modpack support is here!",
+                "- Quality-of-life tweaks, keyboard navigation",
+                "- Portable mode, custom location support via qldir.txt",
+                "- Major bugfixes across modding, authentication, and platform compatibility",
+            ].padding(10).spacing(5)
+        ),
+
+        widget::Space::with_height(5),
+        widget::horizontal_rule(4.0),
+        widget::text("Modding").size(32),
+        "- added Modpacks, Shaders and Resource Packs stores",
+        "- drag-and-drop support for mod files, modpacks and presets",
+        "- jarmod patching support (useful for old Minecraft versions)",
+        "- OptiFine support for b1.6.6, b1.7.3, 1.2.5 and 1.5.2",
+        widget::text("UX").size(24),
+        "- \"Open Mod Page\" in mod description now shows URL in tooltip",
+        "- added bullet/numbered list support in curseforge mod descriptions",
+        "- mod update checking is now up to 3-4x faster!",
+
+        widget::horizontal_rule(4.0),
+        widget::text("Portable Mode & Custom Paths").size(32),
+        "- You can control where QuantumLauncher stores data by placing a qldir.txt file in one of the following locations:",
+        "-- Next to the launcher executable",
+        "-- In the working directory where it's run",
+        "-- In the global [QuantumLauncher folder](https://mrmayman.github.io/quantumlauncher/faq#files-location)",
+
+        "- Leave the file blank for full portable mode, or write a path inside it to set a custom data location.",
+        "- > Note: On macOS you may need to extract the .app from the DMG for portable mode.",
+
+        widget::horizontal_rule(4.0),
+        widget::text("Menu Overhauls").size(32),
+        "- Welcome screen redesigned to guide new users more clearly",
+        "- Error screen looks better, now has a \"Copy Log + Error\" button",
+        "- Fabric Install screen is now simpler and less cluttered",
+
+        widget::horizontal_rule(4.0),
+        widget::text("UI/UX").size(32),
+        "- new Catppuccin color scheme",
+        "- improved aesthetics of light themes",
+        "- animated pulsating \"...\" dots in a few \"Loading\" screens",
+        "- minor tweaks to buttons and layout in many screens",
+        "- added a \"Clean Java Installs\" button (for reinstalling java) in launcher settings",
+        "- old versions in the version list now have cleaner names (\"beta/b1.7/b1.7.3\" -> \"b1.7.3\")",
+        "- window size now respects UI scale",
+
+        widget::horizontal_rule(4.0),
+        widget::text("Keyboard Navigation").size(32),
+        "- Up/Down arrow keys to select instance",
+        "- Ctrl+Enter -> launch instance",
+        "- Ctrl+Backspace -> kill instance",
+        "- Ctrl+Q -> exit launcher (only in main menu, when nothing's running)",
+        "- (note: on macOS it's Cmd instead of Ctrl)",
+        "- More coming in the future!",
+
+        widget::horizontal_rule(4.0),
+        widget::text("Game Crashed message").size(32),
+        "- there is now a \"Join Discord\" button in Logs tab",
+        "- there's no longer a tip mentioning a \"second terminal\" upon crash (no longer needed)",
+
+        widget::horizontal_rule(4.0),
+        widget::text("Dependencies (Technical)").size(32),
+        "- dropped OpenSSL and LZMA dependencies on linux",
+        "-- now depends only on libgcc_s and libc (glibc)",
+        "-- replaced OpenSSL with rustls",
+
+        widget::horizontal_rule(4.0),
+        widget::text("Fixes").size(32),
+        "- crash messages now appear in Logs tab (critical!)",
+        "- forge now works after renaming instance",
+        "- multiplayer now works in 1.16.x for offline accounts",
+        "- mod updating and preset importing are now working again! (fixed error for curseforge, index corruption for modrinth)",
+        "- fixed extreme launcher log file spam",
+        widget::text("UI/UX").size(24),
+        "- UI scaling now has a minimum limit preventing unusable layouts",
+        "- many mod-related operations now return you to Mods screen, instead of launch screen",
+        "- pressing Esc in mod descriptions now exits the description only (not the entire store)",
+        "- fixed mod store \"forgetting\" scroll position when opening description and exiting",
+        widget::text("Platform-Specific").size(24),
+        "- fixed 1.13-1.16 crashing on linux ARM",
+        "- fixed 1.8.9 crashing on macOS ARM",
+        "- fixed Java 8 (1.16.5 and below) compatibility on Windows ARM and macOS",
+    ].padding(10).spacing(5).into()
+}
+
+#[allow(unused)]
 pub fn changelog_0_4<'a>() -> Element<'a> {
     widget::column!(
         widget::text("QuantumLauncher v0.4").size(40),

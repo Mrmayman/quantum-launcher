@@ -2,8 +2,11 @@ use iced::{widget, Length};
 use ql_core::LOGGER;
 
 use crate::{
+    icon_manager,
     launcher_state::{Launcher, Message, State},
-    menu_renderer::{changelog::changelog_0_4, view_account_login, Element, DISCORD},
+    menu_renderer::{
+        button_with_icon, changelog::changelog_0_4_1, view_account_login, Element, DISCORD,
+    },
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
     DEBUG_LOG_BUTTON_HEIGHT,
 };
@@ -158,11 +161,19 @@ impl Launcher {
             State::ManagePresets(menu) => menu.view(self.window_size),
             State::ChangeLog => widget::scrollable(
                 widget::column!(
-                    changelog_0_4(), // changelog_0_3_1(),
-                    widget::button("Continue").on_press(Message::LaunchScreenOpen {
-                        message: None,
-                        clear_selection: true
-                    }),
+                    button_with_icon(icon_manager::back(), "Skip", 16).on_press(
+                        Message::LaunchScreenOpen {
+                            message: None,
+                            clear_selection: true
+                        }
+                    ),
+                    changelog_0_4_1(), // changelog_0_4(), // changelog_0_3_1(),
+                    button_with_icon(icon_manager::back(), "Continue", 16).on_press(
+                        Message::LaunchScreenOpen {
+                            message: None,
+                            clear_selection: true
+                        }
+                    ),
                 )
                 .padding(10)
                 .spacing(10),
