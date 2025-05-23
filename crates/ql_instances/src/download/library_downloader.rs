@@ -89,7 +89,8 @@ impl GameDownloader {
                 LWJGL_294, LWJGL_312, LWJGL_316, LWJGL_321, LWJGL_322, LWJGL_331, LWJGL_332,
                 LWJGL_333,
             ] {
-                let lib: LwjglLibrary = serde_json::from_str(lwjgl).json(lwjgl.to_owned())?;
+                let lib: LwjglLibrary =
+                    ql_core::IntoJsonError::json(serde_json::from_str(lwjgl), lwjgl.to_owned())?;
                 for new_library in &lib.libraries {
                     for library in self
                         .version_json
