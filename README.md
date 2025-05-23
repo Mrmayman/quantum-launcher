@@ -102,8 +102,8 @@ What about the others? Well...
 ### Sources
 - [x] Modrinth mods
 - [x] Curseforge mods
-- [ ] Modrinth modpacks
-- [ ] Curseforge modpacks
+- [x] Modrinth modpacks
+- [x] Curseforge modpacks
 ### Features
 - [x] Mod store
 - [x] Mod presets (packaging mods)
@@ -128,20 +128,17 @@ What about the others? Well...
 - [ ] Spigot
 - [ ] Bukkit
 - [ ] Bungeecoord
-- [ ] The stuff from <https://github.com/LeStegii/server-software/blob/master/java/MODS+PLUGINS.md>
+- [ ] The stuff from [MODS+PLUGINS.md]<https://github.com/LeStegii/server-software/blob/master/java/MODS+PLUGINS.md>
 
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
 - [ ] macOS x86_64 (WIP)
-
 - [ ] Windows Aarch64 (WIP)
 - [x] Linux Aarch64
 - [x] macOS Aarch64
-
 - [ ] Windows i686 (WIP)
 - [ ] Linux i686 (WIP)
-
 - [ ] FreeBSD
 - [ ] Haiku
 
