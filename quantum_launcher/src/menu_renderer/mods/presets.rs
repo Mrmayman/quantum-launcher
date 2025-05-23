@@ -9,11 +9,9 @@ use crate::{
         EditPresetsMessage, ManageModsMessage, MenuEditPresets, MenuEditPresetsInner, Message,
         ModListEntry, SelectedState,
     },
-    menu_renderer::button_with_icon,
+    menu_renderer::{button_with_icon, launch::TAB_HEIGHT, Element},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
-
-use super::{launch::TAB_HEIGHT, Element};
 
 impl MenuEditPresets {
     pub fn view(&self, window_size: (f32, f32)) -> Element {

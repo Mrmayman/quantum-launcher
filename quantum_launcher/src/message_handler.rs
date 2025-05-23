@@ -10,8 +10,8 @@ use iced::{
     Task,
 };
 use ql_core::{
-    err, info, info_no_log, json::instance_config::InstanceConfigJson, InstanceSelection,
-    IntoIoError, IntoJsonError, IntoStringError, JsonFileError,
+    err, info, info_no_log, jarmod::JarMod, json::instance_config::InstanceConfigJson,
+    InstanceSelection, IntoIoError, IntoJsonError, IntoStringError, JsonFileError,
 };
 use ql_instances::{AccountData, ReadError};
 use ql_mod_manager::{loaders, store::ModIndex};
@@ -538,7 +538,7 @@ impl Launcher {
                             } else if extension == "zip" || extension == "mrpack" {
                                 return self.load_modpack_from_path(path);
                             }
-                        } else if let State::EditJarMods(_) = &self.state {
+                        } else if let State::EditJarMods(menu) = &mut self.state {
                             if extension == "jar" || extension == "zip" {
                                 let selected_instance = self.selected_instance.as_ref().unwrap();
                                 let new_path = selected_instance
@@ -548,6 +548,16 @@ impl Launcher {
                                 if path != new_path {
                                     if let Err(err) = std::fs::copy(&path, &new_path) {
                                         err!("Couldn't drag and drop mod file in: {err}");
+                                    } else if !menu
+                                        .jarmods
+                                        .mods
+                                        .iter()
+                                        .any(|n| n.filename == filename)
+                                    {
+                                        menu.jarmods.mods.push(JarMod {
+                                            filename: filename.to_owned(),
+                                            enabled: true,
+                                        });
                                     }
                                 }
                             }

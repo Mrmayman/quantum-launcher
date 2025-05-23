@@ -8,10 +8,9 @@ use crate::{
         ManageJarModsMessage, ManageModsMessage, MenuEditMods, Message, ModListEntry,
         SelectedState,
     },
+    menu_renderer::{back_to_launch_screen, button_with_icon, Element},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
-
-use super::{back_to_launch_screen, button_with_icon, Element};
 
 impl MenuEditMods {
     pub fn view<'a>(

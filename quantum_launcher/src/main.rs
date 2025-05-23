@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#![allow(clippy::doc_nested_refdefs)]
 #![doc = include_str!("../../README.md")]
 #![windows_subsystem = "windows"]
 #![allow(clippy::missing_errors_doc)]

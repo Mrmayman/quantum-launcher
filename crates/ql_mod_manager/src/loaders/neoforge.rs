@@ -1,9 +1,4 @@
-use std::{
-    fmt::Write,
-    io::{Cursor, Read},
-    path::Path,
-    sync::mpsc::Sender,
-};
+use std::{fmt::Write, io::Cursor, path::Path, sync::mpsc::Sender};
 
 use chrono::DateTime;
 use ql_core::{
@@ -171,8 +166,7 @@ async fn get_version_json(
         let name = file.name().to_owned();
 
         if name == "version.json" {
-            let mut forge_json = Vec::new();
-            file.read_to_end(&mut forge_json)
+            let forge_json = std::io::read_to_string(&mut file)
                 .map_err(|n| ForgeInstallError::ZipIoError(n, name.clone()))?;
 
             let out_jar_version_path = neoforge_dir.join("details.json");
@@ -181,8 +175,7 @@ async fn get_version_json(
                 .path(&out_jar_version_path)?;
 
             let jar_version_json: ql_core::json::forge::JsonDetails =
-                serde_json::from_slice(&forge_json)
-                    .json(String::from_utf8_lossy(&forge_json).to_string())?;
+                serde_json::from_str(&forge_json).json(forge_json)?;
 
             return Ok(jar_version_json);
         }

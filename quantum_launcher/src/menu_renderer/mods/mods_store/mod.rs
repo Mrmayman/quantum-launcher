@@ -7,10 +7,9 @@ use crate::{
     launcher_state::{
         ImageState, InstallModsMessage, ManageModsMessage, MenuModsDownload, Message,
     },
+    menu_renderer::{button_with_icon, Element},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
-
-use super::{button_with_icon, Element};
 
 mod helpers;
 mod html;

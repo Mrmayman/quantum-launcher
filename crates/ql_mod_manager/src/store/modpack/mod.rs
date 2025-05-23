@@ -126,18 +126,10 @@ fn read_json_from_zip<T: serde::de::DeserializeOwned>(
     name: &str,
 ) -> Result<Option<T>, PackError> {
     Ok(if let Ok(mut index_file) = zip.by_name(name) {
-        let mut buf = Vec::new();
-        index_file
-            .read_to_end(&mut buf)
+        let buf = std::io::read_to_string(&mut index_file)
             .map_err(|n| PackError::ZipIoError(n, name.to_owned()))?;
 
-        Some(
-            serde_json::from_slice(&buf).json(
-                String::from_utf8(buf.clone())
-                    .ok()
-                    .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string()),
-            )?,
-        )
+        Some(serde_json::from_str(&buf).json(buf)?)
     } else {
         None
     })

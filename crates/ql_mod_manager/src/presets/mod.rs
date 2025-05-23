@@ -182,14 +182,9 @@ impl PresetJson {
 
             if name == "index.json" {
                 pt!("Mod index");
-                let mut buf = Vec::new();
-                file.read_to_end(&mut buf)
+                let buf = std::io::read_to_string(&mut file)
                     .map_err(|n| ModError::ZipIoError(n, name.clone()))?;
-                let this: Self = serde_json::from_slice(&buf).json(
-                    String::from_utf8(buf.clone())
-                        .ok()
-                        .unwrap_or_else(|| String::from_utf8_lossy(&buf).to_string()),
-                )?;
+                let this: Self = serde_json::from_str(&buf).json(buf)?;
 
                 // Only sideload mods if the version is the same
                 let instance_type = get_instance_type(&instance_name).await?;

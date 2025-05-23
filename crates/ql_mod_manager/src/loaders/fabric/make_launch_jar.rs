@@ -1,7 +1,7 @@
 use ql_core::{info, IntoIoError};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use zip::{write::FileOptions, ZipWriter};
 
@@ -115,9 +115,7 @@ pub async fn make_launch_jar(
                 if name.starts_with(SERVICES_DIR) && name[SERVICES_DIR.len()..].find('/').is_none()
                 {
                     // Parse and merge service definitions
-                    let mut data = String::new();
-                    entry
-                        .read_to_string(&mut data)
+                    let data = std::io::read_to_string(&mut entry)
                         .map_err(|n| FabricInstallError::ZipEntryReadError(n, name.clone()))?;
                     parse_service_definition(&name, &data, &mut services);
                 } else if regex.is_match(&name) {

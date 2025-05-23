@@ -1,6 +1,6 @@
 use std::{
     fmt::Write,
-    io::{Cursor, Read},
+    io::Cursor,
     path::{Path, PathBuf},
     process::Command,
     sync::mpsc::Sender,
@@ -270,40 +270,36 @@ impl ForgeInstaller {
         let mut zip =
             zip::ZipArchive::new(Cursor::new(installer_file)).map_err(ForgeInstallError::Zip)?;
 
-        if let Ok(file) = zip.by_name("version.json") {
-            let forge_json: Result<Vec<u8>, std::io::Error> = file.bytes().collect();
+        if let Ok(mut file) = zip.by_name("version.json") {
+            let forge_json = std::io::read_to_string(&mut file);
             let forge_json = forge_json
                 .map_err(|n| ForgeInstallError::ZipIoError(n, "version.json".to_owned()))?;
 
-            let forge_json_str = String::from_utf8(forge_json.clone())
-                .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
             let forge_json_parsed: JsonDetails =
-                serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
+                serde_json::from_str(&forge_json).json(forge_json.clone())?;
 
-            return Ok((forge_json_parsed, forge_json_str));
+            return Ok((forge_json_parsed, forge_json));
         }
-        if let Ok(file) = zip.by_name("install_profile.json") {
-            let forge_json: Result<Vec<u8>, std::io::Error> = file.bytes().collect();
+        if let Ok(mut file) = zip.by_name("install_profile.json") {
+            let forge_json = std::io::read_to_string(&mut file);
             let forge_json = forge_json
                 .map_err(|n| ForgeInstallError::ZipIoError(n, "install_profile.json".to_owned()))?;
 
-            let forge_json_str = String::from_utf8(forge_json.clone())
-                .unwrap_or_else(|_| String::from_utf8_lossy(&forge_json).to_string());
-            return if let Ok(forge_json_parsed) = serde_json::from_slice(&forge_json) {
+            return if let Ok(forge_json_parsed) = serde_json::from_str(&forge_json) {
                 let forge_json_parsed: JsonInstallProfile = forge_json_parsed;
 
-                let to_string =
-                    serde_json::to_string(&forge_json_parsed.versionInfo).unwrap_or(forge_json_str);
+                let to_string = serde_json::to_string(&forge_json_parsed.versionInfo)
+                    .unwrap_or(forge_json.clone());
                 Ok((forge_json_parsed.versionInfo, to_string))
             } else {
                 let forge_json_parsed: JsonDetails =
-                    serde_json::from_slice(&forge_json).json(forge_json_str.clone())?;
-                Ok((forge_json_parsed, forge_json_str))
+                    serde_json::from_str(&forge_json).json(forge_json.clone())?;
+                Ok((forge_json_parsed, forge_json))
             };
         }
-        return Err(ForgeInstallError::NoInstallJson(
+        Err(ForgeInstallError::NoInstallJson(
             self.minecraft_version.clone(),
-        ));
+        ))
     }
 
     async fn download_library(
