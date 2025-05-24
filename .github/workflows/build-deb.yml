@@ -20,23 +20,23 @@ jobs:
       matrix:
         build: [x86_64-linux, aarch64-linux]
         include:
-        - build: x86_64-linux
-          os: ubuntu-22.04
-          rust: stable
-          target: x86_64-unknown-linux-gnu
-          cross: false
-          arch: x86_64
-        - build: aarch64-linux
-          os: ubuntu-22.04
-          rust: stable
-          target: aarch64-unknown-linux-gnu
-          cross: true
-          arch: aarch64
+          - build: x86_64-linux
+            os: ubuntu-22.04
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            cross: false
+            arch: x86_64
+          - build: aarch64-linux
+            os: ubuntu-22.04
+            rust: stable
+            target: aarch64-unknown-linux-gnu
+            cross: true
+            arch: aarch64
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-    
+
       - name: Install ${{ matrix.rust }} toolchain
         shell: bash
         run: |
@@ -80,7 +80,7 @@ jobs:
 
           mkdir -v -p {etc,usr/{bin,share/{applications,metainfo,pixmaps}}}
 
-          cp -pdf "quantum-launcher.desktop" "usr/share/applications/quantum-launcher.desktop"
+          cp -pdf "io.github.Mrmayman.QuantumLauncher.desktop" "usr/share/applications/quantum-launcher.desktop"
           cp -pdf "quantum-launcher.metainfo.xml" "usr/share/metainfo/quantum-launcher.metainfo.xml"
           cp -pdf "../icon/ql_logo.png" "usr/share/pixmaps/io.github.Mrmayman.QuantumLauncher.png"
           mv debian DEBIAN

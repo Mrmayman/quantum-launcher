@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+
+Name=Quantum Launcher
+Comment=A simple, powerful Minecraft launcher
+Categories=Game;
+Icon=io.github.Mrmayman.QuantumLauncher
+Exec=quantum-launcher
+PrefersNonDefaultGPU=true

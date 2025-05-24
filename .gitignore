@@ -25,3 +25,6 @@ perf.data.old
 flatpak-cargo-generator.py
 
 build
+
+.flatpak-builder
+repo
