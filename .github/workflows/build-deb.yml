@@ -80,7 +80,7 @@ jobs:
 
           mkdir -v -p {etc,usr/{bin,share/{applications,metainfo,pixmaps}}}
 
-          cp -pdf "io.github.Mrmayman.QuantumLauncher.desktop" "usr/share/applications/quantum-launcher.desktop"
+          cp -pdf "quantum-launcher.desktop" "usr/share/applications/quantum-launcher.desktop"
           cp -pdf "quantum-launcher.metainfo.xml" "usr/share/metainfo/quantum-launcher.metainfo.xml"
           cp -pdf "../icon/ql_logo.png" "usr/share/pixmaps/io.github.Mrmayman.QuantumLauncher.png"
           mv debian DEBIAN
