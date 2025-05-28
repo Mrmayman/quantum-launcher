@@ -23,10 +23,10 @@ rfd = { version = "0.15", default-features = false, features = [
     "tokio",
 ] }
 
-zip-extract = { version = "0.3", default-features = false, features = [
+zip-extract = { version = "0.4", default-features = false, features = [
     "deflate",
 ] }
-zip = { version = "3", default-features = false, features = ["deflate"] }
+zip = { version = "4", default-features = false, features = ["deflate"] }
 
 image = { version = "0.24", default-features = false, features = [
     # Web formats are enough
@@ -37,8 +37,6 @@ image = { version = "0.24", default-features = false, features = [
     "png",
     "webp",
 ] }
-html5ever = "0.27"
-markup5ever_rcdom = "0.3"
 
 # [profile.dev]
 # opt-level = 1

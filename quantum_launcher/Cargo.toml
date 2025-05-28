@@ -57,10 +57,14 @@ colored = { workspace = true }
 clap = { version = "4", features = ["help"] }
 
 # Mod page rendering:
-comrak = { version = "0.38", default-features = false } # Markdown rendering
-image = { workspace = true }                            # Image loading
-html5ever = { workspace = true }                        # HTML rendering
-markup5ever_rcdom = { workspace = true }                #
+# - Markdown rendering
+comrak = { version = "0.39", default-features = false }
+# - Image loading
+image = { workspace = true }
+# - HTML Rendering:
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
+
 # iced::widget::markdown doesn't have inline
 # HTML support so I made my own renderer.
 
