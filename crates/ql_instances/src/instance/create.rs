@@ -1,14 +1,10 @@
 use std::sync::mpsc::Sender;
 
 use ql_core::{
-    info, json::OmniarchiveEntry, DownloadProgress, IntoIoError, LAUNCHER_DIR,
-    LAUNCHER_VERSION_NAME,
+    info, DownloadProgress, IntoIoError, ListEntry, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
 
-use crate::{
-    download::{DownloadError, GameDownloader},
-    ListEntry,
-};
+use crate::download::{DownloadError, GameDownloader};
 
 /// Creates a Minecraft instance.
 ///
@@ -34,6 +30,7 @@ pub async fn create_instance(
     download_assets: bool,
 ) -> Result<String, DownloadError> {
     info!("Started creating instance.");
+    debug_assert!(!version.is_classic_server);
 
     // An empty asset directory.
     let launcher_dir = &*LAUNCHER_DIR;
@@ -56,26 +53,7 @@ pub async fn create_instance(
 
     game_downloader.create_version_json().await?;
     game_downloader.create_profiles_json().await?;
-    game_downloader
-        .create_config_json(
-            if let ListEntry::Omniarchive {
-                category,
-                name,
-                url,
-                nice_name,
-            } = &version
-            {
-                Some(OmniarchiveEntry {
-                    name: name.clone(),
-                    url: url.clone(),
-                    category: category.to_string(),
-                    nice_name: Some(nice_name.clone()),
-                })
-            } else {
-                None
-            },
-        )
-        .await?;
+    game_downloader.create_config_json().await?;
 
     let version_file_path = launcher_dir
         .join("instances")

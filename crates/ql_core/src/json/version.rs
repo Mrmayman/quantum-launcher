@@ -39,11 +39,8 @@ pub struct VersionDetails {
 
     /// Minimum version of the official launcher that is supported.
     ///
-    /// This is a (kinda) useless field but removing
-    /// it would break backwards compatibility.
-    /// Who knows? Maybe I could need it in the future,
-    /// and I could thank myself for keeping it here.
-    pub minimumLauncherVersion: usize,
+    /// Unused field.
+    pub minimumLauncherVersion: Option<usize>,
 
     // TODO: Find difference between `releaseTime` and `time`
     pub releaseTime: String,

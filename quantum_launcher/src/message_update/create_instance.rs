@@ -1,8 +1,5 @@
-use std::sync::Arc;
-
 use iced::Task;
-use ql_core::{DownloadProgress, InstanceSelection, IntoStringError};
-use ql_instances::ListEntry;
+use ql_core::{DownloadProgress, InstanceSelection, IntoStringError, ListEntry};
 
 use crate::launcher_state::{
     CreateInstanceMessage, Launcher, MenuCreateInstance, Message, ProgressBar, State,
@@ -25,7 +22,7 @@ impl Launcher {
                     self.selected_instance = Some(InstanceSelection::Instance(instance));
                     return self.go_to_launch_screen(Some("Created Instance".to_owned()));
                 }
-                Err(n) => self.state = State::Error { error: n },
+                Err(n) => self.set_error(n),
             },
             CreateInstanceMessage::ChangeAssetToggle(t) => {
                 if let State::Create(MenuCreateInstance::Loaded {
@@ -74,17 +71,12 @@ impl Launcher {
             });
             Task::none()
         } else {
-            let (sender, receiver) = std::sync::mpsc::channel();
-
-            let (task, handle) =
-                Task::perform(ql_instances::list_versions(Some(Arc::new(sender))), |n| {
-                    Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n.strerr()))
-                })
-                .abortable();
+            let (task, handle) = Task::perform(ql_instances::list_versions(), |n| {
+                Message::CreateInstance(CreateInstanceMessage::VersionsLoaded(n.strerr()))
+            })
+            .abortable();
 
             self.state = State::Create(MenuCreateInstance::Loading {
-                receiver,
-                number: 0.0,
                 _handle: handle.abort_on_drop(),
             });
 

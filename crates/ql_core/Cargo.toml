@@ -20,6 +20,3 @@ tokio = { workspace = true }
 thiserror = { workspace = true }
 
 tokio-util = "0.7"
-# For finding the closest official version to
-# an Omniarchive version.
-strsim = "0.11"

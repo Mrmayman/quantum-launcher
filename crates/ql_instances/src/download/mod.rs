@@ -1,26 +1,21 @@
 pub mod constants;
 mod library_downloader;
 
-use std::{
-    path::{Path, PathBuf},
-    sync::mpsc::Sender,
-};
+use std::{path::PathBuf, sync::mpsc::Sender};
 
-use indicatif::ProgressBar;
-use omniarchive_api::MinecraftVersionCategory;
+use ql_core::json::AssetIndexMap;
 use ql_core::{
-    do_jobs, err,
+    do_jobs,
     file_utils::{self, LAUNCHER_DIR},
     impl_3_errs_jri, info,
-    json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    pt, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError, JsonError,
-    RequestError,
+    json::{InstanceConfigJson, Manifest, VersionDetails},
+    pt, DownloadFileError, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError,
+    JsonError, ListEntry, RequestError,
 };
-use serde_json::Value;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::{json_profiles::ProfileJson, ListEntry};
+use crate::json_profiles::ProfileJson;
 
 use self::constants::DEFAULT_RAM_MB_FOR_INSTANCE;
 
@@ -44,13 +39,9 @@ pub enum DownloadError {
     NativesExtractError(#[from] zip_extract::ZipExtractError),
     #[error("{DOWNLOAD_ERR_PREFIX}tried to remove natives outside folder. POTENTIAL SECURITY RISK AVOIDED")]
     NativesOutsideDirRemove,
-    #[error("{DOWNLOAD_ERR_PREFIX}tried to download Minecraft classic server as a client!")]
-    DownloadClassicZip,
 }
 
 impl_3_errs_jri!(DownloadError, Json, Request, Io);
-
-const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 
 /// A struct that helps download a Minecraft instance.
 ///
@@ -59,7 +50,6 @@ const OBJECTS_URL: &str = "https://resources.download.minecraft.net";
 pub struct GameDownloader {
     pub instance_dir: PathBuf,
     pub version_json: VersionDetails,
-    pub version: ListEntry,
     sender: Option<Sender<DownloadProgress>>,
 }
 
@@ -87,7 +77,6 @@ impl GameDownloader {
         Ok(Self {
             instance_dir,
             version_json,
-            version: version.clone(),
             sender,
         })
     }
@@ -110,14 +99,6 @@ impl GameDownloader {
         info!("Downloading game jar file.");
         self.send_progress(DownloadProgress::DownloadingJar, false);
 
-        let url = match &self.version {
-            ListEntry::Normal(_) => &self.version_json.downloads.client.url,
-            ListEntry::Omniarchive { url, .. } => url,
-            ListEntry::OmniarchiveClassicZipServer { .. } => {
-                return Err(DownloadError::DownloadClassicZip)
-            }
-        };
-
         let version_dir = self
             .instance_dir
             .join(".minecraft")
@@ -129,7 +110,12 @@ impl GameDownloader {
 
         let jar_path = version_dir.join(format!("{}.jar", self.version_json.id));
 
-        file_utils::download_file_to_path(url, false, &jar_path).await?;
+        file_utils::download_file_to_path(
+            &self.version_json.downloads.client.url,
+            false,
+            &jar_path,
+        )
+        .await?;
 
         Ok(())
     }
@@ -152,77 +138,15 @@ impl GameDownloader {
         Ok(())
     }
 
-    async fn download_assets_fn(
-        &self,
-        object_data: &serde_json::Value,
-        objects_len: usize,
-        assets_objects_path: &Path,
-        bar: &ProgressBar,
-        progress: &Mutex<usize>,
-    ) -> Result<(), DownloadError> {
-        let obj_hash =
-            object_data["hash"]
-                .as_str()
-                .ok_or(DownloadError::AssetsJsonFieldNotFound(
-                    "asset_index.objects[].hash".to_owned(),
-                ))?;
-
-        let obj_id = &obj_hash[0..2];
-
-        let obj_folder = assets_objects_path.join(obj_id);
-        tokio::fs::create_dir_all(&obj_folder)
-            .await
-            .path(&obj_folder)?;
-
-        let obj_file_path = obj_folder.join(obj_hash);
-        if obj_file_path.exists() {
-            // Asset has already been downloaded. Skip.
-            {
-                let mut progress = progress.lock().await;
-                *progress += 1;
-
-                self.send_progress(
-                    DownloadProgress::DownloadingAssets {
-                        progress: *progress,
-                        out_of: objects_len,
-                    },
-                    true,
-                );
-            }
-
-            bar.inc(1);
-            return Ok(());
-        }
-
-        let url = format!("{OBJECTS_URL}/{obj_id}/{obj_hash}");
-        file_utils::download_file_to_path(&url, false, &obj_file_path).await?;
-
-        {
-            let mut progress = progress.lock().await;
-            *progress += 1;
-
-            self.send_progress(
-                DownloadProgress::DownloadingAssets {
-                    progress: *progress,
-                    out_of: objects_len,
-                },
-                true,
-            );
-        }
-
-        bar.inc(1);
-        Ok(())
-    }
-
     pub async fn download_assets(
         &self,
         sender: Option<&Sender<GenericProgress>>,
     ) -> Result<(), DownloadError> {
-        info!("Downloading assets.");
+        info!("Downloading assets");
         if let Some(sender) = sender {
             sender.send(GenericProgress::default()).unwrap();
         }
-        let asset_index: Value =
+        let asset_index: AssetIndexMap =
             file_utils::download_file_to_json(&self.version_json.assetIndex.url, false).await?;
 
         let assets_dir = LAUNCHER_DIR.join("assets");
@@ -230,95 +154,76 @@ impl GameDownloader {
             .await
             .path(&assets_dir)?;
 
-        /*if self.version_json.assetIndex.id == "legacy" {
-            let legacy_path = assets_dir.join("legacy_assets");
-            tokio::fs::create_dir_all(&legacy_path)
-                .await
-                .path(assets_dir)?;
+        // assets/dir is the current location, because
+        // other assets/* folders are used by old
+        // QuantumLauncher versions for an outdated format
+        // (which automigrates to assets/dir when launching game).
+        let current_assets_dir = assets_dir.join("dir");
+        tokio::fs::create_dir_all(&current_assets_dir)
+            .await
+            .path(&current_assets_dir)?;
 
-            let objects =
-                asset_index["objects"]
-                    .as_object()
-                    .ok_or(DownloadError::SerdeFieldNotFound(
-                        "asset_index.objects".to_owned(),
-                    ))?;
+        self.save_asset_index(&asset_index, &current_assets_dir)
+            .await?;
 
-            let bar = indicatif::ProgressBar::new(objects.len() as u64);
+        let assets_objects_path = &current_assets_dir.join("objects");
+        tokio::fs::create_dir_all(&assets_objects_path)
+            .await
+            .path(&assets_objects_path)?;
 
-            let progress = Mutex::new(0);
+        let out_of = asset_index.objects.len();
+        let bar = &indicatif::ProgressBar::new(out_of as u64);
+        let progress_num = &Mutex::new(0);
 
-            let results = objects.iter().map(|(obj_id, object_data)| {
-                self.download_assets_legacy_fn(
-                    legacy_path.join(obj_id),
-                    object_data,
-                    &bar,
-                    &progress,
-                    objects.len(),
-                    sender,
-                )
+        let results = asset_index
+            .objects
+            .iter()
+            .map(|(_, object_data)| async move {
+                object_data.download(assets_objects_path).await?;
+
+                let mut progress = progress_num.lock().await;
+                *progress += 1;
+
+                self.send_progress(
+                    DownloadProgress::DownloadingAssets {
+                        progress: *progress,
+                        out_of,
+                    },
+                    true,
+                );
+
+                bar.inc(1);
+
+                Ok::<(), DownloadFileError>(())
             });
 
-            let outputs = do_jobs(results).await;
+        _ = do_jobs(results).await?;
 
-            if let Some(err) = outputs.into_iter().find_map(Result::err) {
-                return Err(err);
-            }
-        } else */
-        {
-            let current_assets_dir = assets_dir.join("dir");
-            tokio::fs::create_dir_all(&current_assets_dir)
-                .await
-                .path(&current_assets_dir)?;
-
-            let assets_indexes_path = current_assets_dir.join("indexes");
-            tokio::fs::create_dir_all(&assets_indexes_path)
-                .await
-                .path(&assets_indexes_path)?;
-            let assets_objects_path = current_assets_dir.join("objects");
-            tokio::fs::create_dir_all(&assets_objects_path)
-                .await
-                .path(&assets_objects_path)?;
-
-            let lock_path = current_assets_dir.join("download.lock");
-
-            if lock_path.exists() {
-                err!("Asset downloading previously interrupted?");
-            }
-
-            let lock_contents = "If you see this, the asset downloading hasn't finished. This will be deleted once finished.";
-            tokio::fs::write(&lock_path, lock_contents)
-                .await
-                .path(&lock_path)?;
-
-            self.save_asset_index_json(&assets_indexes_path, &asset_index)
-                .await?;
-
-            let objects = asset_index["objects"].as_object().ok_or(
-                DownloadError::AssetsJsonFieldNotFound("asset_index.objects".to_owned()),
-            )?;
-            let objects_len = objects.len();
-
-            let bar = indicatif::ProgressBar::new(objects_len as u64);
-
-            let progress_num = Mutex::new(0);
-
-            let results = objects.iter().map(|(_, object_data)| {
-                self.download_assets_fn(
-                    object_data,
-                    objects_len,
-                    &assets_objects_path,
-                    &bar,
-                    &progress_num,
-                )
-            });
-
-            _ = do_jobs(results).await?;
-
-            tokio::fs::remove_file(&lock_path).await.path(&lock_path)?;
-        }
         if let Some(sender) = sender {
             sender.send(GenericProgress::finished()).unwrap();
         }
+        Ok(())
+    }
+
+    async fn save_asset_index(
+        &self,
+        asset_index: &AssetIndexMap,
+        current_assets_dir: &PathBuf,
+    ) -> Result<(), DownloadError> {
+        let assets_indexes_path = current_assets_dir.join("indexes");
+        tokio::fs::create_dir_all(&assets_indexes_path)
+            .await
+            .path(&assets_indexes_path)?;
+
+        let assets_indexes_json_path =
+            assets_indexes_path.join(format!("{}.json", self.version_json.assetIndex.id));
+        tokio::fs::write(
+            &assets_indexes_json_path,
+            serde_json::to_string(&asset_index).json_to()?,
+        )
+        .await
+        .path(assets_indexes_json_path)?;
+
         Ok(())
     }
 
@@ -391,22 +296,6 @@ impl GameDownloader {
         Ok(())
     }*/
 
-    async fn save_asset_index_json(
-        &self,
-        assets_indexes_path: &Path,
-        asset_index: &Value,
-    ) -> Result<(), DownloadError> {
-        let assets_indexes_json_path =
-            assets_indexes_path.join(format!("{}.json", self.version_json.assetIndex.id));
-        tokio::fs::write(
-            &assets_indexes_json_path,
-            asset_index.to_string().as_bytes(),
-        )
-        .await
-        .path(assets_indexes_json_path)?;
-        Ok(())
-    }
-
     pub async fn create_profiles_json(&self) -> Result<(), DownloadError> {
         let profile_json = ProfileJson::default();
 
@@ -434,10 +323,7 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn create_config_json(
-        &self,
-        omniarchive: Option<OmniarchiveEntry>,
-    ) -> Result<(), DownloadError> {
+    pub async fn create_config_json(&self) -> Result<(), DownloadError> {
         let config_json = InstanceConfigJson {
             java_override: None,
             ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
@@ -445,10 +331,11 @@ impl GameDownloader {
             enable_logger: Some(true),
             java_args: None,
             game_args: None,
-            omniarchive,
             is_classic_server: None,
             do_gc_tuning: None,
             close_on_start: None,
+            #[allow(deprecated)]
+            omniarchive: None,
         };
         let config_json = serde_json::to_string(&config_json).json_to()?;
 
@@ -464,41 +351,26 @@ impl GameDownloader {
         version: &ListEntry,
         sender: Option<&Sender<DownloadProgress>>,
     ) -> Result<VersionDetails, DownloadError> {
-        info!("Downloading version manifest JSON.");
+        info!("Downloading version manifest JSON");
         if let Some(sender) = sender {
             _ = sender.send(DownloadProgress::DownloadingJsonManifest);
         }
         let manifest = Manifest::download().await?;
 
-        let version = match version {
-            ListEntry::Normal(name) => manifest
-                .find_name(name)
-                .ok_or(DownloadError::VersionNotFoundInManifest(name.to_owned()))?,
-            ListEntry::Omniarchive {
-                category,
-                nice_name,
-                ..
-            } => match category {
-                MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(nice_name, "rd-"),
-                MinecraftVersionCategory::Classic => manifest.find_fuzzy(nice_name, "c0."),
-                MinecraftVersionCategory::Alpha => manifest.find_fuzzy(nice_name, "a1."),
-                MinecraftVersionCategory::Beta => manifest.find_fuzzy(nice_name, "b1."),
-                MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c"),
-                MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618"),
-            }
-            .ok_or(DownloadError::VersionNotFoundInManifest(
-                nice_name.to_owned(),
-            ))?,
-            ListEntry::OmniarchiveClassicZipServer { .. } => {
-                return Err(DownloadError::DownloadClassicZip)
-            }
-        };
+        let version =
+            manifest
+                .find_name(&version.name)
+                .ok_or(DownloadError::VersionNotFoundInManifest(
+                    version.name.clone(),
+                ))?;
 
-        info!("Downloading version details JSON.");
+        info!("Downloading version details JSON");
         if let Some(sender) = sender {
             _ = sender.send(DownloadProgress::DownloadingVersionJson);
         }
-        Ok(file_utils::download_file_to_json(&version.url, false).await?)
+        let json = file_utils::download_file_to_string(&version.url, false).await?;
+        let json = serde_json::from_str(&json).json(json)?;
+        Ok(json)
     }
 
     async fn new_get_instance_dir(instance_name: &str) -> Result<Option<PathBuf>, IoError> {

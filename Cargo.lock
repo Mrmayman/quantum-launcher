@@ -2995,17 +2995,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "omniarchive_api"
-version = "0.1.0"
-dependencies = [
- "colored",
- "html5ever",
- "markup5ever_rcdom",
- "ql_core",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3390,7 +3379,6 @@ dependencies = [
  "ql_reqwest",
  "serde",
  "serde_json",
- "strsim",
  "thiserror 2.0.12",
  "tokio",
  "tokio-util",
@@ -3408,7 +3396,6 @@ dependencies = [
  "colored",
  "indicatif",
  "keyring",
- "omniarchive_api",
  "ql_core",
  "ql_java_handler",
  "ql_reqwest",
@@ -3467,8 +3454,8 @@ dependencies = [
 name = "ql_servers"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "colored",
- "omniarchive_api",
  "ql_core",
  "ql_java_handler",
  "serde",

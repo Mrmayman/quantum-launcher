@@ -16,12 +16,11 @@ use ql_core::{
     jarmod::JarMods,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
-    JsonFileError, ModId, OptifineUniqueVersion, Progress, SelectedMod, StoreBackendType,
-    LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
+    JsonFileError, ListEntry, ModId, OptifineUniqueVersion, Progress, SelectedMod,
+    StoreBackendType, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
 use ql_instances::{
-    AccountData, AuthCodeResponse, AuthTokenResponse, ListEntry, LogLine, UpdateCheckInfo,
-    CLIENT_ID,
+    AccountData, AuthCodeResponse, AuthTokenResponse, LogLine, UpdateCheckInfo, CLIENT_ID,
 };
 use ql_mod_manager::{
     loaders::{
@@ -476,8 +475,6 @@ pub struct MenuEditJarMods {
 
 pub enum MenuCreateInstance {
     Loading {
-        receiver: Receiver<()>,
-        number: f32,
         _handle: iced::task::Handle,
     },
     Loaded {
@@ -641,10 +638,7 @@ pub enum State {
 }
 
 pub enum MenuServerCreate {
-    LoadingList {
-        progress_receiver: Receiver<()>,
-        progress_number: f32,
-    },
+    LoadingList,
     Loaded {
         name: String,
         versions: Box<iced::widget::combo_box::State<ListEntry>>,

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use iced::Task;
 use ql_core::{
     err, err_no_log, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
@@ -196,15 +194,10 @@ impl Launcher {
                         selected_version: None,
                     });
                 } else {
-                    let (sender, receiver) = std::sync::mpsc::channel();
-                    self.state = State::ServerCreate(MenuServerCreate::LoadingList {
-                        progress_receiver: receiver,
-                        progress_number: 0.0,
-                    });
+                    self.state = State::ServerCreate(MenuServerCreate::LoadingList);
 
-                    let sender = Some(Arc::new(sender));
                     return Task::perform(
-                        async move { ql_servers::list(sender).await.strerr() },
+                        async move { ql_servers::list().await.strerr() },
                         Message::ServerCreateVersionsLoaded,
                     );
                 }

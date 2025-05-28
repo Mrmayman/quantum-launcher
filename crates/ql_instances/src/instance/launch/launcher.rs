@@ -9,7 +9,7 @@ use ql_core::{
     json::{
         forge,
         version::{LibraryDownloadArtifact, LibraryDownloads},
-        FabricJSON, InstanceConfigJson, JsonOptifine, OmniarchiveEntry, VersionDetails,
+        FabricJSON, InstanceConfigJson, JsonOptifine, VersionDetails,
     },
     GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonFileError,
     CLASSPATH_SEPARATOR, LAUNCHER_DIR,
@@ -258,34 +258,34 @@ impl GameLauncher {
     /// This auto adjusts the port based on version.
     #[allow(clippy::doc_markdown)]
     fn java_arguments_betacraft(&mut self, args: &mut Vec<String>) {
-        // Beta 1.9 prerelease (special case)
-        if let Some(OmniarchiveEntry { name, .. }) = &self.config_json.omniarchive {
-            if name.starts_with("beta/b1.9/pre/") {
-                args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
-                args.push("-Dhttp.proxyPort=11706".to_owned());
-                return;
-            }
+        if !self.version_json.is_legacy_version() {
+            return;
         }
 
-        if self.version_json.r#type == "old_beta" || self.version_json.r#type == "old_alpha" {
+        // Backwards compatibility with Quantum Launcher v0.3.1 - v0.4.1
+        #[allow(deprecated)]
+        if self.config_json.omniarchive.is_some() {
             args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
             if self.version_json.id.starts_with("c0.") {
                 // Classic
                 args.push("-Dhttp.proxyPort=11701".to_owned());
-            } else if self.version_json.r#type == "old_alpha" {
+            } else if self.version_json.id.starts_with("b1.9") {
+                // Beta 1.9
+                args.push("-Dhttp.proxyPort=11706".to_owned());
+            } else if self.version_json.id.starts_with("b1.") {
+                // Beta 1.0 - 1.8.1
+                args.push("-Dhttp.proxyPort=11705".to_owned());
+            } else if self.version_json.id.starts_with("1.") {
+                // Release 1.0 - 1.5.2
+                args.push("-Dhttp.proxyPort=11707".to_owned());
+            } else {
                 // Indev, Infdev and Alpha (mostly same)
                 args.push("-Dhttp.proxyPort=11702".to_owned());
-            } else {
-                // Beta
-                args.push("-Dhttp.proxyPort=11705".to_owned());
             }
-            // Fixes crash on old versions
-            args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
-        } else if self.version_json.is_legacy_version() {
-            // Release 1.0 - 1.5.2
-            args.push("-Dhttp.proxyHost=betacraft.uk".to_owned());
-            args.push("-Dhttp.proxyPort=11707".to_owned());
         }
+
+        // Fixes crash on old versions
+        args.push("-Djava.util.Arrays.useLegacyMergeSort=true".to_owned());
     }
 
     pub async fn setup_fabric(

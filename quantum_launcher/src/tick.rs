@@ -6,7 +6,7 @@ use std::{
 use chrono::Datelike;
 use iced::Task;
 use ql_core::{
-    err, json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoJsonError, IntoStringError,
+    json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoJsonError, IntoStringError,
     JsonFileError, ModId,
 };
 use ql_mod_manager::store::{ModConfig, ModIndex};
@@ -343,19 +343,7 @@ impl MenuModsDownload {
 impl MenuServerCreate {
     pub fn tick(&mut self) {
         match self {
-            MenuServerCreate::LoadingList {
-                progress_receiver,
-                progress_number,
-            } => {
-                while let Ok(()) = progress_receiver.try_recv() {
-                    *progress_number += 1.0;
-                    if *progress_number > 18.0 {
-                        err!("More than 18 indexes scraped: {progress_number}");
-                        *progress_number = 18.0;
-                    }
-                }
-            }
-            MenuServerCreate::Loaded { .. } => {}
+            MenuServerCreate::LoadingList | MenuServerCreate::Loaded { .. } => {}
             MenuServerCreate::Downloading { progress } => {
                 progress.tick();
             }
@@ -431,16 +419,7 @@ impl MenuEditMods {
 impl MenuCreateInstance {
     pub fn tick(&mut self) {
         match self {
-            MenuCreateInstance::Loading {
-                receiver, number, ..
-            } => {
-                while let Ok(()) = receiver.try_recv() {
-                    *number += 1.0;
-                    if *number > 26.0 {
-                        err!("More than 26 indexes scraped: {}", *number);
-                    }
-                }
-            }
+            MenuCreateInstance::Loading { .. } => {}
             MenuCreateInstance::Loaded { progress, .. } => {
                 if let Some(progress) = progress {
                     progress.tick();

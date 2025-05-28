@@ -79,7 +79,6 @@ pub use mc_auth::{
     login_1_link, login_2_wait, login_3_xbox, login_refresh, logout, read_refresh_token,
     AccountData, AuthCodeResponse, AuthError, AuthTokenResponse, CLIENT_ID,
 };
-pub use omniarchive_api::ListEntry;
 pub use ql_core::jarmod;
 pub use ql_java_handler::delete_java_installs;
 

@@ -1,7 +1,5 @@
-use std::sync::{mpsc::Sender, Arc};
-
-use omniarchive_api::{ListEntry, ListError, MinecraftVersionCategory};
-use ql_core::{err, json::Manifest, JsonDownloadError};
+use chrono::DateTime;
+use ql_core::{err, json::Manifest, JsonDownloadError, ListEntry};
 
 /// Retrieves a list of available server versions to download.
 ///
@@ -11,7 +9,7 @@ use ql_core::{err, json::Manifest, JsonDownloadError};
 /// - couldn't be parsed into JSON.
 ///
 /// Prints an error to log if Omniarchive versions couldn't be loaded.
-pub async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, JsonDownloadError> {
+pub async fn list() -> Result<Vec<ListEntry>, JsonDownloadError> {
     // TODO: Allow sideloading server jars
     // In Minecraft Server ecosystem, it's more common
     // to "sideload", or provide your own custom server jars.
@@ -24,28 +22,56 @@ pub async fn list(sender: Option<Arc<Sender<()>>>) -> Result<Vec<ListEntry>, Jso
     // I think this "sideloading" is allowed for servers so gotta
     // provide it somehow.
 
-    let manifest = Manifest::download().await?;
-    let mut version_list: Vec<ListEntry> = manifest
+    Ok(Manifest::download()
+        .await?
         .versions
-        .iter()
+        .into_iter()
         .filter_map(|n| {
-            (n.r#type == "release" || n.r#type == "snapshot")
-                .then_some(ListEntry::Normal(n.id.clone()))
+            if n.id.starts_with("inf-") || n.id.starts_with("in-") || n.id.starts_with("pc-") {
+                return None;
+            }
+            if let Some(name) = n.id.strip_prefix("c0.") {
+                if name.contains("_st") || name.contains("-s") {
+                    return None;
+                }
+                if name.starts_with("0.11")
+                    || name.starts_with("0.12")
+                    || name.starts_with("0.13")
+                    || name.starts_with("0.14")
+                    || name.starts_with("0.15")
+                {
+                    return None;
+                }
+
+                return Some(ListEntry {
+                    name: n.id,
+                    is_classic_server: true,
+                });
+            }
+            if n.id.starts_with("a1.") {
+                // Minecraft a1.0.15: Added multiplayer to alpha
+                let a1_0_15 = DateTime::parse_from_rfc3339("2010-08-03T19:47:25+00:00").unwrap();
+                match DateTime::parse_from_rfc3339(&n.releaseTime) {
+                    Ok(dt) => {
+                        if dt < a1_0_15 {
+                            return None;
+                        }
+                    }
+                    Err(e) => {
+                        err!("Could not parse instance date/time: {e}");
+                    }
+                };
+            }
+
+            Some(ListEntry {
+                name: n.id,
+                is_classic_server: false,
+            })
         })
-        .collect();
-
-    if let Err(err) = add_omniarchive_versions(&mut version_list, sender).await {
-        err!("Error getting omniarchive version list: {err}");
-        version_list.extend(manifest.versions.iter().filter_map(|n| {
-            (!(n.r#type == "release" || n.r#type == "snapshot"))
-                .then_some(ListEntry::Normal(n.id.clone()))
-        }));
-    }
-
-    Ok(version_list)
+        .collect())
 }
 
-fn convert_classic_to_real_name(classic: &str) -> &str {
+/*fn convert_classic_to_real_name(classic: &str) -> &str {
     let Some(classic) = classic.strip_prefix("classic/c") else {
         return classic;
     };
@@ -96,40 +122,4 @@ fn convert_alpha_to_real_name(alpha: &str) -> &str {
         "0.2.8" => "alpha/a1.2.6",
         _ => alpha,
     }
-}
-
-async fn add_omniarchive_versions(
-    normal_list: &mut Vec<ListEntry>,
-    progress: Option<Arc<Sender<()>>>,
-) -> Result<(), ListError> {
-    for category in MinecraftVersionCategory::ALL_SERVER.into_iter().rev() {
-        let versions = category.download_index(progress.clone(), true).await?;
-        for url in versions.into_iter().rev() {
-            let name = url.strip_prefix("https://vault.omniarchive.uk/archive/java/server-");
-            let name = if let Some(name) = name.and_then(|n| n.strip_suffix(".jar")) {
-                convert_classic_to_real_name(convert_alpha_to_real_name(name)).to_owned()
-            } else {
-                if let Some(name) = name.and_then(|n| n.strip_suffix(".zip")) {
-                    normal_list.push(ListEntry::OmniarchiveClassicZipServer {
-                        name: convert_classic_to_real_name(name).to_owned(),
-                        url,
-                    });
-                    continue;
-                }
-                url.clone()
-            };
-            let nice_name = name
-                .split('/')
-                .next_back()
-                .map(str::to_owned)
-                .unwrap_or(name.clone());
-            normal_list.push(ListEntry::Omniarchive {
-                category,
-                name,
-                nice_name,
-                url,
-            });
-        }
-    }
-    Ok(())
-}
+}*/

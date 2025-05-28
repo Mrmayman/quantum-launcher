@@ -17,7 +17,7 @@ impl Manifest {
     /// If the file cannot be downloaded
     /// (server error or bad internet) or parsed into JSON.
     pub async fn download() -> Result<Manifest, JsonDownloadError> {
-        const VERSIONS_JSON: &str = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+        const VERSIONS_JSON: &str = "https://mcphackers.org/BetterJSONs/version_manifest_v2.json";
         file_utils::download_file_to_json(VERSIONS_JSON, false).await
     }
 
@@ -25,24 +25,6 @@ impl Manifest {
     #[must_use]
     pub fn find_name(&self, name: &str) -> Option<&Version> {
         self.versions.iter().find(|n| n.id == name)
-    }
-
-    /// Looks up a version by its name, but allows for a fuzzy search.
-    ///
-    /// # Arguments
-    /// - `name`: The name of the version to search for
-    ///   (fuzzy, can be approximate).
-    /// - `filter`: A filter such that the version must start with this string.
-    ///
-    /// # Returns
-    /// - `Some(_)`: The version that is closest to the name
-    /// - `None`: No version was found with the filter, or the manifest is empty.
-    #[must_use]
-    pub fn find_fuzzy(&self, name: &str, filter: &str) -> Option<&Version> {
-        self.versions
-            .iter()
-            .filter(|n| n.id.starts_with(filter))
-            .min_by_key(|choice| strsim::levenshtein(name, &choice.id))
     }
 }
 

@@ -58,7 +58,7 @@ pub fn cmd_list_available_versions() {
     eprintln!("Listing downloadable versions...");
     let versions = match tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(ql_instances::list_versions(None))
+        .block_on(ql_instances::list_versions())
         .strerr()
     {
         Ok(n) => n,
@@ -122,16 +122,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
                     let json = std::fs::read_to_string(instance_dir.join("details.json")).unwrap();
                     let json: VersionDetails = serde_json::from_str(&json).unwrap();
 
-                    let config_json =
-                        std::fs::read_to_string(instance_dir.join("config.json")).unwrap();
-                    let config_json: InstanceConfigJson =
-                        serde_json::from_str(&config_json).unwrap();
-
-                    if let Some(omniarchive) = config_json.omniarchive {
-                        print!("{}", omniarchive.name.split('/').next_back().unwrap());
-                    } else {
-                        print!("{}", json.id);
-                    }
+                    print!("{}", json.id);
                 }
                 PrintCmd::Loader => {
                     if has_printed {

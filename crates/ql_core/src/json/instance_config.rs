@@ -45,10 +45,14 @@ pub struct InstanceConfigJson {
     /// This is an optional list of additional
     /// arguments to pass to the game.
     pub game_args: Option<Vec<String>>,
-    /// If the instance was downloaded from Omniarchive,
-    /// this field contains information about the entry.
-    /// Otherwise it's `None`/`null`
-    pub omniarchive: Option<OmniarchiveEntry>,
+    /// DEPRECATED in v0.4.2
+    ///
+    /// This used to indicate whether a version
+    /// was downloaded from Omniarchive instead
+    /// of Mojang, in Quantum Launcher
+    /// v0.3.1 - v0.4.1
+    #[deprecated(since = "0.4.2", note = "migrated to BetterJSONs, so no longer needed")]
+    pub omniarchive: Option<serde_json::Value>,
     /// **Default: `false`**
     ///
     /// - `true`: the instance is a classic server.
@@ -111,14 +115,6 @@ pub struct InstanceConfigJson {
     pub close_on_start: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct OmniarchiveEntry {
-    pub name: String,
-    pub url: String,
-    pub nice_name: Option<String>,
-    pub category: String,
-}
-
 impl InstanceConfigJson {
     /// Returns a String containing the Java argument to
     /// allocate the configured amount of RAM.
@@ -139,9 +135,7 @@ impl InstanceConfigJson {
         let config_json = tokio::fs::read_to_string(&config_json_path)
             .await
             .path(config_json_path)?;
-        let mut config: Self = serde_json::from_str(&config_json).json(config_json)?;
-        config.fix();
-        Ok(config)
+        Ok(serde_json::from_str(&config_json).json(config_json)?)
     }
 
     /// Loads the launcher-specific instance configuration from disk,
@@ -151,24 +145,6 @@ impl InstanceConfigJson {
     /// - `config.json` file couldn't be loaded
     /// - `config.json` couldn't be parsed into valid JSON
     pub async fn read(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        let config_path = instance.get_instance_path();
-        let mut config = Self::read_from_path(&config_path).await?;
-        config.fix();
-        Ok(config)
-    }
-
-    fn fix(&mut self) {
-        if let Some(entry) = &mut self.omniarchive {
-            if entry.nice_name.is_none() {
-                entry.nice_name = Some(
-                    entry
-                        .name
-                        .split('/')
-                        .next_back()
-                        .map(str::to_owned)
-                        .unwrap_or(entry.name.clone()),
-                );
-            }
-        }
+        Self::read_from_path(&instance.get_instance_path()).await
     }
 }

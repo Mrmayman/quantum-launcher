@@ -26,6 +26,7 @@ pub mod print;
 mod progress;
 
 use std::{
+    fmt::Display,
     future::Future,
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -213,6 +214,24 @@ impl InstanceSelection {
         match self {
             Self::Instance(ref mut n) | Self::Server(ref mut n) => name.clone_into(n),
         }
+    }
+}
+
+/// An enum representing a Minecraft version.
+///
+/// # Fields
+/// - `name`: The name of the version according to
+///   [BetterJSONs](https://mcphackers.org/BetterJSONs/version_manifest_v2.json)
+/// - `is_classic_server`: Whether it is a Minecraft Classic entry
+#[derive(Debug, Clone)]
+pub struct ListEntry {
+    pub name: String,
+    pub is_classic_server: bool,
+}
+
+impl Display for ListEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 

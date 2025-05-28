@@ -51,8 +51,6 @@ pub enum ServerError {
     ZipExtract(#[from] ZipExtractError),
     #[error("{SERVER_ERR_PREFIX}couldn't find forge shim file")]
     NoForgeShimFound,
-    #[error("{SERVER_ERR_PREFIX}unsupported CPU architecture for ssh")]
-    UnsupportedSSHArchitecture,
     #[error("{SERVER_ERR_PREFIX}couldn't convert PathBuf to str: {0:?}")]
     PathBufToStr(PathBuf),
 }

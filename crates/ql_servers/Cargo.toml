@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 ql_core = { path = "../ql_core" }
 ql_java_handler = { path = "../ql_java_handler" }
-omniarchive_api = { path = "../omniarchive_api" }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -14,3 +13,4 @@ tokio = { workspace = true }
 colored = { workspace = true }
 zip-extract = { workspace = true }
 thiserror = { workspace = true }
+chrono = { workspace = true }

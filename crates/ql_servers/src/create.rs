@@ -1,10 +1,9 @@
 use std::sync::mpsc::Sender;
 
-use omniarchive_api::{ListEntry, MinecraftVersionCategory};
 use ql_core::{
     file_utils, info,
-    json::{InstanceConfigJson, Manifest, OmniarchiveEntry, VersionDetails},
-    pt, GenericProgress, IntoIoError, IntoJsonError, IntoStringError, LAUNCHER_DIR,
+    json::{InstanceConfigJson, Manifest, VersionDetails},
+    pt, GenericProgress, IntoIoError, IntoJsonError, IntoStringError, ListEntry, LAUNCHER_DIR,
 };
 
 use crate::ServerError;
@@ -55,55 +54,37 @@ pub async fn create_server(
 
     let mut is_classic_server = false;
 
-    let version_json = match &version {
-        ListEntry::Normal(version) => {
-            let (jar, json) = download_from_mojang(&manifest, version, sender.as_ref()).await?;
-            tokio::fs::write(&server_jar_path, jar)
-                .await
-                .path(server_jar_path)?;
-            json
-        }
-        ListEntry::Omniarchive {
-            category,
-            url,
-            nice_name,
-            ..
-        } => {
-            let (jar, json) =
-                download_from_omniarchive(category, &manifest, nice_name, sender.as_ref(), url)
-                    .await?;
-            tokio::fs::write(&server_jar_path, jar)
-                .await
-                .path(server_jar_path)?;
-            json
-        }
-        ListEntry::OmniarchiveClassicZipServer { name, url } => {
-            is_classic_server = true;
+    let version_manifest = manifest
+        .find_name(&version.name)
+        .ok_or(ServerError::VersionNotFoundInManifest(version.name.clone()))?;
+    pt!("Downloading version JSON");
+    progress_json(sender.as_ref());
 
-            let version_json = download_omniarchive_version(
-                &MinecraftVersionCategory::Classic,
-                &manifest,
-                name,
-                sender.as_ref(),
-            )
-            .await?;
+    let version_json: VersionDetails =
+        file_utils::download_file_to_json(&version_manifest.url, false).await?;
+    let Some(server) = &version_json.downloads.server else {
+        return Err(ServerError::NoServerDownload);
+    };
 
-            progress_server_jar(sender.as_ref());
-            let archive = file_utils::download_file_to_bytes(url, true).await?;
-            zip_extract::extract(std::io::Cursor::new(archive), &server_dir, true)?;
+    pt!("Downloading server jar");
+    progress_server_jar(sender.as_ref());
+    if version.is_classic_server {
+        is_classic_server = true;
 
-            let old_path = server_dir.join("minecraft-server.jar");
-            tokio::fs::rename(&old_path, &server_jar_path)
-                .await
-                .path(old_path)?;
+        let archive = file_utils::download_file_to_bytes(&server.url, true).await?;
+        zip_extract::extract(std::io::Cursor::new(archive), &server_dir, true)?;
 
-            version_json
-        }
+        let old_path = server_dir.join("minecraft-server.jar");
+        tokio::fs::rename(&old_path, &server_jar_path)
+            .await
+            .path(old_path)?;
+    } else {
+        file_utils::download_file_to_path(&server.url, false, &server_jar_path).await?;
     };
 
     write_json(&server_dir, version_json).await?;
     write_eula(&server_dir).await?;
-    write_config(version, is_classic_server, &server_dir).await?;
+    write_config(is_classic_server, &server_dir).await?;
 
     let mods_dir = server_dir.join("mods");
     tokio::fs::create_dir(&mods_dir).await.path(mods_dir)?;
@@ -114,7 +95,6 @@ pub async fn create_server(
 }
 
 async fn write_config(
-    version: ListEntry,
     is_classic_server: bool,
     server_dir: &std::path::Path,
 ) -> Result<(), ServerError> {
@@ -125,11 +105,12 @@ async fn write_config(
         enable_logger: Some(true),
         java_args: None,
         game_args: None,
-        omniarchive: get_omniarchive(version),
         is_classic_server: is_classic_server.then_some(true),
 
-        // Doesn't affect servers:
+        #[allow(deprecated)]
+        omniarchive: None,
 
+        // # Doesn't affect servers:
         // I could add GC tuning to servers too, but I can't find
         // a way to measure performance on a server. Besides this setting
         // makes performance worse on clients so I guess it's same for servers?
@@ -194,39 +175,6 @@ async fn write_json(
     Ok(())
 }
 
-fn get_omniarchive(version: ListEntry) -> Option<OmniarchiveEntry> {
-    if let ListEntry::Omniarchive {
-        category,
-        name,
-        url,
-        nice_name,
-    } = version
-    {
-        Some(OmniarchiveEntry {
-            name,
-            url,
-            category: category.to_string(),
-            nice_name: Some(nice_name),
-        })
-    } else {
-        None
-    }
-}
-
-async fn download_from_omniarchive(
-    category: &MinecraftVersionCategory,
-    manifest: &Manifest,
-    name: &str,
-    sender: Option<&Sender<GenericProgress>>,
-    url: &str,
-) -> Result<(Vec<u8>, VersionDetails), ServerError> {
-    let version_json = download_omniarchive_version(category, manifest, name, sender).await?;
-    info!("Downloading server jar");
-    progress_server_jar(sender);
-    let server_jar = file_utils::download_file_to_bytes(url, false).await?;
-    Ok((server_jar, version_json))
-}
-
 fn progress_server_jar(sender: Option<&Sender<GenericProgress>>) {
     if let Some(sender) = sender {
         sender
@@ -238,50 +186,6 @@ fn progress_server_jar(sender: Option<&Sender<GenericProgress>>) {
             })
             .unwrap();
     }
-}
-
-async fn download_from_mojang(
-    manifest: &Manifest,
-    version: &str,
-    sender: Option<&Sender<GenericProgress>>,
-) -> Result<(Vec<u8>, VersionDetails), ServerError> {
-    let version = manifest
-        .find_name(version)
-        .ok_or(ServerError::VersionNotFoundInManifest(version.to_owned()))?;
-    pt!("Downloading version JSON");
-    progress_json(sender);
-    let version_json: VersionDetails =
-        file_utils::download_file_to_json(&version.url, false).await?;
-    let Some(server) = &version_json.downloads.server else {
-        return Err(ServerError::NoServerDownload);
-    };
-
-    pt!("Downloading server jar");
-    progress_server_jar(sender);
-    let server_jar = file_utils::download_file_to_bytes(&server.url, false).await?;
-    Ok((server_jar, version_json))
-}
-
-async fn download_omniarchive_version(
-    category: &MinecraftVersionCategory,
-    manifest: &Manifest,
-    name: &str,
-    sender: Option<&Sender<GenericProgress>>,
-) -> Result<VersionDetails, ServerError> {
-    let version = match category {
-        MinecraftVersionCategory::PreClassic => manifest.find_fuzzy(name, "rd-"),
-        MinecraftVersionCategory::Classic => manifest.find_fuzzy(name, "c0."),
-        MinecraftVersionCategory::Alpha => manifest.find_fuzzy(name, "a1."),
-        MinecraftVersionCategory::Beta => manifest.find_fuzzy(name, "b1."),
-        MinecraftVersionCategory::Indev => manifest.find_name("c0.30_01c"),
-        MinecraftVersionCategory::Infdev => manifest.find_name("inf-20100618"),
-    }
-    .ok_or(ServerError::VersionNotFoundInManifest(name.to_owned()))?;
-    info!("Downloading version JSON");
-    progress_json(sender);
-    let version_json: VersionDetails =
-        file_utils::download_file_to_json(&version.url, false).await?;
-    Ok(version_json)
 }
 
 fn progress_json(sender: Option<&Sender<GenericProgress>>) {

@@ -61,19 +61,10 @@ pub fn shortcut_ctrl<'a>(key: &str) -> Element<'a> {
 impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
-            MenuCreateInstance::Loading {
-                number: progress_number,
-                ..
-            } => widget::column![
+            MenuCreateInstance::Loading { .. } => widget::column![
                 button_with_icon(icon_manager::back(), "Back", 16)
                     .on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
                 widget::text("Loading version list...").size(20),
-                widget::progress_bar(0.0..=24.0, *progress_number),
-                widget::text(if *progress_number >= 1.0 {
-                    format!("Downloading Omniarchive list {progress_number} / 26")
-                } else {
-                    "Downloading official version list".to_owned()
-                })
             ]
             .padding(10)
             .spacing(10)
@@ -398,18 +389,8 @@ impl MenuCurseforgeManualDownload {
 impl MenuServerCreate {
     pub fn view(&self) -> Element {
         match self {
-            MenuServerCreate::LoadingList {
-                progress_number, ..
-            } => {
-                widget::column!(
-                    widget::text("Loading version list...").size(20),
-                    widget::progress_bar(0.0..=16.0, *progress_number),
-                    widget::text(if *progress_number >= 1.0 {
-                        format!("Downloading Omniarchive list {progress_number} / 17")
-                    } else {
-                        "Downloading official version list".to_owned()
-                    })
-                )
+            MenuServerCreate::LoadingList => {
+                widget::column!(widget::text("Loading version list...").size(20),)
             }
             MenuServerCreate::Loaded {
                 name,
