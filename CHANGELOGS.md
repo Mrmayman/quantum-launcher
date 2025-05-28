@@ -1,5 +1,74 @@
+# v0.4.1
+
+# 🛒 Modding
+- added Modpacks, Shaders and Resource Packs stores
+- drag-and-drop support for mod files, modpacks and presets
+- jarmod patching support (useful for old Minecraft versions)
+- OptiFine support for b1.6.6, b1.7.3, 1.2.5 and 1.5.2
+## UX
+- "Open Mod Page" in mod description now shows URL in tooltip
+- added bullet/numbered list support in curseforge mod descriptions
+- mod update checking is now up to 3-4x faster!
+
+# 📂 Portable Mode & Custom Paths
+You can control where QuantumLauncher stores data by placing a `qldir.txt` file in one of the following locations:
+- Next to the launcher executable
+- In the working directory where it's run
+- In the global [QuantumLauncher folder](https://mrmayman.github.io/quantumlauncher/faq#files-location)
+
+Leave the file **blank** for full portable mode, or write a path inside it to set a custom data location.
+> Note: On macOS you may need to **extract the `.app` from the DMG** for portable mode.
+
+# Menu Overhauls
+- Welcome screen redesigned to guide new users more clearly
+- Error screen looks better, now has a "Copy Log + Error" button
+- Fabric Install screen is now simpler and less cluttered
+
+# UI/UX
+- new Catppuccin color scheme
+- improved aesthetics of light themes
+- animated pulsating "..." dots in a few "Loading" screens
+- minor tweaks to buttons and layout in many screens
+- added a "Clean Java Installs" button (for reinstalling java) in launcher settings
+- old versions in the version list now have cleaner names ("beta/b1.7/b1.7.3" -> "b1.7.3")
+- window size now respects UI scale
+
+# ⌨️ Keyboard Navigation
+- Up/Down arrow keys to select instance
+- Ctrl+Enter -> launch instance
+- Ctrl+Backspace -> kill instance
+- Ctrl+Q -> exit launcher (only in main menu, when nothing's running)
+- (note: on macOS it's Cmd instead of Ctrl)
+- More coming in the future!
+
+# 🚫 Game Crashed Message
+- there is now a "Join Discord" button in Logs tab
+- there's no longer a tip mentioning a "second terminal" upon crash (no longer needed)
+
+# 🧑‍💻️ Other
+- dropped OpenSSL and LZMA dependencies on linux
+- - now depends only on `libgcc_s` and `libc` (glibc)
+- - replaced OpenSSL with rustls
+
+# 🐞 Fixes
+- crash messages now appear in Logs tab (critical!)
+- forge now works after renaming instance
+- multiplayer now works in 1.16.x for offline accounts
+- mod updating and preset importing are now working again! (fixed error for curseforge, index corruption for modrinth)
+- fixed extreme launcher log file spam
+## UI/UX
+- UI scaling now has a minimum limit preventing unusable layouts
+- many mod-related operations now return you to Mods screen, instead of launch screen
+- pressing Esc in mod descriptions now exits the description only (not the entire store)
+- fixed mod store "forgetting" scroll position when opening description and exiting
+## Platform-specific
+- fixed 1.13-1.16 crashing on linux ARM
+- fixed 1.8.9 crashing on macOS ARM
+- fixed Java 8 (1.16.5 and below) compatibility on Windows ARM and macOS
+
+---
+
 # v0.4
-It's crafting time!
 
 ## 🚀 Redesign
 - Redesigned the launcher UI!
@@ -153,8 +222,3 @@ The first release of QuantumLauncher. Very buggy and janky.
 - Forge/OptiFine installer (added in v0.2)
 - Skin/Sound fixes for old versions (added in v0.3)
 - Archived old versions of Minecraft from OmniArchive.
-
-## Notes:
-Download the zip as per your OS. Extract it and run the executable (or if you download source code, just compile it) and you have your launcher!
-If anything is broken, please message me on discord at @mrmayman
-This launcher has been in development for quite a while, I just thought of making the first release now.
