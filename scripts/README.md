@@ -1,6 +1,9 @@
 # These are shell scripts that I use to automate some tasks.
 TODO: Support windows (these only support linux/macOS currently)
 
+With the exception of `line_count.sh` which requires BASH, all other scripts
+should be POSIX-compliant and run on any POSIX-compatible `sh` shell.
+
 ## `clippy-pedantic.sh`
 This script is used to run clippy with pedantic level (very strict).
 
@@ -24,3 +27,8 @@ The `flatpak-cargo-generator.py` must be in your `$PATH` (or otherwise just copy
 with the path to the python script).
 You can download the required python script from <https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py>
 and put it in your path. Make sure to `chmod +x path/to/flatpak-cargo-generator.py` on macOS/linux.
+
+## `line_count.sh`
+This lists the line counts of every Rust source code file (`*.rs`)
+in the current dir (`.`). You can pass in an argument to check specific folders,
+or run this without argument to check the current dir.

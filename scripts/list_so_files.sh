@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env sh
 
 # Function to process a single jar file
 process_jar() {
@@ -9,7 +9,7 @@ process_jar() {
     so_files=$(jar tf "$jar_file" | grep -E '\.(so|dll|dylib|jnilib)$')
 
     # Only print if there are any .so files
-    if [[ -n "$so_files" ]]; then
+    if [ -n "$so_files" ]; then
         echo "$jar_file:"
         echo "$so_files" | while read -r so_file; do
             echo "  /$so_file"
@@ -22,7 +22,7 @@ process_dir() {
     local dir="$1"
 
     # Check if the directory exists
-    if [[ ! -d "$dir" ]]; then
+    if [ ! -d "$dir" ]; then
         echo "Error: Directory '$dir' does not exist."
         exit 1
     fi
@@ -34,7 +34,7 @@ process_dir() {
 }
 
 # Check if a directory path is provided
-if [[ $# -ne 1 ]]; then
+if [ $# -ne 1 ]; then
     echo "Usage: $0 <path_to_directory>"
     exit 1
 fi
