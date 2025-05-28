@@ -80,7 +80,7 @@ pub async fn create_server(
             .path(old_path)?;
     } else {
         file_utils::download_file_to_path(&server.url, false, &server_jar_path).await?;
-    };
+    }
 
     write_json(&server_dir, version_json).await?;
     write_eula(&server_dir).await?;

@@ -1,6 +1,7 @@
 pub mod constants;
 mod library_downloader;
 
+use std::path::Path;
 use std::{path::PathBuf, sync::mpsc::Sender};
 
 use ql_core::json::AssetIndexMap;
@@ -169,33 +170,30 @@ impl GameDownloader {
         let assets_objects_path = &current_assets_dir.join("objects");
         tokio::fs::create_dir_all(&assets_objects_path)
             .await
-            .path(&assets_objects_path)?;
+            .path(assets_objects_path)?;
 
         let out_of = asset_index.objects.len();
         let bar = &indicatif::ProgressBar::new(out_of as u64);
         let progress_num = &Mutex::new(0);
 
-        let results = asset_index
-            .objects
-            .iter()
-            .map(|(_, object_data)| async move {
-                object_data.download(assets_objects_path).await?;
+        let results = asset_index.objects.values().map(|asset| async move {
+            asset.download(assets_objects_path).await?;
 
-                let mut progress = progress_num.lock().await;
-                *progress += 1;
+            let mut progress = progress_num.lock().await;
+            *progress += 1;
 
-                self.send_progress(
-                    DownloadProgress::DownloadingAssets {
-                        progress: *progress,
-                        out_of,
-                    },
-                    true,
-                );
+            self.send_progress(
+                DownloadProgress::DownloadingAssets {
+                    progress: *progress,
+                    out_of,
+                },
+                true,
+            );
 
-                bar.inc(1);
+            bar.inc(1);
 
-                Ok::<(), DownloadFileError>(())
-            });
+            Ok::<(), DownloadFileError>(())
+        });
 
         _ = do_jobs(results).await?;
 
@@ -208,7 +206,7 @@ impl GameDownloader {
     async fn save_asset_index(
         &self,
         asset_index: &AssetIndexMap,
-        current_assets_dir: &PathBuf,
+        current_assets_dir: &Path,
     ) -> Result<(), DownloadError> {
         let assets_indexes_path = current_assets_dir.join("indexes");
         tokio::fs::create_dir_all(&assets_indexes_path)

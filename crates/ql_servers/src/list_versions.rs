@@ -60,7 +60,7 @@ pub async fn list() -> Result<Vec<ListEntry>, JsonDownloadError> {
                     Err(e) => {
                         err!("Could not parse instance date/time: {e}");
                     }
-                };
+                }
             }
 
             Some(ListEntry {

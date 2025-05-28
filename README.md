@@ -62,7 +62,7 @@ What about the others? Well...
 
 - The official Minecraft launcher is slow, unstable, buggy and frustrating to use,
   with barely any modding features.
-- PrismLauncher is a great launcher overall, but it does not support
+- Prism Launcher is a great launcher overall, but it does not support
   offline accounts. Same for MultiMC.
 - Legacy Launcher isn't as feature rich as this
 - TLauncher is *suspected* to be malware
@@ -181,7 +181,6 @@ codebase is like for any potential contributors.
 - `ql_reqwest` - A shim (wrapper) around the [reqwest](https://github.com/seanmonstar/reqwest) library, that automatically deals with platform-specific features in the Cargo.toml.
 ### Specific-purpose "libraries"
 - `ql_java_handler` - A library to auto-install and provide java runtimes
-- `omniarchive_api` - A web-scraper for getting a list of old Minecraft versions from Omniarchive. (TODO: migrate to BetterJSONs to avoid web-scraping)
 
 ## Brief Overview of the codebase
 The architecture of the launcher is based on the

@@ -263,7 +263,7 @@ impl ForgeInstaller {
         Ok(())
     }
 
-    async fn get_forge_json(
+    fn get_forge_json(
         &self,
         installer_file: &[u8],
     ) -> Result<(JsonDetails, String), ForgeInstallError> {
@@ -550,7 +550,7 @@ pub async fn install_client(
 
     let mut clean_classpath = String::new();
 
-    let (forge_json, forge_json_str) = installer.get_forge_json(&installer_file).await?;
+    let (forge_json, forge_json_str) = installer.get_forge_json(&installer_file)?;
 
     let num_libraries = forge_json
         .libraries

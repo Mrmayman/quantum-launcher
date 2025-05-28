@@ -393,6 +393,10 @@ pub async fn clean_log_spam() -> Result<(), IoError> {
     const SIZE_LIMIT_BYTES: u64 = 100 * 1024 * 1024; // 100 MB
 
     let logs_dir = LAUNCHER_DIR.join("logs");
+    if !logs_dir.is_dir() {
+        tokio::fs::create_dir_all(&logs_dir).await.path(logs_dir)?;
+        return Ok(());
+    }
     let mut total_size = 0;
     let mut files: Vec<(DirEntry, Metadata)> = Vec::new();
 

@@ -15,7 +15,7 @@ use crate::launcher_state::{
 impl Launcher {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Nothing => {}
+            Message::Nothing | Message::CoreLogCleanComplete(Ok(())) => {}
 
             Message::CoreTickConfigSaved(result)
             | Message::LaunchKillEnd(result)
@@ -28,7 +28,6 @@ impl Launcher {
             Message::UpdateCheckResult(Err(err)) | Message::CoreLogCleanComplete(Err(err)) => {
                 err_no_log!("{err}");
             }
-            Message::CoreLogCleanComplete(Ok(())) => {}
 
             Message::ServerCreateEnd(Err(err))
             | Message::ServerCreateVersionsLoaded(Err(err))
@@ -139,7 +138,7 @@ impl Launcher {
                     Message::UninstallLoaderEnd,
                 );
             }
-            Message::UninstallLoaderEnd(Ok(_)) => {
+            Message::UninstallLoaderEnd(Ok(())) => {
                 match self.go_to_edit_mods_menu_without_update_check() {
                     Ok(n) => return n,
                     Err(err) => self.set_error(err),

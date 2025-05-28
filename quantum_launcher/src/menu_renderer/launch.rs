@@ -393,9 +393,9 @@ impl Launcher {
         }
     }
 
-    fn get_files_button<'a>(
-        selected_instance: &'a InstanceSelection,
-    ) -> widget::Button<'a, Message, LauncherTheme> {
+    fn get_files_button(
+        selected_instance: &InstanceSelection,
+    ) -> widget::Button<'_, Message, LauncherTheme> {
         button_with_icon(icon_manager::folder(), "Files", 16)
             .on_press(Message::CoreOpenDir(
                 selected_instance

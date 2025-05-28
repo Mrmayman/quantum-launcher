@@ -227,12 +227,11 @@ impl Launcher {
 
                 if not_allowed.is_empty() {
                     return task;
-                } else {
-                    self.state = State::CurseforgeManualDownload(MenuCurseforgeManualDownload {
-                        unsupported: not_allowed,
-                        is_store: true,
-                    });
                 }
+                self.state = State::CurseforgeManualDownload(MenuCurseforgeManualDownload {
+                    unsupported: not_allowed,
+                    is_store: true,
+                });
             }
             InstallModsMessage::IndexUpdated(Ok(idx)) => {
                 if let State::ModsDownload(menu) = &mut self.state {

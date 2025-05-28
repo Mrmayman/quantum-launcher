@@ -134,7 +134,7 @@ impl<'a> ModDownloader<'a> {
             Box::pin(self.download(&dep_id, Some(id))).await?;
         }
 
-        self.add_to_index(dependent, &response, query_type, file_query, url, id_mod);
+        self.add_to_index(dependent, &response, query_type, file_query, url, &id_mod);
 
         pt!("Finished installing {query_type}: {}", response.name);
 
@@ -148,7 +148,7 @@ impl<'a> ModDownloader<'a> {
         query_type: QueryType,
         file_query: super::CurseforgeFileQuery,
         url: String,
-        id_mod: ModId,
+        id_mod: &ModId,
     ) {
         if let QueryType::Mods = query_type {
             let id_index_str = id_mod.get_index_str();

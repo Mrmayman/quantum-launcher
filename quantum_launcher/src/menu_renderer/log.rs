@@ -128,8 +128,7 @@ impl Launcher {
             // For copy pasting
             let msg_text = text
                 .get(i)
-                .map(|(line, _)| line.clone())
-                .unwrap_or_else(|| msg.join(""));
+                .map_or_else(|| msg.join(""), |(line, _)| line.clone());
 
             widget::button(
                 widget::row![

@@ -126,70 +126,55 @@ impl MenuEditMods {
                 InstanceSelection::Instance(_) => widget::column![
                     "Install:",
                     widget::row!(
-                        widget::button("Fabric")
-                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
-                                is_quilt: false
-                            }))
-                            .width(97),
-                        widget::button("Quilt")
-                            .width(98)
-                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
-                                is_quilt: true
-                            })),
+                        install_ldr("Fabric").on_press(Message::InstallFabric(
+                            InstallFabricMessage::ScreenOpen { is_quilt: false }
+                        )),
+                        install_ldr("Quilt").on_press(Message::InstallFabric(
+                            InstallFabricMessage::ScreenOpen { is_quilt: true }
+                        )),
                     )
                     .spacing(5),
                     widget::row!(
-                        widget::button("Forge")
-                            .on_press(Message::InstallForgeStart { is_neoforge: false })
-                            .width(97),
-                        widget::button("NeoForge")
+                        install_ldr("Forge")
+                            .on_press(Message::InstallForgeStart { is_neoforge: false }),
+                        install_ldr("NeoForge")
                             .on_press(Message::InstallForgeStart { is_neoforge: true })
-                            .width(98),
                     )
                     .spacing(5),
-                    widget::row!(widget::button("OptiFine")
+                    install_ldr("OptiFine")
                         .on_press(Message::InstallOptifine(InstallOptifineMessage::ScreenOpen))
-                        .width(97))
-                    .spacing(5),
                 ]
                 .spacing(5)
                 .into(),
                 InstanceSelection::Server(_) => widget::column!(
                     "Install:",
                     widget::row!(
-                        widget::button("Fabric")
-                            .width(97)
-                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
-                                is_quilt: false
-                            })),
-                        widget::button("Quilt")
-                            .width(98)
-                            .on_press(Message::InstallFabric(InstallFabricMessage::ScreenOpen {
-                                is_quilt: true
-                            })),
+                        install_ldr("Fabric").on_press(Message::InstallFabric(
+                            InstallFabricMessage::ScreenOpen { is_quilt: false }
+                        )),
+                        install_ldr("Quilt").on_press(Message::InstallFabric(
+                            InstallFabricMessage::ScreenOpen { is_quilt: true }
+                        )),
                     )
                     .spacing(5),
                     widget::row!(
-                        widget::button("Forge")
-                            .on_press(Message::InstallForgeStart { is_neoforge: false })
-                            .width(97),
-                        widget::button("NeoForge")
+                        install_ldr("Forge")
+                            .on_press(Message::InstallForgeStart { is_neoforge: false }),
+                        install_ldr("NeoForge")
                             .on_press(Message::InstallForgeStart { is_neoforge: true })
-                            .width(98)
                     )
                     .spacing(5),
                     widget::row!(
                         widget::button("Bukkit").width(97),
-                        widget::button("Spigot").width(98)
+                        widget::button("Spigot").width(97)
                     )
                     .spacing(5),
-                    widget::button("Paper")
-                        .width(97)
-                        .on_press(Message::InstallPaperStart),
+                    install_ldr("Paper").on_press(Message::InstallPaperStart),
                 )
                 .spacing(5)
                 .into(),
             },
+
             "Forge" => widget::column!(
                 widget::button("Install OptiFine"),
                 Self::get_uninstall_panel(
@@ -208,6 +193,7 @@ impl MenuEditMods {
             )
             .spacing(5)
             .into(),
+
             "NeoForge" => {
                 Self::get_uninstall_panel(&self.config.mod_type, Message::UninstallLoaderForgeStart)
             }
@@ -218,6 +204,7 @@ impl MenuEditMods {
             "Paper" => {
                 Self::get_uninstall_panel(&self.config.mod_type, Message::UninstallLoaderPaperStart)
             }
+
             _ => {
                 widget::column!(widget::text!("Unknown mod type: {}", self.config.mod_type)).into()
             }
@@ -376,4 +363,8 @@ impl MenuEditMods {
         .height(Length::Fill)
         .into()
     }
+}
+
+fn install_ldr(fabric: &str) -> widget::Button<'_, Message, LauncherTheme, iced::Renderer> {
+    widget::button(fabric).width(97)
 }

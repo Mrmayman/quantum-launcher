@@ -229,10 +229,13 @@ impl Launcher {
                 mod_update_progress: None,
                 ..
             })
-            | State::Create(MenuCreateInstance::Loading { .. })
-            | State::Create(MenuCreateInstance::Loaded { progress: None, .. })
-            | State::ServerCreate(MenuServerCreate::LoadingList { .. })
-            | State::ServerCreate(MenuServerCreate::Loaded { .. })
+            | State::Create(
+                MenuCreateInstance::Loading { .. }
+                | MenuCreateInstance::Loaded { progress: None, .. },
+            )
+            | State::ServerCreate(
+                MenuServerCreate::LoadingList | MenuServerCreate::Loaded { .. },
+            )
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
             | State::LauncherSettings(_)

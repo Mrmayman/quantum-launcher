@@ -5,7 +5,7 @@
 //! folder, you directly patch or modify the Minecraft jar file
 //! (`.minecraft/versions/<VERSION>/<VERSION>.jar`).
 //!
-//! QuantumLauncher facilitates this by providing a flexible API
+//! Quantum Launcher facilitates this by providing a flexible API
 //! for jarmods. Instead of directly modifying the Minecraft jar file:
 //!
 //! - You can put your jarmods (which are "patches" to the jar),

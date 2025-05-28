@@ -166,7 +166,7 @@ impl GameLauncher {
         Ok(())
     }
 
-    /// Old QuantumLauncher versions didn't have
+    /// Old Quantum Launcher versions didn't have
     /// `classpath_entries` for Forge libraries.
     /// So this is just migration to fix a dumb
     /// mistake I made in the past.

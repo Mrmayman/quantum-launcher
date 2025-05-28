@@ -732,7 +732,7 @@ impl Launcher {
             return Ok(Self::with_error(format!(
                 "Could not get launcher dir: {err}"
             )));
-        };
+        }
 
         let (mut config, theme) = load_config_and_theme()?;
 

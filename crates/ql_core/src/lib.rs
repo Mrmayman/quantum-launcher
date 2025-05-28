@@ -13,6 +13,7 @@
 //! - And much more
 
 #![allow(clippy::cast_precision_loss)]
+#![allow(clippy::missing_errors_doc)]
 
 mod error;
 /// Common utilities for working with files.

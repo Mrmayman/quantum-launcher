@@ -54,8 +54,7 @@ pub async fn install_modpack(
 
     let overrides = index_json_curseforge
         .as_ref()
-        .map(|n| n.overrides.clone())
-        .unwrap_or("overrides".to_owned());
+        .map_or("overrides".to_owned(), |n| n.overrides.clone());
 
     let mc_dir = instance.get_dot_minecraft_path();
     let config = InstanceConfigJson::read(&instance).await?;
