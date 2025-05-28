@@ -14,10 +14,6 @@
   (licensed under Apache 2.0) for connecting to Forge installer.
 - `OptifineInstaller.java` made by Mrmayman (me) for connecting to OptiFine installer.
 
-# ARM64 Support
-- `lwjgl_arm64` taken from <https://github.com/theofficialgman/piston-meta-arm64>
-- `minecraft_arm` taken from <https://github.com/Kichura/Minecraft_ARM>, licensed under MIT (no attribution)
-
 # ASCII
 ASCII art for QuantumLauncher, to be shown as an intro message to the terminal. Licensed under public domain.
 

@@ -62,7 +62,6 @@
 
 mod download;
 mod instance;
-mod json_natives;
 mod json_profiles;
 mod launcher_update_detector;
 mod mc_auth;

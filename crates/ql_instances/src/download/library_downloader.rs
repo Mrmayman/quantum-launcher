@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     io::Cursor,
     path::{Path, PathBuf},
     sync::Mutex,
@@ -9,27 +10,13 @@ use ql_core::{
     json::version::{
         Library, LibraryClassifier, LibraryDownloadArtifact, LibraryDownloads, LibraryExtract,
     },
-    pt, DownloadProgress, IntoIoError, IoError, IS_ARM_LINUX,
+    pt, DownloadProgress, IntoIoError, IoError,
 };
 use zip_extract::ZipExtractError;
 
-use crate::{
-    json_natives::{JsonNatives, NativesEntry},
-    OS_NAME,
-};
+use crate::download::constants::*;
 
-use super::{constants::OS_NAMES, DownloadError, GameDownloader};
-
-#[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-#[derive(serde::Deserialize)]
-struct LwjglLibrary {
-    libraries: Vec<Library>,
-}
-
-#[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-use super::constants::{
-    LWJGL_294, LWJGL_312, LWJGL_316, LWJGL_321, LWJGL_322, LWJGL_331, LWJGL_332, LWJGL_333,
-};
+use super::{DownloadError, GameDownloader};
 
 const MACOS_ARM_LWJGL_294_1: &str = "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.4-nightly-20150209/lwjgl-platform-2.9.4-nightly-20150209-natives-osx.jar";
 const MACOS_ARM_LWJGL_294_2: &str = "https://github.com/Dungeons-Guide/lwjgl/releases/download/2.9.4-20150209-mmachina.2-syeyoung.1/lwjgl-platform-2.9.4-nightly-20150209-natives-osx-arm64.jar";
@@ -44,15 +31,11 @@ impl GameDownloader {
 
         let num_library = Mutex::new(0);
 
-        #[allow(unused_mut)]
-        let mut replaced_names = Vec::new();
-
-        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-        self.aarch64_patch_libs(&mut replaced_names)?;
-
-        let results = self.version_json.libraries.iter().map(|lib| {
-            self.download_library_fn(lib, &num_library, total_libraries, &replaced_names)
-        });
+        let results = self
+            .version_json
+            .libraries
+            .iter()
+            .map(|lib| self.download_library_fn(lib, &num_library, total_libraries));
 
         // Uncomment for synchronous downloads. WAY slower,
         // but easier to debug/inspect logs of,
@@ -68,46 +51,7 @@ impl GameDownloader {
         // This is WAY faster but harder to debug/inspect
         _ = do_jobs(results).await?;
 
-        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-        {
-            // We don't want any x64 libraries on ARM, do we?
-            let dir = self.instance_dir.join("libraries/natives/linux/x64");
-            if dir.exists() {
-                tokio::fs::remove_dir_all(&dir).await.path(dir)?;
-            }
-        }
         Ok(())
-    }
-
-    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-    fn aarch64_patch_libs(
-        &mut self,
-        replaced_names: &mut Vec<String>,
-    ) -> Result<(), DownloadError> {
-        Ok(
-            for lwjgl in [
-                LWJGL_294, LWJGL_312, LWJGL_316, LWJGL_321, LWJGL_322, LWJGL_331, LWJGL_332,
-                LWJGL_333,
-            ] {
-                let lib: LwjglLibrary =
-                    ql_core::IntoJsonError::json(serde_json::from_str(lwjgl), lwjgl.to_owned())?;
-                for new_library in &lib.libraries {
-                    for library in self
-                        .version_json
-                        .libraries
-                        .iter_mut()
-                        .filter(|n| n.name == new_library.name)
-                    {
-                        if let Some(name) = new_library.name.clone() {
-                            info!("Patching {name}");
-                            replaced_names.push(name);
-                        }
-
-                        *library = new_library.clone();
-                    }
-                }
-            },
-        )
     }
 
     async fn download_library_fn(
@@ -115,14 +59,13 @@ impl GameDownloader {
         library: &Library,
         library_i: &Mutex<usize>,
         library_len: usize,
-        replaced_libs: &[String],
     ) -> Result<(), DownloadError> {
         if !GameDownloader::download_libraries_library_is_allowed(library) {
             info!("Skipping library:\n{library:#?}\n",);
             return Ok(());
         }
 
-        self.download_library(library, replaced_libs).await?;
+        self.download_library(library).await?;
 
         {
             let mut library_i = library_i.lock().unwrap();
@@ -151,11 +94,7 @@ impl GameDownloader {
         Ok(())
     }
 
-    async fn download_library(
-        &self,
-        library: &Library,
-        replaced_libs: &[String],
-    ) -> Result<(), DownloadError> {
+    async fn download_library(&self, library: &Library) -> Result<(), DownloadError> {
         let libraries_dir = self.instance_dir.join("libraries");
 
         if let Some(LibraryDownloads {
@@ -178,7 +117,7 @@ impl GameDownloader {
                 let natives_path = self.instance_dir.join("libraries/natives");
                 extractlib_natives_field(
                     library,
-                    replaced_libs,
+                    classifiers.as_ref(),
                     &jar_file,
                     &natives_path,
                     artifact,
@@ -217,10 +156,14 @@ impl GameDownloader {
 
         // Why 2 functions? Because unfortunately there are multiple formats
         // natives can come in, and we need to support all of them.
-
-        // Since old versions of the launcher (that we're migrating from)
-        // weren't available for other platforms, I'm just providing `&Vec::new()`
-        extractlib_natives_field(library, &Vec::new(), jar_file, &natives_path, artifact).await?;
+        extractlib_natives_field(
+            library,
+            Some(&BTreeMap::new()),
+            jar_file,
+            &natives_path,
+            artifact,
+        )
+        .await?;
 
         extractlib_name_natives(library, artifact, natives_path).await?;
 
@@ -360,32 +303,18 @@ async fn extractlib_name_natives(
         return Ok(());
     }
 
-    // theofficialgman provides arm natives
-    // https://github.com/theofficialgman/piston-meta-arm64
-    #[cfg(not(all(target_os = "linux", target_arch = "aarch64")))]
-    let is_from_theofficialgman = false;
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    let is_from_theofficialgman =
-        if let Some(downloads) = library.downloads.as_ref().and_then(|n| n.artifact.as_ref()) {
-            downloads.url.contains("theofficialgman")
-                || downloads.url.contains("arm")
-                || downloads.url.contains("aarch")
-        } else {
-            false
-        };
-
-    let is_arm_native = name.contains("arm") || name.contains("aarch") || is_from_theofficialgman;
-
-    let is_compatible = IS_ARM_LINUX == is_arm_native;
+    #[cfg(target_arch = "arm")]
+    let is_compatible = name.contains("arm32");
+    #[cfg(target_arch = "aarch64")]
+    let is_compatible = name.contains("aarch") || name.contains("arm64");
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "arm")))]
+    let is_compatible = !(name.contains("aarch") || name.contains("arm"));
 
     if is_compatible {
         info!("Downloading native (2): {name}");
         let jar_file = file_utils::download_file_to_bytes(&artifact.url, false).await?;
         pt!("Extracting native: {name}");
         extract_zip_file(&jar_file, &natives_path).map_err(DownloadError::NativesExtractError)?;
-    } else {
-        info!("Downloading native (minecraft_arm): {name}");
-        download_other_platform_natives(name, natives_path).await?;
     }
 
     Ok(())
@@ -393,7 +322,7 @@ async fn extractlib_name_natives(
 
 async fn extractlib_natives_field(
     library: &Library,
-    replaced_libs: &[String],
+    classifiers: Option<&std::collections::BTreeMap<String, LibraryClassifier>>,
     jar_file: &[u8],
     natives_path: &Path,
     artifact: &LibraryDownloadArtifact,
@@ -404,35 +333,11 @@ async fn extractlib_natives_field(
         return Ok(());
     };
 
-    let is_valid = if IS_ARM_LINUX {
-        if let Some(name) = &library.name {
-            if replaced_libs.contains(name) {
-                if let Some(downloads) =
-                    library.downloads.as_ref().and_then(|n| n.artifact.as_ref())
-                {
-                    downloads.url.contains("theofficialgman")
-                        || downloads.url.contains("arm")
-                        || downloads.url.contains("aarch")
-                } else {
-                    true
-                }
-            } else {
-                pt!("Didn't replace {name}");
-                false
-            }
-        } else {
-            pt!("Library doesn't have a name!");
-            false
-        }
-    } else {
-        true
-    };
-
-    if !is_valid {
-        info!("Skipping natives (1): {name}");
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+    let Some(natives_name) = natives.get(&format!("{OS_NAME}-{ARCH}")) else {
         return Ok(());
-    }
-
+    };
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "arm")))]
     let Some(natives_name) = natives.get(OS_NAME) else {
         return Ok(());
     };
@@ -442,41 +347,43 @@ async fn extractlib_natives_field(
 
     extract_zip_file(jar_file, natives_path).map_err(DownloadError::NativesExtractError)?;
 
-    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-    if library.name.as_deref() == Some("org.lwjgl.lwjgl:lwjgl-platform:2.9.0") {
-        // TODO: Find a better way to do this
-        let liblwjgl64_path = natives_path.join("liblwjgl64.so");
-        if liblwjgl64_path.exists() {
-            tokio::fs::remove_file(&liblwjgl64_path)
-                .await
-                .path(liblwjgl64_path)?;
+    let natives_url = if let Some(classifiers) = classifiers {
+        if let Some(natives) = classifiers.get(natives_name) {
+            if natives.url == "https://github.com/MinecraftMachina/lwjgl/releases/download/2.9.4-20150209-mmachina.2/lwjgl-platform-2.9.4-nightly-20150209-natives-osx.jar" {
+                // Updated fork, fixes crash on macOS aarch64 when resizing windows
+                "https://github.com/Dungeons-Guide/lwjgl/releases/download/2.9.4-20150209-mmachina.2-syeyoung.1/lwjgl-platform-2.9.4-nightly-20150209-natives-osx-arm64.jar".to_owned()
+            } else {
+                natives.url.clone()
+            }
+        } else {
+            err!("{name}: No matching `classifiers.natives-*` entry found for {natives_name}");
+            return Ok(());
         }
-        let libopenal64_path = natives_path.join("libopenal64.so");
-        if libopenal64_path.exists() {
-            tokio::fs::remove_file(&libopenal64_path)
-                .await
-                .path(libopenal64_path)?;
-        }
-    }
+    } else {
+        let url = &artifact.url[..artifact.url.len() - 4];
+        let mut natives_url = format!("{url}-{natives_name}.jar");
 
-    let url = &artifact.url[..artifact.url.len() - 4];
-    let mut natives_url = format!("{url}-{natives_name}.jar");
-    if natives_url == "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-natives-linux.jar" {
-        "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".clone_into(&mut natives_url);
-    }
-    #[cfg(target_arch = "aarch64")]
-    {
-        if natives_url == MACOS_ARM_LWJGL_294_1 {
-            info!("Patching LWJGL 2.9.4 20150209 natives for OSX ARM64");
-            MACOS_ARM_LWJGL_294_2.clone_into(&mut natives_url);
+        if natives_url == "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-natives-linux.jar" {
+            "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".clone_into(&mut natives_url);
         }
-        if natives_url.ends_with("lwjgl-core-natives-linux.jar") {
-            natives_url = natives_url.replace(
-                "lwjgl-core-natives-linux.jar",
-                "lwjgl-natives-linux-arm64.jar",
-            );
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            if natives_url == MACOS_ARM_LWJGL_294_1 {
+                info!("Patching LWJGL 2.9.4 20150209 natives for OSX ARM64");
+                MACOS_ARM_LWJGL_294_2.clone_into(&mut natives_url);
+            }
+            if natives_url.ends_with("lwjgl-core-natives-linux.jar") {
+                natives_url = natives_url.replace(
+                    "lwjgl-core-natives-linux.jar",
+                    "lwjgl-natives-linux-arm64.jar",
+                );
+            }
         }
-    }
+
+        natives_url
+    };
+
     pt!("Downloading native jar: {name}\n  ({natives_url})");
     let native_jar = match file_utils::download_file_to_bytes(&natives_url, false).await {
         Ok(n) => n,
@@ -495,57 +402,6 @@ async fn extractlib_natives_field(
     extract_zip_file(&native_jar, natives_path).map_err(DownloadError::NativesExtractError)?;
 
     Ok(())
-}
-
-async fn download_other_platform_natives(
-    name: &String,
-    natives_path: PathBuf,
-) -> Result<(), DownloadError> {
-    let Some(entry) = NativesEntry::get(name) else {
-        err!("Native library not recognised: {name}");
-        return Ok(());
-    };
-
-    let json = JsonNatives::get(entry)?;
-
-    if !name.contains(&json.version) {
-        err!("Version mismatch: {name} != {}", json.version);
-        return Ok(());
-    }
-
-    for library in json
-        .libraries
-        .iter()
-        .filter(|n| custom_natives_is_allowed(n))
-    {
-        let jar_file =
-            file_utils::download_file_to_bytes(&library.downloads.artifact.url, false).await?;
-
-        extract_zip_file(&jar_file, &natives_path).map_err(DownloadError::NativesExtractError)?;
-    }
-    Ok(())
-}
-
-fn custom_natives_is_allowed(library: &crate::json_natives::NativeLibrary) -> bool {
-    let Some(rules) = &library.rules else {
-        return true;
-    };
-    let mut allowed = !rules.iter().any(|n| n.action == "allow");
-    for (os, action) in rules
-        .iter()
-        .filter_map(|n| n.os.as_ref().map(|m| (m, &n.action)))
-    {
-        for os_name in OS_NAMES.iter().filter_map(|n| os.name.strip_prefix(n)) {
-            if os_name.is_empty()
-                || ((cfg!(target_arch = "x86_64") && os_name.contains("x86_64"))
-                    || (cfg!(target_arch = "aarch64") && os_name.contains("arm64")))
-            {
-                allowed = action == "allow";
-                break;
-            }
-        }
-    }
-    allowed
 }
 
 fn supports_os(classifiers: &std::collections::BTreeMap<String, LibraryClassifier>) -> bool {
