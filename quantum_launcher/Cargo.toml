@@ -23,7 +23,9 @@ embed-resource = "3"
 default = ["wgpu", "tiny_skia"]
 wgpu = ["iced/wgpu"]
 tiny_skia = ["iced/tiny-skia"]
+
 debug = ["iced/debug"]
+simulate_linux_arm64 = ["ql_instances/simulate_linux_arm64"]
 
 [dependencies]
 ql_instances = { path = "../crates/ql_instances" }

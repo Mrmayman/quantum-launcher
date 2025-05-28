@@ -305,9 +305,13 @@ async fn extractlib_name_natives(
 
     #[cfg(target_arch = "arm")]
     let is_compatible = name.contains("arm32");
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(any(target_arch = "aarch64", feature = "simulate_linux_arm64"))]
     let is_compatible = name.contains("aarch") || name.contains("arm64");
-    #[cfg(not(any(target_arch = "aarch64", target_arch = "arm")))]
+    #[cfg(not(any(
+        target_arch = "aarch64",
+        target_arch = "arm",
+        feature = "simulate_linux_arm64"
+    )))]
     let is_compatible = !(name.contains("aarch") || name.contains("arm"));
 
     if is_compatible {
@@ -333,11 +337,19 @@ async fn extractlib_natives_field(
         return Ok(());
     };
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+    #[cfg(any(
+        target_arch = "aarch64",
+        target_arch = "arm",
+        feature = "simulate_linux_arm64"
+    ))]
     let Some(natives_name) = natives.get(&format!("{OS_NAME}-{ARCH}")) else {
         return Ok(());
     };
-    #[cfg(not(any(target_arch = "aarch64", target_arch = "arm")))]
+    #[cfg(not(any(
+        target_arch = "aarch64",
+        target_arch = "arm",
+        feature = "simulate_linux_arm64"
+    )))]
     let Some(natives_name) = natives.get(OS_NAME) else {
         return Ok(());
     };
@@ -367,7 +379,7 @@ async fn extractlib_natives_field(
             "https://github.com/theofficialgman/lwjgl3-binaries-arm64/raw/lwjgl-3.1.6/lwjgl-jemalloc-patched-natives-linux-arm64.jar".clone_into(&mut natives_url);
         }
 
-        #[cfg(target_arch = "aarch64")]
+        #[cfg(any(target_arch = "aarch64", feature = "simulate_linux_arm64"))]
         {
             if natives_url == MACOS_ARM_LWJGL_294_1 {
                 info!("Patching LWJGL 2.9.4 20150209 natives for OSX ARM64");
@@ -387,7 +399,10 @@ async fn extractlib_natives_field(
     pt!("Downloading native jar: {name}\n  ({natives_url})");
     let native_jar = match file_utils::download_file_to_bytes(&natives_url, false).await {
         Ok(n) => n,
-        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(target_os = "linux", target_arch = "aarch64"),
+            feature = "simulate_linux_arm64"
+        ))]
         Err(ql_core::RequestError::DownloadError { code, .. }) if code.as_u16() == 404 => {
             file_utils::download_file_to_bytes(
                 &natives_url.replace("linux.jar", "linux-arm64.jar"),
