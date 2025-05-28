@@ -9,7 +9,20 @@ pub async fn install_amazon_corretto_java(
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: &Path,
 ) -> Result<(), JavaInstallError> {
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
+    let url = {
+        match version {
+            JavaVersion::Java16 |
+            JavaVersion::Java17 |
+            JavaVersion::Java21 => {
+                return Err(JavaInstallError::UnsupportedOnlyJava8)
+            },
+            JavaVersion::Java8 => "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-linux-arm32-vfp-hflt.tar.gz",
+        }
+    };
+    #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
     let url = version.get_corretto_url();
+
     send_progress(
         java_install_progress_sender,
         GenericProgress {

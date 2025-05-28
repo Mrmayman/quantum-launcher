@@ -104,14 +104,16 @@ impl MenuCreateInstance {
                             widget::column![].into()
                         },
                     ].push_maybe(
-                        (cfg!(target_os = "linux") && cfg!(target_arch = "x86"))
+                        {
+                            let real_platform = if cfg!(target_arch = "x86") { "x86_64" } else { "aarch64" };
+                            (cfg!(target_os = "linux") && (cfg!(target_arch = "x86") || cfg!(target_arch = "arm")))
                             .then_some(
                                 widget::column![
-                                    // WARN: Linux i686
+                                    // WARN: Linux i686 and arm32
                                     widget::text("Warning: On your platform (Linux 32 bit) only Minecraft 1.16.5 and below are supported.").size(20),
-                                    "If your computer isn't outdated, you might have wanted to download QuantumLauncher 64 bit (x86_64)",
+                                    widget::text!("If your computer isn't outdated, you might have wanted to download QuantumLauncher 64 bit ({real_platform})"),
                                 ]
-                            ))
+                            )})
                     .spacing(10)
                     .padding(10),
                 )

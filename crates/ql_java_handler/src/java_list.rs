@@ -17,6 +17,9 @@ pub enum JavaVersion {
 impl JavaVersion {
     #[must_use]
     pub(crate) fn get_corretto_url(self) -> &'static str {
+        // https://aws.amazon.com/corretto/
+        // for more info
+
         if cfg!(target_arch = "aarch64") && cfg!(target_os = "linux") {
             match self {
                 JavaVersion::Java16 | JavaVersion::Java17 => {

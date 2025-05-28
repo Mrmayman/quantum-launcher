@@ -113,6 +113,8 @@ pub async fn get_java_binary(
             "jre.bundle/"
         };
         format!("{prefix}Contents/Home/bin/{name}")
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "arm") {
+        format!("jdk1.8.0_231/{name}")
     } else {
         return Err(JavaInstallError::NoJavaBinFound);
     });
@@ -167,11 +169,16 @@ async fn install_java_files(
         // mojang, but supported through *Amazon Corretto Java*
         // which we provide an alternate installer for.
         //
+        // Any entry with -- represents a version not supported by
+        // mojang, but installed from
+        // <https://github.com/hmsjy2017/get-jdk>
+        //
         // Any entry with !! represents a version not supported at all.
         //
         // linux x64 :  8 16 17 21
         // linux x32 :  8 !! !! !!  <- only java 8; MC 1.16.5 and below
         // linux a64 : __ __ __ __  <- corretto
+        // linux a32 : -- !! !! !!  <- github
         //
         // macos x64 :  8 16 17 21
         // macos a64 : __ __ 17 21  <- corretto
@@ -189,6 +196,11 @@ async fn install_java_files(
         // -------------------
         //
         // So... yeah, enjoy this mess (WTF: )
+
+        #[cfg(all(target_os = "linux", target_arch = "arm"))]
+        return Err(JavaInstallError::UnsupportedOnlyJava8);
+
+        #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
         return install_amazon_corretto_java(version, java_install_progress_sender, &install_dir)
             .await;
     };
@@ -333,6 +345,9 @@ pub enum JavaInstallError {
     Io(#[from] IoError),
     #[error("{JAVA_INSTALL_ERR_PREFIX}couldn't find java binary")]
     NoJavaBinFound,
+
+    #[error("on your platform, only Java 8 (Minecraft 1.16.5 and below) is supported!\n")]
+    UnsupportedOnlyJava8,
 
     #[error("{JAVA_INSTALL_ERR_PREFIX}zip extract error:\n{0}")]
     ZipExtract(#[from] ZipExtractError),
