@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::Metadata,
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -48,52 +49,83 @@ pub static LAUNCHER_DIR: LazyLock<PathBuf> = LazyLock::new(|| get_launcher_dir()
 #[allow(clippy::doc_markdown)]
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     let launcher_directory = if let Some(n) = check_qlportable_file() {
-        n
+        n.path
     } else {
-        dirs::config_dir().ok_or(IoError::ConfigDirNotFound)?
-    }
-    .join("QuantumLauncher");
+        dirs::config_dir()
+            .ok_or(IoError::ConfigDirNotFound)?
+            .join("QuantumLauncher")
+    };
+
     std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
     Ok(launcher_directory)
 }
 
-fn check_qlportable_file() -> Option<PathBuf> {
-    fn check_file(dir: Option<PathBuf>) -> Option<PathBuf> {
-        const PORTABLE_FILENAME: &str = "qldir.txt";
-        let dir = dir?;
+struct QlDirInfo {
+    path: PathBuf,
+}
 
-        let file_path = dir.join(PORTABLE_FILENAME);
-        if let Ok(mut n) = std::fs::read_to_string(&file_path) {
-            // Handling of Home Directory `~`
-            if let Some(short) = n.strip_prefix("~/") {
-                if let Some(home) = dirs::home_dir().and_then(|n| n.to_str().map(str::to_owned)) {
-                    n = format!("{home}/{short}");
-                }
-            }
+fn line_and_body(input: &str) -> (String, String) {
+    let mut lines = input.trim().lines();
 
-            let n = n.trim();
-            let path = PathBuf::from(n);
-
-            if !n.is_empty() && path.is_dir() {
-                info_no_log!("Custom dir: {n}/QuantumLauncher");
-                Some(path)
-            } else {
-                file_path.exists().then_some(dir)
-            }
-        } else {
-            None
-        }
+    // Get the first line (if any)
+    if let Some(first) = lines.next() {
+        let rest = lines.collect::<Vec<_>>().join("\n");
+        return (first.trim().to_owned(), rest);
     }
 
-    check_file(std::env::current_dir().ok())
-        .or_else(|| {
-            check_file(
-                std::env::current_exe()
-                    .ok()
-                    .and_then(|n| n.parent().map(Path::to_owned)),
-            )
-        })
-        .or_else(|| check_file(dirs::config_dir().map(|n| n.join("QuantumLauncher"))))
+    (String::default(), String::default())
+}
+
+fn check_qlportable_file() -> Option<QlDirInfo> {
+    const PORTABLE_FILENAME: &str = "qldir.txt";
+
+    let places = [
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(Path::to_owned)),
+        std::env::current_dir().ok(),
+        dirs::config_dir().map(|d| d.join("QuantumLauncher")),
+    ];
+
+    for (i, place) in places
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, n)| n.map(|n| (i, n)))
+    {
+        let qldir_path = place.join(PORTABLE_FILENAME);
+        let Ok(contents) = std::fs::read_to_string(&qldir_path) else {
+            continue;
+        };
+        let (path, qldir_options) = line_and_body(&contents);
+
+        let flags: HashSet<_> = qldir_options
+            .split(',')
+            .map(|s| s.trim().to_lowercase())
+            .collect();
+        let mut join_dir = !flags.contains("top");
+
+        let path = if let (Some(stripped), Some(home)) = (path.strip_prefix("~"), dirs::home_dir())
+        {
+            home.join(&stripped)
+        } else if path == ".." || path == "." {
+            join_dir = false;
+            place
+        } else if path.is_empty() && i < 2 {
+            place
+        } else {
+            PathBuf::from(&path)
+        };
+
+        return Some(if join_dir {
+            QlDirInfo {
+                path: path.join("QuantumLauncher"),
+            }
+        } else {
+            QlDirInfo { path }
+        });
+    }
+
+    None
 }
 
 /// Returns whether the user is new to QuantumLauncher,

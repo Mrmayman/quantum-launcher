@@ -166,6 +166,7 @@ fn main() {
     let mut launcher_dir = None;
     let is_dir_err = match launcher_dir_res {
         Ok(n) => {
+            info_no_log!("Launcher dir: {}", n.display());
             launcher_dir = Some(n);
             false
         }
