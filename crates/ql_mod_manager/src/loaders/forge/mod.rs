@@ -36,7 +36,7 @@ struct ForgeInstaller {
     instance_dir: PathBuf,
     forge_dir: PathBuf,
     is_server: bool,
-    minecraft_version: String,
+    version_json: VersionDetails,
 }
 
 impl ForgeInstaller {
@@ -67,7 +67,8 @@ impl ForgeInstaller {
             get_forge_dir(&instance_dir).await?
         };
 
-        let minecraft_version = get_minecraft_version(&instance_dir).await?;
+        let version_json = VersionDetails::load(&instance_name).await?;
+        let minecraft_version = &version_json.id;
 
         create_mods_dir(&instance_dir).await?;
         create_lock_file(&instance_dir).await?;
@@ -103,7 +104,7 @@ impl ForgeInstaller {
             instance_dir,
             forge_dir,
             is_server: instance_name.is_server(),
-            minecraft_version,
+            version_json,
         })
     }
 
@@ -124,9 +125,11 @@ impl ForgeInstaller {
             &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type}.jar", ver = self.norm_forge_version),
             &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type_flipped}.jar", ver = self.short_version),
             &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{ver}/forge-{ver}-{file_type_flipped}.jar", ver = self.norm_forge_version),
-            // TODO: Minecraft 1.1: Needs Jarmod support
-            // &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.short_version, self.short_version),
-            // &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.norm_forge_version, self.norm_forge_version),
+            // Minecraft 1.1 to 1.5.1: Install as jarmod
+            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.short_version, self.short_version),
+            &format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{}-client.zip", self.norm_forge_version, self.norm_forge_version),
+            &format!("https://maven.minecraftforge.net/net/minecraftforge/forge/{}/forge-{}-universal.zip", self.short_version, self.short_version),
+            &format!("https://maven.minecraftforge.net/net/minecraftforge/forge/{}/forge-{}-universal.zip", self.norm_forge_version, self.norm_forge_version),
         ]).await?;
 
         let installer_name = format!("forge-{}-{file_type}.jar", self.short_version);
@@ -298,7 +301,7 @@ impl ForgeInstaller {
             };
         }
         Err(ForgeInstallError::NoInstallJson(
-            self.minecraft_version.clone(),
+            self.version_json.id.clone(),
         ))
     }
 
@@ -455,16 +458,6 @@ async fn create_lock_file(instance_dir: &Path) -> Result<(), ForgeInstallError> 
     Ok(())
 }
 
-async fn get_minecraft_version(instance_dir: &Path) -> Result<String, ForgeInstallError> {
-    let version_json_path = instance_dir.join("details.json");
-    let version_json = tokio::fs::read_to_string(&version_json_path)
-        .await
-        .path(version_json_path)?;
-    let version_json = serde_json::from_str::<VersionDetails>(&version_json).json(version_json)?;
-    let minecraft_version = version_json.id;
-    Ok(minecraft_version)
-}
-
 pub async fn install(
     instance_name: InstanceSelection,
     f_progress: Option<Sender<ForgeInstallProgress>>,
@@ -536,13 +529,24 @@ pub async fn install_client(
         _ = progress.send(ForgeInstallProgress::P1Start);
     }
 
-    let installer = ForgeInstaller::new(
+    let mut installer = ForgeInstaller::new(
         f_progress,
         InstanceSelection::Instance(instance_name.clone()),
     )
     .await?;
 
     let (installer_file, installer_name, _) = installer.download_forge_installer().await?;
+
+    if installer.version_json.is_legacy_version() && installer.version_json.id != "1.5.2" {
+        ql_core::jarmod::insert(
+            InstanceSelection::Instance(instance_name.clone()),
+            installer_file,
+            "Forge",
+        )
+        .await?;
+
+        return Ok(());
+    }
 
     let (libraries_dir, mut classpath) = installer
         .run_installer_and_get_classpath(&installer_name, j_progress.as_ref())

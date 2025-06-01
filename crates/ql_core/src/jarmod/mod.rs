@@ -53,7 +53,11 @@ pub async fn remove(instance: &InstanceSelection, filename: &str) -> Result<(), 
     Ok(())
 }
 
-pub async fn insert(instance: InstanceSelection, bytes: Vec<u8>) -> Result<(), JsonFileError> {
+pub async fn insert(
+    instance: InstanceSelection,
+    bytes: Vec<u8>,
+    name: &str,
+) -> Result<(), JsonFileError> {
     let mut jarmods = JarMods::get(&instance).await?;
 
     let jarmods_dir = instance.get_instance_path().join("jarmods");
@@ -63,13 +67,14 @@ pub async fn insert(instance: InstanceSelection, bytes: Vec<u8>) -> Result<(), J
             .path(&jarmods_dir)?;
     }
 
-    let file_path = jarmods_dir.join("Optifine.zip");
+    let filename = format!("{name}.zip");
+    let file_path = jarmods_dir.join(&filename);
     tokio::fs::write(&file_path, &bytes)
         .await
         .path(&file_path)?;
 
     jarmods.mods.push(JarMod {
-        filename: "Optifine.zip".to_owned(),
+        filename,
         enabled: true,
     });
     jarmods.save(&instance).await?;

@@ -21,7 +21,7 @@ pub async fn install_b173(
     url: &'static str,
 ) -> Result<(), OptifineError> {
     let bytes = file_utils::download_file_to_bytes(url, true).await?;
-    jarmod::insert(instance, bytes).await?;
+    jarmod::insert(instance, bytes, "Optifine").await?;
 
     Ok(())
 }
@@ -98,7 +98,12 @@ pub async fn install(
         let installer = tokio::fs::read(&path_to_installer)
             .await
             .path(&path_to_installer)?;
-        jarmod::insert(InstanceSelection::Instance(instance_name), installer).await?;
+        jarmod::insert(
+            InstanceSelection::Instance(instance_name),
+            installer,
+            "Optifine",
+        )
+        .await?;
         info!("Finished installing OptiFine for Beta 1.7.3");
         return Ok(());
     }

@@ -310,11 +310,14 @@ impl GameLauncher {
     }
 
     pub async fn setup_forge(
-        &self,
+        &mut self,
         java_arguments: &mut Vec<String>,
         game_arguments: &mut Vec<String>,
     ) -> Result<Option<forge::JsonDetails>, GameLaunchError> {
         if self.config_json.mod_type != "Forge" && self.config_json.mod_type != "NeoForge" {
+            return Ok(None);
+        }
+        if self.version_json.is_legacy_version() && self.version_json.id != "1.5.2" {
             return Ok(None);
         }
 
@@ -524,61 +527,63 @@ impl GameLauncher {
         class_path: &mut String,
         classpath_entries: &mut HashSet<String>,
     ) -> Result<(), GameLaunchError> {
-        if let Some(forge_json) = forge_json {
-            let classpath_path = self.instance_dir.join("forge/classpath.txt");
-            let forge_classpath = tokio::fs::read_to_string(&classpath_path)
-                .await
-                .path(classpath_path)?;
+        let Some(forge_json) = forge_json else {
+            return Ok(());
+        };
 
-            let mut new_classpath = forge_classpath.clone();
+        let classpath_path = self.instance_dir.join("forge/classpath.txt");
+        let forge_classpath = tokio::fs::read_to_string(&classpath_path)
+            .await
+            .path(classpath_path)?;
 
-            // WTF: This is horrible but necessary
-            //
-            // When launching Minecraft 1.21.5 NeoForge,
-            // Java canonicalizes the module path ("-p path/to/something.jar")
-            // and then it complains that the canonicalized and relative
-            // paths are not the same. It is not smart enough to figure that shit
-            // out.
-            //
-            // So I have to remove all the libraries from the classpath which
-            // are in the module path.
-            if let Some(args) = &forge_json.arguments {
-                if let Some(jvm) = &args.jvm {
-                    if let Some(module_path) = get_after_p(jvm) {
-                        for lib in module_path
-                            .replace("${library_directory}", "../forge/libraries")
-                            .replace("${classpath_separator}", &CLASSPATH_SEPARATOR.to_string())
-                            .split(CLASSPATH_SEPARATOR)
+        let mut new_classpath = forge_classpath.clone();
+
+        // WTF: This is horrible but necessary
+        //
+        // When launching Minecraft 1.21.5 NeoForge,
+        // Java canonicalizes the module path ("-p path/to/something.jar")
+        // and then it complains that the canonicalized and relative
+        // paths are not the same. It is not smart enough to figure that shit
+        // out.
+        //
+        // So I have to remove all the libraries from the classpath which
+        // are in the module path.
+        if let Some(args) = &forge_json.arguments {
+            if let Some(jvm) = &args.jvm {
+                if let Some(module_path) = get_after_p(jvm) {
+                    for lib in module_path
+                        .replace("${library_directory}", "../forge/libraries")
+                        .replace("${classpath_separator}", &CLASSPATH_SEPARATOR.to_string())
+                        .split(CLASSPATH_SEPARATOR)
+                    {
+                        if let Some(n) =
+                            remove_substring(&new_classpath, &format!("{lib}{CLASSPATH_SEPARATOR}"))
                         {
-                            if let Some(n) = remove_substring(
-                                &new_classpath,
-                                &format!("{lib}{CLASSPATH_SEPARATOR}"),
-                            ) {
-                                new_classpath = n;
-                            }
+                            new_classpath = n;
                         }
                     }
                 }
             }
-
-            class_path.push_str(&new_classpath);
-
-            let classpath_entries_path = self.instance_dir.join("forge/clean_classpath.txt");
-            if let Ok(forge_classpath_entries) =
-                tokio::fs::read_to_string(&classpath_entries_path).await
-            {
-                for entry in forge_classpath_entries.lines() {
-                    classpath_entries.insert(entry.to_owned());
-                }
-            } else {
-                self.migrate_create_forge_clean_classpath(
-                    forge_classpath,
-                    classpath_entries,
-                    classpath_entries_path,
-                )
-                .await?;
-            }
         }
+
+        class_path.push_str(&new_classpath);
+
+        let classpath_entries_path = self.instance_dir.join("forge/clean_classpath.txt");
+        if let Ok(forge_classpath_entries) =
+            tokio::fs::read_to_string(&classpath_entries_path).await
+        {
+            for entry in forge_classpath_entries.lines() {
+                classpath_entries.insert(entry.to_owned());
+            }
+        } else {
+            self.migrate_create_forge_clean_classpath(
+                forge_classpath,
+                classpath_entries,
+                classpath_entries_path,
+            )
+            .await?;
+        }
+
         Ok(())
     }
 
