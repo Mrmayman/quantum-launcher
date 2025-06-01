@@ -23,7 +23,7 @@ pub enum UpdateCheckInfo {
 ///
 /// Returns `Ok(UpdateCheckInfo::UpToDate)` if the launcher is up to date.
 ///
-/// Returns `Ok(UpdateCheckInfo::NewVersion { url })` if there is a new version available.
+/// Returns `Ok(UpdateCheckInfo::NewVersion { url: String })` if there is a new version available.
 /// (url pointing to zip file containing new version executable).
 ///
 /// # Errors
@@ -41,17 +41,34 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
     const URL: &str = "https://api.github.com/repos/Mrmayman/quantum-launcher/releases";
 
     let json: Vec<GithubRelease> = file_utils::download_file_to_json(URL, true).await?;
+    let mut json = json.into_iter();
 
-    let latest = json.first().ok_or(UpdateError::NoReleases)?;
+    let mut version;
+    let mut latest;
 
-    let mut version = latest.tag_name.clone();
-    // v0.2 -> 0.2
-    if version.starts_with('v') {
-        version = version[1..version.len()].to_owned();
-    }
-    // 0.2 -> 0.2.0
-    if version.chars().filter(|n| *n == '.').count() == 1 {
-        version.push_str(".0");
+    loop {
+        latest = json.next().ok_or(UpdateError::NoReleases)?;
+
+        version = latest.tag_name.clone();
+        // v0.2 -> 0.2
+        if version.starts_with('v') {
+            version = version[1..version.len()].to_owned();
+        }
+        // 0.2 -> 0.2.0
+        if version.chars().filter(|n| *n == '.').count() == 1 {
+            version.push_str(".0");
+        }
+
+        // The new update has been disabled/yanked for whatever reason
+        // so look for another one.
+        // Naming scheme: ends with "-D" followed by (optional) numbers
+        if version
+            .trim_end_matches(|c: char| c.is_numeric())
+            .ends_with("-D")
+        {
+            continue;
+        }
+        break;
     }
 
     let version = semver::Version::parse(&version)?;
@@ -64,6 +81,8 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
                 "x86_64"
             } else if cfg!(target_arch = "aarch64") {
                 "aarch64"
+            } else if cfg!(target_arch = "arm") {
+                "arm32"
             } else if cfg!(target_arch = "x86") {
                 "i686"
             } else {
@@ -77,6 +96,14 @@ pub async fn check_for_launcher_updates() -> Result<UpdateCheckInfo, UpdateError
                 "linux"
             } else if cfg!(target_os = "macos") {
                 "macos"
+            // Note: Currently not supported,
+            // but hook left here for any future plans
+            } else if cfg!(target_os = "freebsd") {
+                "freebsd"
+            } else if cfg!(target_os = "netbsd") {
+                "netbsd"
+            } else if cfg!(target_os = "solaris") {
+                "solaris"
             } else {
                 err!("Update checking: Unsupported OS");
                 return Err(UpdateError::UnsupportedOS);
