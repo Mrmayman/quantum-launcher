@@ -11,7 +11,12 @@ finish-args:
   # X11 + XShm access, fallback-x11 wont work in wayland
   - --share=ipc
   - --socket=x11
-  - --env=WAYLAND_DISPLAY=
+
+  # The app mistakenly assumes wayland support after
+  # seeing this variable, even though only X11 is present
+  # See https://github.com/flatpak/flatpak/issues/3948
+  - --unset-env=WAYLAND_DISPLAY
+
   # Controller and input devices
   - --device=all
   # Access to PulseAudio
@@ -29,11 +34,11 @@ modules:
     sources:
       - type: git
         url: https://github.com/Mrmayman/quantum-launcher
-        tag: v0.4.1
-        commit: 9d763e4b5358eb13e1f137fe8ed2beb546021c45
+        tag: v0.4.1-D
+        commit: 715bb2a78ff2088f13516e0a413855ec15d42dff
         x-checker-data:
           type: git
-          tag-pattern: ^v([\d.]+)$
+          tag-pattern: ^v([\d.]+)(?:-([a-zA-Z0-9]+))?$
       - flathub-sources.json
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
