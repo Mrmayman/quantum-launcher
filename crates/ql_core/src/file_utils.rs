@@ -102,12 +102,23 @@ fn check_qlportable_file() -> Option<QlDirInfo> {
             .split(',')
             .map(|s| s.trim().to_lowercase())
             .collect();
+
+        if flags.contains("i_vulkan") {
+            std::env::set_var("WGPU_BACKEND", "vulkan");
+        } else if flags.contains("i_opengl") {
+            std::env::set_var("WGPU_BACKEND", "opengl");
+        } else if flags.contains("i_directx") {
+            std::env::set_var("WGPU_BACKEND", "dx12");
+        } else if flags.contains("i_metal") {
+            std::env::set_var("WGPU_BACKEND", "metal");
+        }
+
         let mut join_dir = !flags.contains("top");
 
         let path = if let (Some(stripped), Some(home)) = (path.strip_prefix("~"), dirs::home_dir())
         {
             home.join(&stripped)
-        } else if path == ".." || path == "." {
+        } else if path == "." {
             join_dir = false;
             place
         } else if path.is_empty() && i < 2 {
