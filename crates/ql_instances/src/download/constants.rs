@@ -36,3 +36,5 @@ pub use os_names::OS_NAMES;
 pub const ARCH: &str = "arm32";
 #[cfg(any(target_arch = "aarch64", feature = "simulate_linux_arm64"))]
 pub const ARCH: &str = "arm64";
+#[cfg(target_arch = "x86")]
+pub const ARCH: &str = "x86";

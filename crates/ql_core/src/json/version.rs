@@ -198,27 +198,28 @@ pub struct Library {
 
 impl Debug for Library {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = f.debug_struct("Library");
-        let mut s_ref = &mut s;
+        let mut s = f.debug_struct(&if let Some(name) = &self.name {
+            format!("Library ({name})")
+        } else {
+            "Library".to_owned()
+        });
+        let mut s = &mut s;
         if let Some(downloads) = &self.downloads {
-            s_ref = s_ref.field("downloads", &downloads);
+            s = s.field("downloads", &downloads);
         }
         if let Some(extract) = &self.extract {
-            s_ref = s_ref.field("extract", &extract);
-        }
-        if let Some(name) = &self.name {
-            s_ref = s_ref.field("name", &name);
+            s = s.field("extract", &extract);
         }
         if let Some(rules) = &self.rules {
-            s_ref = s_ref.field("rules", &rules);
+            s = s.field("rules", &rules);
         }
         if let Some(natives) = &self.natives {
-            s_ref = s_ref.field("natives", &natives);
+            s = s.field("natives", &natives);
         }
         if let Some(url) = &self.url {
-            s_ref = s_ref.field("url", &url);
+            s = s.field("url", &url);
         }
-        s_ref.finish()
+        s.finish()
     }
 }
 
@@ -247,15 +248,28 @@ pub struct LibraryDownloads {
 
 impl Debug for LibraryDownloads {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = f.debug_struct("LibraryDownloads");
-        let mut s_ref = &mut s;
-        if let Some(artifact) = &self.artifact {
-            s_ref = s_ref.field("artifact", &artifact);
+        match (&self.artifact, &self.classifiers) {
+            (None, None) => write!(f, "LibraryDownloads: None {{}}"),
+            (None, Some(classifiers)) => {
+                if f.alternate() {
+                    write!(f, "classifiers: {classifiers:#?}")
+                } else {
+                    write!(f, "classifiers: {classifiers:?}")
+                }
+            }
+            (Some(artifact), None) => {
+                if f.alternate() {
+                    write!(f, "artifact: {artifact:#?}")
+                } else {
+                    write!(f, "artifact: {artifact:?}")
+                }
+            }
+            (Some(artifact), Some(classifiers)) => f
+                .debug_struct("LibraryDownloads")
+                .field("artifact", artifact)
+                .field("classifiers", classifiers)
+                .finish(),
         }
-        if let Some(classifiers) = &self.classifiers {
-            s_ref = s_ref.field("classifiers", &classifiers);
-        }
-        s_ref.finish()
     }
 }
 
@@ -276,9 +290,9 @@ pub struct LibraryRule {
 impl Debug for LibraryRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(os) = &self.os {
-            write!(f, "LibraryRule: {} for {os:?}", self.action)
+            write!(f, "Rule: {} for {os:?}", self.action)
         } else {
-            write!(f, "LibraryRule: {}", self.action)
+            write!(f, "Rule: {}", self.action)
         }
     }
 }

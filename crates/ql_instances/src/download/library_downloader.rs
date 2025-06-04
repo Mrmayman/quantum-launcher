@@ -261,7 +261,23 @@ impl GameDownloader {
 
             for rule in rules {
                 if let Some(ref os) = rule.os {
-                    if os.name == OS_NAME {
+                    #[cfg(any(
+                        target_arch = "aarch64",
+                        target_arch = "arm",
+                        target_arch = "x86",
+                        feature = "simulate_linux_arm64"
+                    ))]
+                    let target = format!("{OS_NAME}-{ARCH}");
+
+                    #[cfg(not(any(
+                        target_arch = "aarch64",
+                        target_arch = "arm",
+                        target_arch = "x86",
+                        feature = "simulate_linux_arm64"
+                    )))]
+                    let target = OS_NAME;
+
+                    if os.name == target {
                         allowed = rule.action == "allow";
                         if rule.action == "disallow" {
                             break;
@@ -269,9 +285,6 @@ impl GameDownloader {
                     }
                 } else {
                     allowed = rule.action == "allow";
-                    if rule.action == "disallow" {
-                        break;
-                    }
                 }
             }
         }
@@ -305,14 +318,19 @@ async fn extractlib_name_natives(
 
     #[cfg(target_arch = "arm")]
     let is_compatible = name.contains("arm32");
+    #[cfg(target_arch = "x86")]
+    let is_compatible = name.contains("x86") && !name.contains("x86_64");
     #[cfg(any(target_arch = "aarch64", feature = "simulate_linux_arm64"))]
     let is_compatible = name.contains("aarch") || name.contains("arm64");
     #[cfg(not(any(
         target_arch = "aarch64",
         target_arch = "arm",
+        target_arch = "x86",
         feature = "simulate_linux_arm64"
     )))]
-    let is_compatible = !(name.contains("aarch") || name.contains("arm"));
+    let is_compatible = !(name.contains("aarch")
+        || name.contains("arm")
+        || (name.contains("x86") && !name.contains("x86_64")));
 
     if is_compatible {
         info!("Downloading native (2): {name}");
@@ -340,6 +358,7 @@ async fn extractlib_natives_field(
     #[cfg(any(
         target_arch = "aarch64",
         target_arch = "arm",
+        target_arch = "x86",
         feature = "simulate_linux_arm64"
     ))]
     let Some(natives_name) = natives.get(&format!("{OS_NAME}-{ARCH}")) else {
