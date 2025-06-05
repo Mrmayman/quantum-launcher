@@ -279,9 +279,6 @@ impl GameDownloader {
 
                     if os.name == target {
                         allowed = rule.action == "allow";
-                        if rule.action == "disallow" {
-                            break;
-                        }
                     }
                 } else {
                     allowed = rule.action == "allow";
