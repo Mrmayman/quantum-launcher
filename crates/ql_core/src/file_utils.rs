@@ -117,7 +117,7 @@ fn check_qlportable_file() -> Option<QlDirInfo> {
 
         let path = if let (Some(stripped), Some(home)) = (path.strip_prefix("~"), dirs::home_dir())
         {
-            home.join(&stripped)
+            home.join(stripped)
         } else if path == "." {
             join_dir = false;
             place

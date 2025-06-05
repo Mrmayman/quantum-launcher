@@ -108,24 +108,24 @@ pub struct Version {
     pub releaseTime: String,
 }
 
-fn exclude_versions_after<T, F>(vec: &[T], mut predicate: F) -> Vec<T>
+fn exclude_versions_after<T, F>(vec: &[T], predicate: F) -> Vec<T>
 where
     T: Clone,
     F: FnMut(&T) -> bool,
 {
-    if let Some(pos) = vec.iter().position(|x| predicate(x)) {
+    if let Some(pos) = vec.iter().position(predicate) {
         vec[pos..].to_vec()
     } else {
         Vec::new()
     }
 }
 
-fn include_versions_after<T, F>(vec: &[T], mut predicate: F) -> Vec<T>
+fn include_versions_after<T, F>(vec: &[T], predicate: F) -> Vec<T>
 where
     T: Clone,
     F: FnMut(&T) -> bool,
 {
-    if let Some(pos) = vec.iter().position(|x| predicate(x)) {
+    if let Some(pos) = vec.iter().position(predicate) {
         vec[..pos].to_vec()
     } else {
         vec.to_owned()

@@ -80,7 +80,7 @@ impl ForgeInstaller {
                 .unwrap();
         }
 
-        let version = get_forge_version(&minecraft_version).await?;
+        let version = get_forge_version(minecraft_version).await?;
 
         info!("Forge version {version} is being installed");
 
