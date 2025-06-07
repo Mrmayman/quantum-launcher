@@ -88,6 +88,7 @@ What about the others? Well...
 - [x] Memory allocation editing
 - [x] Optional Microsoft login
 - [x] Integration with Omniarchive, old version support
+- [ ] Full controller, keyboard-navigation support in UI
 
 ## Mods
 ### Loaders
@@ -110,11 +111,13 @@ What about the others? Well...
 - [x] Mod updater
 - [ ] Make mod updater incrementally load in (optimization)
 - [ ] UI/UX overhaul of preset system
+- [ ] Category Filters in Mod store
 
 ## Instances
-- [ ] Import MultiMC instance
-- [ ] Migrate from other launchers (file locations)
-- [ ] Package QuantumLauncher instance
+- [ ] Import MultiMC/PrismLauncher instances
+- [ ] Migrate from other launchers
+- [ ] Package QuantumLauncher instances
+- [ ] Upgrading instances to a newer Minecraft version
 
 ## Servers (disabled in GUI but can be enabled)
 - [x] Ability to create, delete and run Minecraft servers
@@ -141,6 +144,15 @@ What about the others? Well...
 - [ ] Linux i686 (WIP)
 - [ ] FreeBSD
 - [ ] Haiku
+
+## Command-Line interface
+- [x] List installed instances
+- [x] List versions available for download
+- [ ] Create instance
+- [ ] Launch instance
+- [ ] Install loaders
+- [ ] Mod installation features
+- [ ] Preset, modpack features
 
 # MSRV (Minimum Supported Rust Version)
 
