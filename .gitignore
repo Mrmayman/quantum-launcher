@@ -17,7 +17,9 @@ logs/
 .mixin.out/
 .lapce
 .vscode
-.luarc.json
+
+#genrated by rust-analyzer
+/.history
 
 perf.data
 flamegraph.svg
