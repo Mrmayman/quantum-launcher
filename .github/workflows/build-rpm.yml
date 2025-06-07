@@ -21,27 +21,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - docker: fedora-latest
-          version: latest
-          os: fedora
-          arch: x86_64
-          altarch: amd64
-        - docker: fedora-41
-          version: 41
-          os: fedora
-          arch: x86_64
-          altarch: amd64
-          
-    
+          - docker: fedora-latest
+            version: latest
+            os: fedora
+            arch: x86_64
+            altarch: amd64
+          - docker: fedora-41
+            version: 41
+            os: fedora
+            arch: x86_64
+            altarch: amd64
+
     steps:
       - name: Install Build Dependencies
         run: |
           sudo dnf install rpmdevtools rpmlint @development-tools rpkg git dnf5-plugins --refresh -y
-      
+
       - name: Clone Repo
         run: |
-          git clone https://github.com/Mrmayman/quantum-launcher.git
-      
+          git clone https://github.com/Mrmayman/quantumlauncher.git
+
       - name: Build release package
         run: |
           cd quantum-launcher

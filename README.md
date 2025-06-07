@@ -1,9 +1,9 @@
-# <img src="https://github.com/Mrmayman/quantum-launcher/raw/main/assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
-## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5) | [Changelogs](https://github.com/Mrmayman/quantum-launcher/raw/main/CHANGELOGS.md)
+# <img src="https://github.com/Mrmayman/quantumlauncher/raw/main/assets/icon/ql_logo.png" style="height: 1.4em; vertical-align: middle;" /> QuantumLauncher
+## [Website](https://mrmayman.github.io/quantumlauncher) | [Discord](https://discord.gg/bWqRaSXar5) | [Changelogs](https://github.com/Mrmayman/quantumlauncher/raw/main/CHANGELOGS.md)
 
 A minimalistic Minecraft launcher for Windows, macOS and Linux.
 
-![Quantum Launcher running a Minecraft Instance](https://github.com/Mrmayman/quantum-launcher/raw/main/quantum_launcher.png)
+![Quantum Launcher running a Minecraft Instance](https://github.com/Mrmayman/quantumlauncher/raw/main/quantum_launcher.png)
 
 QuantumLauncher is written in *Rust* with the *iced* framework,
 offering a lightweight and responsive experience.
@@ -13,31 +13,31 @@ It is designed to be simple and easy to use, with a focus on performance and fea
 
 ## Lightweight and responsive
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/lightweight.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/lightweight.png)
 
 ## Install fabric, forge or optifine with ease
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/install_loader.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/install_loader.png)
 
 ## Build in mod store to download your favorite mods
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/mod_store.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/mod_store.png)
 
 ## Isolate your different game versions with instances!
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/new.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/new.png)
 
 ## Full support for old minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/old_mc.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/old_mc.png)
 
 ## Neatly package your mods into presets, and share it with your friends!
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/presets.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/presets.png)
 
 ## Built in themes!
 
-![](https://github.com/Mrmayman/quantum-launcher/raw/main/assets/screenshots/themes.png)
+![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/themes.png)
 <br><br>
 
 # Downloads and Building
@@ -48,7 +48,7 @@ Or, you can compile the launcher to get the latest experimental version (with po
 To compile the launcher:
 
 ```sh
-git clone https://github.com/Mrmayman/quantum-launcher.git
+git clone https://github.com/Mrmayman/quantumlauncher.git
 cd quantum-launcher
 cargo run --release
 ```

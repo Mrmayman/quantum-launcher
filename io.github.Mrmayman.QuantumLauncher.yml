@@ -33,7 +33,7 @@ modules:
     buildsystem: simple
     sources:
       - type: git
-        url: https://github.com/Mrmayman/quantum-launcher
+        url: https://github.com/Mrmayman/quantumlauncher
         tag: v0.4.1-D
         commit: 715bb2a78ff2088f13516e0a413855ec15d42dff
         x-checker-data:

@@ -8,7 +8,7 @@ description = "A simple, powerful Minecraft Launcher"
 keywords = ["minecraft", "mc", "launcher", "game-tools", "modding"]
 license = "GPL-3.0-only"
 homepage = "https://mrmayman.github.io/quantumlauncher"
-repository = "https://github.com/Mrmayman/quantum-launcher/"
+repository = "https://github.com/Mrmayman/quantumlauncher/"
 readme = "../README.md"
 categories = ["games"]
 

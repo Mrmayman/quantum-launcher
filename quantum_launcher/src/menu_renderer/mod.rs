@@ -19,6 +19,7 @@ mod log;
 mod mods;
 
 pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
+pub const GITHUB: &str = "https://github.com/Mrmayman/quantumlauncher";
 
 pub type Element<'a> = iced::Element<'a, Message, LauncherTheme, iced::Renderer>;
 
@@ -233,7 +234,7 @@ impl MenuLauncherSettings {
                             ),
                             button_with_icon(icon_manager::github(), "Open Github Repo", 16).on_press(
                                 Message::CoreOpenLink(
-                                    "https://github.com/Mrmayman/quantum-launcher".to_owned()
+                                    GITHUB.to_owned()
                                 )
                             ),
                             button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(

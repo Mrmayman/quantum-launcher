@@ -6,7 +6,10 @@ use ql_core::{
 };
 use std::io::Write;
 
-use crate::{launcher_state::get_entries, menu_renderer::DISCORD};
+use crate::{
+    launcher_state::get_entries,
+    menu_renderer::{DISCORD, GITHUB},
+};
 
 pub fn command() -> Command {
     Command::new(if cfg!(target_os = "windows") {
@@ -79,7 +82,7 @@ pub fn long_about() -> String {
 QuantumLauncher: A simple, powerful Minecraft launcher by Mrmayman
 
 Website: https://mrmayman.github.io/quantumlauncher
-Github : https://github.com/Mrmayman/quantum-launcher
+Github : {GITHUB}
 Discord: {DISCORD}
 "
     )
