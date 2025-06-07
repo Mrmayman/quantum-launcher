@@ -1,9 +1,8 @@
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use crate::{IntoIoError, IntoJsonError, IoError, JsonFileError, LAUNCHER_DIR};
+use crate::{
+    file_utils::find_item_in_dir, IntoIoError, IntoJsonError, IoError, JsonFileError, LAUNCHER_DIR,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -111,22 +110,10 @@ async fn find_subdirectory_with_name(
     parent_dir: &Path,
     keyword: &str,
 ) -> Result<Option<PathBuf>, IoError> {
-    // Read the contents of the directory
-    let mut entries = tokio::fs::read_dir(parent_dir).await.path(parent_dir)?;
-    while let Ok(Some(entry)) = entries.next_entry().await {
-        let path = entry.path();
-        // Check if the entry is a directory and contains the keyword
-        if !path.is_dir() {
-            continue;
-        }
-
-        if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
-            if file_name.to_lowercase().contains(&keyword.to_lowercase()) {
-                return Ok(Some(path));
-            }
-        }
-    }
-    Ok(None)
+    find_item_in_dir(parent_dir, |path, name| {
+        path.is_dir() && name.to_lowercase().contains(&keyword.to_lowercase())
+    })
+    .await
 }
 
 #[derive(Deserialize)]

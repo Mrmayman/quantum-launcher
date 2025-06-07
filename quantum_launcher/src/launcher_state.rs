@@ -921,22 +921,12 @@ pub async fn get_entries(path: String, is_server: bool) -> Res<(Vec<String>, boo
         return Ok((Vec::new(), is_server));
     }
 
-    let mut dir = tokio::fs::read_dir(&dir_path)
-        .await
-        .path(dir_path)
-        .strerr()?;
-
-    let mut subdirectories = Vec::new();
-
-    while let Ok(Some(entry)) = dir.next_entry().await {
-        if entry.path().is_dir() {
-            if let Some(file_name) = entry.file_name().to_str() {
-                subdirectories.push(file_name.to_owned());
-            }
-        }
-    }
-
-    Ok((subdirectories, is_server))
+    Ok((
+        file_utils::read_filenames_from_dir(&dir_path)
+            .await
+            .strerr()?,
+        is_server,
+    ))
 }
 
 pub struct ProgressBar<T: Progress> {

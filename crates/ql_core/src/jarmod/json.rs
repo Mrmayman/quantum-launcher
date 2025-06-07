@@ -1,6 +1,4 @@
-use std::path::Path;
-
-use crate::{err, IntoJsonError, IoError};
+use crate::{err, file_utils, IntoJsonError, IoError};
 use crate::{InstanceSelection, IntoIoError, JsonFileError};
 use serde::{Deserialize, Serialize};
 
@@ -63,7 +61,7 @@ impl JarMods {
             tokio::fs::create_dir_all(&path).await.path(path)?;
             return Ok(());
         }
-        let filenames = read_filenames_from_dir(&path).await?;
+        let filenames = file_utils::read_filenames_from_dir(&path).await?;
 
         let existing_filenames: std::collections::HashSet<_> =
             self.mods.iter().map(|m| m.filename.clone()).collect();
@@ -86,21 +84,4 @@ impl JarMods {
 pub struct JarMod {
     pub filename: String,
     pub enabled: bool,
-}
-
-async fn read_filenames_from_dir<P: AsRef<Path>>(dir: P) -> Result<Vec<String>, IoError> {
-    let dir: &Path = dir.as_ref();
-    let mut entries = tokio::fs::read_dir(dir).await.dir(dir)?;
-    let mut filenames = Vec::new();
-
-    while let Some(entry) = entries.next_entry().await.map_err(|n| IoError::ReadDir {
-        error: n.to_string(),
-        parent: dir.to_owned(),
-    })? {
-        if let Some(name) = entry.file_name().to_str() {
-            filenames.push(name.to_string());
-        }
-    }
-
-    Ok(filenames)
 }

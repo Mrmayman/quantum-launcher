@@ -5,7 +5,7 @@ use std::{
 };
 
 use ql_core::{
-    info,
+    file_utils, info,
     json::{
         forge,
         version::{LibraryDownloadArtifact, LibraryDownloads},
@@ -160,7 +160,7 @@ impl GameLauncher {
 
         if old_assets_path_v2.exists() {
             info!("Migrating old assets to new path...");
-            copy_dir_recursive(&old_assets_path_v2, &assets_path).await?;
+            file_utils::copy_dir_recursive(&old_assets_path_v2, &assets_path).await?;
             tokio::fs::remove_dir_all(&old_assets_path_v2)
                 .await
                 .path(old_assets_path_v2)?;
@@ -768,36 +768,11 @@ async fn migrate_to_new_assets_path(
     assets_path: &Path,
 ) -> Result<(), IoError> {
     info!("Migrating old assets to new path...");
-    copy_dir_recursive(old_assets_path, assets_path).await?;
+    file_utils::copy_dir_recursive(old_assets_path, assets_path).await?;
     tokio::fs::remove_dir_all(old_assets_path)
         .await
         .path(old_assets_path)?;
     info!("Finished");
-    Ok(())
-}
-
-async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
-    // Create the destination directory if it doesn't exist
-    if !dst.exists() {
-        tokio::fs::create_dir_all(dst).await.path(dst)?;
-    }
-
-    let mut dir = tokio::fs::read_dir(src).await.path(src)?;
-
-    // Iterate over the directory entries
-    while let Ok(Some(entry)) = dir.next_entry().await {
-        let path = entry.path();
-        let dest_path = dst.join(entry.file_name());
-
-        if path.is_dir() {
-            // Recursively copy the subdirectory
-            Box::pin(copy_dir_recursive(&path, &dest_path)).await?;
-        } else {
-            // Copy the file to the destination directory
-            tokio::fs::copy(&path, &dest_path).await.path(path)?;
-        }
-    }
-
     Ok(())
 }
 

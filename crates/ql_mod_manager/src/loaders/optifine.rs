@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     fmt::Display,
     path::{Path, PathBuf},
     process::Command,
@@ -177,21 +176,17 @@ pub async fn uninstall(instance_name: String) -> Result<(), OptifineError> {
 
     let versions_path = dot_minecraft_path.join("versions");
     if versions_path.is_dir() {
-        let mut entries = tokio::fs::read_dir(&versions_path)
-            .await
-            .path(versions_path)?;
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let path = entry.path();
-            // Check if the entry is a directory and contains the keyword
-            if !path.is_dir() {
-                continue;
+        let mut to_be_removed = Vec::new();
+        file_utils::find_item_in_dir(&versions_path, |path, name| {
+            if name.to_lowercase().contains("Opti") {
+                to_be_removed.push(path.to_owned());
             }
+            false
+        })
+        .await?;
 
-            if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
-                if file_name.to_lowercase().contains("Opti") {
-                    tokio::fs::remove_dir_all(&path).await.path(path)?;
-                }
-            }
+        for rem in to_be_removed {
+            tokio::fs::remove_dir_all(&rem).await.path(rem)?;
         }
     }
     Ok(())

@@ -407,18 +407,10 @@ pub async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
         return None;
     }
 
-    let mut dir = tokio::fs::read_dir(dir).await.ok()?;
-    while let Ok(Some(entry)) = dir.next_entry().await {
-        let path = entry.path();
-
-        if path.is_file() {
-            if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
-                if file_name.starts_with("forge-") && file_name.ends_with("-shim.jar") {
-                    return Some(path);
-                }
-            }
-        }
-    }
-
-    None
+    file_utils::find_item_in_dir(dir, |path, name| {
+        path.is_file() && name.starts_with("forge-") && name.ends_with("-shim.jar")
+    })
+    .await
+    .ok()
+    .flatten()
 }

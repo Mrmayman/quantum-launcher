@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    ffi::OsStr,
     fs::Metadata,
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -476,4 +477,105 @@ pub async fn clean_log_spam() -> Result<(), IoError> {
     }
 
     Ok(())
+}
+
+/// Recursively copies the contents of
+/// the `src` dir to the `dst` dir.
+///
+/// File structure:
+/// ```txt
+/// src/
+///     a.txt
+///     b.txt
+///     c/
+///         d.txt
+/// ```
+/// To
+/// ```
+/// dst/
+///     a.txt
+///     b.txt
+///     c/
+///         d.txt
+/// ```
+///
+/// # Errors
+/// - `src` doesn't exist
+/// - `dst` already has a dir with the same name as a file
+/// - User doesn't have permissions for `src`/`dst` access
+pub async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
+    if !dst.exists() {
+        tokio::fs::create_dir_all(dst).await.path(dst)?;
+    }
+
+    let mut dir = tokio::fs::read_dir(src).await.path(src)?;
+
+    // Iterate over the directory entries
+    while let Ok(Some(entry)) = dir.next_entry().await {
+        let path = entry.path();
+        let dest_path = dst.join(entry.file_name());
+
+        if path.is_dir() {
+            // Recursively copy the subdirectory
+            Box::pin(copy_dir_recursive(&path, &dest_path)).await?;
+        } else {
+            // Copy the file to the destination directory
+            tokio::fs::copy(&path, &dest_path).await.path(path)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Reads all the entries from a directory into a `Vec<String>`.
+/// This includes both files and folders.
+///
+/// # Errors
+/// - `dir` doesn't exist
+/// - User doesn't have access to `dir`
+///
+/// Additionally, this skips any file/folder names
+/// that has broken encoding (not UTF-8 or ASCII).
+pub async fn read_filenames_from_dir<P: AsRef<Path>>(dir: P) -> Result<Vec<String>, IoError> {
+    let dir: &Path = dir.as_ref();
+    let mut entries = tokio::fs::read_dir(dir).await.dir(dir)?;
+    let mut filenames = Vec::new();
+
+    while let Some(entry) = entries.next_entry().await.map_err(|n| IoError::ReadDir {
+        error: n.to_string(),
+        parent: dir.to_owned(),
+    })? {
+        if let Some(name) = entry.file_name().to_str() {
+            filenames.push(name.to_string());
+        }
+    }
+
+    Ok(filenames)
+}
+
+/// Finds the first in the specified directory
+/// that matches the criteria specified by the
+/// input function.
+///
+/// It reads the directory's entries, passing
+/// the path and name to the input function.
+/// If `true` is returned then that entry's path
+/// will be returned, else it continues searching.
+///
+/// The order in which it searches is platform and filesystem
+/// dependent, so essentially **non-deterministic**.
+pub async fn find_item_in_dir<F: FnMut(&Path, &str) -> bool>(
+    parent_dir: &Path,
+    mut f: F,
+) -> Result<Option<PathBuf>, IoError> {
+    let mut entries = tokio::fs::read_dir(parent_dir).await.path(parent_dir)?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
+            if f(&path, file_name) {
+                return Ok(Some(path));
+            }
+        }
+    }
+    Ok(None)
 }

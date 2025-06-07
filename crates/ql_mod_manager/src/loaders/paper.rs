@@ -34,28 +34,10 @@ async fn move_dir(old_path: &Path, new_path: &Path) -> Result<(), IoError> {
         tokio::fs::remove_dir_all(new_path).await.path(new_path)?;
     }
 
-    copy_recursive(old_path, new_path).await?;
+    file_utils::copy_dir_recursive(old_path, new_path).await?;
 
     // Remove the original directory
     tokio::fs::remove_dir_all(old_path).await.path(old_path)?;
-
-    Ok(())
-}
-
-async fn copy_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
-    tokio::fs::create_dir_all(dst).await.path(dst)?;
-
-    let mut dir = tokio::fs::read_dir(src).await.path(src)?;
-    while let Ok(Some(entry)) = dir.next_entry().await {
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-
-        if src_path.is_dir() {
-            Box::pin(copy_recursive(&src_path, &dst_path)).await?;
-        } else {
-            tokio::fs::copy(&src_path, &dst_path).await.path(src_path)?;
-        }
-    }
 
     Ok(())
 }
