@@ -83,7 +83,8 @@ impl Launcher {
                 Err(err) => self.set_error(err),
             },
             Message::InstallFabric(message) => return self.update_install_fabric(message),
-            Message::CoreOpenDir(dir) => open_file_explorer(&dir),
+            Message::CoreOpenLink(dir) => open_file_explorer(&dir),
+            Message::CoreOpenPath(dir) => open_file_explorer(&dir),
             Message::CoreErrorCopy => {
                 if let State::Error { error } = &self.state {
                     return iced::clipboard::write(format!("(QuantumLauncher): {error}"));

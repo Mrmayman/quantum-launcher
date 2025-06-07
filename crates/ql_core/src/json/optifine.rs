@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use crate::{IntoIoError, IntoJsonError, IoError, JsonFileError, LAUNCHER_DIR};
 use serde::Deserialize;
@@ -117,7 +120,7 @@ async fn find_subdirectory_with_name(
             continue;
         }
 
-        if let Some(Some(file_name)) = path.file_name().map(|n| n.to_str()) {
+        if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
             if file_name.to_lowercase().contains(&keyword.to_lowercase()) {
                 return Ok(Some(path));
             }

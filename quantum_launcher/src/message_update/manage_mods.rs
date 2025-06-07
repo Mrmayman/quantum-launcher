@@ -470,7 +470,7 @@ impl Launcher {
             .set_title("Pick a Jar Mod Patch (.jar/.zip)")
             .pick_file()
         {
-            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+            if let Some(filename) = path.file_name() {
                 let dest = self
                     .selected_instance
                     .as_ref()

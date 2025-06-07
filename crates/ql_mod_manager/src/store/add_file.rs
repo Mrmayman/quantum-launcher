@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::PathBuf, sync::mpsc::Sender};
+use std::{collections::HashSet, ffi::OsStr, path::PathBuf, sync::mpsc::Sender};
 
 use ql_core::{err, pt, GenericProgress, InstanceSelection, IntoIoError};
 
@@ -22,10 +22,9 @@ pub async fn add_files(
 
     let len = paths.len();
     for (i, path) in paths.into_iter().enumerate() {
-        let (Some(extension), Some(filename)) = (
-            path.extension().and_then(|n| n.to_str()),
-            path.file_name().and_then(|n| n.to_str()),
-        ) else {
+        let (Some(extension), Some(filename)) =
+            (path.extension().and_then(OsStr::to_str), path.file_name())
+        else {
             continue;
         };
 

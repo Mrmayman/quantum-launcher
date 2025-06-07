@@ -69,3 +69,6 @@ flags:
   graphics for the launcher's interface
 - `i_metal` (macOS-only): Force Metal graphics
   for the launcher's interface
+
+## Other
+- Improved support for weird character encodings in file paths

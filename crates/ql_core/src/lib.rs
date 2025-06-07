@@ -27,7 +27,8 @@ pub mod print;
 mod progress;
 
 use std::{
-    fmt::Display,
+    ffi::OsStr,
+    fmt::{Debug, Display},
     future::Future,
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -312,10 +313,11 @@ pub enum SelectedMod {
 /// Only supported on windows, macOS and linux,
 /// other platforms will **panic**.
 #[allow(clippy::zombie_processes)]
-pub fn open_file_explorer(path: &str) {
+pub fn open_file_explorer<S: AsRef<OsStr>>(path: S) {
     use std::process::Command;
 
-    info!("Opening link: {path}");
+    let path = path.as_ref();
+    info!("Opening link: {}", path.display());
     if let Err(err) = Command::new(if cfg!(target_os = "linux") {
         "xdg-open"
     } else if cfg!(target_os = "windows") {
@@ -410,7 +412,7 @@ pub async fn find_forge_shim_file(dir: &Path) -> Option<PathBuf> {
         let path = entry.path();
 
         if path.is_file() {
-            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+            if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
                 if file_name.starts_with("forge-") && file_name.ends_with("-shim.jar") {
                     return Some(path);
                 }

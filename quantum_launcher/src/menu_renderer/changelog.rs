@@ -260,7 +260,7 @@ impl MenuWelcome {
                     center_x("Oh, and also..."),
                     center_x(
                         button_with_icon(icon_manager::chat(), "Join our Discord", 16)
-                            .on_press(Message::CoreOpenDir(DISCORD.to_owned()))
+                            .on_press(Message::CoreOpenLink(DISCORD.to_owned()))
                     ),
                     widget::Space::with_height(5),
                     center_x(widget::button("Continue").on_press(Message::WelcomeContinue2)),
@@ -328,7 +328,7 @@ pub fn welcome_msg<'a>() -> Element<'a> {
             widget::column!(
                 "Got any problems? Join the discord!",
                 button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
-                    Message::CoreOpenDir(DISCORD.to_owned())
+                    Message::CoreOpenLink(DISCORD.to_owned())
                 ),
             ).padding(10).spacing(10)
         ),

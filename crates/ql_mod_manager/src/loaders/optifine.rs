@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     fmt::Display,
     path::{Path, PathBuf},
     process::Command,
@@ -186,7 +187,7 @@ pub async fn uninstall(instance_name: String) -> Result<(), OptifineError> {
                 continue;
             }
 
-            if let Some(Some(file_name)) = path.file_name().map(|n| n.to_str()) {
+            if let Some(file_name) = path.file_name().and_then(OsStr::to_str) {
                 if file_name.to_lowercase().contains("Opti") {
                     tokio::fs::remove_dir_all(&path).await.path(path)?;
                 }
@@ -268,7 +269,7 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
             "-cp",
             &format!(
                 "{}{CLASSPATH_SEPARATOR}.",
-                new_installer_path.to_str().unwrap()
+                new_installer_path.to_string_lossy()
             ),
             "OptifineInstaller",
         ])
@@ -295,13 +296,9 @@ async fn compile_hook(
     let mut command = Command::new(&javac_path);
     #[allow(unused_mut)]
     let mut command = command
-        .args([
-            "-cp",
-            new_installer_path.to_str().unwrap(),
-            "OptifineInstaller.java",
-            "-d",
-            ".",
-        ])
+        .arg("-cp")
+        .arg(new_installer_path.as_os_str())
+        .args(["OptifineInstaller.java", "-d", "."])
         .current_dir(optifine_path);
     no_window!(command);
 

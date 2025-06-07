@@ -231,11 +231,11 @@ impl MenuEditMods {
     fn open_mod_folder_button(selected_instance: &InstanceSelection) -> Element {
         let path = {
             let path = selected_instance.get_dot_minecraft_path().join("mods");
-            path.exists().then_some(path.to_str().unwrap().to_owned())
+            path.exists().then_some(path)
         };
 
         button_with_icon(icon_manager::folder_with_size(14), "Open Mods Folder", 15)
-            .on_press_maybe(path.map(Message::CoreOpenDir))
+            .on_press_maybe(path.map(Message::CoreOpenPath))
             .into()
     }
 

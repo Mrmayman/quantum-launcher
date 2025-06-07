@@ -49,7 +49,7 @@ impl MenuInstallOptifine {
                     "Step 1: Open the OptiFine download page and download the installer.",
                     "WARNING: Make sure to download the correct version.",
                     widget::button("Open download page")
-                        .on_press(Message::CoreOpenDir(self.get_url().to_owned()))
+                        .on_press(Message::CoreOpenLink(self.get_url().to_owned()))
                 )
                 .padding(10)
                 .spacing(10)

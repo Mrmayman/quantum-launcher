@@ -401,9 +401,8 @@ impl ForgeInstaller {
                 PathBuf::from(&downloads.artifact.path)
                     .file_name()
                     .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_owned(),
+                    .to_string_lossy()
+                    .to_string(),
                 parent
                     .to_str()
                     .ok_or(ForgeInstallError::PathBufToStr(parent.clone()))?

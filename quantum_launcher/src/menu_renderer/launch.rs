@@ -206,7 +206,7 @@ impl Launcher {
             widget::column![
                 widget::row!(
                     widget::button(widget::text("Copy Log").size(14)).on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
-                    widget::button(widget::text("Join Discord").size(14)).on_press(Message::CoreOpenDir(DISCORD.to_owned())),
+                    widget::button(widget::text("Join Discord").size(14)).on_press(Message::CoreOpenLink(DISCORD.to_owned())),
                     widget::text("Having issues? Copy and send the game log for support").size(12),
                 ).spacing(10)
             ]
@@ -397,12 +397,8 @@ impl Launcher {
         selected_instance: &InstanceSelection,
     ) -> widget::Button<'_, Message, LauncherTheme> {
         button_with_icon(icon_manager::folder(), "Files", 16)
-            .on_press(Message::CoreOpenDir(
-                selected_instance
-                    .get_dot_minecraft_path()
-                    .to_str()
-                    .unwrap()
-                    .to_owned(),
+            .on_press(Message::CoreOpenPath(
+                selected_instance.get_dot_minecraft_path(),
             ))
             .width(97)
     }
@@ -527,7 +523,7 @@ fn get_no_logs_message<'a>() -> widget::Column<'a, Message, LauncherTheme> {
                 "Note: This version is experimental. If you want to get help join our discord"
             ),
             button_with_icon(icon_manager::chat(), "Join Discord", 16)
-                .on_press(Message::CoreOpenDir(DISCORD.to_owned())),
+                .on_press(Message::CoreOpenLink(DISCORD.to_owned())),
         );
         widget::column!(BASE_MESSAGE, experimental_message)
     } else {

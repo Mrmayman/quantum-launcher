@@ -164,7 +164,7 @@ fn render_html<'a>(
                     children = widget::column!(widget::text(url.clone())).into();
                 }
                 *element = widget::button(children)
-                    .on_press(Message::CoreOpenDir(url))
+                    .on_press(Message::CoreOpenLink(url))
                     .into();
             } else {
                 *element = widget::text("[HTML error: malformed link]]").into();

@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    ffi::OsStr,
     path::{Path, PathBuf},
     process::ExitStatus,
     sync::{Arc, Mutex},
@@ -588,13 +589,13 @@ pub async fn get_locally_installed_mods(
     let mut set = HashSet::new();
     while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
-        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+        let Some(file_name) = path.file_name().and_then(OsStr::to_str) else {
             continue;
         };
         if blacklist.contains(&file_name.to_owned()) {
             continue;
         }
-        let Some(extension) = path.extension().and_then(|n| n.to_str()) else {
+        let Some(extension) = path.extension() else {
             continue;
         };
         if extension == "jar" || extension == "disabled" {

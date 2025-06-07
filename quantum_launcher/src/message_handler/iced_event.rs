@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+
 use iced::{
     keyboard::{key::Named, Key},
     Task,
@@ -50,10 +52,8 @@ impl Launcher {
                     self.set_drag_and_drop_hover(false);
 
                     if let (Some(extension), Some(filename)) = (
-                        path.extension()
-                            .and_then(|n| n.to_str())
-                            .map(str::to_lowercase),
-                        path.file_name().and_then(|n| n.to_str()),
+                        path.extension().map(OsStr::to_ascii_lowercase),
+                        path.file_name().and_then(OsStr::to_str),
                     ) {
                         if let State::EditMods(_) = &self.state {
                             if extension == "jar" || extension == "disabled" {

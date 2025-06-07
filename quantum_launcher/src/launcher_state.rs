@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
+    path::PathBuf,
     process::ExitStatus,
     str::FromStr,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -246,7 +247,8 @@ pub enum Message {
 
     CoreErrorCopy,
     CoreErrorCopyLog,
-    CoreOpenDir(String),
+    CoreOpenLink(String),
+    CoreOpenPath(PathBuf),
     CoreCopyText(String),
     CoreTick,
     CoreTickConfigSaved(Res),

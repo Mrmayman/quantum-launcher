@@ -23,7 +23,7 @@ impl MenuEditJarMods {
                                 let path = {
                                     let path =
                                         selected_instance.get_instance_path().join("jarmods");
-                                    path.exists().then_some(path.to_str().unwrap().to_owned())
+                                    path.exists().then_some(path)
                                 };
 
                                 button_with_icon(
@@ -31,7 +31,7 @@ impl MenuEditJarMods {
                                     "Open Folder",
                                     15,
                                 )
-                                .on_press_maybe(path.map(Message::CoreOpenDir))
+                                .on_press_maybe(path.map(Message::CoreOpenPath))
                             },
                             button_with_icon(icon_manager::create(), "Add file", 15)
                                 .on_press(Message::ManageJarMods(ManageJarModsMessage::AddFile)),
@@ -39,8 +39,9 @@ impl MenuEditJarMods {
                         .spacing(5),
                         widget::row![
                             "You can find some good jar mods at McArchive",
-                            widget::button("Open")
-                                .on_press(Message::CoreOpenDir("https://mcarchive.net".to_owned()))
+                            widget::button("Open").on_press(Message::CoreOpenLink(
+                                "https://mcarchive.net".to_owned()
+                            ))
                         ]
                         .spacing(5)
                         .wrap(),

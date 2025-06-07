@@ -143,7 +143,7 @@ impl MenuLauncherUpdate {
                         }
                     ),
                     button_with_icon(icon_manager::page(), "Open Website", 16)
-                        .on_press(Message::CoreOpenDir("https://mrmayman.github.com/quantumlauncher".to_owned())),
+                        .on_press(Message::CoreOpenLink("https://mrmayman.github.com/quantumlauncher".to_owned())),
                 ).push_maybe((cfg!(target_os = "linux")).then_some(
                     widget::column!(
                         // WARN: Package manager
@@ -227,17 +227,17 @@ impl MenuLauncherSettings {
                         ].spacing(5).wrap(),
                         widget::row![
                             button_with_icon(icon_manager::page(), "Open Website", 16).on_press(
-                                Message::CoreOpenDir(
+                                Message::CoreOpenLink(
                                     "https://mrmayman.github.io/quantumlauncher".to_owned()
                                 )
                             ),
                             button_with_icon(icon_manager::github(), "Open Github Repo", 16).on_press(
-                                Message::CoreOpenDir(
+                                Message::CoreOpenLink(
                                     "https://github.com/Mrmayman/quantum-launcher".to_owned()
                                 )
                             ),
                             button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
-                                Message::CoreOpenDir(DISCORD.to_owned())
+                                Message::CoreOpenLink(DISCORD.to_owned())
                             ),
                         ].spacing(5).wrap(),
                         widget::column![
@@ -245,7 +245,7 @@ impl MenuLauncherSettings {
                             widget::text("No warranty is provided for this software.").size(12),
                             widget::text("You're free to share, modify, and redistribute it under the same license.").size(12),
                             widget::button("View License").on_press(
-                                Message::CoreOpenDir("https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned())
+                                Message::CoreOpenLink("https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned())
                             ),
                         ].spacing(5),
                         "If you like this launcher, consider sharing it with your friends.",
@@ -335,7 +335,7 @@ pub fn view_account_login<'a>(url: &'a str, code: &'a str) -> Element<'a> {
             widget::text!("Code: {code}"),
             widget::button("Copy").on_press(Message::CoreCopyText(code.to_owned())),
             widget::text!("Link: {url}"),
-            widget::button("Open").on_press(Message::CoreOpenDir(url.to_owned())),
+            widget::button("Open").on_press(Message::CoreOpenLink(url.to_owned())),
             widget::vertical_space(),
         )
         .spacing(5)
@@ -360,7 +360,7 @@ impl MenuCurseforgeManualDownload {
                     );
 
                     widget::row![
-                        widget::button(widget::text("Open link").size(14)).on_press(Message::CoreOpenDir(url)),
+                        widget::button(widget::text("Open link").size(14)).on_press(Message::CoreOpenLink(url)),
                         widget::text(&entry.name)
                     ]
                     .align_y(iced::Alignment::Center)

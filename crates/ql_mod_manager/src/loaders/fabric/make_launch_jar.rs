@@ -23,12 +23,8 @@ const MAIN_CLASS_MANIFEST: &str = "net.fabricmc.loader.impl.launch.server.Fabric
 /// - If the server installation (the directory) doesn't exist
 /// - If the user lacks permission to modify the server installation
 ///
-/// # Panics
-/// This panics if the `file` argument isn't atleast two levels deep.
-/// This is not an error as it simply *will not happen* in my use case.
-///
-/// For example, `my_dir/launch.jar` won't panic. But `launch.jar`, `./launch.jar`
-/// and so on will panic.
+/// Note: It will generate invalid classpath data if
+/// the library filenames contains invalid character encodings.
 pub async fn make_launch_jar(
     file: &Path,
     launch_main_class: &str,
@@ -48,22 +44,19 @@ pub async fn make_launch_jar(
     if !shade_libraries {
         let class_path = library_files
             .iter()
-            .map(|n| {
+            .map(|library| {
                 // Note: best to have relative paths to
                 // libraries instead of absolute paths:
                 //
                 // - This avoids problems with spaces in paths
                 //   (real bug fixed in v0.4)
                 // - This makes the fabric server jar file cross platform
-
-                // # Panics
-                // See the function documentation for info.
-                let parent = file.parent().unwrap();
-                n.strip_prefix(parent)
-                    .unwrap_or(n)
-                    .to_str()
-                    .map(str::to_owned)
-                    .unwrap_or(n.to_string_lossy().to_string())
+                library
+                    .parent()
+                    .and_then(|parent| library.strip_prefix(parent).ok())
+                    .unwrap_or(library)
+                    .to_string_lossy()
+                    .to_string()
                     .replace('\\', "/")
             })
             .collect::<Vec<_>>()

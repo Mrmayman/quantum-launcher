@@ -123,7 +123,7 @@ impl Launcher {
                         widget::button("Copy Error").on_press(Message::CoreErrorCopy),
                         widget::button("Copy Error + Log").on_press(Message::CoreErrorCopyLog),
                         widget::button("Join Discord for help")
-                            .on_press(Message::CoreOpenDir(DISCORD.to_owned()))
+                            .on_press(Message::CoreOpenLink(DISCORD.to_owned()))
                     ]
                     .spacing(5)
                     .wrap()

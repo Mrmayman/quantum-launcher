@@ -290,11 +290,12 @@ async fn add_dir_to_zip_recursive(
 
     while let Some(entry) = dir.next_entry().await.path(path)? {
         let path = entry.path();
-        let accumulation = accumulation.join(path.file_name().unwrap().to_str().unwrap());
+        let accumulation = accumulation.join(path.file_name().unwrap());
+        let acc_name = accumulation.to_string_lossy();
 
         if path.is_dir() {
             zip.add_directory(
-                format!("{}/", accumulation.to_str().unwrap()),
+                format!("{acc_name}/"),
                 zip::write::FileOptions::<()>::default(),
             )
             .map_err(ModError::Zip)?;
@@ -305,12 +306,10 @@ async fn add_dir_to_zip_recursive(
         } else {
             // ... accumulation = "config/file1.txt"
             let bytes = tokio::fs::read(&path).await.path(path.clone())?;
-            zip.start_file(
-                accumulation.to_str().unwrap(),
-                zip::write::FileOptions::<()>::default(),
-            )?;
+
+            zip.start_file(&acc_name, zip::write::FileOptions::<()>::default())?;
             zip.write_all(&bytes)
-                .map_err(|n| ModError::ZipIoError(n, accumulation.to_str().unwrap().to_owned()))?;
+                .map_err(|n| ModError::ZipIoError(n, acc_name.to_string()))?;
         }
     }
 
