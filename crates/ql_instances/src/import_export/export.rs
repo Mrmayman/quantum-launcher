@@ -1,47 +1,57 @@
-// use std::fs::File;
-// use std::io::{self, Write};
-// use std::path::{Path, PathBuf};
-// use ql_core::print;
-// use zip::write::{FileOptions, ExtendedFileOptions};
-// use walkdir::WalkDir;
-// use ql_core::file_utils::get_launcher_dir;
+use std::path::{Path};
 
-// fn get_instances_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-//     let launcher_dir = get_launcher_dir()?;
-//     Ok(launcher_dir.join("instances"))
-// }
+use crate::import_export::import::{self, InstanceInfo};
+use std::error::Error;
+use std::fs;
 
-// pub fn export_instance(instance_name: &str, export_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-//     let instances_dir = get_instances_path()?;
-//     let instance_path = instances_dir.join(instance_name);
-//     println!("{} , {:?}",instance_name,instance_path);
-//     if !instance_path.exists() {
-//         return Err(format!("Instance '{}' does not exist", instance_name).into());
-//     }
-//     let file = File::create(export_path)?;
-//     let mut zip = zip::ZipWriter::new(file);
+fn instance_version_finder(instance_name: String) -> Result<String, Box<dyn Error>> {
+    // Get the base instance path
+    let base_path = import::get_instances_path()?;
+    let versions_path = base_path
+        .join(&instance_name)
+        .join(".minecraft")
+        .join("versions");
 
-//     let options: FileOptions<ExtendedFileOptions> = FileOptions::default()
-//         .compression_method(zip::CompressionMethod::Deflated)
-//         .unix_permissions(0o755);
+    println!("Looking for versions in: {:?}", versions_path);
 
-//     for entry in WalkDir::new(&instance_path) {
-//         println!("reached here");
-//         let entry = entry?;
-//         let path = entry.path();
-//         let name = path.strip_prefix(&instances_dir)?;
-//         // used clone it may impact perfomance 
-//         if path.is_file() {
-//             zip.start_file(name.to_string_lossy(), options.clone())?;
-//             let mut f = File::open(path)?;
-//             io::copy(&mut f, &mut zip)?;
-//         } else if name.as_os_str().len() != 0 {
-//             zip.add_directory(name.to_string_lossy(), options.clone())?;
-//         }
-//     }
+    // Ensure the directory exists
+    if !versions_path.exists() || !versions_path.is_dir() {
+        return Err(format!("Versions path not found: {:?}", versions_path).into());
+    }
 
-//     zip.finish()?;
-//     println!("Instance '{}' exported to {}", instance_name, export_path.display());
-//     Ok(())
-// }
+    // Scan for a folder that contains a matching .jar file
+    for entry in fs::read_dir(&versions_path)? {
+        let entry = entry?;
+        let path = entry.path();
 
+        if path.is_dir() {
+            if let Some(folder_name) = path.file_name().and_then(|n| n.to_str()) {
+                let jar_path = path.join(format!("{}.jar", folder_name));
+                if jar_path.exists() {
+                    return Ok(folder_name.to_string());
+                }
+            }
+        }
+    }
+
+    Err("No valid Minecraft version folder found.".into())
+}
+
+
+fn instance_info_creater(instance_name: String) -> Result<import::InstanceInfo, Box<dyn std::error::Error>>{
+    let instance_version = instance_version_finder(instance_name.clone())?;
+    let exeption = vec![String::from(".minecraft/versions"),String::from("libraries/natives/")];
+    Ok(InstanceInfo { instance_name: instance_name, instance_version: instance_version, exeption: exeption })
+
+}
+
+//exeption is for implemnting selecting export 
+
+pub fn export_instance(instance_config: import::InstanceInfo , destination:  &Path,exeption: Option<Vec<String>>) -> Result<(), Box<dyn std::error::Error>>{
+
+    let x = instance_version_finder(instance_config.instance_name.clone())?;
+    println!("{}",x);
+    let config = instance_info_creater(instance_config.instance_name)?;
+    println!("{:?}",config);
+    Ok(())
+}
