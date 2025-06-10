@@ -116,7 +116,7 @@ What about the others? Well...
 ## Instances
 - [ ] Import MultiMC/PrismLauncher instances
 - [ ] Migrate from other launchers
-- [ ] Package QuantumLauncher instances
+- [ ] Package QuantumLauncher instances (in progress by @sreehari425)
 - [ ] Upgrading instances to a newer Minecraft version
 
 ## Servers (disabled in GUI but can be enabled)
@@ -176,8 +176,6 @@ There are many ways you can help me out! I'm open to any contribution:
   that could help with some `///` doc comment? Go ahead!
 - Contribute to the website (repo: <https://github.com/Mrmayman/Mrmayman.github.io>)
 - Work on CI (github actions)
-
-There's a more in-depth guide on the codebase in [main.rs](quantum_launcher/src/main.rs) at the top.
 
 # Codebase
 This section will mainly focus on what the
