@@ -151,7 +151,8 @@ impl CFSearchResult {
             .await
             .map_err(RequestError::from)?;
         if response.status().is_success() {
-            Ok(response.json().await.map_err(RequestError::from)?)
+            let text = response.text().await.map_err(RequestError::from)?;
+            Ok(serde_json::from_str(&text).json(text)?)
         } else {
             Err(RequestError::DownloadError {
                 code: response.status(),

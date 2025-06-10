@@ -375,7 +375,7 @@ async fn login_in_minecraft(
             "xbox_res.display_claims.xui[0].uhs".to_owned(),
         ))?;
 
-    let xbox_security_token_res: XboxLiveAuthResponse = client
+    let xbox_security_token_res = client
         .post("https://xsts.auth.xboxlive.com/xsts/authorize")
         .json(&json!({
             "Properties": {
@@ -387,8 +387,11 @@ async fn login_in_minecraft(
         }))
         .send()
         .await?
-        .json()
+        .text()
         .await?;
+
+    let xbox_security_token_res: XboxLiveAuthResponse =
+        serde_json::from_str(&xbox_security_token_res).json(xbox_security_token_res)?;
 
     let xbox_security_token = &xbox_security_token_res.token;
 

@@ -15,7 +15,7 @@ use tokio_util::io::StreamReader;
 
 use crate::{
     error::{DownloadFileError, IoError},
-    info_no_log, retry, IntoIoError, JsonDownloadError, CLIENT,
+    info_no_log, retry, IntoIoError, IntoJsonError, JsonDownloadError, CLIENT,
 };
 
 /// The path to the QuantumLauncher root folder.
@@ -214,24 +214,8 @@ pub async fn download_file_to_json<T: DeserializeOwned>(
         url: &str,
         user_agent: bool,
     ) -> Result<T, JsonDownloadError> {
-        let mut get = CLIENT.get(url);
-        if user_agent {
-            get = get.header(
-                "User-Agent",
-                "Mrmayman/quantumlauncher (mrmayman.github.io/quantumlauncher)",
-            );
-        }
-        let response = get.send().await?;
-        if response.status().is_success() {
-            Ok(response.json().await?)
-        } else {
-            Err(JsonDownloadError::RequestError(
-                RequestError::DownloadError {
-                    code: response.status(),
-                    url: response.url().clone(),
-                },
-            ))
-        }
+        let text = download_file_to_string(url, user_agent).await?;
+        Ok(serde_json::from_str(&text).json(text)?)
     }
 
     retry(async || inner(url, user_agent).await).await
