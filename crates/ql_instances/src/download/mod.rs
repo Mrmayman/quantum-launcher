@@ -82,19 +82,18 @@ impl GameDownloader {
         })
     }
 
-    /*pub fn with_existing_instance(
+    #[allow(unused)]
+    pub fn with_existing_instance(
         version_json: VersionDetails,
         instance_dir: PathBuf,
         sender: Option<Sender<DownloadProgress>>,
     ) -> Self {
-        let version = ListEntry::Normal(version_json.id.clone());
         Self {
             instance_dir,
             version_json,
-            version,
             sender,
         }
-    }*/
+    }
 
     pub async fn download_jar(&self) -> Result<(), DownloadError> {
         info!("Downloading game jar file.");
