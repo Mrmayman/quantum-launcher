@@ -6,7 +6,7 @@ use zip_extract::extract;
 use std::path::PathBuf;
 use ql_core::file_utils::get_launcher_dir;
 use std::io::BufReader;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io;
 use crate::instance;
 use std::fs;
@@ -31,7 +31,7 @@ fn get_zip_stem(path: &Path) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize,Serialize)]
 pub struct InstanceInfo {
     pub instance_name: String,
     #[serde(rename = "minecraft_version")]
