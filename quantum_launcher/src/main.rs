@@ -32,6 +32,7 @@ use iced::{Settings, Task};
 use launcher_state::{get_entries, Launcher, Message, ServerProcess};
 
 use ql_core::{err, err_no_log, file_utils, info_no_log, IntoStringError};
+use ql_instances::OS_NAME;
 use tokio::io::AsyncWriteExt;
 
 /// The CLI interface of the launcher.
@@ -207,7 +208,7 @@ fn main() {
         arguments::print_intro();
     }
 
-    info_no_log!("Starting up the launcher...");
+    info_no_log!("Starting up the launcher... (OS: {OS_NAME})");
 
     let icon =
         iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico)).ok();
@@ -282,8 +283,6 @@ fn attach_to_console() {
     use windows::Win32::System::Console::ATTACH_PARENT_PROCESS;
 
     unsafe {
-        if let Err(err) = AttachConsole(ATTACH_PARENT_PROCESS) {
-            err_no_log!("Couldn't attach console: {err}");
-        }
+        _ = AttachConsole(ATTACH_PARENT_PROCESS);
     }
 }

@@ -70,5 +70,10 @@ flags:
 - `i_metal` (macOS-only): Force Metal graphics
   for the launcher's interface
 
+## Logging/Errors
+- Launcher debug log now contains OS name
+- Removed unnecessary "Couldn't attach log" log message on windows
+- The "error decoding response body" errors (in Microsoft Login) now give you more info
+
 ## Other
 - Improved support for weird character encodings in file paths
