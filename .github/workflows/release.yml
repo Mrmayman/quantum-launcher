@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false # don't fail other jobs if one fails
       matrix:
-        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows, i686-windows]
+        build: [x86_64-linux, aarch64-linux, armv7-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows, i686-windows]
         include:
         - build: x86_64-linux
           os: ubuntu-22.04
@@ -58,6 +58,12 @@ jobs:
           target: aarch64-unknown-linux-gnu
           cross: false
           final_name: linux_aarch64
+        - build: armv7-linux
+          os: ubuntu-22.04
+          rust: stable
+          target: armv7-unknown-linux-gnueabihf
+          cross: true
+          final_name: linux_arm32
         - build: x86_64-macos
           os: macos-latest
           rust: stable
