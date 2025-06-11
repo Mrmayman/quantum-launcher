@@ -205,10 +205,41 @@ impl GameDownloader {
         let natives_dir = libraries_dir.join("natives");
 
         for (os, download) in classifiers {
-            if !(OS_NAMES.iter().any(|os_name| {
-                *os == format!("natives-{os_name}")
-                    || (cfg!(target_pointer_width = "32") && *os == format!("natives-{os_name}-32"))
-                    || (cfg!(target_pointer_width = "64") && *os == format!("natives-{os_name}-64"))
+            if !(OS_NAMES.iter().any(|_os_name| {
+                #[cfg(all(target_os = "windows", target_arch = "x86"))]
+                let matches = os == "natives-windows-32";
+                #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+                let matches = (os == "natives-windows-64") || (os == "natives-windows");
+
+                #[cfg(any(
+                    all(target_os = "linux", target_arch = "aarch64"),
+                    feature = "simulate_linux_arm64"
+                ))]
+                let matches = os == "natives-linux-arm64";
+                #[cfg(all(target_os = "linux", target_arch = "arm"))]
+                let matches = os == "natives-linux-arm32";
+
+                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                let matches = os == "natives-osx-arm64";
+
+                #[cfg(not(any(
+                    all(
+                        target_os = "windows",
+                        any(target_arch = "x86_64", target_arch = "x86")
+                    ),
+                    all(
+                        target_os = "linux",
+                        any(
+                            target_arch = "aarch64",
+                            target_arch = "arm",
+                            feature = "simulate_linux_arm64"
+                        )
+                    ),
+                    all(target_os = "macos", target_arch = "aarch64")
+                )))]
+                let matches = *os == format!("natives-{_os_name}");
+
+                matches
             })) {
                 pt!("Skipping OS: {os}");
                 continue;
