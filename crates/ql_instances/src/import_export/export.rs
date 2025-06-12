@@ -1,12 +1,64 @@
-use std::path::{Path, PathBuf};
+/// Exports a Minecraft instance by copying its files to a temporary directory,
+/// removing specified exceptions, generating a metadata JSON, and zipping the result.
+///
+/// # Arguments
+///
+/// * `instance_config` - An `InstanceInfo` struct that contains the instance name and metadata.
+/// * `destination` - The output path where the ZIP file should be saved.
+/// * `exeption` - An optional vector of additional paths to exclude from the export.
+/// * exeption takes an optional vector so 
+///  * if none is passed it will by default pass => vec![".minecraft/versions","libraries/natives/"]
+///  * if vector of Strings is passed it wall added the above vector + the given vector
+///  * Example vec![".minecraft/versions","libraries/natives/",".minecraft/mods",".minecraft/saves"]
+///  * in the above example there was two addtional element in vector compared to the version in non
+///  * NOTE THE PATHS WHICH WILL BE PASSED WILL BE AS REALATIVE PATH WITH RESPECT TO THE INSTANCE FOLDER
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the export succeeds, or an error if any step fails.
+///
+/// # Process
+///
+/// 1. Detects the version of the given instance.
+/// 2. Constructs a new `InstanceInfo` with merged exceptions.
+/// 3. Copies the instance files into a temporary directory.
+/// 4. Writes a `quantum-config.json` metadata file inside the temp folder.
+/// 5. Deletes the excluded directories/files from the temp copy.
+/// 6. Compresses the temp folder into a `.zip` archive at the given destination.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The instance version can't be found.
+/// - The instance directory doesn't exist.
+/// - File I/O operations (copying, deleting, zipping) fail.
+/// - The `exeption` vector is missing critical paths (`.minecraft/versions`, `libraries/natives`).
+///
+/// # Example
+///
+/// ```rust
+/// let info = InstanceInfo {
+///     instance_name: "MyInstance".to_string(),
+///     instance_version: "1.20.4".to_string(),
+///     exeption: vec![],
+/// };
+/// export_instance(info, PathBuf::from("exports/"), None)?;
+/// ```
 
+
+
+
+
+
+use std::path::{Path, PathBuf};
 use ql_core::file_utils::get_launcher_dir;
+use ql_core::{info, pt};
 
 use crate::import_export::import::{self, get_instances_path, InstanceInfo};
 use std::error::Error;
 use std::fs;
 use std::fs::File;
-use std::io::{self, Write,Seek,Read};
+use std::io::{self, Write,Read};
 
 use walkdir::WalkDir;
 use zip::write::{FileOptions, ZipWriter};
@@ -18,7 +70,7 @@ fn instance_version_finder(instance_name: String) -> Result<String, Box<dyn Erro
         .join(".minecraft")
         .join("versions");
 
-    println!("Looking for versions in: {:?}", versions_path);
+    pt!("Looking for versions in: {:?}", versions_path);
 
     // Ensure the directory exists
     if !versions_path.exists() || !versions_path.is_dir() {
@@ -43,7 +95,7 @@ fn instance_version_finder(instance_name: String) -> Result<String, Box<dyn Erro
     Err("No valid Minecraft version folder found.".into())
 }
 
-
+// will create an instance info when instance name is passed
 fn instance_info_creater(instance_name: String) -> Result<import::InstanceInfo, Box<dyn std::error::Error>>{
     let instance_version = instance_version_finder(instance_name.clone())?;
     let exeption = vec![String::from(".minecraft/versions"),String::from("libraries/natives/")];
@@ -53,7 +105,7 @@ fn instance_info_creater(instance_name: String) -> Result<import::InstanceInfo, 
 
 //exeption is for implemnting selecting export 
 
-
+// to merge the user give vector to the one present in the present InstanceInfo
 fn merge_exeption(user_option: Option<Vec<String>>, instance: &InstanceInfo) -> Option<Vec<String>> {
     let mut result = instance.exeption.clone();
 
@@ -92,6 +144,8 @@ fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
     Ok(())
 }
 
+
+
 fn copy_instance_to_temp(instance_path: &Path) -> io::Result<()> {
     let launcher_root = get_launcher_dir().expect("couldnt not resolve launcher dir");
 
@@ -111,7 +165,7 @@ fn copy_instance_to_temp(instance_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-
+// write the quantum-config.json to root of instance folder with info present in instance_info
 fn write_instance_json(instance_info: &InstanceInfo, dest_dir: &Path) -> std::io::Result<()> {
     let json_array = vec![instance_info];
 
@@ -122,6 +176,8 @@ fn write_instance_json(instance_info: &InstanceInfo, dest_dir: &Path) -> std::io
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
+
+// deltes the folders present in the exeptions
 fn delete_exceptions(exceptions: &[String],temp_path: &Path) -> std::io::Result<()> {
     for rel_path in exceptions {
         let full_path = temp_path.join(rel_path);
@@ -129,14 +185,14 @@ fn delete_exceptions(exceptions: &[String],temp_path: &Path) -> std::io::Result<
 
         if full_path.exists() {
             if full_path.is_dir() {
-                println!("Deleting directory: {:?}", full_path);
+                pt!("Deleting directory: {:?}", full_path);
                 fs::remove_dir_all(&full_path)?;
             } else if full_path.is_file() {
-                println!("Deleting file: {:?}", full_path);
+                pt!("Deleting file: {:?}", full_path);
                 fs::remove_file(&full_path)?;
             } else {
                 // Could be a symlink or something else, attempt remove_file first, fallback to remove_dir_all
-                println!("Deleting special file or symlink: {:?}", full_path);
+                pt!("Deleting special file or symlink: {:?}", full_path);
                 match fs::remove_file(&full_path) {
                     Ok(_) => {},
                     Err(_) => {
@@ -145,13 +201,13 @@ fn delete_exceptions(exceptions: &[String],temp_path: &Path) -> std::io::Result<
                 }
             }
         } else {
-            println!("Path not found, skipping: {:?}", full_path);
+            pt!("Path not found, skipping: {:?}", full_path);
         }
     }
     Ok(())
 }
 
-
+// packs the instance into zip
 fn zip_folder<P: AsRef<Path>>(
     folder_path: P,
     output_zip: P,
@@ -182,14 +238,14 @@ fn zip_folder<P: AsRef<Path>>(
         })?;
 
         if path.is_file() {
-            println!("Adding file: {}", name_in_zip);
+            // pt!("Adding file: {}", name_in_zip);
             zip.start_file(name_in_zip, options)?;
             let mut f = File::open(path)?;
             let mut buffer = Vec::new();
             f.read_to_end(&mut buffer)?;
             zip.write_all(&buffer)?;
         } else if !relative_path.as_os_str().is_empty() {
-            println!("Adding directory: {}", name_in_zip);
+            // pt!("Adding directory: {}", name_in_zip);
             zip.add_directory(name_in_zip, options)?;
         }
     }
@@ -199,28 +255,30 @@ fn zip_folder<P: AsRef<Path>>(
 }
 
 
-pub fn export_instance(instance_config: import::InstanceInfo , destination:  PathBuf,exeption: Option<Vec<String>>) -> Result<(), Box<dyn std::error::Error>>{
+pub fn export_instance(instance_name: String , destination:  PathBuf,exeption: Option<Vec<String>>) -> Result<(), Box<dyn std::error::Error>>{
 
-    let exporting_version = instance_version_finder(instance_config.instance_name.clone())?;
-    println!("{}",exporting_version);
-    let mut export_config = instance_info_creater(instance_config.instance_name)?;
-    println!("{:?}",export_config);
+    let exporting_version = instance_version_finder(instance_name.clone())?; // find the version of instance
+    info!("Exporting version : {}",exporting_version);
+    let mut export_config = instance_info_creater(instance_name)?; // will create a struct to contain metadata for the instance
+    // println!("{:?}",export_config); can be used for debuging
     let exeption_vector = merge_exeption(exeption, &export_config).expect("Couldnt find .minecraft/version and libraries/natives in the vector");
     export_config.exeption = exeption_vector;
-    println!("{:?}",export_config.exeption);
+    info!("exeptions(is not included in export) :{:?}",export_config.exeption);
     let instance_path = get_instances_path()?.join(export_config.instance_name.clone());
-    println!("{:?}",instance_path);
+    info!("{:?}",instance_path);
     copy_instance_to_temp(&instance_path)?;
     let temp_instance_path: std::path::PathBuf = get_launcher_dir()?.join("temp").join(&export_config.instance_name);
-    println!("{:?}",temp_instance_path);
+    // pt!("{:?}",temp_instance_path); // can be used for debugging
+    info!("Metadata created");
     write_instance_json(&export_config, &temp_instance_path);
-
+    info!("Deleteing exeptions");
     delete_exceptions(&export_config.exeption,&temp_instance_path);
     let mut output_zip_name = export_config.instance_name.clone();
     output_zip_name.push_str(".zip");
+    info!("Packaging the instance into zip");
     zip_folder(temp_instance_path, destination.join(output_zip_name),&export_config.instance_name)?;
-
-
+    info!("Cleaning unwanted folders");
+    fs::remove_dir_all(get_launcher_dir()?.join("temp"))?; // deleteing the temporary directory 
 
     Ok(())
 }
