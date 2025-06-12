@@ -97,7 +97,7 @@ pub struct AccountData {
     pub needs_refresh: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthCodeResponse {
     pub user_code: String,
     pub device_code: String,
@@ -107,7 +107,7 @@ pub struct AuthCodeResponse {
     pub message: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthTokenResponse {
     // pub token_type: String,
     // pub scope: String,
@@ -117,7 +117,7 @@ pub struct AuthTokenResponse {
     pub refresh_token: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct XboxLiveAuthResponse {
     issue_instant: String,
