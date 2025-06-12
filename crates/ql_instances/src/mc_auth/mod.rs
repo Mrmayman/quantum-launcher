@@ -169,7 +169,7 @@ pub enum AuthError {
     MissingField(String),
     #[error("{AUTH_ERR_PREFIX}no uuid found for account")]
     NoUuid,
-    #[error("your microsoft account doesn't own minecraft")]
+    #[error("Your microsoft account doesn't own minecraft!\nJust enter the username in the text box instead of logging in.")]
     DoesntOwnGame,
 
     #[cfg(not(target_os = "linux"))]
@@ -209,7 +209,7 @@ pub async fn login_refresh(
     refresh_token: String,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, AuthError> {
-    send_progress(sender.as_ref(), 0, "Refreshing account token...");
+    send_progress(sender.as_ref(), 0, 4, "Refreshing account token...");
 
     let response = retry(async || {
         CLIENT
@@ -239,6 +239,7 @@ pub async fn login_refresh(
             refresh_token: data.refresh_token,
         },
         sender,
+        false,
     )
     .await?;
 
@@ -280,19 +281,25 @@ pub fn read_refresh_token(username: &str) -> Result<String, AuthError> {
 pub async fn login_3_xbox(
     data: AuthTokenResponse,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
+    check_ownership: bool,
 ) -> Result<AccountData, AuthError> {
-    send_progress(sender.as_ref(), 1, "Logging into xbox live...");
-    let xbox = login_in_xbox_live(&CLIENT, &data).await?;
-    send_progress(sender.as_ref(), 2, "Logging into minecraft...");
-    let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
-    send_progress(sender.as_ref(), 3, "Getting account details...");
-    let final_details = get_final_details(&CLIENT, &minecraft).await?;
-    // send_progress(sender.as_ref(), 4, "Checking game ownership...");
-    // let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
+    let steps = if check_ownership { 5 } else { 4 };
 
-    // if !owns_game {
-    //     return Err(AuthError::DoesntOwnGame);
-    // }
+    send_progress(sender.as_ref(), 1, steps, "Logging into xbox live...");
+    let xbox = login_in_xbox_live(&CLIENT, &data).await?;
+    send_progress(sender.as_ref(), 2, steps, "Logging into minecraft...");
+    let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
+    send_progress(sender.as_ref(), 3, steps, "Getting account details...");
+    let final_details = get_final_details(&CLIENT, &minecraft).await?;
+
+    if check_ownership {
+        send_progress(sender.as_ref(), 4, steps, "Checking game ownership...");
+        let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
+
+        if !owns_game {
+            return Err(AuthError::DoesntOwnGame);
+        }
+    }
 
     let entry = keyring::Entry::new("QuantumLauncher", &final_details.name)?;
     entry.set_password(&data.refresh_token)?;
@@ -313,13 +320,14 @@ pub async fn login_3_xbox(
 fn send_progress(
     sender: Option<&std::sync::mpsc::Sender<GenericProgress>>,
     done: usize,
+    total: usize,
     message: &str,
 ) {
     pt!("{message}");
     if let Some(sender) = sender {
         _ = sender.send(GenericProgress {
             done,
-            total: 4,
+            total,
             message: Some(message.to_owned()),
             has_finished: false,
         });
@@ -465,21 +473,22 @@ async fn get_final_details(
     Ok(serde_json::from_str(&text).json(text)?)
 }
 
-// async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
-//     #[derive(Deserialize)]
-//     struct Ownership {
-//         items: Vec<Value>,
-//     }
+async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
+    #[derive(Deserialize)]
+    struct Ownership {
+        items: Vec<serde_json::Value>,
+    }
 
-//     let client = Client::new();
+    let client = Client::new();
 
-//     let response = client
-//         .get("https://api.minecraftservices.com/entitlements/mcstore")
-//         .bearer_auth(access_token)
-//         .send()
-//         .await?
-//         .json::<Ownership>() // Deserialize response as JSON
-//         .await?;
+    let response = client
+        .get("https://api.minecraftservices.com/entitlements/mcstore")
+        .bearer_auth(access_token)
+        .send()
+        .await?
+        .text()
+        .await?;
+    let response: Ownership = serde_json::from_str(&response).json(response)?;
 
-//     Ok(!response.items.is_empty())
-// }
+    Ok(!response.items.is_empty())
+}
