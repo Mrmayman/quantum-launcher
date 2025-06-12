@@ -475,7 +475,7 @@ pub async fn clean_log_spam() -> Result<(), IoError> {
 ///         d.txt
 /// ```
 /// To
-/// ```
+/// ```txt
 /// dst/
 ///     a.txt
 ///     b.txt

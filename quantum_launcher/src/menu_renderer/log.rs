@@ -57,7 +57,7 @@ use crate::{
 use super::Element;
 
 impl Launcher {
-    /// Renders the log. See the [`log`] module
+    /// Renders the log. See the [`crate::menu_renderer::log`] module
     /// documentation for basic context.
     ///
     /// # Arguments
