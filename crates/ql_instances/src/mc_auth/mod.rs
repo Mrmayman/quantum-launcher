@@ -11,32 +11,58 @@
 //! - Changed error handling code
 //! - Split it up into clean, independent functions
 //!
+//! # Login Process
+//! ## 1) Adding a new account
+//! If you are logging in and adding a new account, then:
+//!
 //! ```no_run
-//! STATE: LOGGED OUT                     Refresh Token
-//!           |
-//!           v
-//! login_1_link()?
-//! -> AuthCodeResponse { Url, Code }
-//!               |
-//!               v
-//! (wait for user to log in)
-//! login_2_wait(AuthCodeResponse)
-//! -> AuthTokenResponse { Xbox Access Token, Refresh Token }
-//!               |                            |
-//!               v                            |
-//! login_3_xbox(AuthTokenResponse)            v
-//! ->  AccountData { Username, Access Token, Refresh Token, ... }
-//!               |                          ^
-//!               v                          |
-//! STATE: PLAY THE GAME                     |
-//! (Save refresh token to disk)             |
-//!               |                          |
-//!               v                          |
-//! STATE: LATER OPENING LAUNCHER            |
-//! (Load refresh token from disk)           |
-//!                          |               |
-//!                          v               |
-//! login_refresh(Username, Refresh Token) ---
+//! # async fn do1() -> Result<(), Box<dyn std::error::Error>> {
+//! use ql_instances::login_1_link;
+//! let auth_code_response = login_1_link().await?;
+//! // AuthCodeResponse { verification_uri, user_code, .. }
+//! # Ok(()) }
+//! ```
+//!
+//! Now we wait for user to open the `verification_uri` link in browser,
+//! login with their account,
+//! then enter `user_code`.
+//!
+//! ```no_run
+//! # async fn do2() -> Result<(), Box<dyn std::error::Error>> {
+//! # // Default construction
+//! # let auth_code_response = ql_instances::AuthCodeResponse {
+//! #     user_code: String::new(),
+//! #     device_code: String::new(),
+//! #     verification_uri: String::new(),
+//! #     expires_in: 0,
+//! #     interval: 0,
+//! #     message: String::new(),
+//! # };
+//! use ql_instances::login_3_xbox;
+//! use ql_instances::login_2_wait;
+//!
+//! let auth_token_response = login_2_wait(auth_code_response).await?;
+//! // AuthTokenResponse { access_token, refresh_token }
+//!
+//! let account_data = login_3_xbox(auth_token_response, None, true).await?;
+//! // AccountData { access_token, uuid, username, refresh_token, needs_refresh }
+//! # Ok(()) }
+//! ```
+//!
+//! Now save the `username` and corresponding `refresh_token` to disk
+//! and play the game with `access_token`.
+//!
+//! ## 2) Refreshing the account on every play session
+//! After starting the launcher later, to refresh
+//! the token, we do
+//!
+//! ```no_run
+//! # async fn do3() -> Result<(), Box<dyn std::error::Error>> {
+//! # let username = String::new();
+//! # let refresh_token = String::new();
+//! use ql_instances::login_refresh;
+//! let account_data = login_refresh(username, refresh_token, None).await?;
+//! # Ok(()) }
 //! ```
 
 use ql_core::{
@@ -49,7 +75,17 @@ use serde_json::json;
 use std::collections::HashMap;
 use thiserror::Error;
 
-// Please don't steal :)
+/// The API key for logging into Minecraft.
+///
+/// It's (kinda) safe to leave this public,
+/// as the worst that can happen is someone
+/// uses this for auth in their own launcher.
+/// If you're working on Quantum Launcher or
+/// just playing around with your own code
+/// **for testing purposes** feel free to use this.
+///
+/// **Do not use this for any real projects or production code,
+/// outside of this launcher**.
 pub const CLIENT_ID: &str = "43431a16-38f5-4b42-91f9-4bf70c3bee1e";
 
 #[derive(Debug, Clone)]
