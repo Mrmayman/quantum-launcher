@@ -82,7 +82,7 @@ pub static CLIENT: LazyLock<ql_reqwest::Client> = LazyLock::new(ql_reqwest::Clie
 /// # async fn download_file(url: &str) -> Result<String, String> {
 /// #     Ok("Hello".to_owned())
 /// # }
-/// # async fn trying() -> Result<String, String> {
+/// # async fn trying() -> Result<(), String> {
 /// #   let files: [&str; 1] = ["test"];
 /// do_jobs(files.iter().map(|url| {
 ///     // Async function that returns Result<T, E>

@@ -116,7 +116,7 @@ What about the others? Well...
 ## Instances
 - [ ] Import MultiMC/PrismLauncher instances
 - [ ] Migrate from other launchers
-- [ ] Package QuantumLauncher instances
+- [ ] Package QuantumLauncher instances (in progress by @sreehari425)
 - [ ] Upgrading instances to a newer Minecraft version
 
 ## Servers (disabled in GUI but can be enabled)
@@ -131,28 +131,28 @@ What about the others? Well...
 - [ ] Spigot
 - [ ] Bukkit
 - [ ] Bungeecoord
-- [ ] The stuff from [MODS+PLUGINS.md]<https://github.com/LeStegii/server-software/blob/master/java/MODS+PLUGINS.md>
+- [ ] The stuff from [MODS+PLUGINS.md](https://github.com/LeStegii/server-software/blob/master/java/MODS+PLUGINS.md)
 
 ## Platforms
 - [x] Windows x86_64
 - [x] Linux x86_64
 - [ ] macOS x86_64 (WIP)
 - [ ] Windows Aarch64 (WIP)
-- [x] Linux Aarch64
-- [x] macOS Aarch64
+- [x] Linux Aarch64 (Almost ready)
+- [x] macOS Aarch64 (Almost ready)
 - [ ] Windows i686 (WIP)
 - [ ] Linux i686 (WIP)
 - [ ] FreeBSD
 - [ ] Haiku
 
 ## Command-Line interface
-- [x] List installed instances
-- [x] List versions available for download
-- [ ] Create instance
-- [ ] Launch instance
-- [ ] Install loaders
-- [ ] Mod installation features
-- [ ] Preset, modpack features
+- [x] List installed instances `list-instances`, `-l`
+- [x] List versions available for download `list-available-versions`, `-a`
+- [ ] Create instance from CLI
+- [ ] Launch instance from CLI
+- [ ] Install loaders from CLI
+- [ ] Mod installation features from CLI
+- [ ] Preset, modpack features from CLI
 
 # MSRV (Minimum Supported Rust Version)
 
@@ -176,8 +176,6 @@ There are many ways you can help me out! I'm open to any contribution:
   that could help with some `///` doc comment? Go ahead!
 - Contribute to the website (repo: <https://github.com/Mrmayman/Mrmayman.github.io>)
 - Work on CI (github actions)
-
-There's a more in-depth guide on the codebase in [main.rs](quantum_launcher/src/main.rs) at the top.
 
 # Codebase
 This section will mainly focus on what the

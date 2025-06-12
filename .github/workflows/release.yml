@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false # don't fail other jobs if one fails
       matrix:
-        build: [x86_64-linux, aarch64-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows, i686-windows]
+        build: [x86_64-linux, aarch64-linux, armv7-linux, x86_64-macos, x86_64-windows, aarch64-macos, aarch64-windows, i686-windows]
         include:
         - build: x86_64-linux
           os: ubuntu-22.04
@@ -58,6 +58,12 @@ jobs:
           target: aarch64-unknown-linux-gnu
           cross: false
           final_name: linux_aarch64
+        - build: armv7-linux
+          os: ubuntu-22.04
+          rust: stable
+          target: armv7-unknown-linux-gnueabihf
+          cross: true
+          final_name: linux_arm32
         - build: x86_64-macos
           os: macos-latest
           rust: stable
@@ -155,40 +161,9 @@ jobs:
           name: quantum-launcher-${{ matrix.final_name }}
           path: dist
 
-  Flatpak:
-    name: Build Flatpak
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-    
-      - name: Install Flatpak and Flathub
-        run: |
-          sudo apt-get update
-          sudo apt-get install flatpak flatpak-builder appstream-compose
-          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 -y
-        
-      - name: Build Flatpak
-        run: |
-          cp assets/freedesktop/manifest.yml .
-          flatpak-builder --user build manifest.yml
-          flatpak build-export export build
-          exec flatpak build-bundle export quantum-launcher.flatpak io.github.Mrmayman.QuantumLauncher --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
-
-      - name: Copy Flatpak
-        run: |
-          mv quantum-launcher.flatpak quantum_launcher.flatpak
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: quantum-launcher-flatpak_x86_64
-          path: quantum_launcher.flatpak
-
   publish:
     name: Publish
-    needs: [dist, Flatpak]
+    needs: [dist]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -237,13 +212,6 @@ jobs:
                   dmg=".dmg"
               else
                   dmg=""
-              fi
-
-              unset flatpak
-              if [[ $platform =~ "flatpak" ]]; then
-                  flatpak=".flatpak"
-              else
-                  flatpak=""
               fi
 
               # Change PROJECT_NAME to BIN_NAME if you wish

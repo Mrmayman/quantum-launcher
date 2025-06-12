@@ -141,24 +141,23 @@ impl Launcher {
     fn account_response_2(&mut self, token: ql_instances::AuthTokenResponse) -> Task<Message> {
         let (sender, receiver) = std::sync::mpsc::channel();
         self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
-        Task::perform(ql_instances::login_3_xbox(token, Some(sender)), |n| {
+        Task::perform(ql_instances::login_3_xbox(token, Some(sender), true), |n| {
             Message::Account(AccountMessage::Response3(n.strerr()))
         })
     }
 
     fn account_response_1(&mut self, code: ql_instances::AuthCodeResponse) -> Task<Message> {
-        // I have no idea how many rustaceans will
-        // yell at me after they see this. (WTF: )
-        let code2 = code.clone();
-        let (task, handle) = Task::perform(ql_instances::login_2_wait(code2), |n| {
+        let (task, handle) = Task::perform(ql_instances::login_2_wait(code.clone()), |n| {
             Message::Account(AccountMessage::Response2(n.strerr()))
         })
         .abortable();
+
         self.state = State::AccountLogin {
             url: code.verification_uri,
             code: code.user_code,
             _cancel_handle: handle.abort_on_drop(),
         };
+
         task
     }
 }

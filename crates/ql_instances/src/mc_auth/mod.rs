@@ -11,32 +11,58 @@
 //! - Changed error handling code
 //! - Split it up into clean, independent functions
 //!
+//! # Login Process
+//! ## 1) Adding a new account
+//! If you are logging in and adding a new account, then:
+//!
 //! ```no_run
-//! STATE: LOGGED OUT                     Refresh Token
-//!           |
-//!           v
-//! login_1_link()?
-//! -> AuthCodeResponse { Url, Code }
-//!               |
-//!               v
-//! (wait for user to log in)
-//! login_2_wait(AuthCodeResponse)
-//! -> AuthTokenResponse { Xbox Access Token, Refresh Token }
-//!               |                            |
-//!               v                            |
-//! login_3_xbox(AuthTokenResponse)            v
-//! ->  AccountData { Username, Access Token, Refresh Token, ... }
-//!               |                          ^
-//!               v                          |
-//! STATE: PLAY THE GAME                     |
-//! (Save refresh token to disk)             |
-//!               |                          |
-//!               v                          |
-//! STATE: LATER OPENING LAUNCHER            |
-//! (Load refresh token from disk)           |
-//!                          |               |
-//!                          v               |
-//! login_refresh(Username, Refresh Token) ---
+//! # async fn do1() -> Result<(), Box<dyn std::error::Error>> {
+//! use ql_instances::login_1_link;
+//! let auth_code_response = login_1_link().await?;
+//! // AuthCodeResponse { verification_uri, user_code, .. }
+//! # Ok(()) }
+//! ```
+//!
+//! Now we wait for user to open the `verification_uri` link in browser,
+//! login with their account,
+//! then enter `user_code`.
+//!
+//! ```no_run
+//! # async fn do2() -> Result<(), Box<dyn std::error::Error>> {
+//! # // Default construction
+//! # let auth_code_response = ql_instances::AuthCodeResponse {
+//! #     user_code: String::new(),
+//! #     device_code: String::new(),
+//! #     verification_uri: String::new(),
+//! #     expires_in: 0,
+//! #     interval: 0,
+//! #     message: String::new(),
+//! # };
+//! use ql_instances::login_3_xbox;
+//! use ql_instances::login_2_wait;
+//!
+//! let auth_token_response = login_2_wait(auth_code_response).await?;
+//! // AuthTokenResponse { access_token, refresh_token }
+//!
+//! let account_data = login_3_xbox(auth_token_response, None, true).await?;
+//! // AccountData { access_token, uuid, username, refresh_token, needs_refresh }
+//! # Ok(()) }
+//! ```
+//!
+//! Now save the `username` and corresponding `refresh_token` to disk
+//! and play the game with `access_token`.
+//!
+//! ## 2) Refreshing the account on every play session
+//! After starting the launcher later, to refresh
+//! the token, we do
+//!
+//! ```no_run
+//! # async fn do3() -> Result<(), Box<dyn std::error::Error>> {
+//! # let username = String::new();
+//! # let refresh_token = String::new();
+//! use ql_instances::login_refresh;
+//! let account_data = login_refresh(username, refresh_token, None).await?;
+//! # Ok(()) }
 //! ```
 
 use ql_core::{
@@ -49,7 +75,17 @@ use serde_json::json;
 use std::collections::HashMap;
 use thiserror::Error;
 
-// Please don't steal :)
+/// The API key for logging into Minecraft.
+///
+/// It's (kinda) safe to leave this public,
+/// as the worst that can happen is someone
+/// uses this for auth in their own launcher.
+/// If you're working on Quantum Launcher or
+/// just playing around with your own code
+/// **for testing purposes** feel free to use this.
+///
+/// **Do not use this for any real projects or production code,
+/// outside of this launcher**.
 pub const CLIENT_ID: &str = "43431a16-38f5-4b42-91f9-4bf70c3bee1e";
 
 #[derive(Debug, Clone)]
@@ -61,7 +97,7 @@ pub struct AccountData {
     pub needs_refresh: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthCodeResponse {
     pub user_code: String,
     pub device_code: String,
@@ -71,7 +107,7 @@ pub struct AuthCodeResponse {
     pub message: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthTokenResponse {
     // pub token_type: String,
     // pub scope: String,
@@ -81,7 +117,7 @@ pub struct AuthTokenResponse {
     pub refresh_token: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct XboxLiveAuthResponse {
     issue_instant: String,
@@ -133,7 +169,7 @@ pub enum AuthError {
     MissingField(String),
     #[error("{AUTH_ERR_PREFIX}no uuid found for account")]
     NoUuid,
-    #[error("your microsoft account doesn't own minecraft")]
+    #[error("Your microsoft account doesn't own minecraft!\nJust enter the username in the text box instead of logging in.")]
     DoesntOwnGame,
 
     #[cfg(not(target_os = "linux"))]
@@ -173,7 +209,7 @@ pub async fn login_refresh(
     refresh_token: String,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
 ) -> Result<AccountData, AuthError> {
-    send_progress(sender.as_ref(), 0, "Refreshing account token...");
+    send_progress(sender.as_ref(), 0, 4, "Refreshing account token...");
 
     let response = retry(async || {
         CLIENT
@@ -203,6 +239,7 @@ pub async fn login_refresh(
             refresh_token: data.refresh_token,
         },
         sender,
+        false,
     )
     .await?;
 
@@ -244,19 +281,25 @@ pub fn read_refresh_token(username: &str) -> Result<String, AuthError> {
 pub async fn login_3_xbox(
     data: AuthTokenResponse,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
+    check_ownership: bool,
 ) -> Result<AccountData, AuthError> {
-    send_progress(sender.as_ref(), 1, "Logging into xbox live...");
-    let xbox = login_in_xbox_live(&CLIENT, &data).await?;
-    send_progress(sender.as_ref(), 2, "Logging into minecraft...");
-    let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
-    send_progress(sender.as_ref(), 3, "Getting account details...");
-    let final_details = get_final_details(&CLIENT, &minecraft).await?;
-    // send_progress(sender.as_ref(), 4, "Checking game ownership...");
-    // let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
+    let steps = if check_ownership { 5 } else { 4 };
 
-    // if !owns_game {
-    //     return Err(AuthError::DoesntOwnGame);
-    // }
+    send_progress(sender.as_ref(), 1, steps, "Logging into xbox live...");
+    let xbox = login_in_xbox_live(&CLIENT, &data).await?;
+    send_progress(sender.as_ref(), 2, steps, "Logging into minecraft...");
+    let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
+    send_progress(sender.as_ref(), 3, steps, "Getting account details...");
+    let final_details = get_final_details(&CLIENT, &minecraft).await?;
+
+    if check_ownership {
+        send_progress(sender.as_ref(), 4, steps, "Checking game ownership...");
+        let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
+
+        if !owns_game {
+            return Err(AuthError::DoesntOwnGame);
+        }
+    }
 
     let entry = keyring::Entry::new("QuantumLauncher", &final_details.name)?;
     entry.set_password(&data.refresh_token)?;
@@ -277,13 +320,14 @@ pub async fn login_3_xbox(
 fn send_progress(
     sender: Option<&std::sync::mpsc::Sender<GenericProgress>>,
     done: usize,
+    total: usize,
     message: &str,
 ) {
     pt!("{message}");
     if let Some(sender) = sender {
         _ = sender.send(GenericProgress {
             done,
-            total: 4,
+            total,
             message: Some(message.to_owned()),
             has_finished: false,
         });
@@ -375,7 +419,7 @@ async fn login_in_minecraft(
             "xbox_res.display_claims.xui[0].uhs".to_owned(),
         ))?;
 
-    let xbox_security_token_res: XboxLiveAuthResponse = client
+    let xbox_security_token_res = client
         .post("https://xsts.auth.xboxlive.com/xsts/authorize")
         .json(&json!({
             "Properties": {
@@ -387,8 +431,11 @@ async fn login_in_minecraft(
         }))
         .send()
         .await?
-        .json()
+        .text()
         .await?;
+
+    let xbox_security_token_res: XboxLiveAuthResponse =
+        serde_json::from_str(&xbox_security_token_res).json(xbox_security_token_res)?;
 
     let xbox_security_token = &xbox_security_token_res.token;
 
@@ -426,21 +473,22 @@ async fn get_final_details(
     Ok(serde_json::from_str(&text).json(text)?)
 }
 
-// async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
-//     #[derive(Deserialize)]
-//     struct Ownership {
-//         items: Vec<Value>,
-//     }
+async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
+    #[derive(Deserialize)]
+    struct Ownership {
+        items: Vec<serde_json::Value>,
+    }
 
-//     let client = Client::new();
+    let client = Client::new();
 
-//     let response = client
-//         .get("https://api.minecraftservices.com/entitlements/mcstore")
-//         .bearer_auth(access_token)
-//         .send()
-//         .await?
-//         .json::<Ownership>() // Deserialize response as JSON
-//         .await?;
+    let response = client
+        .get("https://api.minecraftservices.com/entitlements/mcstore")
+        .bearer_auth(access_token)
+        .send()
+        .await?
+        .text()
+        .await?;
+    let response: Ownership = serde_json::from_str(&response).json(response)?;
 
-//     Ok(!response.items.is_empty())
-// }
+    Ok(!response.items.is_empty())
+}
