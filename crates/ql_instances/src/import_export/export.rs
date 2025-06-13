@@ -277,9 +277,9 @@ pub fn export_instance(
         .join(&export_config.instance_name);
     // pt!("{:?}",temp_instance_path); // can be used for debugging
     info!("Metadata created");
-    write_instance_json(&export_config, &temp_instance_path);
+    write_instance_json(&export_config, &temp_instance_path)?;
     info!("Deleteing exceptions");
-    delete_exceptions(&export_config.exception, &temp_instance_path);
+    delete_exceptions(&export_config.exception, &temp_instance_path)?;
     let mut output_zip_name = export_config.instance_name.clone();
     output_zip_name.push_str(".zip");
     info!("Packaging the instance into zip");

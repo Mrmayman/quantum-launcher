@@ -99,18 +99,16 @@ pub async fn import_instance(
     zip_path: &Path,
     assets: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let instances_dir = get_launcher_dir()?;
-    // println!("{:?}",instances_dir);
     let instance_name_zip = get_zip_stem(zip_path).unwrap(); // will change this later unwrap is unsafe for this
                                                              // println!("{}",instance_name);
     let temp_dir = get_launcher_dir()?;
     let temp_dir = temp_dir.join("temp");
 
-    std::fs::create_dir(&temp_dir); // creating a temproary directory for extracting zip
+    std::fs::create_dir(&temp_dir)?; // creating a temproary directory for extracting zip
 
     let zip_file = File::open(zip_path)?;
 
-    extract(zip_file, &temp_dir, false); // extracts the file to temporary directry
+    extract(zip_file, &temp_dir, false)?; // extracts the file to temporary directry
 
     info!("Instance extracted to {}", temp_dir.display());
 
