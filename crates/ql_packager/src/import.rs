@@ -24,19 +24,14 @@ use super::InstancePackageError;
 /// A `Result` indicating success or containing an error if anything fails.
 ///
 /// # Errors
-/// - Returns an error if the ZIP file can't be opened or extracted.
-/// - Returns an error if `quantum-config.json` is missing or malformed.
-/// - Returns an error if instance creation or file copying fails.
-///
-/// # Safety Note
-/// - Currently uses `.unwrap()` for the zip file stem extraction, which will panic on malformed file names.
-///   Consider replacing with proper error handling in the future.
-///
-/// # Example
-/// ```no_run
-/// import_instance(Path::new("/path/to/exported_instance.zip"), true).await?;
-/// ```
-pub async fn import_instance(zip_path: PathBuf, assets: bool) -> Result<(), InstancePackageError> {
+/// - if ZIP file can't be opened or extracted
+/// - if `quantum-config.json` or `details.json` are missing or malformed
+/// - if instance creation (downloading) fails
+/// - if user doesn't have permission to access launcher dir
+pub async fn import_instance(
+    zip_path: PathBuf,
+    download_assets: bool,
+) -> Result<(), InstancePackageError> {
     info!("Importing QuantumLauncher instance...");
     let temp_dir_obj =
         tempdir::TempDir::new("ql_instance_import").map_err(InstancePackageError::TempDir)?;
@@ -58,12 +53,6 @@ pub async fn import_instance(zip_path: PathBuf, assets: bool) -> Result<(), Inst
         serde_json::from_str(&file).json(file)?
     };
 
-    // let config_json: InstanceConfigJson = {
-    //     let path = temp_dir.join("config.json");
-    //     let file = fs::read_to_string(&path).await.path(&path)?;
-    //     serde_json::from_str(&file).json(file)?
-    // };
-
     pt!("Name: {} ", instance_info.instance_name);
     pt!("Version : {}", version_json.id);
     pt!("Exceptions : {:?} ", instance_info.exceptions);
@@ -76,8 +65,10 @@ pub async fn import_instance(zip_path: PathBuf, assets: bool) -> Result<(), Inst
     if instance_info.is_server {
         ql_servers::create_server(instance_info.instance_name, version, None).await?;
     } else {
-        ql_instances::create_instance(instance_info.instance_name, version, None, assets).await?;
+        ql_instances::create_instance(instance_info.instance_name, version, None, download_assets)
+            .await?;
     }
+
     pt!("Copying packaged");
     file_utils::copy_dir_recursive(&temp_dir, &LAUNCHER_DIR.join("instances")).await?;
     pt!("Cleaning temporary files");

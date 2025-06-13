@@ -69,10 +69,9 @@ async fn delete_exceptions(
 ///
 /// # Process
 ///
-/// 1. Detects the version of the given instance.
-/// 2. Constructs a new `InstanceInfo` with merged exceptions.
+/// 2. Constructs a new `InstanceInfo` with exceptions.
 /// 3. Copies the instance files into a temporary directory.
-/// 4. Writes a `quantum-config.json` metadata file inside the temp folder.
+/// 4. Writes the `InstanceInfo` to a `quantum-config.json` inside temp folder.
 /// 5. Deletes the excluded directories/files from the temp copy.
 /// 6. Compresses the temp folder into a `.zip` archive at the given destination.
 ///
@@ -83,17 +82,6 @@ async fn delete_exceptions(
 /// - The instance directory doesn't exist.
 /// - File I/O operations (copying, deleting, zipping) fail.
 /// - The `exception` vector is missing critical paths (`.minecraft/versions`, `libraries/natives`).
-///
-/// # Example
-///
-/// ```rust
-/// let info = InstanceInfo {
-///     instance_name: "MyInstance".to_string(),
-///     instance_version: "1.20.4".to_string(),
-///     exception: vec![],
-/// };
-/// export_instance(info, PathBuf::from("exports/"), None)?;
-/// ```
 pub async fn export_instance(
     instance: InstanceSelection,
     exceptions: HashSet<String>,
