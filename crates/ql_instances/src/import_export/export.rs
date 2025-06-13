@@ -1,3 +1,5 @@
+use ql_core::file_utils::get_launcher_dir;
+use ql_core::{info, pt};
 /// Exports a Minecraft instance by copying its files to a temporary directory,
 /// removing specified exceptions, generating a metadata JSON, and zipping the result.
 ///
@@ -5,8 +7,8 @@
 ///
 /// * `instance_config` - An `InstanceInfo` struct that contains the instance name and metadata.
 /// * `destination` - The output path where the ZIP file should be saved.
-/// * `exeption` - An optional vector of additional paths to exclude from the export.
-/// * exeption takes an optional vector so 
+/// * `exception` - An optional vector of additional paths to exclude from the export.
+/// * exception takes an optional vector so
 ///  * if none is passed it will by default pass => vec![".minecraft/versions","libraries/natives/"]
 ///  * if vector of Strings is passed it wall added the above vector + the given vector
 ///  * Example vec![".minecraft/versions","libraries/natives/",".minecraft/mods",".minecraft/saves"]
@@ -32,7 +34,7 @@
 /// - The instance version can't be found.
 /// - The instance directory doesn't exist.
 /// - File I/O operations (copying, deleting, zipping) fail.
-/// - The `exeption` vector is missing critical paths (`.minecraft/versions`, `libraries/natives`).
+/// - The `exception` vector is missing critical paths (`.minecraft/versions`, `libraries/natives`).
 ///
 /// # Example
 ///
@@ -40,25 +42,17 @@
 /// let info = InstanceInfo {
 ///     instance_name: "MyInstance".to_string(),
 ///     instance_version: "1.20.4".to_string(),
-///     exeption: vec![],
+///     exception: vec![],
 /// };
 /// export_instance(info, PathBuf::from("exports/"), None)?;
 /// ```
-
-
-
-
-
-
 use std::path::{Path, PathBuf};
-use ql_core::file_utils::get_launcher_dir;
-use ql_core::{info, pt};
 
 use crate::import_export::import::{self, get_instances_path, InstanceInfo};
 use std::error::Error;
 use std::fs;
 use std::fs::File;
-use std::io::{self, Write,Read};
+use std::io::{self, Read, Write};
 
 use walkdir::WalkDir;
 use zip::write::{FileOptions, ZipWriter};
@@ -96,18 +90,29 @@ fn instance_version_finder(instance_name: String) -> Result<String, Box<dyn Erro
 }
 
 // will create an instance info when instance name is passed
-fn instance_info_creater(instance_name: String) -> Result<import::InstanceInfo, Box<dyn std::error::Error>>{
+fn instance_info_creater(
+    instance_name: String,
+) -> Result<import::InstanceInfo, Box<dyn std::error::Error>> {
     let instance_version = instance_version_finder(instance_name.clone())?;
-    let exeption = vec![String::from(".minecraft/versions"),String::from("libraries/natives/")];
-    Ok(InstanceInfo { instance_name: instance_name, instance_version: instance_version, exeption: exeption })
-
+    let exception = vec![
+        String::from(".minecraft/versions"),
+        String::from("libraries/natives/"),
+    ];
+    Ok(InstanceInfo {
+        instance_name: instance_name,
+        instance_version: instance_version,
+        exception: exception,
+    })
 }
 
-//exeption is for implemnting selecting export 
+//exception is for implemnting selecting export
 
 // to merge the user give vector to the one present in the present InstanceInfo
-fn merge_exeption(user_option: Option<Vec<String>>, instance: &InstanceInfo) -> Option<Vec<String>> {
-    let mut result = instance.exeption.clone();
+fn merge_exception(
+    user_option: Option<Vec<String>>,
+    instance: &InstanceInfo,
+) -> Option<Vec<String>> {
+    let mut result = instance.exception.clone();
 
     if let Some(mut vec) = user_option {
         result.append(&mut vec);
@@ -122,8 +127,6 @@ fn merge_exeption(user_option: Option<Vec<String>>, instance: &InstanceInfo) -> 
         None
     }
 }
-
-
 
 fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
     if src.is_dir() {
@@ -143,8 +146,6 @@ fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
     }
     Ok(())
 }
-
-
 
 fn copy_instance_to_temp(instance_path: &Path) -> io::Result<()> {
     let launcher_root = get_launcher_dir().expect("couldnt not resolve launcher dir");
@@ -176,12 +177,10 @@ fn write_instance_json(instance_info: &InstanceInfo, dest_dir: &Path) -> std::io
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
-
-// deltes the folders present in the exeptions
-fn delete_exceptions(exceptions: &[String],temp_path: &Path) -> std::io::Result<()> {
+// deltes the folders present in the exceptions
+fn delete_exceptions(exceptions: &[String], temp_path: &Path) -> std::io::Result<()> {
     for rel_path in exceptions {
         let full_path = temp_path.join(rel_path);
-
 
         if full_path.exists() {
             if full_path.is_dir() {
@@ -194,7 +193,7 @@ fn delete_exceptions(exceptions: &[String],temp_path: &Path) -> std::io::Result<
                 // Could be a symlink or something else, attempt remove_file first, fallback to remove_dir_all
                 pt!("Deleting special file or symlink: {:?}", full_path);
                 match fs::remove_file(&full_path) {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(_) => {
                         fs::remove_dir_all(&full_path)?;
                     }
@@ -233,9 +232,9 @@ fn zip_folder<P: AsRef<Path>>(
         // Prepend the parent folder name (e.g., "craftmine") to the path in the ZIP
         let mut name_in_zip = PathBuf::from(parent_folder_in_zip);
         name_in_zip.push(relative_path);
-        let name_in_zip = name_in_zip.to_str().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidData, "Invalid path encoding")
-        })?;
+        let name_in_zip = name_in_zip
+            .to_str()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid path encoding"))?;
 
         if path.is_file() {
             // pt!("Adding file: {}", name_in_zip);
@@ -254,31 +253,43 @@ fn zip_folder<P: AsRef<Path>>(
     Ok(())
 }
 
-
-pub fn export_instance(instance_name: String , destination:  PathBuf,exeption: Option<Vec<String>>) -> Result<(), Box<dyn std::error::Error>>{
-
+pub fn export_instance(
+    instance_name: String,
+    destination: PathBuf,
+    exception: Option<Vec<String>>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let exporting_version = instance_version_finder(instance_name.clone())?; // find the version of instance
-    info!("Exporting version : {}",exporting_version);
+    info!("Exporting version : {}", exporting_version);
     let mut export_config = instance_info_creater(instance_name)?; // will create a struct to contain metadata for the instance
-    // println!("{:?}",export_config); can be used for debuging
-    let exeption_vector = merge_exeption(exeption, &export_config).expect("Couldnt find .minecraft/version and libraries/natives in the vector");
-    export_config.exeption = exeption_vector;
-    info!("exeptions(is not included in export) :{:?}",export_config.exeption);
+                                                                   // println!("{:?}",export_config); can be used for debuging
+    let exception_vector = merge_exception(exception, &export_config)
+        .expect("Couldnt find .minecraft/version and libraries/natives in the vector");
+    export_config.exception = exception_vector;
+    info!(
+        "exceptions(is not included in export) :{:?}",
+        export_config.exception
+    );
     let instance_path = get_instances_path()?.join(export_config.instance_name.clone());
-    info!("{:?}",instance_path);
+    info!("{:?}", instance_path);
     copy_instance_to_temp(&instance_path)?;
-    let temp_instance_path: std::path::PathBuf = get_launcher_dir()?.join("temp").join(&export_config.instance_name);
+    let temp_instance_path: std::path::PathBuf = get_launcher_dir()?
+        .join("temp")
+        .join(&export_config.instance_name);
     // pt!("{:?}",temp_instance_path); // can be used for debugging
     info!("Metadata created");
     write_instance_json(&export_config, &temp_instance_path);
-    info!("Deleteing exeptions");
-    delete_exceptions(&export_config.exeption,&temp_instance_path);
+    info!("Deleteing exceptions");
+    delete_exceptions(&export_config.exception, &temp_instance_path);
     let mut output_zip_name = export_config.instance_name.clone();
     output_zip_name.push_str(".zip");
     info!("Packaging the instance into zip");
-    zip_folder(temp_instance_path, destination.join(output_zip_name),&export_config.instance_name)?;
+    zip_folder(
+        temp_instance_path,
+        destination.join(output_zip_name),
+        &export_config.instance_name,
+    )?;
     info!("Cleaning unwanted folders");
-    fs::remove_dir_all(get_launcher_dir()?.join("temp"))?; // deleteing the temporary directory 
+    fs::remove_dir_all(get_launcher_dir()?.join("temp"))?; // deleteing the temporary directory
 
     Ok(())
 }

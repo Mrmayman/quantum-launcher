@@ -2,6 +2,6 @@
   {
     "instance_name": "idk",
     "minecraft_version": "1.21.5",
-    "exeptions": [".minecraft/versions", "libraries/natives/"]
+    "exceptions": [".minecraft/versions", "libraries/natives/"]
   }
 ]
