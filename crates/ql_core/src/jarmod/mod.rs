@@ -19,16 +19,15 @@
 use std::path::{Path, PathBuf, StripPrefixError};
 
 use crate::{
+    file_utils::zip_directory_to_bytes,
     get_jar_path,
     json::{JsonOptifine, VersionDetails},
     pt, InstanceSelection, IntoIoError, IoError, JsonError, JsonFileError,
 };
 use thiserror::Error;
-use zip_dir::zip_directory_to_bytes;
 use zip_extract::ZipExtractError;
 
 mod json;
-mod zip_dir;
 
 pub use json::{JarMod, JarMods};
 
@@ -128,7 +127,9 @@ pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError>
         tokio::fs::remove_dir_all(&meta_inf).await.path(&meta_inf)?;
     }
 
-    let zip = zip_directory_to_bytes(&tmp_dir).await?;
+    let zip = zip_directory_to_bytes(&tmp_dir)
+        .await
+        .map_err(JarModError::ZipWriteError)?;
     let out_jar = instance_dir.join("build.jar");
     tokio::fs::write(&out_jar, &zip).await.path(&out_jar)?;
 

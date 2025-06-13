@@ -7,13 +7,14 @@ members = [
     "crates/ql_servers",
     "crates/ql_java_handler",
     "crates/ql_reqwest",
+    "crates/ql_packager",
 ]
 resolver = "2"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["fs", "macros", "process","rt"] }
+tokio = { version = "1", features = ["fs", "macros", "process"] }
 
 colored = "3"
 chrono = "0.4"
@@ -37,6 +38,7 @@ image = { version = "0.24", default-features = false, features = [
     "png",
     "webp",
 ] }
+tempdir = "0.3"
 
 # [profile.dev]
 # opt-level = 1

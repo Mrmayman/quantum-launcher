@@ -331,6 +331,7 @@ impl GameDownloader {
             is_classic_server: None,
             do_gc_tuning: None,
             close_on_start: None,
+            is_server: Some(false),
             #[allow(deprecated)]
             omniarchive: None,
         };

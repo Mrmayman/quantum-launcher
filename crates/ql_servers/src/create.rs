@@ -105,6 +105,8 @@ async fn write_config(
         enable_logger: Some(true),
         java_args: None,
         game_args: None,
+
+        is_server: Some(true),
         is_classic_server: is_classic_server.then_some(true),
 
         #[allow(deprecated)]

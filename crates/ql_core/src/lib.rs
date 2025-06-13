@@ -236,6 +236,7 @@ impl Display for ListEntry {
         write!(f, "{}", self.name)
     }
 }
+
 pub const LAUNCHER_VERSION_NAME: &str = "0.4.1";
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]

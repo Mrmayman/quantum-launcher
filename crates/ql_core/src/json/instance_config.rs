@@ -64,6 +64,10 @@ pub struct InstanceConfigJson {
     /// - Cannot be stopped by sending a `stop` command.
     ///   (need to kill the process)
     pub is_classic_server: Option<bool>,
+    /// **`false` for client instances, `true` for server installations**
+    ///
+    /// Added in v0.4.2
+    pub is_server: Option<bool>,
     /// **Client Only**
     ///
     /// If true, then the Java Garbage Collector

@@ -1,0 +1,22 @@
+[package]
+name = "ql_packager"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ql_core = { path = "../ql_core" }
+ql_instances = { path = "../ql_instances" }
+ql_servers = { path = "../ql_servers" }
+
+thiserror = { workspace = true }
+colored = { workspace = true }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+tempdir = { workspace = true }
+walkdir = { workspace = true }
+
+zip-extract = { workspace = true }
+zip = { workspace = true }

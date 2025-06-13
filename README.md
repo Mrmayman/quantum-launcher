@@ -186,6 +186,7 @@ codebase is like for any potential contributors.
 - `ql_instances` - Instance management, updating and launching
 - `ql_mod_manager` - Mod management and installation
 - `ql_servers` - A self-hosted server management system (incomplete)
+- `ql_packager` - Code related to packaging/importing instances
 ### Core components
 - `ql_core` - Core utilities and shared code
 - `ql_reqwest` - A shim (wrapper) around the [reqwest](https://github.com/seanmonstar/reqwest) library, that automatically deals with platform-specific features in the Cargo.toml.

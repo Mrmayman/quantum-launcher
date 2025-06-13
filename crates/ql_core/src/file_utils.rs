@@ -2,6 +2,7 @@ use std::{
     collections::HashSet,
     ffi::OsStr,
     fs::Metadata,
+    io::{Cursor, Write},
     path::{Path, PathBuf},
     sync::LazyLock,
 };
@@ -12,6 +13,8 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::fs::DirEntry;
 use tokio_util::io::StreamReader;
+use walkdir::WalkDir;
+use zip::{write::FileOptions, ZipWriter};
 
 use crate::{
     error::{DownloadFileError, IoError},
@@ -488,6 +491,11 @@ pub async fn clean_log_spam() -> Result<(), IoError> {
 /// - `dst` already has a dir with the same name as a file
 /// - User doesn't have permissions for `src`/`dst` access
 pub async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
+    if src.is_file() {
+        tokio::fs::copy(src, dst).await.path(src)?;
+        return Ok(());
+    }
+
     if !dst.exists() {
         tokio::fs::create_dir_all(dst).await.path(dst)?;
     }
@@ -562,4 +570,35 @@ pub async fn find_item_in_dir<F: FnMut(&Path, &str) -> bool>(
         }
     }
     Ok(None)
+}
+
+pub async fn zip_directory_to_bytes<P: AsRef<Path>>(dir: P) -> std::io::Result<Vec<u8>> {
+    let mut buffer = Cursor::new(Vec::new());
+    let mut zip = ZipWriter::new(&mut buffer);
+    let options = FileOptions::<()>::default().unix_permissions(0o755);
+
+    let dir = dir.as_ref();
+    let base_path = dir;
+
+    for entry in WalkDir::new(dir) {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_file() {
+            let relative_path = path
+                .strip_prefix(base_path)
+                .map_err(|n| std::io::Error::new(std::io::ErrorKind::Other, n))?;
+            let name_in_zip = relative_path.to_string_lossy().replace('\\', "/"); // For Windows compatibility
+
+            zip.start_file(name_in_zip, options)?;
+            let bytes = tokio::fs::read(path)
+                .await
+                .path(path)
+                .map_err(|n| std::io::Error::new(std::io::ErrorKind::Other, n))?;
+            zip.write_all(&bytes)?;
+        }
+    }
+
+    zip.finish()?;
+    Ok(buffer.into_inner())
 }
