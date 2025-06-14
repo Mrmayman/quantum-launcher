@@ -3,10 +3,10 @@ use ql_core::LOGGER;
 
 use crate::{
     icon_manager,
-    launcher_state::{Launcher, Message, State},
     menu_renderer::{
         button_with_icon, changelog::changelog_0_4_1, view_account_login, Element, DISCORD,
     },
+    state::{Launcher, Message, State},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
     DEBUG_LOG_BUTTON_HEIGHT,
 };

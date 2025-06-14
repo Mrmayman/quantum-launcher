@@ -8,7 +8,7 @@ use iced::{
 use crate::{
     config::LauncherConfig,
     icon_manager,
-    launcher_state::{AccountMessage, MenuWelcome, Message, NEW_ACCOUNT_NAME},
+    state::{AccountMessage, MenuWelcome, Message, NEW_ACCOUNT_NAME},
 };
 
 use super::{button_with_icon, center_x, get_themes_and_styles, Element, DISCORD};

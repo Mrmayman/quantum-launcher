@@ -3,8 +3,8 @@ use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    launcher_state::{EditInstanceMessage, MenuEditInstance, Message},
     menu_renderer::button_with_icon,
+    state::{EditInstanceMessage, MenuEditInstance, Message},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
 

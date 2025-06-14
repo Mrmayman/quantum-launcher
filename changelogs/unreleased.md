@@ -75,5 +75,9 @@ flags:
 - Removed unnecessary "Couldn't attach log" log message on windows
 - The "error decoding response body" errors (in Microsoft Login) now give you more info
 
+## Instance Packaging
+- You can now package entire QuantumLauncher instances into a single file
+- (TODO) Import/Export support for Prism Launcher, MultiMC and Technic too
+
 ## Other
 - Improved support for weird character encodings in file paths

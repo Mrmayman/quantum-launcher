@@ -3,10 +3,8 @@ use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    launcher_state::{
-        ManageJarModsMessage, ManageModsMessage, MenuEditJarMods, Message, SelectedState,
-    },
     menu_renderer::{button_with_icon, Element},
+    state::{ManageJarModsMessage, ManageModsMessage, MenuEditJarMods, Message, SelectedState},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
 

@@ -6,7 +6,7 @@ use iced::{
 };
 use ql_core::{err, info, info_no_log, jarmod::JarMod, InstanceSelection};
 
-use crate::launcher_state::{
+use crate::state::{
     Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric, MenuInstallOptifine, MenuLaunch,
     MenuLauncherUpdate, MenuServerCreate, Message, State,
 };

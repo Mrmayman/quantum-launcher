@@ -5,11 +5,11 @@ use ql_core::SelectedMod;
 
 use crate::{
     icon_manager,
-    launcher_state::{
+    menu_renderer::{button_with_icon, launch::TAB_HEIGHT, Element},
+    state::{
         EditPresetsMessage, ManageModsMessage, MenuEditPresets, MenuEditPresetsInner, Message,
         ModListEntry, SelectedState,
     },
-    menu_renderer::{button_with_icon, launch::TAB_HEIGHT, Element},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
 

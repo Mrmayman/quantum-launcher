@@ -4,7 +4,7 @@ use ql_core::{InstanceSelection, Progress};
 use crate::{
     config::LauncherConfig,
     icon_manager,
-    launcher_state::{
+    state::{
         CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage, ManageModsMessage,
         MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherSettings, MenuLauncherUpdate,
         MenuServerCreate, Message, ProgressBar,

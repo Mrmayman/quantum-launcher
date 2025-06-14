@@ -17,7 +17,7 @@ mod manage_mods;
 mod presets;
 
 use crate::{
-    launcher_state::{
+    state::{
         self, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage, Launcher,
         LauncherSettingsMessage, MenuCurseforgeManualDownload, MenuInstallFabric,
         MenuInstallOptifine, Message, ProgressBar, State,
@@ -424,7 +424,7 @@ impl Launcher {
                 }
             }
             LauncherSettingsMessage::Open => {
-                self.state = State::LauncherSettings(launcher_state::MenuLauncherSettings {
+                self.state = State::LauncherSettings(state::MenuLauncherSettings {
                     temp_scale: self.config.ui_scale.unwrap_or(1.0),
                 });
             }

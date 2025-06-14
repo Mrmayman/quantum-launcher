@@ -1,7 +1,7 @@
 use iced::Task;
 use ql_core::{DownloadProgress, InstanceSelection, IntoStringError, ListEntry};
 
-use crate::launcher_state::{
+use crate::state::{
     CreateInstanceMessage, Launcher, MenuCreateInstance, Message, ProgressBar, State,
 };
 

@@ -7,8 +7,8 @@ use ql_core::{
 use std::io::Write;
 
 use crate::{
-    launcher_state::get_entries,
     menu_renderer::{DISCORD, GITHUB},
+    state::get_entries,
 };
 
 pub fn command() -> Command {

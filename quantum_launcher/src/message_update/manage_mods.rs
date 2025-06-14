@@ -7,7 +7,7 @@ use ql_core::{
 };
 use ql_mod_manager::store::ModIndex;
 
-use crate::launcher_state::{
+use crate::state::{
     Launcher, ManageJarModsMessage, ManageModsMessage, MenuCurseforgeManualDownload,
     MenuEditJarMods, MenuEditMods, Message, ProgressBar, SelectedState, State,
 };
@@ -262,7 +262,7 @@ impl Launcher {
 
     fn get_delete_mods_command(
         selected_instance: InstanceSelection,
-        menu: &crate::launcher_state::MenuEditMods,
+        menu: &crate::state::MenuEditMods,
     ) -> Task<Message> {
         let ids: Vec<ModId> = menu
             .selected_mods

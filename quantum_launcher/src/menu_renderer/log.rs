@@ -50,7 +50,7 @@ use iced::widget;
 use ql_core::LogType;
 
 use crate::{
-    launcher_state::{Launcher, Message},
+    state::{Launcher, Message},
     stylesheet::{styles::LauncherTheme, widgets::StyleButton},
 };
 

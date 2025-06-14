@@ -11,7 +11,7 @@ use ql_core::{
 };
 use ql_mod_manager::store::{ModIndex, Query, QueryType};
 
-use crate::launcher_state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
+use crate::state::{InstallModsMessage, Launcher, MenuModsDownload, Message, State};
 
 impl Launcher {
     pub fn open_mods_store(&mut self) -> Result<Task<Message>, String> {

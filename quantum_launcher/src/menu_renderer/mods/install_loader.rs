@@ -3,11 +3,11 @@ use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    launcher_state::{
+    menu_renderer::{button_with_icon, Element},
+    state::{
         InstallFabricMessage, InstallOptifineMessage, ManageModsMessage, MenuInstallFabric,
         MenuInstallForge, MenuInstallOptifine, Message,
     },
-    menu_renderer::{button_with_icon, Element},
     stylesheet::styles::LauncherTheme,
 };
 

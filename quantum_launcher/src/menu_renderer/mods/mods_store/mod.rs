@@ -4,10 +4,8 @@ use ql_mod_manager::store::{QueryType, SearchMod};
 
 use crate::{
     icon_manager,
-    launcher_state::{
-        ImageState, InstallModsMessage, ManageModsMessage, MenuModsDownload, Message,
-    },
     menu_renderer::{button_with_icon, Element},
+    state::{ImageState, InstallModsMessage, ManageModsMessage, MenuModsDownload, Message},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
 

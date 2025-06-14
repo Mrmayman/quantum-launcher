@@ -11,7 +11,7 @@ use ql_core::{
 };
 use ql_mod_manager::store::{ModConfig, ModIndex};
 
-use crate::launcher_state::{
+use crate::state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
     ManageJarModsMessage, MenuCreateInstance, MenuEditMods, MenuEditPresetsInner,
     MenuInstallFabric, MenuLaunch, MenuModsDownload, MenuServerCreate, Message, ModListEntry,
@@ -241,7 +241,7 @@ impl Launcher {
 
     fn read_game_logs(
         logs: &mut HashMap<String, InstanceLog>,
-        process: &crate::launcher_state::ClientProcess,
+        process: &crate::state::ClientProcess,
         name: &String,
     ) {
         let Some(receiver) = process.receiver.as_ref() else {

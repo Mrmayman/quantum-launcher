@@ -3,12 +3,12 @@ use ql_core::{InstanceSelection, SelectedMod};
 
 use crate::{
     icon_manager,
-    launcher_state::{
+    menu_renderer::{back_to_launch_screen, button_with_icon, Element},
+    state::{
         EditPresetsMessage, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage,
         ManageJarModsMessage, ManageModsMessage, MenuEditMods, Message, ModListEntry,
         SelectedState,
     },
-    menu_renderer::{back_to_launch_screen, button_with_icon, Element},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
 

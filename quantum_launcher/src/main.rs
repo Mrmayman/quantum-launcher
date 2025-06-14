@@ -29,7 +29,7 @@ use std::time::Duration;
 use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use config::LauncherConfig;
 use iced::{futures::executor::block_on, Settings, Task};
-use launcher_state::{get_entries, Launcher, Message, ServerProcess};
+use state::{get_entries, Launcher, Message, ServerProcess};
 
 use ql_core::{err, err_no_log, file_utils, info_no_log, IntoStringError};
 use ql_instances::OS_NAME;
@@ -43,7 +43,7 @@ mod config;
 /// Play, Settings and so on) as `iced::widget`.
 mod icon_manager;
 /// All the main structs and enums used in the launcher.
-mod launcher_state;
+mod state;
 
 /// Code to handle all [`Message`]'s coming from
 /// user interaction.

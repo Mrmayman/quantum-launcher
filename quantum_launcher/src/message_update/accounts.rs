@@ -5,7 +5,7 @@ use ql_core::IntoStringError;
 
 use crate::{
     config::ConfigAccount,
-    launcher_state::{
+    state::{
         AccountMessage, Launcher, Message, ProgressBar, State, NEW_ACCOUNT_NAME,
         OFFLINE_ACCOUNT_NAME,
     },

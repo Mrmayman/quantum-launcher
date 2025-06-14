@@ -19,8 +19,8 @@ use comrak::nodes::NodeValue;
 use iced::widget;
 
 use crate::{
-    launcher_state::{ImageState, MenuModsDownload, Message},
     menu_renderer::Element,
+    state::{ImageState, MenuModsDownload, Message},
 };
 
 macro_rules! todoh {

@@ -6,7 +6,7 @@ use ql_core::{
 };
 use ql_mod_manager::store::{RecommendedMod, RECOMMENDED_MODS};
 
-use crate::launcher_state::{
+use crate::state::{
     EditPresetsMessage, Launcher, MenuCurseforgeManualDownload, MenuEditPresets,
     MenuEditPresetsInner, Message, ProgressBar, SelectedState, State, PRESET_INNER_BUILD,
     PRESET_INNER_RECOMMENDED,

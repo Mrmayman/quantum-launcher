@@ -200,7 +200,7 @@ Model-View-Controller pattern (AKA the thing used in iced).
 - The `Launcher` struct is the main controller of the application.
 - `view()` renders the app's view based on the current state.
 - `update()` processes messages and updates the state accordingly.
-- The `launcher_state::State` enum determines which menu is currently open.
+- The `state::State` enum determines which menu is currently open.
 
 So it's a back-and-forth between `Message`s coming from interaction,
 and code to deal with the messages in `update()`.

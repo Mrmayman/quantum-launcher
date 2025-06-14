@@ -7,7 +7,7 @@ use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
 use tokio::io::AsyncWriteExt;
 
-use crate::launcher_state::{
+use crate::state::{
     LaunchTabId, Launcher, ManageModsMessage, MenuExportInstance, MenuLaunch, MenuLauncherUpdate,
     MenuServerCreate, MenuWelcome, Message, ProgressBar, ServerProcess, State,
 };

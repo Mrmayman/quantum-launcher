@@ -5,13 +5,13 @@ use ql_core::{InstanceSelection, LogType, LAUNCHER_VERSION_NAME};
 
 use crate::{
     icon_manager,
-    launcher_state::{
+    menu_renderer::DISCORD,
+    message_handler::SIDEBAR_DRAG_LEEWAY,
+    state::{
         AccountMessage, CreateInstanceMessage, InstanceLog, LaunchTabId, Launcher,
         LauncherSettingsMessage, ManageModsMessage, MenuLaunch, Message, State, NEW_ACCOUNT_NAME,
         OFFLINE_ACCOUNT_NAME,
     },
-    menu_renderer::DISCORD,
-    message_handler::SIDEBAR_DRAG_LEEWAY,
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
 

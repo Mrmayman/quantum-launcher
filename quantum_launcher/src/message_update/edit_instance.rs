@@ -2,8 +2,8 @@ use iced::Task;
 use ql_core::{err, IntoIoError, IntoStringError, LAUNCHER_DIR};
 
 use crate::{
-    launcher_state::{get_entries, EditInstanceMessage, Launcher, MenuLaunch, Message, State},
     message_handler::format_memory,
+    state::{get_entries, EditInstanceMessage, Launcher, MenuLaunch, Message, State},
 };
 
 impl Launcher {

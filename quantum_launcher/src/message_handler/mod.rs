@@ -17,7 +17,7 @@ use tokio::process::Child;
 
 use crate::{
     get_entries,
-    launcher_state::{
+    state::{
         ClientProcess, EditPresetsMessage, ManageModsMessage, MenuEditInstance, MenuEditMods,
         MenuInstallForge, MenuLaunch, MenuLauncherUpdate, ProgressBar, SelectedState, State,
         NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
