@@ -10,6 +10,8 @@ pub const EXCEPTIONS: &[&str] = &[
     ".minecraft/versions",
     ".minecraft/usercache.json",
     "libraries",
+    "fabric.json",
+    "forge",
 ];
 
 fn create_instance_info(
@@ -81,7 +83,6 @@ async fn delete_exceptions(
 /// - The instance version can't be found.
 /// - The instance directory doesn't exist.
 /// - File I/O operations (copying, deleting, zipping) fail.
-/// - The `exception` vector is missing critical paths (`.minecraft/versions`, `libraries/natives`).
 pub async fn export_instance(
     instance: InstanceSelection,
     exceptions: HashSet<String>,

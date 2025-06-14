@@ -1,4 +1,5 @@
 {
-    "instance_name": "idk",
-    "exceptions": [".minecraft/versions", "libraries/natives/"]
+  "instance_name": "idk",
+  "exceptions": [".minecraft/versions", "libraries/natives/"],
+  "is_server": false
 }

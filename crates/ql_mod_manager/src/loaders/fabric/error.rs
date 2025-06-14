@@ -21,6 +21,8 @@ pub enum FabricInstallError {
     ZipEntryWriteError(std::io::Error, String),
     #[error("{FABRIC_INSTALL_ERR_PREFIX}zip read failed at {1}: {0}")]
     ZipEntryReadError(std::io::Error, String),
+    #[error("{FABRIC_INSTALL_ERR_PREFIX}no compatible version found for your instance")]
+    NoVersionFound,
 }
 
 impl_3_errs_jri!(FabricInstallError, Json, RequestError, Io);

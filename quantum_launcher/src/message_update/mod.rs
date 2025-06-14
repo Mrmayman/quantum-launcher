@@ -81,7 +81,7 @@ impl Launcher {
                     let is_quilt = *is_quilt;
                     return Task::perform(
                         loaders::fabric::install(
-                            loader_version,
+                            Some(loader_version),
                             instance_name,
                             Some(sender),
                             is_quilt,

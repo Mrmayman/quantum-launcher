@@ -249,7 +249,8 @@ fn send_progress(
 /// Installs Fabric or Quilt to the given instance.
 ///
 /// # Arguments
-/// - `loader_version` - The version of the loader to install.
+/// - `loader_version` - (Optional) The version of the loader to install.
+///   Will pick the latest compatible one if not specified.
 /// - `instance_name` - The name of the instance to install to.
 ///   `InstanceSelection::Instance(n)` for a client instance,
 ///   `InstanceSelection::Server(n)` for a server instance.
@@ -261,11 +262,22 @@ fn send_progress(
 /// Returns the `is_quilt` bool (so that the launcher can remember
 /// whether quilt or fabric was installed)
 pub async fn install(
-    loader_version: String,
+    loader_version: Option<String>,
     instance_name: InstanceSelection,
     progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<bool, FabricInstallError> {
+    let loader_version = if let Some(n) = loader_version {
+        n
+    } else {
+        get_list_of_versions(instance_name.clone(), is_quilt)
+            .await?
+            .first()
+            .ok_or(FabricInstallError::NoVersionFound)?
+            .loader
+            .version
+            .clone()
+    };
     match instance_name {
         InstanceSelection::Instance(n) => {
             install_client(loader_version, n, progress, is_quilt).await
