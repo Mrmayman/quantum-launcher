@@ -17,9 +17,9 @@ pub fn flip_filename(name: &str) -> String {
 
 pub async fn toggle_mods_local(
     names: Vec<String>,
-    instance_name: InstanceSelection,
+    instance: InstanceSelection,
 ) -> Result<(), ModError> {
-    let mods_dir = instance_name.get_dot_minecraft_path().join("mods");
+    let mods_dir = instance.get_dot_minecraft_path().join("mods");
 
     for file in names {
         let flipped = flip_filename(&file);
@@ -28,13 +28,10 @@ pub async fn toggle_mods_local(
     Ok(())
 }
 
-pub async fn toggle_mods(
-    id: Vec<String>,
-    instance_name: InstanceSelection,
-) -> Result<(), ModError> {
-    let mut index = ModIndex::get(&instance_name).await?;
+pub async fn toggle_mods(id: Vec<String>, instance: InstanceSelection) -> Result<(), ModError> {
+    let mut index = ModIndex::get(&instance).await?;
 
-    let mods_dir = instance_name.get_dot_minecraft_path().join("mods");
+    let mods_dir = instance.get_dot_minecraft_path().join("mods");
 
     for id in id {
         if let Some(info) = index.mods.get_mut(&id) {
@@ -52,7 +49,7 @@ pub async fn toggle_mods(
         }
     }
 
-    index.save(&instance_name).await?;
+    index.save(&instance).await?;
     Ok(())
 }
 

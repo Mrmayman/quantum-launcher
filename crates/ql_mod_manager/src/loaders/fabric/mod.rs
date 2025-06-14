@@ -29,7 +29,7 @@ async fn download_file_to_string(url: &str, is_quilt: bool) -> Result<String, Re
 }
 
 pub async fn get_list_of_versions(
-    instance_name: InstanceSelection,
+    instance: InstanceSelection,
     is_quilt: bool,
 ) -> Result<Vec<FabricVersionListItem>, FabricInstallError> {
     async fn inner(
@@ -44,10 +44,10 @@ pub async fn get_list_of_versions(
         Ok(versions)
     }
 
-    let mut result = inner(&instance_name, is_quilt).await;
+    let mut result = inner(&instance, is_quilt).await;
     if result.is_err() {
         for _ in 0..5 {
-            result = inner(&instance_name, is_quilt).await;
+            result = inner(&instance, is_quilt).await;
             if result.is_ok() {
                 break;
             }
@@ -263,14 +263,14 @@ fn send_progress(
 /// whether quilt or fabric was installed)
 pub async fn install(
     loader_version: Option<String>,
-    instance_name: InstanceSelection,
+    instance: InstanceSelection,
     progress: Option<Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<bool, FabricInstallError> {
     let loader_version = if let Some(n) = loader_version {
         n
     } else {
-        get_list_of_versions(instance_name.clone(), is_quilt)
+        get_list_of_versions(instance.clone(), is_quilt)
             .await?
             .first()
             .ok_or(FabricInstallError::NoVersionFound)?
@@ -278,7 +278,7 @@ pub async fn install(
             .version
             .clone()
     };
-    match instance_name {
+    match instance {
         InstanceSelection::Instance(n) => {
             install_client(loader_version, n, progress, is_quilt).await
         }

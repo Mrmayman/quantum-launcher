@@ -138,7 +138,7 @@ impl PresetJson {
     /// See the module documentation for what a preset is.
     ///
     /// # Arguments
-    /// - `instance_name: InstanceSelection`:
+    /// - `instance: InstanceSelection`:
     ///   The instance to which the preset will be installed.
     /// - `zip: Vec<u8>`:
     ///   The `.qmp` file in binary form. Must be read from
@@ -159,20 +159,17 @@ impl PresetJson {
     /// - couldn't be parsed into valid JSON
     /// ---
     /// - And many other stuff I probably forgot
-    pub async fn load(
-        instance_name: InstanceSelection,
-        zip: Vec<u8>,
-    ) -> Result<Vec<ModId>, ModError> {
+    pub async fn load(instance: InstanceSelection, zip: Vec<u8>) -> Result<Vec<ModId>, ModError> {
         info!("Importing mod preset");
 
-        let main_dir = instance_name.get_dot_minecraft_path();
+        let main_dir = instance.get_dot_minecraft_path();
         let mods_dir = main_dir.join("mods");
 
         let mut zip = zip::ZipArchive::new(Cursor::new(zip)).map_err(ModError::Zip)?;
 
         let mut entries_downloaded = HashMap::new();
 
-        let version_json = VersionDetails::load(&instance_name).await?;
+        let version_json = VersionDetails::load(&instance).await?;
         let mut sideloads = Vec::new();
         let mut should_sideload = true;
 
@@ -187,7 +184,7 @@ impl PresetJson {
                 let this: Self = serde_json::from_str(&buf).json(buf)?;
 
                 // Only sideload mods if the version is the same
-                let instance_type = get_instance_type(&instance_name).await?;
+                let instance_type = get_instance_type(&instance).await?;
 
                 should_sideload = this.minecraft_version == version_json.id
                     && this.instance_type == instance_type;

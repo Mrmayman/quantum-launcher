@@ -58,16 +58,16 @@ impl ForgeInstaller {
 
     async fn new(
         f_progress: Option<Sender<ForgeInstallProgress>>,
-        instance_name: InstanceSelection,
+        instance: InstanceSelection,
     ) -> Result<Self, ForgeInstallError> {
-        let instance_dir = instance_name.get_instance_path();
-        let forge_dir = if instance_name.is_server() {
+        let instance_dir = instance.get_instance_path();
+        let forge_dir = if instance.is_server() {
             instance_dir.clone()
         } else {
             get_forge_dir(&instance_dir).await?
         };
 
-        let version_json = VersionDetails::load(&instance_name).await?;
+        let version_json = VersionDetails::load(&instance).await?;
         let minecraft_version = &version_json.id;
 
         create_mods_dir(&instance_dir).await?;
@@ -103,7 +103,7 @@ impl ForgeInstaller {
             major_version,
             instance_dir,
             forge_dir,
-            is_server: instance_name.is_server(),
+            is_server: instance.is_server(),
             version_json,
         })
     }
@@ -458,11 +458,11 @@ async fn create_lock_file(instance_dir: &Path) -> Result<(), ForgeInstallError> 
 }
 
 pub async fn install(
-    instance_name: InstanceSelection,
+    instance: InstanceSelection,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ForgeInstallError> {
-    match instance_name {
+    match instance {
         InstanceSelection::Instance(name) => install_client(name, f_progress, j_progress).await,
         InstanceSelection::Server(name) => install_server(name, j_progress, f_progress).await,
     }

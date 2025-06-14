@@ -83,8 +83,8 @@ pub async fn uninstall_client(instance_name: String) -> Result<(), FabricInstall
     Ok(())
 }
 
-pub async fn uninstall(instance_name: InstanceSelection) -> Result<(), FabricInstallError> {
-    match instance_name {
+pub async fn uninstall(instance: InstanceSelection) -> Result<(), FabricInstallError> {
+    match instance {
         InstanceSelection::Instance(n) => uninstall_client(n).await,
         InstanceSelection::Server(n) => uninstall_server(n).await,
     }

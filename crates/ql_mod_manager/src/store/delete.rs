@@ -7,16 +7,16 @@ use std::{
 
 pub async fn delete_mods(
     ids: Vec<ModId>,
-    instance_name: InstanceSelection,
+    instance: InstanceSelection,
 ) -> Result<Vec<ModId>, ModError> {
     if ids.is_empty() {
         return Ok(ids);
     }
 
     info!("Deleting mods:");
-    let mut index = ModIndex::get(&instance_name).await?;
+    let mut index = ModIndex::get(&instance).await?;
 
-    let mods_dir = instance_name.get_dot_minecraft_path().join("mods");
+    let mods_dir = instance.get_dot_minecraft_path().join("mods");
 
     // let mut downloaded_mods = HashSet::new();
 
@@ -76,7 +76,7 @@ pub async fn delete_mods(
         }
     }
 
-    index.save(&instance_name).await?;
+    index.save(&instance).await?;
     info!("Finished deleting mods");
     Ok(ids)
 }

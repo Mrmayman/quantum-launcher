@@ -99,7 +99,7 @@ pub async fn download_mod(
 
 pub async fn download_mods_bulk(
     ids: Vec<ModId>,
-    instance_name: InstanceSelection,
+    instance: InstanceSelection,
     sender: Option<Sender<GenericProgress>>,
 ) -> Result<HashSet<CurseforgeNotAllowed>, ModError> {
     let (modrinth, other): (Vec<ModId>, Vec<ModId>) = ids.into_iter().partition(|n| match n {
@@ -122,12 +122,11 @@ pub async fn download_mods_bulk(
     // }
 
     let not_allowed =
-        ModrinthBackend::download_bulk(&modrinth, &instance_name, true, true, sender.as_ref())
-            .await?;
+        ModrinthBackend::download_bulk(&modrinth, &instance, true, true, sender.as_ref()).await?;
     debug_assert!(not_allowed.is_empty());
 
     let not_allowed =
-        CurseforgeBackend::download_bulk(&curseforge, &instance_name, true, true, sender.as_ref())
+        CurseforgeBackend::download_bulk(&curseforge, &instance, true, true, sender.as_ref())
             .await?;
 
     Ok(not_allowed)
