@@ -129,6 +129,10 @@ impl Launcher {
                 progress.tick();
             }
 
+            State::ExportInstance(_) => {
+                // TODO
+            }
+
             // These menus don't require background ticking
             State::Error { .. }
             | State::ConfirmAction { .. }

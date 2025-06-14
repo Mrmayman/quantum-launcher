@@ -80,11 +80,7 @@ impl MenuCreateInstance {
             } => {
                 widget::scrollable(
                     widget::column![
-                        widget::button(
-                            widget::row![icon_manager::back(), "Back"]
-                                .spacing(10)
-                                .padding(5)
-                        ).on_press_maybe((progress.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
+                        button_with_icon(icon_manager::back(), "Back", 16).on_press_maybe((progress.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
                             widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
                                 Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
                             }),

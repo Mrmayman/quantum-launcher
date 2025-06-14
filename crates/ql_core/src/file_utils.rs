@@ -545,6 +545,41 @@ pub async fn read_filenames_from_dir<P: AsRef<Path>>(dir: P) -> Result<Vec<Strin
     Ok(filenames)
 }
 
+/// Reads all the entries from a directory into a `Vec<String>`.
+/// This includes both files and folders.
+///
+/// # Errors
+/// - `dir` doesn't exist
+/// - User doesn't have access to `dir`
+///
+/// Additionally, this skips any file/folder names
+/// that has broken encoding (not UTF-8 or ASCII).
+pub async fn read_filenames_from_dir_ext<P: AsRef<Path>>(dir: P) -> Result<Vec<DirItem>, IoError> {
+    let dir: &Path = dir.as_ref();
+    let mut entries = tokio::fs::read_dir(dir).await.dir(dir)?;
+    let mut filenames = Vec::new();
+
+    while let Some(entry) = entries.next_entry().await.map_err(|n| IoError::ReadDir {
+        error: n.to_string(),
+        parent: dir.to_owned(),
+    })? {
+        if let Some(name) = entry.file_name().to_str() {
+            filenames.push(DirItem {
+                name: name.to_owned(),
+                is_file: entry.path().is_file(),
+            });
+        }
+    }
+
+    Ok(filenames)
+}
+
+#[derive(Debug, Clone)]
+pub struct DirItem {
+    pub name: String,
+    pub is_file: bool,
+}
+
 /// Finds the first in the specified directory
 /// that matches the criteria specified by the
 /// input function.

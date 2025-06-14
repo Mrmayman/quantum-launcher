@@ -260,6 +260,9 @@ impl Launcher {
             State::ModsDownload(menu) if menu.mods_download_in_progress.is_empty() => {
                 should_return_to_mods_screen = true;
             }
+            State::ExportInstance(_) => {
+                // TODO
+            }
             State::InstallPaper
             | State::InstallForge(_)
             | State::InstallJava

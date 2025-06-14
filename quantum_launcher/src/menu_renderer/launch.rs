@@ -93,6 +93,7 @@ impl Launcher {
                         main_buttons,
                         widget::horizontal_rule(10)
                             .style(|n: &LauncherTheme| n.style_rule(Color::SecondDark, 2)),
+                        widget::button("Export Instance").on_press(Message::ExportInstanceOpen),
                     )
                     .push_maybe({
                         if let Some(selected_instance) = selected_instance_s {

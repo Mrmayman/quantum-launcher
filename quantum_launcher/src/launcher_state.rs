@@ -13,7 +13,8 @@ use iced::{
     Task,
 };
 use ql_core::{
-    err, file_utils,
+    err,
+    file_utils::{self, DirItem},
     jarmod::JarMods,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
@@ -244,6 +245,9 @@ pub enum Message {
     UninstallLoaderOptiFineStart,
     UninstallLoaderPaperStart,
     UninstallLoaderEnd(Res),
+
+    ExportInstanceOpen,
+    ExportInstanceToggleItem(usize, bool),
 
     CoreErrorCopy,
     CoreErrorCopyLog,
@@ -593,6 +597,10 @@ pub struct MenuCurseforgeManualDownload {
     pub is_store: bool,
 }
 
+pub struct MenuExportInstance {
+    pub entries: Vec<(DirItem, bool)>,
+}
+
 /// The enum that represents which menu is opened currently.
 pub enum State {
     /// Default home screen
@@ -607,6 +615,7 @@ pub enum State {
     EditJarMods(MenuEditJarMods),
     ImportModpack(ProgressBar<GenericProgress>),
     CurseforgeManualDownload(MenuCurseforgeManualDownload),
+    ExportInstance(MenuExportInstance),
 
     Error {
         error: String,

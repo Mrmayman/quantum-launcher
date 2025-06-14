@@ -1,15 +1,15 @@
-use iced::Task;
+use iced::{futures::executor::block_on, Task};
 use ql_core::{
-    err, err_no_log, info, info_no_log, open_file_explorer, InstanceSelection, IntoStringError,
-    LOGGER,
+    err, err_no_log, file_utils::DirItem, info, info_no_log, open_file_explorer, InstanceSelection,
+    IntoStringError, LOGGER,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
 use tokio::io::AsyncWriteExt;
 
 use crate::launcher_state::{
-    LaunchTabId, Launcher, ManageModsMessage, MenuLaunch, MenuLauncherUpdate, MenuServerCreate,
-    MenuWelcome, Message, ProgressBar, ServerProcess, State,
+    LaunchTabId, Launcher, ManageModsMessage, MenuExportInstance, MenuLaunch, MenuLauncherUpdate,
+    MenuServerCreate, MenuWelcome, Message, ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -423,6 +423,41 @@ impl Launcher {
             Message::LaunchScrollSidebar(total) => {
                 if let State::Launch(MenuLaunch { sidebar_height, .. }) = &mut self.state {
                     *sidebar_height = total;
+                }
+            }
+
+            Message::ExportInstanceOpen => {
+                let selected_instance = self.selected_instance.as_ref().unwrap();
+                let mut entries: Vec<(DirItem, bool)> =
+                    match block_on(ql_core::file_utils::read_filenames_from_dir_ext(
+                        selected_instance.get_dot_minecraft_path(),
+                    )) {
+                        Ok(n) => n
+                            .into_iter()
+                            .map(|n| {
+                                let enabled = !(n.name == ".fabric" || n.name == "logs");
+                                (n, enabled)
+                            })
+                            .filter(|(n, _)| {
+                                !(n.name == "mod_index.json" || n.name == "launcher_profiles.json")
+                            })
+                            .collect(),
+                        Err(err) => {
+                            self.set_error(err);
+                            return Task::none();
+                        }
+                    };
+                entries.sort_by(|(a, _), (b, _)| {
+                    // Folders before files, and then sorted alphabetically
+                    a.is_file.cmp(&b.is_file).then_with(|| a.name.cmp(&b.name))
+                });
+                self.state = State::ExportInstance(MenuExportInstance { entries });
+            }
+            Message::ExportInstanceToggleItem(idx, t) => {
+                if let State::ExportInstance(menu) = &mut self.state {
+                    if let Some((_, b)) = menu.entries.get_mut(idx) {
+                        *b = t;
+                    }
                 }
             }
         }
