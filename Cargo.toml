@@ -38,7 +38,7 @@ image = { version = "0.24", default-features = false, features = [
     "png",
     "webp",
 ] }
-tempdir = "0.3"
+tempfile = "3"
 
 # [profile.dev]
 # opt-level = 1

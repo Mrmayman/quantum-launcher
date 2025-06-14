@@ -36,8 +36,7 @@ pub async fn import_instance(
     download_assets: bool,
 ) -> Result<(), InstancePackageError> {
     info!("Importing QuantumLauncher instance...");
-    let temp_dir_obj =
-        tempdir::TempDir::new("ql_instance_import").map_err(InstancePackageError::TempDir)?;
+    let temp_dir_obj = tempfile::TempDir::new().map_err(InstancePackageError::TempDir)?;
     let temp_dir = temp_dir_obj.path();
 
     pt!("Extracting zip to temp dir: {temp_dir:?}");

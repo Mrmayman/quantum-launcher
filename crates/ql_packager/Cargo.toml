@@ -16,7 +16,7 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-tempdir = { workspace = true }
+tempfile = { workspace = true }
 walkdir = { workspace = true }
 
 zip-extract = { workspace = true }

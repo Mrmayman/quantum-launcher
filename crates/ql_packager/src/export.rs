@@ -95,7 +95,7 @@ pub async fn export_instance(
         "Exceptions (not included in export): {:?}",
         export_config.exceptions
     );
-    let dir = tempdir::TempDir::new("ql_instance_export").map_err(InstancePackageError::TempDir)?;
+    let dir = tempfile::TempDir::new().map_err(InstancePackageError::TempDir)?;
     file_utils::copy_dir_recursive(&instance.get_instance_path(), dir.path()).await?;
     let folder_path = dir.path();
 
