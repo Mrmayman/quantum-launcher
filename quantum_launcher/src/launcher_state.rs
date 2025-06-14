@@ -248,6 +248,8 @@ pub enum Message {
 
     ExportInstanceOpen,
     ExportInstanceToggleItem(usize, bool),
+    ExportInstanceStart,
+    ExportInstanceFinished(Res<Vec<u8>>),
 
     CoreErrorCopy,
     CoreErrorCopyLog,

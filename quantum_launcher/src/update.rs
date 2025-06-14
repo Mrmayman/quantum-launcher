@@ -1,7 +1,7 @@
 use iced::{futures::executor::block_on, Task};
 use ql_core::{
     err, err_no_log, file_utils::DirItem, info, info_no_log, open_file_explorer, InstanceSelection,
-    IntoStringError, LOGGER,
+    IntoIoError, IntoStringError, LOGGER,
 };
 use ql_instances::UpdateCheckInfo;
 use ql_mod_manager::loaders;
@@ -306,10 +306,7 @@ impl Launcher {
                     log.log.push(format!("> {}", log.command));
 
                     log.command.clear();
-                    tokio::runtime::Runtime::new()
-                        .unwrap()
-                        .block_on(future)
-                        .unwrap();
+                    _ = block_on(future);
                 }
             }
             Message::ServerManageCopyLog => {
@@ -460,6 +457,32 @@ impl Launcher {
                     }
                 }
             }
+            Message::ExportInstanceStart => {
+                if let State::ExportInstance(menu) = &self.state {
+                    let exceptions = menu
+                        .entries
+                        .iter()
+                        .filter_map(|(n, b)| (!b).then_some(format!(".minecraft/{}", n.name)))
+                        .collect();
+                    return Task::perform(
+                        ql_packager::export::export_instance(
+                            self.selected_instance.clone().unwrap(),
+                            exceptions,
+                        ),
+                        |n| Message::ExportInstanceFinished(n.strerr()),
+                    );
+                }
+            }
+            Message::ExportInstanceFinished(res) => match res {
+                Ok(bytes) => {
+                    if let Some(path) = rfd::FileDialog::new().save_file() {
+                        if let Err(err) = std::fs::write(&path, bytes).path(path) {
+                            self.set_error(err);
+                        }
+                    }
+                }
+                Err(err) => self.set_error(err),
+            },
         }
         Task::none()
     }

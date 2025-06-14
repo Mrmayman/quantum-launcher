@@ -28,7 +28,7 @@ use std::time::Duration;
 
 use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use config::LauncherConfig;
-use iced::{Settings, Task};
+use iced::{futures::executor::block_on, Settings, Task};
 use launcher_state::{get_entries, Launcher, Message, ServerProcess};
 
 use ql_core::{err, err_no_log, file_utils, info_no_log, IntoStringError};
@@ -123,10 +123,7 @@ impl Launcher {
                 }
             } else {
                 let future = stdin.write_all("stop\n".as_bytes());
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(future)
-                    .unwrap();
+                _ = block_on(future);
             };
         }
     }

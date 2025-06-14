@@ -21,7 +21,7 @@ fn create_instance_info(
     exceptions.extend(EXCEPTIONS.iter().map(|n| (*n).to_owned()));
     Ok(InstanceInfo {
         instance_name: instance.get_name().to_owned(),
-        exceptions: HashSet::new(),
+        exceptions,
         is_server: instance.is_server(),
     })
 }

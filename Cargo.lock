@@ -3532,6 +3532,7 @@ dependencies = [
  "ql_core",
  "ql_instances",
  "ql_mod_manager",
+ "ql_packager",
  "ql_servers",
  "rfd",
  "serde",

@@ -43,7 +43,8 @@ impl MenuExportInstance {
                         Message::Nothing
                     })
                     .text_line_height(1.68),
-                    button_with_icon(icon_manager::save(), "Export", 16),
+                    button_with_icon(icon_manager::save(), "Export", 16)
+                        .on_press(Message::ExportInstanceStart),
                 ]
                 .spacing(5)
                 .wrap()
