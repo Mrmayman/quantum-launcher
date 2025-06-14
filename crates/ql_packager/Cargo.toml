@@ -7,6 +7,7 @@ edition = "2024"
 ql_core = { path = "../ql_core" }
 ql_instances = { path = "../ql_instances" }
 ql_servers = { path = "../ql_servers" }
+ql_mod_manager = { path = "../ql_mod_manager" }
 
 thiserror = { workspace = true }
 colored = { workspace = true }

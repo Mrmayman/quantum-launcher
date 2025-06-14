@@ -23,10 +23,13 @@ pub enum InstancePackageError {
     Io(#[from] IoError),
     #[error("{PKG_ERR_PREFIX}{0}")]
     Json(#[from] JsonError),
+
     #[error("{PKG_ERR_PREFIX}while creating base instance for import:\n{0}")]
     Download(#[from] DownloadError),
     #[error("{PKG_ERR_PREFIX}while creating new base server for import:\n{0}")]
     Server(#[from] ServerError),
+    #[error("{PKG_ERR_PREFIX}while installing packaged loader:\n{0}")]
+    Loader(String),
 
     #[error("{PKG_ERR_PREFIX}while extracting zip:\n{0}")]
     ZipExtract(#[from] ZipExtractError),

@@ -3484,6 +3484,7 @@ dependencies = [
  "colored",
  "ql_core",
  "ql_instances",
+ "ql_mod_manager",
  "ql_servers",
  "serde",
  "serde_json",
