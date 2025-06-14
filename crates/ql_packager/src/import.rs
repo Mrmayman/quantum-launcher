@@ -41,7 +41,7 @@ pub async fn import_instance(
 
     pt!("Extracting zip to temp dir: {temp_dir:?}");
     let zip_file = std::fs::File::open(&zip_path).path(&zip_path)?;
-    extract(zip_file, &temp_dir, true)?;
+    extract(zip_file, temp_dir, true)?;
 
     let instance_info: InstanceInfo = {
         let path = temp_dir.join("quantum-config.json");
@@ -84,7 +84,7 @@ pub async fn import_instance(
     }
 
     pt!("Copying packaged");
-    file_utils::copy_dir_recursive(&temp_dir, &LAUNCHER_DIR.join("instances")).await?;
+    file_utils::copy_dir_recursive(temp_dir, &LAUNCHER_DIR.join("instances")).await?;
     pt!("Cleaning temporary files");
     fs::remove_dir_all(&temp_dir).await.path(temp_dir)?;
     info!("Finished importing instance");
