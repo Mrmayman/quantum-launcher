@@ -7,8 +7,9 @@ use iced::{
 use ql_core::{err, info, info_no_log, jarmod::JarMod, InstanceSelection};
 
 use crate::state::{
-    Launcher, MenuCreateInstance, MenuEditMods, MenuInstallFabric, MenuInstallOptifine, MenuLaunch,
-    MenuLauncherUpdate, MenuServerCreate, Message, State,
+    Launcher, MenuCreateInstance, MenuEditMods, MenuElyByLogin, MenuExportInstance,
+    MenuInstallFabric, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, MenuServerCreate,
+    Message, State,
 };
 
 use super::{SIDEBAR_DRAG_LEEWAY, SIDEBAR_LIMIT_LEFT, SIDEBAR_LIMIT_RIGHT};
@@ -239,7 +240,12 @@ impl Launcher {
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
             | State::LauncherSettings(_)
-            | State::AccountLogin { .. }
+            | State::MSAccountLogin { .. }
+            | State::AccountLogin
+            | State::ExportInstance(MenuExportInstance { progress: None, .. })
+            | State::ElyByLogin(MenuElyByLogin {
+                is_loading: false, ..
+            })
             | State::Welcome(_) => {
                 should_return_to_main_screen = true;
             }
@@ -260,10 +266,8 @@ impl Launcher {
             State::ModsDownload(menu) if menu.mods_download_in_progress.is_empty() => {
                 should_return_to_mods_screen = true;
             }
-            State::ExportInstance(_) => {
-                // TODO
-            }
             State::InstallPaper
+            | State::ExportInstance(_)
             | State::InstallForge(_)
             | State::InstallJava
             | State::InstallOptifine(_)
@@ -278,6 +282,7 @@ impl Launcher {
             | State::AccountLoginProgress(_)
             | State::ImportModpack(_)
             | State::CurseforgeManualDownload(_)
+            | State::ElyByLogin(_)
             | State::Launch(_) => {}
         }
 

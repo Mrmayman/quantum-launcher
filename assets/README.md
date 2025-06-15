@@ -2,8 +2,10 @@
 - JetBrains Mono font (monospace) taken from [JetBrains](https://www.jetbrains.com/lp/mono/)
 - Inter font (default) taken from [Inter](https://rsms.me/inter/)
 - Both of these above two are under SIL Open Font License 1.1 (see `OFL.txt`)
+
 - Launcher icons taken from [fontello](https://fontello.com/)
   (you can see the raw zip file for yourself at `fontello-*.zip`)
+- Password Censored font from [Password Asterisks](https://fontstruct.com/fontstructions/show/2362923/password-asterisks)
 
 # Icon
 - QuantumLauncher logo made by Aurlt (@exsclt_35289 on Discord)

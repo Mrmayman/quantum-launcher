@@ -10,7 +10,7 @@ use ql_core::{
     err, file_utils, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
     JsonFileError, ListEntry, Progress, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{AccountData, LogLine, CLIENT_ID};
+use ql_instances::{mc_auth::AccountType, AccountData, LogLine, CLIENT_ID};
 use tokio::process::{Child, ChildStdin};
 
 use crate::{
@@ -131,6 +131,10 @@ impl Launcher {
             for (username, account) in config_accounts {
                 match ql_instances::read_refresh_token(username) {
                     Ok(refresh_token) => {
+                        let account_type = match account.account_type.as_ref().map(|n| n.as_str()) {
+                            Some("ElyBy") => AccountType::ElyBy,
+                            Some("Microsoft") | Some(_) | None => AccountType::Microsoft,
+                        };
                         accounts_dropdown.insert(0, username.clone());
                         accounts.insert(
                             username.clone(),
@@ -140,6 +144,7 @@ impl Launcher {
                                 username: username.clone(),
                                 refresh_token,
                                 needs_refresh: true,
+                                account_type,
                             },
                         );
                     }

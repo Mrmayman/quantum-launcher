@@ -138,11 +138,13 @@ impl Launcher {
 
             // These menus don't require background ticking
             State::Error { .. }
+            | State::ElyByLogin(_)
+            | State::AccountLogin
             | State::ExportInstance(_)
             | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::Welcome(_)
-            | State::AccountLogin { .. }
+            | State::MSAccountLogin { .. }
             | State::GenericMessage(_)
             | State::CurseforgeManualDownload(_)
             | State::InstallPaper => {}

@@ -167,4 +167,10 @@ pub struct ConfigAccount {
     pub uuid: String,
     /// Currently unimplemented, does nothing.
     pub skin: Option<String>, // TODO: Add skin visualization?
+
+    /// Type of account:
+    ///
+    /// - `"Microsoft"`
+    /// - `"ElyBy"`
+    pub account_type: Option<String>,
 }

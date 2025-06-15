@@ -6,7 +6,7 @@ use ql_core::IntoStringError;
 use crate::{
     config::ConfigAccount,
     state::{
-        AccountMessage, Launcher, Message, ProgressBar, State, NEW_ACCOUNT_NAME,
+        AccountMessage, Launcher, MenuElyByLogin, Message, ProgressBar, State, NEW_ACCOUNT_NAME,
         OFFLINE_ACCOUNT_NAME,
     },
 };
@@ -88,20 +88,49 @@ impl Launcher {
                     self.launch_game(account_data),
                 ]);
             }
+
+            AccountMessage::OpenMicrosoft => {
+                self.state = State::GenericMessage("Loading Login...".to_owned());
+                return Task::perform(ql_instances::login_1_link(), |n| {
+                    Message::Account(AccountMessage::Response1(n.strerr()))
+                });
+            }
+            AccountMessage::OpenElyBy => {
+                self.state = State::ElyByLogin(MenuElyByLogin {
+                    username: String::new(),
+                    password: String::new(),
+                    is_loading: false,
+                    status: None,
+                    show_password: false,
+                });
+            }
+
+            AccountMessage::ElyByUsernameInput(username) => {
+                if let State::ElyByLogin(menu) = &mut self.state {
+                    menu.username = username;
+                }
+            }
+            AccountMessage::ElyByPasswordInput(password) => {
+                if let State::ElyByLogin(menu) = &mut self.state {
+                    menu.password = password;
+                }
+            }
+            AccountMessage::ElyByShowPassword(t) => {
+                if let State::ElyByLogin(menu) = &mut self.state {
+                    menu.show_password = t;
+                }
+            }
         }
         Task::none()
     }
 
     fn account_selected(&mut self, account: String) -> Task<Message> {
         if account == NEW_ACCOUNT_NAME {
-            self.state = State::GenericMessage("Loading Login...".to_owned());
-            Task::perform(ql_instances::login_1_link(), |n| {
-                Message::Account(AccountMessage::Response1(n.strerr()))
-            })
+            self.state = State::AccountLogin;
         } else {
             self.accounts_selected = Some(account);
-            Task::none()
         }
+        Task::none()
     }
 
     pub fn account_refresh(&mut self, account: &ql_instances::AccountData) -> Task<Message> {
@@ -129,6 +158,7 @@ impl Launcher {
             ConfigAccount {
                 uuid: data.uuid.clone(),
                 skin: None,
+                account_type: Some("Microsoft".to_owned()),
             },
         );
 
@@ -152,7 +182,7 @@ impl Launcher {
         })
         .abortable();
 
-        self.state = State::AccountLogin {
+        self.state = State::MSAccountLogin {
             url: code.verification_uri,
             code: code.user_code,
             _cancel_handle: handle.abort_on_drop(),

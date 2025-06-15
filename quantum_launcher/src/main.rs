@@ -234,6 +234,9 @@ fn main() {
                 include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
                     .as_slice()
                     .into(),
+                include_bytes!("../../assets/fonts/password-asterisks.ttf")
+                    .as_slice()
+                    .into(),
             ],
             default_font: iced::Font::with_name("Inter"),
             ..Default::default()

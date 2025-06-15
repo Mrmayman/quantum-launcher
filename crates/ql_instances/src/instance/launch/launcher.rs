@@ -17,7 +17,7 @@ use ql_core::{
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::Command;
 
-use crate::{download::GameDownloader, jarmod, AccountData, CLIENT_ID};
+use crate::{download::GameDownloader, jarmod, mc_auth::AccountType, AccountData, CLIENT_ID};
 
 use super::{error::GameLaunchError, replace_var};
 
@@ -71,8 +71,11 @@ impl GameLauncher {
         })
     }
 
-    pub fn init_game_arguments(&self) -> Result<Vec<String>, GameLaunchError> {
-        let game_arguments: Vec<String> =
+    pub fn init_game_arguments(
+        &mut self,
+        account_details: Option<&AccountData>,
+    ) -> Result<Vec<String>, GameLaunchError> {
+        let mut game_arguments: Vec<String> =
             if let Some(arguments) = &self.version_json.minecraftArguments {
                 arguments.split(' ').map(ToOwned::to_owned).collect()
             } else if let Some(arguments) = &self.version_json.arguments {
@@ -87,6 +90,15 @@ impl GameLauncher {
                     self.version_json.clone(),
                 )));
             };
+
+        if let Some(AccountType::ElyBy) = account_details.map(|n| n.account_type) {
+            if !self.version_json.is_legacy_version()
+                && !game_arguments.iter().any(|n| n.contains("uuid"))
+            {
+                game_arguments.push("--uuid".to_owned());
+                game_arguments.push("${uuid}".to_owned());
+            }
+        }
 
         Ok(game_arguments)
     }

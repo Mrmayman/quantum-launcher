@@ -95,6 +95,21 @@ pub struct AccountData {
     pub username: String,
     pub refresh_token: String,
     pub needs_refresh: bool,
+
+    pub account_type: AccountType,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum AccountType {
+    Microsoft,
+    ElyBy,
+}
+
+impl AccountData {
+    pub fn is_elyby(&self) -> bool {
+        let account_type = self.account_type;
+        matches!(account_type, AccountType::ElyBy)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -310,6 +325,7 @@ pub async fn login_3_xbox(
         username: final_details.name,
         refresh_token: data.refresh_token,
         needs_refresh: false,
+        account_type: AccountType::Microsoft,
     };
 
     info!("Finished Microsoft Account login!");

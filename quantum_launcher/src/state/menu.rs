@@ -328,6 +328,15 @@ pub struct MenuExportInstance {
     pub progress: Option<ProgressBar<GenericProgress>>,
 }
 
+pub struct MenuElyByLogin {
+    pub username: String,
+    pub password: String,
+    pub show_password: bool,
+
+    pub is_loading: bool,
+    pub status: Option<String>,
+}
+
 /// The enum that represents which menu is opened currently.
 pub enum State {
     /// Default home screen
@@ -356,11 +365,13 @@ pub enum State {
     GenericMessage(String),
 
     AccountLoginProgress(ProgressBar<GenericProgress>),
-    AccountLogin {
+    MSAccountLogin {
         url: String,
         code: String,
         _cancel_handle: iced::task::Handle,
     },
+    ElyByLogin(MenuElyByLogin),
+    AccountLogin,
 
     InstallPaper,
     InstallFabric(MenuInstallFabric),

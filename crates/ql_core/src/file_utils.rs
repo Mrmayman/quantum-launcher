@@ -491,6 +491,45 @@ pub async fn clean_log_spam() -> Result<(), IoError> {
 /// - `dst` already has a dir with the same name as a file
 /// - User doesn't have permissions for `src`/`dst` access
 pub async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
+    copy_dir_recursive_ext(src, dst, &[]).await?;
+    Ok(())
+}
+
+/// Recursively copies the contents of
+/// the `src` dir to the `dst` dir.
+///
+/// File structure:
+/// ```txt
+/// src/
+///     a.txt
+///     b.txt
+///     c/
+///         d.txt
+/// ```
+/// To
+/// ```txt
+/// dst/
+///     a.txt
+///     b.txt
+///     c/
+///         d.txt
+/// ```
+///
+/// This function has a few extra
+/// features compared to the non-ext one:
+///
+/// - Allows specifying exceptions for not copying.
+/// - More coming in future.
+///
+/// # Errors
+/// - `src` doesn't exist
+/// - `dst` already has a dir with the same name as a file
+/// - User doesn't have permissions for `src`/`dst` access
+pub async fn copy_dir_recursive_ext(
+    src: &Path,
+    dst: &Path,
+    exceptions: &[PathBuf],
+) -> Result<(), IoError> {
     if src.is_file() {
         tokio::fs::copy(src, dst).await.path(src)?;
         return Ok(());
@@ -506,6 +545,10 @@ pub async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), IoError> {
     while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
         let dest_path = dst.join(entry.file_name());
+
+        if exceptions.contains(&path) {
+            continue;
+        }
 
         if path.is_dir() {
             // Recursively copy the subdirectory

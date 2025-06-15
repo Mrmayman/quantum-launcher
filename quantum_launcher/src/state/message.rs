@@ -149,6 +149,13 @@ pub enum AccountMessage {
     LogoutCheck,
     LogoutConfirm,
     RefreshComplete(Res<AccountData>),
+
+    OpenMicrosoft,
+    OpenElyBy,
+
+    ElyByUsernameInput(String),
+    ElyByPasswordInput(String),
+    ElyByShowPassword(bool),
 }
 
 #[derive(Debug, Clone)]

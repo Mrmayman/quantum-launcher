@@ -41,7 +41,7 @@ pub async fn launch(
     game_launcher.migrate_old_instances().await?;
     game_launcher.create_mods_dir().await?;
 
-    let mut game_arguments = game_launcher.init_game_arguments()?;
+    let mut game_arguments = game_launcher.init_game_arguments(auth.as_ref())?;
     let mut java_arguments = game_launcher.init_java_arguments(auth.is_some())?;
 
     let fabric_json = game_launcher
@@ -73,17 +73,20 @@ pub async fn launch(
     info!("Java args: {java_arguments:?}\n");
 
     censor(&mut game_arguments, "--clientId", |args| {
-        censor(args, "--accessToken", |args| {
-            censor(args, "--uuid", |args| {
-                censor_string(
-                    args,
-                    auth.as_ref()
-                        .map(|n| n.access_token.as_deref().unwrap_or_default())
-                        .unwrap_or_default(),
-                    |args| {
-                        info!("Game args: {args:?}\n");
-                    },
-                );
+        censor(args, "--session", |args| {
+            censor(args, "--accessToken", |args| {
+                censor(args, "--uuid", |args| {
+                    censor_string(
+                        args,
+                        &auth
+                            .as_ref()
+                            .and_then(|n| n.access_token.clone())
+                            .unwrap_or_default(),
+                        |args| {
+                            info!("Game args: {args:?}\n");
+                        },
+                    );
+                });
             });
         });
     });

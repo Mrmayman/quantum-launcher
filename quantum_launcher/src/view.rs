@@ -6,7 +6,7 @@ use crate::{
     menu_renderer::{
         button_with_icon, changelog::changelog_0_4_1, view_account_login, Element, DISCORD,
     },
-    state::{Launcher, Message, State},
+    state::{AccountMessage, Launcher, Message, State},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
     DEBUG_LOG_BUTTON_HEIGHT,
 };
@@ -93,7 +93,33 @@ impl Launcher {
             .padding(10)
             .into(),
             State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
-            State::AccountLogin { url, code, .. } => view_account_login(url, code),
+            State::MSAccountLogin { url, code, .. } => view_account_login(url, code),
+            State::AccountLogin => widget::column![
+                button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                    Message::LaunchScreenOpen {
+                        message: None,
+                        clear_selection: false
+                    }
+                ),
+                widget::vertical_space(),
+                widget::row![
+                    widget::horizontal_space(),
+                    widget::column![
+                        widget::text("Login").size(20),
+                        widget::button("Login with Microsoft")
+                            .on_press(Message::Account(AccountMessage::OpenMicrosoft)),
+                        widget::button("Login with ely.by")
+                            .on_press(Message::Account(AccountMessage::OpenElyBy)),
+                    ]
+                    .align_x(iced::Alignment::Center)
+                    .spacing(5),
+                    widget::horizontal_space(),
+                ],
+                widget::vertical_space(),
+            ]
+            .padding(10)
+            .spacing(5)
+            .into(),
             State::EditMods(menu) => {
                 menu.view(self.selected_instance.as_ref().unwrap(), self.tick_timer)
             }
@@ -188,6 +214,7 @@ impl Launcher {
                     .spacing(10)
                     .into()
             }
+            State::ElyByLogin(menu) => menu.view(),
             State::CurseforgeManualDownload(menu) => menu.view(),
             State::ExportInstance(menu) => menu.view(self.tick_timer),
         }
