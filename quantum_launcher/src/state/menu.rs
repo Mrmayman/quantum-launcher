@@ -324,7 +324,8 @@ pub struct MenuCurseforgeManualDownload {
 }
 
 pub struct MenuExportInstance {
-    pub entries: Vec<(DirItem, bool)>,
+    pub entries: Option<Vec<(DirItem, bool)>>,
+    pub progress: Option<ProgressBar<GenericProgress>>,
 }
 
 /// The enum that represents which menu is opened currently.

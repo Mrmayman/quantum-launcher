@@ -189,7 +189,7 @@ impl Launcher {
                     .into()
             }
             State::CurseforgeManualDownload(menu) => menu.view(),
-            State::ExportInstance(menu) => menu.view(),
+            State::ExportInstance(menu) => menu.view(self.tick_timer),
         }
     }
 }

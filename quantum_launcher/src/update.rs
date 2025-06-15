@@ -424,50 +424,72 @@ impl Launcher {
             }
 
             Message::ExportInstanceOpen => {
-                let selected_instance = self.selected_instance.as_ref().unwrap();
-                let mut entries: Vec<(DirItem, bool)> =
-                    match block_on(ql_core::file_utils::read_filenames_from_dir_ext(
-                        selected_instance.get_dot_minecraft_path(),
-                    )) {
-                        Ok(n) => n
-                            .into_iter()
-                            .map(|n| {
-                                let enabled = !(n.name == ".fabric" || n.name == "logs");
-                                (n, enabled)
-                            })
-                            .filter(|(n, _)| {
-                                !(n.name == "mod_index.json" || n.name == "launcher_profiles.json")
-                            })
-                            .collect(),
-                        Err(err) => {
-                            self.set_error(err);
-                            return Task::none();
-                        }
-                    };
+                self.state = State::ExportInstance(MenuExportInstance {
+                    entries: None,
+                    progress: None,
+                });
+                return Task::perform(
+                    ql_core::file_utils::read_filenames_from_dir_ext(
+                        self.selected_instance
+                            .clone()
+                            .unwrap()
+                            .get_dot_minecraft_path(),
+                    ),
+                    |n| Message::ExportInstanceLoaded(n.strerr()),
+                );
+            }
+            Message::ExportInstanceLoaded(res) => {
+                let mut entries: Vec<(DirItem, bool)> = match res {
+                    Ok(n) => n
+                        .into_iter()
+                        .map(|n| {
+                            let enabled = !(n.name == ".fabric" || n.name == "logs");
+                            (n, enabled)
+                        })
+                        .filter(|(n, _)| {
+                            !(n.name == "mod_index.json" || n.name == "launcher_profiles.json")
+                        })
+                        .collect(),
+                    Err(err) => {
+                        self.set_error(err);
+                        return Task::none();
+                    }
+                };
                 entries.sort_by(|(a, _), (b, _)| {
                     // Folders before files, and then sorted alphabetically
                     a.is_file.cmp(&b.is_file).then_with(|| a.name.cmp(&b.name))
                 });
-                self.state = State::ExportInstance(MenuExportInstance { entries });
+                if let State::ExportInstance(menu) = &mut self.state {
+                    menu.entries = Some(entries);
+                }
             }
             Message::ExportInstanceToggleItem(idx, t) => {
-                if let State::ExportInstance(menu) = &mut self.state {
-                    if let Some((_, b)) = menu.entries.get_mut(idx) {
+                if let State::ExportInstance(MenuExportInstance {
+                    entries: Some(entries),
+                    ..
+                }) = &mut self.state
+                {
+                    if let Some((_, b)) = entries.get_mut(idx) {
                         *b = t;
                     }
                 }
             }
             Message::ExportInstanceStart => {
-                if let State::ExportInstance(menu) = &self.state {
-                    let exceptions = menu
-                        .entries
+                if let State::ExportInstance(MenuExportInstance {
+                    entries: Some(entries),
+                    progress,
+                }) = &self.state
+                {
+                    let exceptions = entries
                         .iter()
                         .filter_map(|(n, b)| (!b).then_some(format!(".minecraft/{}", n.name)))
                         .collect();
+
                     return Task::perform(
                         ql_packager::export::export_instance(
                             self.selected_instance.clone().unwrap(),
                             exceptions,
+                            None,
                         ),
                         |n| Message::ExportInstanceFinished(n.strerr()),
                     );
@@ -478,6 +500,8 @@ impl Launcher {
                     if let Some(path) = rfd::FileDialog::new().save_file() {
                         if let Err(err) = std::fs::write(&path, bytes).path(path) {
                             self.set_error(err);
+                        } else {
+                            return self.go_to_launch_screen(None::<String>);
                         }
                     }
                 }

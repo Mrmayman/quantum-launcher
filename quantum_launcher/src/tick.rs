@@ -14,8 +14,8 @@ use ql_mod_manager::store::{ModConfig, ModIndex};
 use crate::state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
     ManageJarModsMessage, MenuCreateInstance, MenuEditMods, MenuEditPresetsInner,
-    MenuInstallFabric, MenuLaunch, MenuModsDownload, MenuServerCreate, Message, ModListEntry,
-    ServerProcess, State,
+    MenuExportInstance, MenuInstallFabric, MenuLaunch, MenuModsDownload, MenuServerCreate, Message,
+    ModListEntry, ServerProcess, State,
 };
 
 impl Launcher {
@@ -129,12 +129,16 @@ impl Launcher {
                 progress.tick();
             }
 
-            State::ExportInstance(_) => {
-                // TODO
+            State::ExportInstance(MenuExportInstance {
+                progress: Some(progress),
+                ..
+            }) => {
+                progress.tick();
             }
 
             // These menus don't require background ticking
             State::Error { .. }
+            | State::ExportInstance(_)
             | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::Welcome(_)

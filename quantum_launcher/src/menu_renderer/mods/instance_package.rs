@@ -7,7 +7,7 @@ use crate::{
 };
 
 impl MenuExportInstance {
-    pub fn view(&self) -> Element {
+    pub fn view(&self, tick_timer: usize) -> Element {
         widget::column![
             button_with_icon(icon_manager::back(), "Back", 15).on_press(
                 Message::LaunchScreenOpen {
@@ -16,24 +16,22 @@ impl MenuExportInstance {
                 }
             ),
             "Select the contents of \".minecraft\" folder you want to keep",
-            widget::scrollable(
-                widget::column(
-                    self.entries
-                        .iter()
-                        .enumerate()
-                        .map(|(i, (entry, enabled))| {
-                            let name = if entry.is_file {
-                                entry.name.clone()
-                            } else {
-                                format!("{}/", entry.name)
-                            };
-                            widget::checkbox(name, *enabled)
-                                .on_toggle(move |t| Message::ExportInstanceToggleItem(i, t))
-                                .into()
-                        })
-                )
+            widget::scrollable(if let Some(entries) = &self.entries {
+                widget::column(entries.iter().enumerate().map(|(i, (entry, enabled))| {
+                    let name = if entry.is_file {
+                        entry.name.clone()
+                    } else {
+                        format!("{}/", entry.name)
+                    };
+                    widget::checkbox(name, *enabled)
+                        .on_toggle(move |t| Message::ExportInstanceToggleItem(i, t))
+                        .into()
+                }))
                 .padding(5)
-            )
+            } else {
+                let dots = ".".repeat((tick_timer % 3) + 1);
+                widget::column!(widget::text!("Loading{dots}"))
+            })
             .width(Length::Fill)
             .height(Length::Fill),
             widget::column![

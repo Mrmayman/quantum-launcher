@@ -1,7 +1,8 @@
-use ql_core::file_utils;
-use ql_core::{InstanceSelection, IntoIoError, IntoJsonError, IoError, info, pt};
+use ql_core::{GenericProgress, file_utils};
+use ql_core::{InstanceSelection, IntoIoError, IntoJsonError, info, pt};
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::PathBuf;
+use std::sync::mpsc::Sender;
 use tokio::fs;
 
 use crate::{InstanceInfo, InstancePackageError};
@@ -24,32 +25,6 @@ fn create_instance_info(
         exceptions,
         is_server: instance.is_server(),
     })
-}
-
-// deltes the folders present in the exceptions
-async fn delete_exceptions(
-    exceptions: &HashSet<String>,
-    temp_path: &Path,
-) -> Result<(), InstancePackageError> {
-    for rel_path in exceptions {
-        let full_path = temp_path.join(rel_path);
-        if !full_path.starts_with(temp_path) {
-            // If the exception "../../../../etc/passwd" or something
-            // then avoid SECURITY RISK
-            return Err(InstancePackageError::Io(IoError::DirEscapeAttack));
-        }
-
-        if full_path.is_dir() {
-            pt!("Deleting directory: {:?}", full_path);
-            fs::remove_dir_all(&full_path).await.path(&full_path)?;
-        } else if full_path.is_file() {
-            pt!("Deleting file: {:?}", full_path);
-            fs::remove_file(&full_path).await.path(&full_path)?;
-        } else {
-            pt!("Path not found, skipping: {:?}", full_path);
-        }
-    }
-    Ok(())
 }
 
 /// Exports a Minecraft instance by copying its files to a temporary directory,
@@ -86,6 +61,7 @@ async fn delete_exceptions(
 pub async fn export_instance(
     instance: InstanceSelection,
     exceptions: HashSet<String>,
+    progress: Option<Sender<GenericProgress>>,
 ) -> Result<Vec<u8>, InstancePackageError> {
     info!("Exporting instance...");
     let export_config = create_instance_info(&instance, exceptions)?;
@@ -96,7 +72,13 @@ pub async fn export_instance(
         export_config.exceptions
     );
     let dir = tempfile::TempDir::new().map_err(InstancePackageError::TempDir)?;
-    file_utils::copy_dir_recursive(&instance.get_instance_path(), dir.path()).await?;
+    let instance_path = instance.get_instance_path();
+    let collect: Vec<PathBuf> = export_config
+        .exceptions
+        .iter()
+        .map(|n| instance_path.join(n))
+        .collect();
+    file_utils::copy_dir_recursive_ext(&instance_path, dir.path(), &collect).await?;
     let folder_path = dir.path();
 
     // pt!("{:?}",temp_instance_path);
@@ -104,9 +86,6 @@ pub async fn export_instance(
     let config = serde_json::to_string_pretty(&export_config).json_to()?;
     let config_path = folder_path.join("quantum-config.json");
     fs::write(&config_path, config).await.path(&config_path)?;
-
-    pt!("Deleting exceptions");
-    delete_exceptions(&export_config.exceptions, folder_path).await?;
 
     pt!("Packaging the instance into zip");
     let bytes = file_utils::zip_directory_to_bytes(folder_path)

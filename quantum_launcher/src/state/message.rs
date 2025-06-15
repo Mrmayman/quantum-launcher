@@ -6,7 +6,7 @@ use std::{
 };
 
 use iced::widget;
-use ql_core::{jarmod::JarMods, ListEntry, ModId, StoreBackendType};
+use ql_core::{file_utils::DirItem, jarmod::JarMods, ListEntry, ModId, StoreBackendType};
 use ql_instances::{AccountData, AuthCodeResponse, AuthTokenResponse, UpdateCheckInfo};
 use ql_mod_manager::{
     loaders::fabric::FabricVersionListItem,
@@ -218,6 +218,7 @@ pub enum Message {
     ExportInstanceToggleItem(usize, bool),
     ExportInstanceStart,
     ExportInstanceFinished(Res<Vec<u8>>),
+    ExportInstanceLoaded(Res<Vec<DirItem>>),
 
     CoreErrorCopy,
     CoreErrorCopyLog,
