@@ -431,10 +431,10 @@ impl MenuServerCreate {
 }
 
 impl MenuElyByLogin {
-    pub fn view(&self) -> Element {
+    pub fn view(&self, tick_timer: usize) -> Element {
         let status: Element = if self.is_loading {
-            // TODO: Pulsating dots
-            "Loading...".into()
+            let dots = ".".repeat((tick_timer % 3) + 1);
+            widget::text!("Loading...{dots}").into()
         } else if let Some(status) = &self.status {
             widget::text(status).into()
         } else {

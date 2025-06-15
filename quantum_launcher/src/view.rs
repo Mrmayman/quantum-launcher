@@ -213,7 +213,7 @@ impl Launcher {
                     .spacing(10)
                     .into()
             }
-            State::ElyByLogin(menu) => menu.view(),
+            State::ElyByLogin(menu) => menu.view(self.tick_timer),
             State::CurseforgeManualDownload(menu) => menu.view(),
             State::ExportInstance(menu) => menu.view(self.tick_timer),
         }

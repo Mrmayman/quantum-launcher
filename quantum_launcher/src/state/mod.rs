@@ -131,7 +131,7 @@ impl Launcher {
             for (username, account) in config_accounts {
                 match ql_instances::read_refresh_token(username) {
                     Ok(refresh_token) => {
-                        let account_type = match account.account_type.as_ref().map(|n| n.as_str()) {
+                        let account_type = match account.account_type.as_deref() {
                             Some("ElyBy") => AccountType::ElyBy,
                             Some("Microsoft") | Some(_) | None => AccountType::Microsoft,
                         };
