@@ -3,7 +3,7 @@ use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    menu_renderer::{button_with_icon, Element},
+    menu_renderer::{back_button, button_with_icon, Element},
     state::{
         InstallFabricMessage, InstallOptifineMessage, ManageModsMessage, MenuInstallFabric,
         MenuInstallForge, MenuInstallOptifine, Message,
@@ -40,9 +40,9 @@ impl MenuInstallOptifine {
         &self,
     ) -> iced::widget::Column<'a, Message, LauncherTheme, iced::Renderer> {
         widget::column!(
-            button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
-                Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
-            ),
+            back_button().on_press(Message::ManageMods(
+                ManageModsMessage::ScreenOpenWithoutUpdate
+            )),
             widget::container(
                 widget::column!(
                     widget::text("Install OptiFine").size(20),
@@ -76,9 +76,9 @@ impl MenuInstallFabric {
                 let dots = ".".repeat((tick_timer % 3) + 1);
 
                 widget::column![
-                    button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
-                        Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
-                    ),
+                    back_button().on_press(Message::ManageMods(
+                        ManageModsMessage::ScreenOpenWithoutUpdate
+                    )),
                     widget::text!("Loading {loader_name} version list{dots}",).size(20)
                 ]
             }
@@ -97,9 +97,9 @@ impl MenuInstallFabric {
                     )
                 } else {
                     widget::column![
-                        button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
-                            Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
-                        ),
+                        back_button().on_press(Message::ManageMods(
+                            ManageModsMessage::ScreenOpenWithoutUpdate
+                        )),
                         widget::text!(
                             "Install {loader_name} (instance: {})",
                             selected_instance.get_name()
@@ -123,9 +123,9 @@ impl MenuInstallFabric {
             }
             MenuInstallFabric::Unsupported(is_quilt) => {
                 widget::column!(
-                    button_with_icon(icon_manager::back_with_size(14), "Back", 14).on_press(
-                        Message::ManageMods(ManageModsMessage::ScreenOpenWithoutUpdate)
-                    ),
+                    back_button().on_press(Message::ManageMods(
+                        ManageModsMessage::ScreenOpenWithoutUpdate
+                    )),
                     if *is_quilt {
                         "Quilt is unsupported for this Minecraft version."
                     } else {

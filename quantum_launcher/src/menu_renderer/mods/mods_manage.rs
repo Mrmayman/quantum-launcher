@@ -3,7 +3,7 @@ use ql_core::{InstanceSelection, SelectedMod};
 
 use crate::{
     icon_manager,
-    menu_renderer::{back_to_launch_screen, button_with_icon, Element},
+    menu_renderer::{back_button, back_to_launch_screen, button_with_icon, Element},
     state::{
         EditPresetsMessage, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage,
         ManageJarModsMessage, ManageModsMessage, MenuEditMods, Message, ModListEntry,
@@ -30,8 +30,7 @@ impl MenuEditMods {
                 widget::scrollable(
                     widget::column!(
                         widget::row![
-                            button_with_icon(icon_manager::back_with_size(14), "Back", 14)
-                                .on_press(back_to_launch_screen(selected_instance, None)),
+                            back_button().on_press(back_to_launch_screen(selected_instance, None)),
                             button_with_icon(icon_manager::create_with_size(14), "Add File", 14)
                                 .on_press(Message::ManageMods(ManageModsMessage::AddFile))
                         ]

@@ -2,19 +2,17 @@ use iced::{widget, Length};
 
 use crate::{
     icon_manager,
-    menu_renderer::{button_with_icon, Element},
+    menu_renderer::{back_button, button_with_icon, Element},
     state::{MenuExportInstance, Message},
 };
 
 impl MenuExportInstance {
     pub fn view(&self, tick_timer: usize) -> Element {
         widget::column![
-            button_with_icon(icon_manager::back(), "Back", 15).on_press(
-                Message::LaunchScreenOpen {
-                    message: None,
-                    clear_selection: false
-                }
-            ),
+            back_button().on_press(Message::LaunchScreenOpen {
+                message: None,
+                clear_selection: false
+            }),
             "Select the contents of \".minecraft\" folder you want to keep",
             widget::scrollable(if let Some(entries) = &self.entries {
                 widget::column(entries.iter().enumerate().map(|(i, (entry, enabled))| {

@@ -4,7 +4,7 @@ use ql_mod_manager::store::{QueryType, SearchMod};
 
 use crate::{
     icon_manager,
-    menu_renderer::{button_with_icon, Element},
+    menu_renderer::{back_button, button_with_icon, Element},
     state::{ImageState, InstallModsMessage, ManageModsMessage, MenuModsDownload, Message},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -41,7 +41,7 @@ impl MenuModsDownload {
                         .on_input(|n| Message::InstallMods(InstallModsMessage::SearchInput(n))),
                     if self.mods_download_in_progress.is_empty() {
                         widget::column!(
-                            button_with_icon(icon_manager::back(), "Back", 16)
+                            back_button()
                                 .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                             widget::Space::with_height(5.0),
                             widget::text("Select store:").size(18),
@@ -255,7 +255,7 @@ impl MenuModsDownload {
         widget::scrollable(
             widget::column!(
                 widget::row!(
-                    button_with_icon(icon_manager::back(), "Back", 16)
+                    back_button()
                         .on_press(Message::InstallMods(InstallModsMessage::BackToMainScreen)),
                     widget::tooltip(
                         button_with_icon(icon_manager::page(), "Open Mod Page", 16)

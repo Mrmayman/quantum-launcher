@@ -38,6 +38,10 @@ pub fn tooltip<'a>(e: impl Into<Element<'a>>, tooltip: impl Into<Element<'a>>) -
         .into()
 }
 
+pub fn back_button<'a>() -> widget::Button<'a, Message, LauncherTheme, iced::Renderer> {
+    button_with_icon(icon_manager::back_with_size(14), "Back", 14)
+}
+
 pub fn button_with_icon<'element>(
     icon: Element<'element>,
     text: &'element str,
@@ -63,8 +67,7 @@ impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
             MenuCreateInstance::Loading { .. } => widget::column![
-                button_with_icon(icon_manager::back(), "Back", 16)
-                    .on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
+                back_button().on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
                 widget::text("Loading version list...").size(20),
             ]
             .padding(10)
@@ -80,7 +83,7 @@ impl MenuCreateInstance {
             } => {
                 widget::scrollable(
                     widget::column![
-                        button_with_icon(icon_manager::back(), "Back", 16).on_press_maybe((progress.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
+                        back_button().on_press_maybe((progress.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
                             widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
                                 Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
                             }),
@@ -133,7 +136,7 @@ impl MenuLauncherUpdate {
                 widget::row!(
                     button_with_icon(icon_manager::download(), "Download", 16)
                         .on_press(Message::UpdateDownloadStart),
-                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                    back_button().on_press(
                         Message::LaunchScreenOpen {
                             message: None,
                             clear_selection: false
@@ -207,7 +210,7 @@ impl MenuLauncherSettings {
 
         widget::scrollable(
             widget::column!(
-                button_with_icon(icon_manager::back(), "Back", 16).on_press(
+                back_button().on_press(
                     Message::LaunchScreenOpen {
                         message: None,
                         clear_selection: false
@@ -318,7 +321,7 @@ impl<T: Progress> ProgressBar<T> {
 
 pub fn view_account_login<'a>(url: &'a str, code: &'a str) -> Element<'a> {
     widget::column![
-        button_with_icon(icon_manager::back(), "Back", 16).on_press(Message::LaunchScreenOpen {
+        back_button().on_press(Message::LaunchScreenOpen {
             message: None,
             clear_selection: false
         }),
@@ -398,12 +401,10 @@ impl MenuServerCreate {
                 ..
             } => {
                 widget::column!(
-                    button_with_icon(icon_manager::back(), "Back", 16).on_press(
-                        Message::ServerManageOpen {
-                            selected_server: None,
-                            message: None
-                        }
-                    ),
+                    back_button().on_press(Message::ServerManageOpen {
+                        selected_server: None,
+                        message: None
+                    }),
                     widget::text("Create new server").size(20),
                     widget::combo_box(
                         versions,
@@ -457,12 +458,10 @@ impl MenuElyByLogin {
         };
 
         widget::column![
-            button_with_icon(icon_manager::back(), "Back", 15).on_press(
-                Message::LaunchScreenOpen {
-                    message: None,
-                    clear_selection: false
-                }
-            ),
+            back_button().on_press(Message::LaunchScreenOpen {
+                message: None,
+                clear_selection: false
+            }),
             widget::row![
                 widget::horizontal_space(),
                 widget::column![

@@ -3,7 +3,7 @@ use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    menu_renderer::{button_with_icon, Element},
+    menu_renderer::{back_button, button_with_icon, Element},
     state::{ManageJarModsMessage, ManageModsMessage, MenuEditJarMods, Message, SelectedState},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -14,8 +14,7 @@ impl MenuEditJarMods {
             widget::container(
                 widget::scrollable(
                     widget::column!(
-                        button_with_icon(icon_manager::back_with_size(14), "Back", 14)
-                            .on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
+                        back_button().on_press(Message::ManageMods(ManageModsMessage::ScreenOpen)),
                         widget::column![
                             {
                                 let path = {

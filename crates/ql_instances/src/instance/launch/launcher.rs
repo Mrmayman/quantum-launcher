@@ -652,6 +652,11 @@ impl GameLauncher {
     }
 
     pub async fn get_java_command(&mut self) -> Result<Command, GameLaunchError> {
+        // #[cfg(target_os = "windows")]
+        // const JAVA: &str = "javaw";
+        // #[cfg(not(target_os = "windows"))]
+        const JAVA: &str = "java";
+
         if let Some(java_override) = &self.config_json.java_override {
             if !java_override.is_empty() {
                 return Ok(Command::new(java_override));
@@ -662,9 +667,10 @@ impl GameLauncher {
         } else {
             JavaVersion::Java8
         };
+
         let program = get_java_binary(
             version,
-            "java",
+            JAVA,
             self.java_install_progress_sender.take().as_ref(),
         )
         .await?;

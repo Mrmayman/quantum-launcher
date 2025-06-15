@@ -4,7 +4,8 @@ use ql_core::LOGGER;
 use crate::{
     icon_manager,
     menu_renderer::{
-        button_with_icon, changelog::changelog_0_4_1, view_account_login, Element, DISCORD,
+        back_button, button_with_icon, changelog::changelog_0_4_1, view_account_login, Element,
+        DISCORD,
     },
     state::{AccountMessage, Launcher, Message, State},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
@@ -95,12 +96,10 @@ impl Launcher {
             State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
             State::MSAccountLogin { url, code, .. } => view_account_login(url, code),
             State::AccountLogin => widget::column![
-                button_with_icon(icon_manager::back(), "Back", 16).on_press(
-                    Message::LaunchScreenOpen {
-                        message: None,
-                        clear_selection: false
-                    }
-                ),
+                back_button().on_press(Message::LaunchScreenOpen {
+                    message: None,
+                    clear_selection: false
+                }),
                 widget::vertical_space(),
                 widget::row![
                     widget::horizontal_space(),
