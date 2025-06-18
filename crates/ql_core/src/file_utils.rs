@@ -53,7 +53,7 @@ pub static LAUNCHER_DIR: LazyLock<PathBuf> = LazyLock::new(|| get_launcher_dir()
 #[allow(clippy::doc_markdown)]
 pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
     let launcher_directory = if let Some(n) = check_qlportable_file() {
-        n.path
+        strip_verbatim_prefix(&std::fs::canonicalize(&n.path).unwrap_or(n.path))
     } else {
         dirs::config_dir()
             .ok_or(IoError::ConfigDirNotFound)?
@@ -62,6 +62,17 @@ pub fn get_launcher_dir() -> Result<PathBuf, IoError> {
 
     std::fs::create_dir_all(&launcher_directory).path(&launcher_directory)?;
     Ok(launcher_directory)
+}
+
+fn strip_verbatim_prefix(path: &Path) -> PathBuf {
+    let Some(path_str) = path.to_str() else {
+        return path.to_owned();
+    };
+    if cfg!(target_os = "windows") && path_str.starts_with(r"\\?\") {
+        PathBuf::from(&path_str[4..])
+    } else {
+        path.to_owned()
+    }
 }
 
 struct QlDirInfo {

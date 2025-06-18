@@ -5,7 +5,7 @@ use std::{
 };
 
 use ql_core::{
-    file_utils, info,
+    err, file_utils, info,
     json::{
         forge,
         version::{LibraryDownloadArtifact, LibraryDownloads},
@@ -508,6 +508,7 @@ impl GameLauncher {
                 }
 
                 let library_path = self.instance_dir.join("libraries").join(library.get_path());
+                debug_assert!(library_path.is_file());
                 class_path.push_str(
                     library_path
                         .to_str()
@@ -523,6 +524,7 @@ impl GameLauncher {
         let jar_file_location = self.instance_dir.join(".minecraft/libraries");
         let jar_files = find_jar_files(&jar_file_location).await?;
         for jar_file in jar_files {
+            debug_assert!(jar_file.is_file());
             class_path.push_str(
                 jar_file
                     .to_str()
@@ -642,11 +644,19 @@ impl GameLauncher {
         let library_path = self.instance_dir.join("libraries").join(&artifact.path);
 
         if library_path.exists() {
-            let Some(library_path) = library_path.to_str() else {
+            let Some(mut library_path) = library_path.to_str() else {
                 return Err(GameLaunchError::PathBufToString(library_path));
             };
+
+            #[cfg(target_os = "windows")]
+            if library_path.starts_with(r"\\?\") {
+                library_path = &library_path[4..];
+            }
+
             class_path.push_str(library_path);
             class_path.push(CLASSPATH_SEPARATOR);
+        } else {
+            err!("Warning: library {library_path:?} not found!");
         }
         Ok(())
     }

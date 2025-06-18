@@ -318,7 +318,7 @@ pub fn open_file_explorer<S: AsRef<OsStr>>(path: S) {
     use std::process::Command;
 
     let path = path.as_ref();
-    info!("Opening link: {}", path.display());
+    info!("Opening link: {}", path.to_string_lossy());
     if let Err(err) = Command::new(if cfg!(target_os = "linux") {
         "xdg-open"
     } else if cfg!(target_os = "windows") {

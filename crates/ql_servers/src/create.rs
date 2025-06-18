@@ -98,6 +98,7 @@ async fn write_config(
     is_classic_server: bool,
     server_dir: &std::path::Path,
 ) -> Result<(), ServerError> {
+    #[allow(deprecated)]
     let server_config = InstanceConfigJson {
         mod_type: "Vanilla".to_owned(),
         java_override: None,
@@ -109,7 +110,6 @@ async fn write_config(
         is_server: Some(true),
         is_classic_server: is_classic_server.then_some(true),
 
-        #[allow(deprecated)]
         omniarchive: None,
 
         // # Doesn't affect servers:

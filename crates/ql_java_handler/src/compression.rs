@@ -54,7 +54,7 @@ pub fn extract_tar_gz(archive: &[u8], output_dir: &Path) -> std::io::Result<()> 
                         format!(
                             "Could not strip prefix {}, {}",
                             entry_path.display(),
-                            top_level.display()
+                            top_level.to_string_lossy()
                         ),
                     )
                 })?

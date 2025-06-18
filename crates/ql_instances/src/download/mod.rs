@@ -321,6 +321,7 @@ impl GameDownloader {
     }
 
     pub async fn create_config_json(&self) -> Result<(), DownloadError> {
+        #[allow(deprecated)]
         let config_json = InstanceConfigJson {
             java_override: None,
             ram_in_mb: DEFAULT_RAM_MB_FOR_INSTANCE,
@@ -332,7 +333,6 @@ impl GameDownloader {
             do_gc_tuning: None,
             close_on_start: None,
             is_server: Some(false),
-            #[allow(deprecated)]
             omniarchive: None,
         };
         let config_json = serde_json::to_string(&config_json).json_to()?;
