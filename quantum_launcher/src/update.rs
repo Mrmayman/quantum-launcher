@@ -486,7 +486,7 @@ impl Launcher {
                         .collect();
 
                     return Task::perform(
-                        ql_packager::export::export_instance(
+                        ql_packager::export_instance(
                             self.selected_instance.clone().unwrap(),
                             exceptions,
                             None,

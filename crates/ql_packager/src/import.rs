@@ -1,6 +1,6 @@
 use ql_core::{
-    InstanceSelection, IntoIoError, IntoJsonError, LAUNCHER_DIR, ListEntry, Loader, file_utils,
-    info,
+    InstanceSelection, IntoIoError, IntoJsonError, LAUNCHER_DIR, ListEntry, Loader, err,
+    file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
     pt,
 };
@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use tokio::fs;
 use zip_extract::extract;
 
-use crate::InstanceInfo;
+use crate::{InstanceInfo, multimc::MmcPack};
 
 use super::InstancePackageError;
 
@@ -43,48 +43,95 @@ pub async fn import_instance(
     let zip_file = std::fs::File::open(&zip_path).path(&zip_path)?;
     extract(zip_file, temp_dir, true)?;
 
-    let instance_info: InstanceInfo = {
-        let path = temp_dir.join("quantum-config.json");
-        let file = fs::read_to_string(&path).await.path(path)?;
-        serde_json::from_str(&file).json(file)?
-    };
+    let try_ql = temp_dir.join("quantum-config.json");
+    let try_mmc = temp_dir.join("mmc-pack.json");
 
-    let version_json: VersionDetails = {
-        let path = temp_dir.join("details.json");
-        let file = fs::read_to_string(&path).await.path(&path)?;
-        serde_json::from_str(&file).json(file)?
-    };
+    if let Ok(instance_info) = fs::read_to_string(&try_ql).await {
+        let instance_info: InstanceInfo =
+            serde_json::from_str(&instance_info).json(instance_info)?;
 
-    let config_json: InstanceConfigJson = {
-        let path = temp_dir.join("config.json");
-        let file = fs::read_to_string(&path).await.path(&path)?;
-        serde_json::from_str(&file).json(file)?
-    };
-    let instance = InstanceSelection::new(&instance_info.instance_name, instance_info.is_server);
+        let version_json: VersionDetails = {
+            let path = temp_dir.join("details.json");
+            let file = fs::read_to_string(&path).await.path(&path)?;
+            serde_json::from_str(&file).json(file)?
+        };
 
-    pt!("Name: {} ", instance_info.instance_name);
-    pt!("Version : {}", version_json.id);
-    pt!("Exceptions : {:?} ", instance_info.exceptions);
+        let config_json: InstanceConfigJson = {
+            let path = temp_dir.join("config.json");
+            let file = fs::read_to_string(&path).await.path(&path)?;
+            serde_json::from_str(&file).json(file)?
+        };
+        let instance =
+            InstanceSelection::new(&instance_info.instance_name, instance_info.is_server);
 
-    let version = ListEntry {
-        name: version_json.id.clone(),
-        is_classic_server: instance_info.is_server && version_json.id.starts_with("c0."),
-    };
+        pt!("Name: {} ", instance_info.instance_name);
+        pt!("Version : {}", version_json.id);
+        pt!("Exceptions : {:?} ", instance_info.exceptions);
 
-    if instance_info.is_server {
-        ql_servers::create_server(instance_info.instance_name, version, None).await?;
-    } else {
-        ql_instances::create_instance(instance_info.instance_name, version, None, download_assets)
+        let version = ListEntry {
+            name: version_json.id.clone(),
+            is_classic_server: instance_info.is_server && version_json.id.starts_with("c0."),
+        };
+
+        if instance_info.is_server {
+            ql_servers::create_server(instance_info.instance_name, version, None).await?;
+        } else {
+            ql_instances::create_instance(
+                instance_info.instance_name,
+                version,
+                None, // TODO
+                download_assets,
+            )
             .await?;
-    }
-    if let Ok(loader) = Loader::try_from(config_json.mod_type.as_str()) {
-        ql_mod_manager::loaders::install_specified_loader(instance, loader)
-            .await
-            .map_err(InstancePackageError::Loader)?;
+        }
+        if let Ok(loader) = Loader::try_from(config_json.mod_type.as_str()) {
+            ql_mod_manager::loaders::install_specified_loader(instance, loader)
+                .await
+                .map_err(InstancePackageError::Loader)?;
+        }
+
+        pt!("Copying packaged");
+        file_utils::copy_dir_recursive(temp_dir, &LAUNCHER_DIR.join("instances")).await?;
+    } else if let Ok(mmc_pack) = fs::read_to_string(&try_mmc).await {
+        let mmc_pack: MmcPack = serde_json::from_str(&mmc_pack).json(mmc_pack)?;
+
+        let ini_path = temp_dir.join("instance.cfg");
+        let ini = ini::Ini::load_from_file(&ini_path)?;
+
+        let instance_name = ini
+            .get_from(Some("General"), "name")
+            .ok_or_else(|| {
+                InstancePackageError::IniFieldMissing("General".to_owned(), "name".to_owned())
+            })?
+            .to_owned();
+        let instance_selection = InstanceSelection::new(&instance_name, false);
+
+        for component in &mmc_pack.components {
+            match component.cachedName.as_str() {
+                "Minecraft" => {
+                    let version = ListEntry {
+                        name: component.version.clone(),
+                        is_classic_server: false,
+                    };
+
+                    ql_instances::create_instance(
+                        instance_name.clone(),
+                        version,
+                        None, // TODO
+                        download_assets,
+                    )
+                    .await?;
+                }
+                "LWJGL 2" | "LWJGL 3" => {}
+                name => err!("Unknown component (in MultiMC instance): {name}"),
+            }
+        }
+
+        let src = temp_dir.join("minecraft");
+        let dst = instance_selection.get_dot_minecraft_path();
+        file_utils::copy_dir_recursive(&src, &dst).await?;
     }
 
-    pt!("Copying packaged");
-    file_utils::copy_dir_recursive(temp_dir, &LAUNCHER_DIR.join("instances")).await?;
     pt!("Cleaning temporary files");
     fs::remove_dir_all(&temp_dir).await.path(temp_dir)?;
     info!("Finished importing instance");

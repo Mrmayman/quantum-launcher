@@ -8,8 +8,12 @@ use zip_extract::ZipExtractError;
 
 use ql_instances::DownloadError;
 
-pub mod export;
-pub mod import;
+mod export;
+mod import;
+mod multimc;
+
+pub use export::{EXCEPTIONS, export_instance};
+pub use import::import_instance;
 
 const PKG_ERR_PREFIX: &str = "while importing/exporting instance:\n";
 #[derive(Debug, Error)]
@@ -40,6 +44,10 @@ pub enum InstancePackageError {
     TempDir(std::io::Error),
     #[error("{PKG_ERR_PREFIX}while adding to zip:\n{0}")]
     ZipIo(std::io::Error),
+    #[error("{PKG_ERR_PREFIX}while parsing ini file:\n{0}")]
+    Ini(#[from] ini::Error),
+    #[error("{PKG_ERR_PREFIX}in ini file:\nentry {1:?} of section {0:?} is missing!")]
+    IniFieldMissing(String, String),
 }
 
 #[derive(Debug, Deserialize, Serialize)]

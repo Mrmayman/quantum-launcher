@@ -644,6 +644,7 @@ impl GameLauncher {
         let library_path = self.instance_dir.join("libraries").join(&artifact.path);
 
         if library_path.exists() {
+            #[allow(unused_mut)]
             let Some(mut library_path) = library_path.to_str() else {
                 return Err(GameLaunchError::PathBufToString(library_path));
             };
