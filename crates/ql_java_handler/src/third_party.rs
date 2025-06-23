@@ -9,18 +9,38 @@ pub async fn install_third_party_java(
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: &Path,
 ) -> Result<(), JavaInstallError> {
+    #[allow(unused_mut)]
+    let mut only_old_supported = false;
+
     #[cfg(all(target_os = "linux", target_arch = "arm"))]
-    let url = {
-        match version {
-            JavaVersion::Java16 |
-            JavaVersion::Java17 |
-            JavaVersion::Java21 => {
-                return Err(JavaInstallError::UnsupportedOnlyJava8)
-            },
-            JavaVersion::Java8 => "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-linux-arm32-vfp-hflt.tar.gz",
+    {
+        only_old_supported = true;
+        let url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-linux-arm32-vfp-hflt.tar.gz";
+    }
+    #[cfg(all(target_os = "solaris", target_arch = "x86_64"))]
+    {
+        only_old_supported = true;
+        let url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-solaris-x64.tar.gz";
+    }
+    #[cfg(all(target_os = "solaris", target_arch = "sparc64"))]
+    {
+        only_old_supported = true;
+        let url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-solaris-sparcv9.tar.gz";
+    }
+
+    if let JavaVersion::Java16 | JavaVersion::Java17 | JavaVersion::Java21 = version {
+        if only_old_supported {
+            return Err(JavaInstallError::UnsupportedOnlyJava8);
         }
-    };
-    #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
+    }
+
+    #[rustfmt::skip]
+    #[cfg(not(any(
+        all(target_os = "linux", target_arch = "arm"),
+        all(target_os = "solaris", any(
+            target_arch = "x86_64", target_arch = "sparc64"
+        ))
+    )))]
     let url = version.get_corretto_url();
 
     send_progress(
