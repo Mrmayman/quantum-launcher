@@ -66,7 +66,7 @@ pub fn shortcut_ctrl<'a>(key: &str) -> Element<'a> {
 impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
-            MenuCreateInstance::Loading { .. } => widget::column![
+            MenuCreateInstance::LoadingList { .. } => widget::column![
                 widget::row![
                     back_button().on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
                     button_with_icon(icon_manager::folder(), "Import Instance", 16)
@@ -78,10 +78,9 @@ impl MenuCreateInstance {
             .padding(10)
             .spacing(10)
             .into(),
-            MenuCreateInstance::Loaded {
+            MenuCreateInstance::Choosing {
                 instance_name,
                 selected_version,
-                progress,
                 download_assets,
                 combo_state,
                 ..
@@ -90,13 +89,11 @@ impl MenuCreateInstance {
                     widget::column![
                         widget::row![
                             back_button()
-                                .on_press_maybe(progress.is_none()
-                                    .then_some(
-                                        Message::LaunchScreenOpen {
-                                            message: None,
-                                            clear_selection: false
-                                    })
-                                ),
+                                .on_press(
+                                    Message::LaunchScreenOpen {
+                                        message: None,
+                                        clear_selection: false
+                                }),
                             button_with_icon(icon_manager::folder(), "Import Instance", 16)
                                 .on_press(Message::CreateInstance(CreateInstanceMessage::Import)),
                         ]
@@ -113,13 +110,8 @@ impl MenuCreateInstance {
                         widget::button(widget::row![icon_manager::create(), "Create Instance"]
                                 .spacing(10)
                                 .padding(5)
-                        ).on_press_maybe((selected_version.is_some() && !instance_name.is_empty() && progress.is_none()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
+                        ).on_press_maybe((selected_version.is_some() && !instance_name.is_empty()).then(|| Message::CreateInstance(CreateInstanceMessage::Start))),
                         widget::text("To install Fabric/Forge/OptiFine/Quilt, click on Mods after installing the instance").size(12),
-                        if let Some(progress) = progress {
-                            progress.view()
-                        } else {
-                            widget::column![].into()
-                        },
                     ].push_maybe(
                         {
                             let real_platform = if cfg!(target_arch = "x86") { "x86_64" } else { "aarch64" };
@@ -139,6 +131,18 @@ impl MenuCreateInstance {
                 .height(Length::Fill)
                 .into()
             }
+            MenuCreateInstance::DownloadingInstance(progress) => widget::column![
+                widget::text("Downloading Instance..").size(20),
+                progress.view()
+            ]
+            .padding(10)
+            .into(),
+            MenuCreateInstance::ImportingInstance(progress) => widget::column![
+                widget::text("Importing Instance..").size(20),
+                progress.view()
+            ]
+            .padding(10)
+            .into(),
         }
     }
 }

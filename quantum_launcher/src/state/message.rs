@@ -6,7 +6,9 @@ use std::{
 };
 
 use iced::widget;
-use ql_core::{file_utils::DirItem, jarmod::JarMods, ListEntry, ModId, StoreBackendType};
+use ql_core::{
+    file_utils::DirItem, jarmod::JarMods, InstanceSelection, ListEntry, ModId, StoreBackendType,
+};
 use ql_instances::{AccountData, AuthCodeResponse, AuthTokenResponse, UpdateCheckInfo};
 use ql_mod_manager::{
     loaders::fabric::FabricVersionListItem,
@@ -39,7 +41,7 @@ pub enum CreateInstanceMessage {
     Cancel,
 
     Import,
-    ImportResult(Res<bool>),
+    ImportResult(Res<Option<InstanceSelection>>),
 }
 
 #[derive(Debug, Clone)]

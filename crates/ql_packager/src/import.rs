@@ -1,15 +1,24 @@
 use ql_core::{
-    InstanceSelection, IntoIoError, IntoJsonError, ListEntry, Loader, err, file_utils, info,
+    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, ListEntry,
+    Loader, err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
     pt,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        mpsc::{Receiver, Sender},
+    },
+};
 use tokio::fs;
 use zip_extract::extract;
 
 use crate::{InstanceInfo, multimc::MmcPack};
 
 use super::InstancePackageError;
+
+const OUT_OF: usize = 4;
 
 /// Imports a Minecraft instance from a `.zip` file exported by the launcher.
 ///
@@ -38,37 +47,53 @@ use super::InstancePackageError;
 pub async fn import_instance(
     zip_path: PathBuf,
     download_assets: bool,
-) -> Result<bool, InstancePackageError> {
+    sender: Option<Sender<GenericProgress>>,
+) -> Result<Option<InstanceSelection>, InstancePackageError> {
     let temp_dir_obj = tempfile::TempDir::new().map_err(InstancePackageError::TempDir)?;
     let temp_dir = temp_dir_obj.path();
 
-    pt!("Extracting zip: {temp_dir:?}");
+    pt!("Extracting zip to {temp_dir:?}");
     let zip_file = std::fs::File::open(&zip_path).path(&zip_path)?;
+    if let Some(sender) = &sender {
+        _ = sender.send(GenericProgress {
+            done: 0,
+            total: OUT_OF,
+            message: Some("Extracting Archive...".to_owned()),
+            has_finished: false,
+        });
+    }
     extract(zip_file, temp_dir, true)?;
 
     let try_ql = temp_dir.join("quantum-config.json");
     let try_mmc = temp_dir.join("mmc-pack.json");
 
-    let mut is_instance = true;
-
-    if let Ok(instance_info) = fs::read_to_string(&try_ql).await {
-        import_quantumlauncher(download_assets, temp_dir, instance_info).await?;
+    let instance = if let Ok(instance_info) = fs::read_to_string(&try_ql).await {
+        Some(
+            import_quantumlauncher(
+                download_assets,
+                temp_dir,
+                instance_info,
+                sender.map(Arc::new),
+            )
+            .await?,
+        )
     } else if let Ok(mmc_pack) = fs::read_to_string(&try_mmc).await {
-        import_multimc(download_assets, temp_dir, mmc_pack).await?;
+        Some(import_multimc(download_assets, temp_dir, mmc_pack, sender.map(Arc::new)).await?)
     } else {
-        is_instance = false;
-    }
+        None
+    };
 
     fs::remove_dir_all(&temp_dir).await.path(temp_dir)?;
 
-    Ok(is_instance)
+    Ok(instance)
 }
 
 async fn import_quantumlauncher(
     download_assets: bool,
     temp_dir: &Path,
     instance_info: String,
-) -> Result<(), InstancePackageError> {
+    sender: Option<Arc<Sender<GenericProgress>>>,
+) -> Result<InstanceSelection, InstancePackageError> {
     info!("Importing QuantumLauncher instance...");
 
     let instance_info: InstanceInfo = serde_json::from_str(&instance_info).json(instance_info)?;
@@ -94,12 +119,20 @@ async fn import_quantumlauncher(
     };
 
     if instance_info.is_server {
-        ql_servers::create_server(instance_info.instance_name, version, None).await?;
+        ql_servers::create_server(instance_info.instance_name, version, sender.as_deref()).await?;
     } else {
+        let (d_send, d_recv) = std::sync::mpsc::channel();
+
+        if let Some(sender) = sender.clone() {
+            std::thread::spawn(|| {
+                pipe_progress(d_recv, sender);
+            });
+        }
+
         ql_instances::create_instance(
             instance_info.instance_name,
             version,
-            None, // TODO
+            Some(d_send),
             download_assets,
         )
         .await?;
@@ -108,25 +141,44 @@ async fn import_quantumlauncher(
     let instance_path = instance.get_instance_path();
 
     if let Ok(loader) = Loader::try_from(config_json.mod_type.as_str()) {
-        ql_mod_manager::loaders::install_specified_loader(instance, loader)
+        ql_mod_manager::loaders::install_specified_loader(instance.clone(), loader)
             .await
             .map_err(InstancePackageError::Loader)?;
     }
 
-    pt!("Copying packaged");
+    pt!("Copying packaged files");
+    if let Some(sender) = &sender {
+        _ = sender.send(GenericProgress {
+            done: 2,
+            total: OUT_OF,
+            message: Some("Copying files...".to_owned()),
+            has_finished: false,
+        });
+    }
     file_utils::copy_dir_recursive(temp_dir, &instance_path).await?;
-    Ok(())
+    info!("Finished importing QuantumLauncher instance");
+    Ok(instance)
+}
+
+fn pipe_progress(rec: Receiver<DownloadProgress>, snd: Arc<Sender<GenericProgress>>) {
+    for item in rec {
+        _ = snd.send(item.into());
+    }
 }
 
 async fn import_multimc(
     download_assets: bool,
     temp_dir: &Path,
     mmc_pack: String,
-) -> Result<(), InstancePackageError> {
+    sender: Option<Arc<Sender<GenericProgress>>>,
+) -> Result<InstanceSelection, InstancePackageError> {
     info!("Importing MultiMC instance...");
     let mmc_pack: MmcPack = serde_json::from_str(&mmc_pack).json(mmc_pack)?;
+
     let ini_path = temp_dir.join("instance.cfg");
-    let ini = ini::Ini::load_from_file(&ini_path)?;
+    let ini = fs::read_to_string(&ini_path).await.path(ini_path)?;
+    let ini = ini::Ini::load_from_str(&filter_bytearray(ini))?;
+
     let instance_name = ini
         .get_from(Some("General"), "name")
         .ok_or_else(|| {
@@ -143,10 +195,18 @@ async fn import_multimc(
                     is_classic_server: false,
                 };
 
+                let (d_send, d_recv) = std::sync::mpsc::channel();
+
+                if let Some(sender) = sender.clone() {
+                    std::thread::spawn(|| {
+                        pipe_progress(d_recv, sender);
+                    });
+                }
+
                 ql_instances::create_instance(
                     instance_name.clone(),
                     version,
-                    None, // TODO
+                    Some(d_send),
                     download_assets,
                 )
                 .await?;
@@ -158,7 +218,23 @@ async fn import_multimc(
 
     let src = temp_dir.join("minecraft");
     let dst = instance_selection.get_dot_minecraft_path();
+    if let Some(sender) = sender.as_deref() {
+        _ = sender.send(GenericProgress {
+            done: 2,
+            total: OUT_OF,
+            message: Some("Copying files...".to_owned()),
+            has_finished: false,
+        });
+    }
     file_utils::copy_dir_recursive(&src, &dst).await?;
+    info!("Finished importing MultiMC instance");
+    Ok(instance_selection)
+}
 
-    Ok(())
+fn filter_bytearray(input: String) -> String {
+    input
+        .lines()
+        .filter(|n| !n.starts_with("mods_Page\\Columns"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

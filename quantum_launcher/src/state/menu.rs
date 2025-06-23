@@ -206,16 +206,17 @@ pub struct MenuEditJarMods {
 }
 
 pub enum MenuCreateInstance {
-    Loading {
+    LoadingList {
         _handle: iced::task::Handle,
     },
-    Loaded {
+    Choosing {
         instance_name: String,
         selected_version: Option<ListEntry>,
-        progress: Option<ProgressBar<DownloadProgress>>,
         download_assets: bool,
         combo_state: Box<iced::widget::combo_box::State<ListEntry>>,
     },
+    DownloadingInstance(ProgressBar<DownloadProgress>),
+    ImportingInstance(ProgressBar<GenericProgress>),
 }
 
 pub enum MenuInstallFabric {

@@ -25,7 +25,7 @@ impl Launcher {
                 Err(n) => self.set_error(n),
             },
             CreateInstanceMessage::ChangeAssetToggle(t) => {
-                if let State::Create(MenuCreateInstance::Loaded {
+                if let State::Create(MenuCreateInstance::Choosing {
                     download_assets, ..
                 }) = &mut self.state
                 {
@@ -40,15 +40,26 @@ impl Launcher {
                     .set_title("Select an instance...")
                     .pick_file()
                 {
-                    return Task::perform(ql_packager::import_instance(file.clone(), true), |n| {
-                        Message::CreateInstance(CreateInstanceMessage::ImportResult(n.strerr()))
-                    });
+                    let (send, recv) = std::sync::mpsc::channel();
+                    let progress = ProgressBar::with_recv(recv);
+                    self.state = State::Create(MenuCreateInstance::ImportingInstance(progress));
+
+                    return Task::perform(
+                        ql_packager::import_instance(file.clone(), true, Some(send)),
+                        |n| {
+                            Message::CreateInstance(CreateInstanceMessage::ImportResult(n.strerr()))
+                        },
+                    );
                 }
             }
             CreateInstanceMessage::ImportResult(res) => {
                 match res {
-                    Ok(is_fine) => {
-                        if !is_fine {
+                    Ok(instance) => {
+                        let is_valid_modpack = instance.is_some();
+                        self.selected_instance = instance;
+                        if is_valid_modpack {
+                            return self.go_to_launch_screen(None::<String>);
+                        } else {
                             self.set_error(r#"the file you imported isn't a valid QuantumLauncher/MultiMC instance.
 
 If you meant to import a Modrinth/Curseforge/Preset pack,
@@ -71,10 +82,9 @@ then go to "Mods->Add File""#);
             Ok(versions) => {
                 self.client_version_list_cache = Some(versions.clone());
                 let combo_state = iced::widget::combo_box::State::new(versions.clone());
-                self.state = State::Create(MenuCreateInstance::Loaded {
+                self.state = State::Create(MenuCreateInstance::Choosing {
                     instance_name: String::new(),
                     selected_version: None,
-                    progress: None,
                     download_assets: true,
                     combo_state: Box::new(combo_state),
                 });
@@ -86,10 +96,9 @@ then go to "Mods->Add File""#);
     fn go_to_create_screen(&mut self) -> Task<Message> {
         if let Some(versions) = self.client_version_list_cache.clone() {
             let combo_state = iced::widget::combo_box::State::new(versions.clone());
-            self.state = State::Create(MenuCreateInstance::Loaded {
+            self.state = State::Create(MenuCreateInstance::Choosing {
                 instance_name: String::new(),
                 selected_version: None,
-                progress: None,
                 download_assets: true,
                 combo_state: Box::new(combo_state),
             });
@@ -100,7 +109,7 @@ then go to "Mods->Add File""#);
             })
             .abortable();
 
-            self.state = State::Create(MenuCreateInstance::Loading {
+            self.state = State::Create(MenuCreateInstance::LoadingList {
                 _handle: handle.abort_on_drop(),
             });
 
@@ -109,7 +118,7 @@ then go to "Mods->Add File""#);
     }
 
     fn select_created_instance_version(&mut self, entry: ListEntry) {
-        if let State::Create(MenuCreateInstance::Loaded {
+        if let State::Create(MenuCreateInstance::Choosing {
             selected_version, ..
         }) = &mut self.state
         {
@@ -118,14 +127,13 @@ then go to "Mods->Add File""#);
     }
 
     fn update_created_instance_name(&mut self, name: String) {
-        if let State::Create(MenuCreateInstance::Loaded { instance_name, .. }) = &mut self.state {
+        if let State::Create(MenuCreateInstance::Choosing { instance_name, .. }) = &mut self.state {
             *instance_name = name;
         }
     }
 
     fn create_instance(&mut self) -> Task<Message> {
-        if let State::Create(MenuCreateInstance::Loaded {
-            progress,
+        if let State::Create(MenuCreateInstance::Choosing {
             instance_name,
             download_assets,
             selected_version,
@@ -133,18 +141,19 @@ then go to "Mods->Add File""#);
         }) = &mut self.state
         {
             let (sender, receiver) = std::sync::mpsc::channel::<DownloadProgress>();
-            *progress = Some(ProgressBar {
+            let progress = ProgressBar {
                 num: 0.0,
                 message: Some("Started download".to_owned()),
                 receiver,
                 progress: DownloadProgress::DownloadingJsonManifest,
-            });
+            };
 
             let instance_name = instance_name.clone();
             let version = selected_version.clone().unwrap();
             let download_assets = *download_assets;
 
-            // Create Instance asynchronously using iced Command.
+            self.state = State::Create(MenuCreateInstance::DownloadingInstance(progress));
+
             return Task::perform(
                 ql_instances::create_instance(
                     instance_name.clone(),

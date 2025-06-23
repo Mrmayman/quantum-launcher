@@ -429,11 +429,13 @@ impl MenuEditMods {
 impl MenuCreateInstance {
     pub fn tick(&mut self) {
         match self {
-            MenuCreateInstance::Loading { .. } => {}
-            MenuCreateInstance::Loaded { progress, .. } => {
-                if let Some(progress) = progress {
-                    progress.tick();
-                }
+            MenuCreateInstance::LoadingList { .. } => {}
+            MenuCreateInstance::Choosing { .. } => {}
+            MenuCreateInstance::DownloadingInstance(progress) => {
+                progress.tick();
+            }
+            MenuCreateInstance::ImportingInstance(progress) => {
+                progress.tick();
             }
         }
     }

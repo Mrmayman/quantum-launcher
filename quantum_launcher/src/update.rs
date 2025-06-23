@@ -232,7 +232,8 @@ impl Launcher {
                     });
                     return Task::perform(
                         async move {
-                            ql_servers::create_server(name, selected_version, Some(sender))
+                            let sender = sender;
+                            ql_servers::create_server(name, selected_version, Some(&sender))
                                 .await
                                 .strerr()
                         },
@@ -478,8 +479,11 @@ impl Launcher {
                 if let State::ExportInstance(MenuExportInstance {
                     entries: Some(entries),
                     progress,
-                }) = &self.state
+                }) = &mut self.state
                 {
+                    let (send, recv) = std::sync::mpsc::channel();
+                    *progress = Some(ProgressBar::with_recv(recv));
+
                     let exceptions = entries
                         .iter()
                         .filter_map(|(n, b)| (!b).then_some(format!(".minecraft/{}", n.name)))
@@ -489,7 +493,7 @@ impl Launcher {
                         ql_packager::export_instance(
                             self.selected_instance.clone().unwrap(),
                             exceptions,
-                            None,
+                            Some(send),
                         ),
                         |n| Message::ExportInstanceFinished(n.strerr()),
                     );

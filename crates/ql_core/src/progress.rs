@@ -75,6 +75,21 @@ impl Default for GenericProgress {
     }
 }
 
+impl From<DownloadProgress> for GenericProgress {
+    fn from(value: DownloadProgress) -> Self {
+        let done = (value.get_num() * 100.0) as usize;
+        let total = (DownloadProgress::total() * 100.0) as usize;
+        let message = value.get_message();
+
+        Self {
+            done,
+            total,
+            message,
+            has_finished: false,
+        }
+    }
+}
+
 impl GenericProgress {
     #[must_use]
     pub fn finished() -> Self {

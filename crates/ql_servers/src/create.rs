@@ -42,11 +42,11 @@ use crate::ServerError;
 pub async fn create_server(
     name: String,
     version: ListEntry,
-    sender: Option<Sender<GenericProgress>>,
+    sender: Option<&Sender<GenericProgress>>,
 ) -> Result<String, ServerError> {
     info!("Creating server");
     pt!("Downloading Manifest");
-    progress_manifest(sender.as_ref());
+    progress_manifest(sender);
     let manifest = Manifest::download().await?;
 
     let server_dir = get_server_dir(&name).await?;
@@ -58,7 +58,7 @@ pub async fn create_server(
         .find_name(&version.name)
         .ok_or(ServerError::VersionNotFoundInManifest(version.name.clone()))?;
     pt!("Downloading version JSON");
-    progress_json(sender.as_ref());
+    progress_json(sender);
 
     let version_json: VersionDetails =
         file_utils::download_file_to_json(&version_manifest.url, false).await?;
@@ -67,7 +67,7 @@ pub async fn create_server(
     };
 
     pt!("Downloading server jar");
-    progress_server_jar(sender.as_ref());
+    progress_server_jar(sender);
     if version.is_classic_server {
         is_classic_server = true;
 

@@ -231,8 +231,7 @@ impl Launcher {
                 ..
             })
             | State::Create(
-                MenuCreateInstance::Loading { .. }
-                | MenuCreateInstance::Loaded { progress: None, .. },
+                MenuCreateInstance::LoadingList { .. } | MenuCreateInstance::Choosing { .. },
             )
             | State::ServerCreate(
                 MenuServerCreate::LoadingList | MenuServerCreate::Loaded { .. },

@@ -45,7 +45,7 @@ pub enum InstancePackageError {
     #[error("{PKG_ERR_PREFIX}while adding to zip:\n{0}")]
     ZipIo(std::io::Error),
     #[error("{PKG_ERR_PREFIX}while parsing ini file:\n{0}")]
-    Ini(#[from] ini::Error),
+    Ini(#[from] ini::ParseError),
     #[error("{PKG_ERR_PREFIX}in ini file:\nentry {1:?} of section {0:?} is missing!")]
     IniFieldMissing(String, String),
 }
