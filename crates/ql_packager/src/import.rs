@@ -232,6 +232,9 @@ async fn import_multimc(
 }
 
 fn filter_bytearray(input: String) -> String {
+    // PrismLauncher puts some weird ByteArray
+    // field in the INI config file, that our pookie little ini parser
+    // doesn't understand. So we gotta filter it out.
     input
         .lines()
         .filter(|n| !n.starts_with("mods_Page\\Columns"))

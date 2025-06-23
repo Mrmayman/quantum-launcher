@@ -111,7 +111,7 @@ impl Launcher {
                 } => {
                     if let iced::event::Status::Ignored = status {
                         if let Key::Named(Named::Escape) = key {
-                            return self.key_escape_back();
+                            return self.key_escape_back(true).1;
                         }
                         if let Key::Named(Named::ArrowUp) = key {
                             return self.key_change_selected_instance(false);
@@ -132,10 +132,11 @@ impl Launcher {
                                 None => {}
                             }
                         } else if let Key::Character(ch) = &key {
-                            let instances_not_running = self.client_processes.is_empty()
-                                && self.server_processes.is_empty();
+                            let safe_to_exit = self.client_processes.is_empty()
+                                && self.server_processes.is_empty()
+                                && self.key_escape_back(false).0;
 
-                            if ch == "q" && modifiers.command() && instances_not_running {
+                            if ch == "q" && modifiers.command() && safe_to_exit {
                                 info_no_log!("CTRL-Q pressed, closing launcher...");
                                 std::process::exit(1);
                             }
@@ -219,7 +220,7 @@ impl Launcher {
         Task::none()
     }
 
-    fn key_escape_back(&mut self) -> Task<Message> {
+    fn key_escape_back(&mut self, affect: bool) -> (bool, Task<Message>) {
         let mut should_return_to_main_screen = false;
         let mut should_return_to_mods_screen = false;
         let mut should_return_to_download_screen = false;
@@ -248,8 +249,11 @@ impl Launcher {
             | State::Welcome(_) => {
                 should_return_to_main_screen = true;
             }
-            State::ConfirmAction { no, .. } => return self.update(no.clone()),
-
+            State::ConfirmAction { no, .. } => {
+                if affect {
+                    return (true, self.update(no.clone()));
+                }
+            }
             State::InstallOptifine(MenuInstallOptifine {
                 optifine_install_progress: None,
                 java_install_progress: None,
@@ -285,22 +289,29 @@ impl Launcher {
             | State::Launch(_) => {}
         }
 
-        if should_return_to_main_screen {
-            return self.go_to_launch_screen::<String>(None);
-        }
-        if should_return_to_mods_screen {
-            match self.go_to_edit_mods_menu_without_update_check() {
-                Ok(cmd) => return cmd,
-                Err(err) => self.set_error(err),
+        if affect {
+            if should_return_to_main_screen {
+                return (true, self.go_to_launch_screen::<String>(None));
             }
-        }
-        if should_return_to_download_screen {
-            if let State::ModsDownload(menu) = &mut self.state {
-                menu.opened_mod = None;
+            if should_return_to_mods_screen {
+                match self.go_to_edit_mods_menu_without_update_check() {
+                    Ok(cmd) => return (true, cmd),
+                    Err(err) => self.set_error(err),
+                }
+            }
+            if should_return_to_download_screen {
+                if let State::ModsDownload(menu) = &mut self.state {
+                    menu.opened_mod = None;
+                }
             }
         }
 
-        Task::none()
+        (
+            should_return_to_main_screen
+                | should_return_to_mods_screen
+                | should_return_to_download_screen,
+            Task::none(),
+        )
     }
 
     fn key_change_selected_instance(&mut self, down: bool) -> Task<Message> {

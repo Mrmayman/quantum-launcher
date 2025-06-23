@@ -66,7 +66,6 @@ impl Backend for ModrinthBackend {
         let download_info = ModVersion::download(id).await?;
         let version = version.to_owned();
 
-        // TODO: Add curseforge support
         let mut download_versions: Vec<ModVersion> = download_info
             .iter()
             .filter(|v| v.game_versions.contains(&version))
