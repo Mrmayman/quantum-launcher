@@ -545,29 +545,20 @@ pub async fn copy_dir_recursive_ext(
         tokio::fs::copy(src, dst).await.path(src)?;
         return Ok(());
     }
-
     if !dst.exists() {
         tokio::fs::create_dir_all(dst).await.path(dst)?;
     }
 
     let mut dir = tokio::fs::read_dir(src).await.path(src)?;
-
-    // Iterate over the directory entries
     while let Ok(Some(entry)) = dir.next_entry().await {
         let path = entry.path();
         let dest_path = dst.join(entry.file_name());
 
-        if exceptions.contains(&path) {
+        if exceptions.iter().any(|n| *n == path || path.starts_with(n)) {
             continue;
         }
 
-        if path.is_dir() {
-            // Recursively copy the subdirectory
-            Box::pin(copy_dir_recursive(&path, &dest_path)).await?;
-        } else {
-            // Copy the file to the destination directory
-            tokio::fs::copy(&path, &dest_path).await.path(path)?;
-        }
+        Box::pin(copy_dir_recursive_ext(&path, &dest_path, exceptions)).await?;
     }
 
     Ok(())
