@@ -4,7 +4,7 @@ use ql_core::{file_utils, GenericProgress};
 
 use crate::{extract_tar_gz, send_progress, JavaInstallError, JavaVersion};
 
-pub async fn install_amazon_corretto_java(
+pub async fn install_third_party_java(
     version: JavaVersion,
     java_install_progress_sender: Option<&Sender<GenericProgress>>,
     install_dir: &Path,

@@ -3,7 +3,7 @@ use std::{
     sync::{mpsc::Sender, Mutex},
 };
 
-use corretto::install_amazon_corretto_java;
+use third_party::install_third_party_java;
 use thiserror::Error;
 
 use java_files::{JavaFile, JavaFilesJson};
@@ -14,7 +14,7 @@ use ql_core::{
 };
 
 mod compression;
-mod corretto;
+mod third_party;
 pub use compression::extract_tar_gz;
 
 mod java_files;
@@ -197,12 +197,7 @@ async fn install_java_files(
         //
         // So... yeah, enjoy this mess (WTF: )
 
-        #[cfg(all(target_os = "linux", target_arch = "arm"))]
-        return Err(JavaInstallError::UnsupportedOnlyJava8);
-
-        #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
-        return install_amazon_corretto_java(version, java_install_progress_sender, &install_dir)
-            .await;
+        return install_third_party_java(version, java_install_progress_sender, &install_dir).await;
     };
 
     let json: JavaFilesJson = file_utils::download_file_to_json(&java_files_url, false).await?;
