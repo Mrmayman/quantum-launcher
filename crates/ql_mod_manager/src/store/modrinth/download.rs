@@ -251,7 +251,11 @@ impl ModDownloader {
                 .await
                 .map_err(Box::new)?;
             debug_assert!(
-                incompatible.is_empty(),
+                incompatible.is_some(),
+                "invalid modpack downloaded from modrinth store!"
+            );
+            debug_assert!(
+                incompatible.map(|n| n.is_empty()).unwrap_or(false),
                 "modrinth mod being blocked as a curseforge error?"
             );
             return Ok(());

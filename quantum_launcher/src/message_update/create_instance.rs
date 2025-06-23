@@ -35,6 +35,30 @@ impl Launcher {
             CreateInstanceMessage::Cancel => {
                 return self.go_to_launch_screen(Option::<String>::None)
             }
+            CreateInstanceMessage::Import => {
+                if let Some(file) = rfd::FileDialog::new()
+                    .set_title("Select an instance...")
+                    .pick_file()
+                {
+                    return Task::perform(ql_packager::import_instance(file.clone(), true), |n| {
+                        Message::CreateInstance(CreateInstanceMessage::ImportResult(n.strerr()))
+                    });
+                }
+            }
+            CreateInstanceMessage::ImportResult(res) => {
+                match res {
+                    Ok(is_fine) => {
+                        if !is_fine {
+                            self.set_error(r#"the file you imported isn't a valid QuantumLauncher/MultiMC instance.
+
+If you meant to import a Modrinth/Curseforge/Preset pack,
+create a instance with the matching version,
+then go to "Mods->Add File""#);
+                        }
+                    }
+                    Err(err) => self.set_error(err),
+                }
+            }
         }
         Task::none()
     }

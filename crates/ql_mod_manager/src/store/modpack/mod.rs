@@ -34,15 +34,17 @@ use super::CurseforgeNotAllowed;
 ///   to see the progress of installation. Leave `None` if otherwise.
 ///
 /// # Returns
-/// - `Ok(HashSet<CurseforgeNotAllowed)` - The list of mods that
+/// - `Ok(Some(HashSet<CurseforgeNotAllowed))` - The list of mods that
 ///   Curseforge blocked the launcher from automatically downloading. The user must
-///   manually download these from the browser and import them.
+///   manually download these from the browser and import them. May be empty
+///   if none present, or if it's a modrinth pack.
+/// - `Ok(None)` - This isn't a modpack.
 /// - `Err` - Any error that occured.
 pub async fn install_modpack(
     file: Vec<u8>,
     instance: InstanceSelection,
     sender: Option<&Sender<GenericProgress>>,
-) -> Result<HashSet<CurseforgeNotAllowed>, PackError> {
+) -> Result<Option<HashSet<CurseforgeNotAllowed>>, PackError> {
     let mut zip = zip::ZipArchive::new(Cursor::new(file))?;
 
     info!("Installing modpack");
@@ -60,14 +62,22 @@ pub async fn install_modpack(
     let config = InstanceConfigJson::read(&instance).await?;
     let json = VersionDetails::load(&instance).await?;
 
+    let mut is_valid = false;
+
     if let Some(index) = index_json_modrinth {
+        is_valid = true;
         modrinth::install(&instance, &mc_dir, &config, &json, &index, sender).await?;
     }
     let not_allowed = if let Some(index) = index_json_curseforge {
+        is_valid = true;
         curseforge::install(&instance, &config, &json, &index, sender).await?
     } else {
         HashSet::new()
     };
+
+    if !is_valid {
+        return Ok(None);
+    }
 
     let len = zip.len();
     for i in 0..len {
@@ -117,7 +127,7 @@ pub async fn install_modpack(
         }
     }
 
-    Ok(not_allowed)
+    Ok(Some(not_allowed))
 }
 
 fn read_json_from_zip<T: serde::de::DeserializeOwned>(

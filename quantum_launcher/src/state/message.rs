@@ -28,13 +28,18 @@ pub enum InstallFabricMessage {
 #[derive(Debug, Clone)]
 pub enum CreateInstanceMessage {
     ScreenOpen,
+
     VersionsLoaded(Res<Vec<ListEntry>>),
     VersionSelected(ListEntry),
     NameInput(String),
+    ChangeAssetToggle(bool),
+
     Start,
     End(Res<String>),
-    ChangeAssetToggle(bool),
     Cancel,
+
+    Import,
+    ImportResult(Res<bool>),
 }
 
 #[derive(Debug, Clone)]

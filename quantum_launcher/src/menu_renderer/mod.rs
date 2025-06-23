@@ -67,7 +67,12 @@ impl MenuCreateInstance {
     pub fn view(&self) -> Element {
         match self {
             MenuCreateInstance::Loading { .. } => widget::column![
-                back_button().on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
+                widget::row![
+                    back_button().on_press(Message::CreateInstance(CreateInstanceMessage::Cancel)),
+                    button_with_icon(icon_manager::folder(), "Import Instance", 16)
+                        .on_press(Message::CreateInstance(CreateInstanceMessage::Import)),
+                ]
+                .spacing(5),
                 widget::text("Loading version list...").size(20),
             ]
             .padding(10)
@@ -83,10 +88,22 @@ impl MenuCreateInstance {
             } => {
                 widget::scrollable(
                     widget::column![
-                        back_button().on_press_maybe((progress.is_none()).then_some(Message::LaunchScreenOpen {message: None, clear_selection: false})),
-                            widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
-                                Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
-                            }),
+                        widget::row![
+                            back_button()
+                                .on_press_maybe(progress.is_none()
+                                    .then_some(
+                                        Message::LaunchScreenOpen {
+                                            message: None,
+                                            clear_selection: false
+                                    })
+                                ),
+                            button_with_icon(icon_manager::folder(), "Import Instance", 16)
+                                .on_press(Message::CreateInstance(CreateInstanceMessage::Import)),
+                        ]
+                        .spacing(5),
+                        widget::combo_box(combo_state, "Select a version...", selected_version.as_ref(), |version| {
+                            Message::CreateInstance(CreateInstanceMessage::VersionSelected(version))
+                        }),
                         widget::text_input("Enter instance name...", instance_name)
                             .on_input(|n| Message::CreateInstance(CreateInstanceMessage::NameInput(n))),
                         tooltip(

@@ -25,7 +25,7 @@ pub use delete::delete_mods;
 pub use error::ModError;
 pub use image::{download_image, ImageResult};
 pub use local_json::{ModConfig, ModFile, ModIndex};
-pub use modpack::install_modpack;
+pub use modpack::{install_modpack, PackError};
 pub use modrinth::ModrinthBackend;
 pub use recommended::{RecommendedMod, RECOMMENDED_MODS};
 pub use toggle::{flip_filename, toggle_mods, toggle_mods_local};

@@ -5,7 +5,7 @@ use std::{
 };
 
 use ql_core::{
-    file_utils, info, json::VersionDetails, pt, GenericProgress, InstanceSelection, ModId,
+    err, file_utils, info, json::VersionDetails, pt, GenericProgress, InstanceSelection, ModId,
 };
 
 use crate::store::{
@@ -114,10 +114,15 @@ impl<'a> ModDownloader<'a> {
             QueryType::Shaders => &self.shaderpacks_dir,
             QueryType::ModPacks => {
                 let bytes = file_utils::download_file_to_bytes(&url, true).await?;
-                let not_allowed_new = install_modpack(bytes, self.instance.clone(), self.sender)
-                    .await
-                    .map_err(Box::new)?;
-                self.not_allowed.extend(not_allowed_new);
+                if let Some(not_allowed_new) =
+                    install_modpack(bytes, self.instance.clone(), self.sender)
+                        .await
+                        .map_err(Box::new)?
+                {
+                    self.not_allowed.extend(not_allowed_new);
+                } else {
+                    err!("Invalid modpack downloaded from curseforge! Corrupted?");
+                }
                 return Ok(());
             }
         };

@@ -54,9 +54,11 @@ pub async fn add_files(
             }
             "zip" | "mrpack" => {
                 let file = tokio::fs::read(&path).await.path(&path)?;
-                let not_allowed_new =
-                    modpack::install_modpack(file, instance.clone(), progress.as_ref()).await?;
-                not_allowed.extend(not_allowed_new);
+                if let Some(not_allowed_new) =
+                    modpack::install_modpack(file, instance.clone(), progress.as_ref()).await?
+                {
+                    not_allowed.extend(not_allowed_new);
+                }
             }
             "qmp" => {
                 let file = tokio::fs::read(&path).await.path(&path)?;
