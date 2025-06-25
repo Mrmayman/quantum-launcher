@@ -136,12 +136,14 @@ impl MenuCreateInstance {
                 progress.view()
             ]
             .padding(10)
+            .spacing(5)
             .into(),
             MenuCreateInstance::ImportingInstance(progress) => widget::column![
                 widget::text("Importing Instance..").size(20),
                 progress.view()
             ]
             .padding(10)
+            .spacing(5)
             .into(),
         }
     }

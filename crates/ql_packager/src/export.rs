@@ -107,6 +107,7 @@ pub async fn export_instance(
     let bytes = file_utils::zip_directory_to_bytes(folder_path)
         .await
         .map_err(InstancePackageError::ZipIo)?;
+    pt!("Done!");
 
     Ok(bytes)
 }

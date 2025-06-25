@@ -444,7 +444,17 @@ impl Launcher {
                     Ok(n) => n
                         .into_iter()
                         .map(|n| {
-                            let enabled = !(n.name == ".fabric" || n.name == "logs");
+                            let enabled = !(n.name == ".fabric"
+                                || n.name == "logs"
+                                || n.name == "command_history.txt"
+                                || n.name == "realms_persistence.json"
+                                || n.name == "debug"
+                                || n.name == ".cache"
+                                // Common mods...
+                                || n.name == "authlib-injector.log"
+                                || n.name == "easy_npc"
+                                || n.name == "CustomSkinLoader"
+                                || n.name == ".bobby");
                             (n, enabled)
                         })
                         .filter(|(n, _)| {
