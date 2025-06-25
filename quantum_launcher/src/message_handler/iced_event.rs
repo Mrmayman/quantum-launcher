@@ -134,7 +134,8 @@ impl Launcher {
                         } else if let Key::Character(ch) = &key {
                             let safe_to_exit = self.client_processes.is_empty()
                                 && self.server_processes.is_empty()
-                                && self.key_escape_back(false).0;
+                                && (self.key_escape_back(false).0
+                                    || matches!(self.state, State::Launch(_)));
 
                             if ch == "q" && modifiers.command() && safe_to_exit {
                                 info_no_log!("CTRL-Q pressed, closing launcher...");
