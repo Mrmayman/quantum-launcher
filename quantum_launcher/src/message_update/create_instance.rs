@@ -1,5 +1,5 @@
 use iced::Task;
-use ql_core::{DownloadProgress, InstanceSelection, IntoStringError, ListEntry};
+use ql_core::{pt, DownloadProgress, InstanceSelection, IntoStringError, ListEntry};
 
 use crate::state::{
     CreateInstanceMessage, Launcher, MenuCreateInstance, Message, ProgressBar, State,
@@ -42,6 +42,7 @@ impl Launcher {
                 {
                     let (send, recv) = std::sync::mpsc::channel();
                     let progress = ProgressBar::with_recv(recv);
+                    pt!("(Internal): Setting state to ImportingInstance...");
                     self.state = State::Create(MenuCreateInstance::ImportingInstance(progress));
 
                     return Task::perform(

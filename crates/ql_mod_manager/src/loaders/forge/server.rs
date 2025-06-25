@@ -5,6 +5,7 @@ use crate::loaders::{change_instance_type, forge::ForgeInstaller};
 use super::{error::ForgeInstallError, ForgeInstallProgress};
 
 pub async fn install_server(
+    forge_version: Option<String>, // example: "11.15.1.2318" for 1.8.9
     instance_name: String,
     j_progress: Option<std::sync::mpsc::Sender<ql_core::GenericProgress>>,
     f_progress: Option<std::sync::mpsc::Sender<ForgeInstallProgress>>,
@@ -13,8 +14,12 @@ pub async fn install_server(
         _ = progress.send(ForgeInstallProgress::P1Start);
     }
 
-    let installer =
-        ForgeInstaller::new(f_progress, InstanceSelection::Server(instance_name)).await?;
+    let installer = ForgeInstaller::new(
+        forge_version,
+        f_progress,
+        InstanceSelection::Server(instance_name),
+    )
+    .await?;
 
     let (_, installer_name, installer_path) = installer.download_forge_installer().await?;
 

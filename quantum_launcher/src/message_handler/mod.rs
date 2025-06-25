@@ -3,13 +3,16 @@ use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
     process::ExitStatus,
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
 };
 
 use iced::Task;
 use ql_core::{
-    err, json::instance_config::InstanceConfigJson, InstanceSelection, IntoIoError, IntoJsonError,
-    IntoStringError, JsonFileError,
+    err, json::instance_config::InstanceConfigJson, GenericProgress, InstanceSelection,
+    IntoIoError, IntoJsonError, IntoStringError, JsonFileError,
 };
 use ql_instances::{AccountData, ReadError};
 use ql_mod_manager::{loaders, store::ModIndex};
@@ -312,7 +315,8 @@ impl Launcher {
 
     pub fn install_forge(&mut self, is_neoforge: bool) -> Task<Message> {
         let (f_sender, f_receiver) = std::sync::mpsc::channel();
-        let (j_sender, j_receiver) = std::sync::mpsc::channel();
+        let (j_sender, j_receiver): (Sender<GenericProgress>, Receiver<GenericProgress>) =
+            std::sync::mpsc::channel();
 
         let instance_selection = self.selected_instance.clone().unwrap();
         let command = Task::perform(
@@ -321,8 +325,13 @@ impl Launcher {
                     loaders::neoforge::install(instance_selection, Some(f_sender), Some(j_sender))
                         .await
                 } else {
-                    loaders::forge::install(instance_selection, Some(f_sender), Some(j_sender))
-                        .await
+                    loaders::forge::install(
+                        None,
+                        instance_selection,
+                        Some(f_sender),
+                        Some(j_sender),
+                    )
+                    .await
                 }
                 .strerr()
             },

@@ -1,6 +1,6 @@
 use ql_core::{
-    DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, ListEntry,
-    Loader, Progress, err, file_utils, info,
+    GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, ListEntry, Loader, Progress,
+    file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
     pt,
 };
@@ -14,11 +14,11 @@ use std::{
 use tokio::fs;
 use zip_extract::extract;
 
-use crate::{InstanceInfo, multimc::MmcPack};
+use crate::InstanceInfo;
 
 use super::InstancePackageError;
 
-const OUT_OF: usize = 4;
+pub const OUT_OF: usize = 4;
 
 /// Imports a Minecraft instance from a `.zip` file exported by the launcher.
 ///
@@ -78,7 +78,10 @@ pub async fn import_instance(
             .await?,
         )
     } else if let Ok(mmc_pack) = fs::read_to_string(&try_mmc).await {
-        Some(import_multimc(download_assets, temp_dir, mmc_pack, sender.map(Arc::new)).await?)
+        Some(
+            crate::multimc::import(download_assets, temp_dir, mmc_pack, sender.map(Arc::new))
+                .await?,
+        )
     } else {
         None
     };
@@ -141,9 +144,14 @@ async fn import_quantumlauncher(
     let instance_path = instance.get_instance_path();
 
     if let Ok(loader) = Loader::try_from(config_json.mod_type.as_str()) {
-        ql_mod_manager::loaders::install_specified_loader(instance.clone(), loader, sender.clone())
-            .await
-            .map_err(InstancePackageError::Loader)?;
+        ql_mod_manager::loaders::install_specified_loader(
+            instance.clone(),
+            loader,
+            sender.clone(),
+            None,
+        )
+        .await
+        .map_err(InstancePackageError::Loader)?;
     }
 
     pt!("Copying packaged files");
@@ -160,84 +168,8 @@ async fn import_quantumlauncher(
     Ok(instance)
 }
 
-fn pipe_progress(rec: Receiver<DownloadProgress>, snd: Arc<Sender<GenericProgress>>) {
+pub fn pipe_progress<T: Progress>(rec: Receiver<T>, snd: Arc<Sender<GenericProgress>>) {
     for item in rec {
         _ = snd.send(item.into_generic());
     }
-}
-
-async fn import_multimc(
-    download_assets: bool,
-    temp_dir: &Path,
-    mmc_pack: String,
-    sender: Option<Arc<Sender<GenericProgress>>>,
-) -> Result<InstanceSelection, InstancePackageError> {
-    info!("Importing MultiMC instance...");
-    let mmc_pack: MmcPack = serde_json::from_str(&mmc_pack).json(mmc_pack)?;
-
-    let ini_path = temp_dir.join("instance.cfg");
-    let ini = fs::read_to_string(&ini_path).await.path(ini_path)?;
-    let ini = ini::Ini::load_from_str(&filter_bytearray(ini))?;
-
-    let instance_name = ini
-        .get_from(Some("General"), "name")
-        .ok_or_else(|| {
-            InstancePackageError::IniFieldMissing("General".to_owned(), "name".to_owned())
-        })?
-        .to_owned();
-    let instance_selection = InstanceSelection::new(&instance_name, false);
-
-    for component in &mmc_pack.components {
-        match component.cachedName.as_str() {
-            "Minecraft" => {
-                let version = ListEntry {
-                    name: component.version.clone(),
-                    is_classic_server: false,
-                };
-
-                let (d_send, d_recv) = std::sync::mpsc::channel();
-
-                if let Some(sender) = sender.clone() {
-                    std::thread::spawn(|| {
-                        pipe_progress(d_recv, sender);
-                    });
-                }
-
-                ql_instances::create_instance(
-                    instance_name.clone(),
-                    version,
-                    Some(d_send),
-                    download_assets,
-                )
-                .await?;
-            }
-            "LWJGL 2" | "LWJGL 3" => {}
-            name => err!("Unknown component (in MultiMC instance): {name}"),
-        }
-    }
-
-    let src = temp_dir.join("minecraft");
-    let dst = instance_selection.get_dot_minecraft_path();
-    if let Some(sender) = sender.as_deref() {
-        _ = sender.send(GenericProgress {
-            done: 2,
-            total: OUT_OF,
-            message: Some("Copying files...".to_owned()),
-            has_finished: false,
-        });
-    }
-    file_utils::copy_dir_recursive(&src, &dst).await?;
-    info!("Finished importing MultiMC instance");
-    Ok(instance_selection)
-}
-
-fn filter_bytearray(input: String) -> String {
-    // PrismLauncher puts some weird ByteArray
-    // field in the INI config file, that our pookie little ini parser
-    // doesn't understand. So we gotta filter it out.
-    input
-        .lines()
-        .filter(|n| !n.starts_with("mods_Page\\Columns"))
-        .collect::<Vec<_>>()
-        .join("\n")
 }

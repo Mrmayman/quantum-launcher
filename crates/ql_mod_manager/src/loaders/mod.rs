@@ -45,16 +45,16 @@ pub async fn install_specified_loader(
     instance: InstanceSelection,
     loader: Loader,
     progress: Option<Arc<Sender<GenericProgress>>>,
+    specified_version: Option<String>,
 ) -> Result<LoaderInstallResult, String> {
     match loader {
-        // TODO: Progress Bar
         Loader::Fabric => {
-            fabric::install(None, instance, progress.as_deref(), false)
+            fabric::install(specified_version, instance, progress.as_deref(), false)
                 .await
                 .strerr()?;
         }
         Loader::Quilt => {
-            fabric::install(None, instance, progress.as_deref(), true)
+            fabric::install(specified_version, instance, progress.as_deref(), true)
                 .await
                 .strerr()?;
         }
@@ -67,7 +67,10 @@ pub async fn install_specified_loader(
                 });
             }
 
-            forge::install(instance, Some(send), None).await.strerr()?;
+            // TODO: Java install progress
+            forge::install(specified_version, instance, Some(send), None)
+                .await
+                .strerr()?;
         }
         Loader::Neoforge => {
             let (send, recv) = std::sync::mpsc::channel();
@@ -77,6 +80,7 @@ pub async fn install_specified_loader(
                 });
             }
 
+            // TODO: Specified version
             neoforge::install(instance, Some(send), None)
                 .await
                 .strerr()?;
@@ -84,6 +88,7 @@ pub async fn install_specified_loader(
 
         Loader::Paper => {
             debug_assert!(instance.is_server());
+            // TODO: Specified version
             paper::install(instance.get_name().to_owned())
                 .await
                 .strerr()?;

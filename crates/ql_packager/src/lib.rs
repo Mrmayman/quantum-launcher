@@ -1,6 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use ql_core::{IoError, JsonError};
+use ql_mod_manager::loaders::forge::ForgeInstallError;
 use ql_servers::ServerError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -34,6 +35,9 @@ pub enum InstancePackageError {
     Server(#[from] ServerError),
     #[error("{PKG_ERR_PREFIX}while installing packaged loader:\n{0}")]
     Loader(String),
+
+    #[error("{PKG_ERR_PREFIX}{0}")]
+    Forge(#[from] ForgeInstallError),
 
     #[error("{PKG_ERR_PREFIX}while extracting zip:\n{0}")]
     ZipExtract(#[from] ZipExtractError),

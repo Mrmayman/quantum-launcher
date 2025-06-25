@@ -57,6 +57,7 @@ impl ForgeInstaller {
     }
 
     async fn new(
+        forge_version: Option<String>, // example: "11.15.1.2318" for 1.8.9
         f_progress: Option<Sender<ForgeInstallProgress>>,
         instance: InstanceSelection,
     ) -> Result<Self, ForgeInstallError> {
@@ -80,7 +81,11 @@ impl ForgeInstaller {
                 .unwrap();
         }
 
-        let version = get_forge_version(minecraft_version).await?;
+        let version = if let Some(n) = forge_version {
+            n
+        } else {
+            get_forge_version(minecraft_version).await?
+        };
 
         info!("Forge version {version} is being installed");
 
@@ -458,13 +463,18 @@ async fn create_lock_file(instance_dir: &Path) -> Result<(), ForgeInstallError> 
 }
 
 pub async fn install(
+    forge_version: Option<String>, // example: "11.15.1.2318" for 1.8.9
     instance: InstanceSelection,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<GenericProgress>>,
 ) -> Result<(), ForgeInstallError> {
     match instance {
-        InstanceSelection::Instance(name) => install_client(name, f_progress, j_progress).await,
-        InstanceSelection::Server(name) => install_server(name, j_progress, f_progress).await,
+        InstanceSelection::Instance(name) => {
+            install_client(forge_version, name, f_progress, j_progress).await
+        }
+        InstanceSelection::Server(name) => {
+            install_server(forge_version, name, j_progress, f_progress).await
+        }
     }
 }
 
@@ -518,6 +528,7 @@ impl Progress for ForgeInstallProgress {
 }
 
 pub async fn install_client(
+    forge_version: Option<String>,
     instance_name: String,
     f_progress: Option<Sender<ForgeInstallProgress>>,
     j_progress: Option<Sender<GenericProgress>>,
@@ -529,6 +540,7 @@ pub async fn install_client(
     }
 
     let mut installer = ForgeInstaller::new(
+        forge_version,
         f_progress,
         InstanceSelection::Instance(instance_name.clone()),
     )
@@ -555,21 +567,17 @@ pub async fn install_client(
 
     let (forge_json, forge_json_str) = installer.get_forge_json(&installer_file)?;
 
-    let num_libraries = forge_json
+    let libs: Vec<JsonDetailsLibrary> = forge_json
         .libraries
-        .iter()
+        .into_iter()
         .filter(|library| !matches!(library.clientreq, Some(false)))
-        .count();
+        .collect();
+    let num_libraries = libs.len();
 
-    for (library_i, library) in forge_json
-        .libraries
-        .iter()
-        .filter(|library| !matches!(library.clientreq, Some(false)))
-        .enumerate()
-    {
+    for (library_i, library) in libs.into_iter().enumerate() {
         installer
             .download_library(
-                library,
+                &library,
                 library_i,
                 num_libraries,
                 &libraries_dir,
