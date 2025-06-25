@@ -80,12 +80,15 @@ impl Launcher {
                     let instance_name = self.selected_instance.clone().unwrap();
                     let is_quilt = *is_quilt;
                     return Task::perform(
-                        loaders::fabric::install(
-                            Some(loader_version),
-                            instance_name,
-                            Some(sender),
-                            is_quilt,
-                        ),
+                        async move {
+                            loaders::fabric::install(
+                                Some(loader_version),
+                                instance_name,
+                                Some(&sender),
+                                is_quilt,
+                            )
+                            .await
+                        },
                         |m| Message::InstallFabric(InstallFabricMessage::End(m.strerr())),
                     );
                 }

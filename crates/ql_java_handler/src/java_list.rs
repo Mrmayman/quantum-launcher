@@ -165,7 +165,7 @@ impl JavaListJson {
             }
         } else {
             // TODO: Unsupported OS handling.
-            // Some people might play this on Solaris/BSD/Haiku?
+            // Some people might play this on BSD/Haiku?
             return None;
         };
 

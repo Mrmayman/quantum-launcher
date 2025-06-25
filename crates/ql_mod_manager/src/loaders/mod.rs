@@ -1,8 +1,15 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc,
+    },
+};
 
+use forge::ForgeInstallProgress;
 use ql_core::{
-    json::InstanceConfigJson, InstanceSelection, IntoIoError, IntoJsonError, IntoStringError,
-    JsonFileError, Loader,
+    json::InstanceConfigJson, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError,
+    IntoStringError, JsonFileError, Loader, Progress,
 };
 
 pub mod fabric;
@@ -37,20 +44,43 @@ pub enum LoaderInstallResult {
 pub async fn install_specified_loader(
     instance: InstanceSelection,
     loader: Loader,
+    progress: Option<Arc<Sender<GenericProgress>>>,
 ) -> Result<LoaderInstallResult, String> {
     match loader {
         // TODO: Progress Bar
         Loader::Fabric => {
-            fabric::install(None, instance, None, false)
+            fabric::install(None, instance, progress.as_deref(), false)
                 .await
                 .strerr()?;
         }
         Loader::Quilt => {
-            fabric::install(None, instance, None, true).await.strerr()?;
+            fabric::install(None, instance, progress.as_deref(), true)
+                .await
+                .strerr()?;
         }
 
-        Loader::Forge => forge::install(instance, None, None).await.strerr()?,
-        Loader::Neoforge => neoforge::install(instance, None, None).await.strerr()?,
+        Loader::Forge => {
+            let (send, recv) = std::sync::mpsc::channel();
+            if let Some(progress) = progress {
+                std::thread::spawn(|| {
+                    pipe_progress(recv, progress);
+                });
+            }
+
+            forge::install(instance, Some(send), None).await.strerr()?;
+        }
+        Loader::Neoforge => {
+            let (send, recv) = std::sync::mpsc::channel();
+            if let Some(progress) = progress {
+                std::thread::spawn(|| {
+                    pipe_progress(recv, progress);
+                });
+            }
+
+            neoforge::install(instance, Some(send), None)
+                .await
+                .strerr()?;
+        }
 
         Loader::Paper => {
             debug_assert!(instance.is_server());
@@ -66,4 +96,10 @@ pub async fn install_specified_loader(
         }
     }
     Ok(LoaderInstallResult::Ok)
+}
+
+fn pipe_progress(rec: Receiver<ForgeInstallProgress>, snd: Arc<Sender<GenericProgress>>) {
+    for item in rec {
+        _ = snd.send(item.into_generic());
+    }
 }

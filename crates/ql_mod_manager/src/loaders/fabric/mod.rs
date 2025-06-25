@@ -60,7 +60,7 @@ pub async fn get_list_of_versions(
 pub async fn install_server(
     loader_version: String,
     server_name: String,
-    progress: Option<Sender<GenericProgress>>,
+    progress: Option<&Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
@@ -96,7 +96,7 @@ pub async fn install_server(
     let number_of_libraries = json.libraries.len();
     let mut library_files = Vec::new();
     for (i, library) in json.libraries.iter().enumerate() {
-        send_progress(i, library, progress.as_ref(), number_of_libraries);
+        send_progress(i, library, progress, number_of_libraries);
 
         let library_path = libraries_dir.join(library.get_path());
 
@@ -137,7 +137,7 @@ pub async fn install_server(
 pub async fn install_client(
     loader_version: String,
     instance_name: String,
-    progress: Option<Sender<GenericProgress>>,
+    progress: Option<&Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<(), FabricInstallError> {
     let loader_name = if is_quilt { "Quilt" } else { "Fabric" };
@@ -179,7 +179,7 @@ pub async fn install_client(
 
     let number_of_libraries = json.libraries.len();
     for (i, library) in json.libraries.iter().enumerate() {
-        send_progress(i, library, progress.as_ref(), number_of_libraries);
+        send_progress(i, library, progress, number_of_libraries);
 
         let path = libraries_dir.join(library.get_path());
         let url = library.get_url();
@@ -264,7 +264,7 @@ fn send_progress(
 pub async fn install(
     loader_version: Option<String>,
     instance: InstanceSelection,
-    progress: Option<Sender<GenericProgress>>,
+    progress: Option<&Sender<GenericProgress>>,
     is_quilt: bool,
 ) -> Result<bool, FabricInstallError> {
     let loader_version = if let Some(n) = loader_version {

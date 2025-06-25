@@ -1,6 +1,6 @@
 use ql_core::{
     DownloadProgress, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, ListEntry,
-    Loader, err, file_utils, info,
+    Loader, Progress, err, file_utils, info,
     json::{InstanceConfigJson, VersionDetails},
     pt,
 };
@@ -141,7 +141,7 @@ async fn import_quantumlauncher(
     let instance_path = instance.get_instance_path();
 
     if let Ok(loader) = Loader::try_from(config_json.mod_type.as_str()) {
-        ql_mod_manager::loaders::install_specified_loader(instance.clone(), loader)
+        ql_mod_manager::loaders::install_specified_loader(instance.clone(), loader, sender.clone())
             .await
             .map_err(InstancePackageError::Loader)?;
     }
@@ -162,7 +162,7 @@ async fn import_quantumlauncher(
 
 fn pipe_progress(rec: Receiver<DownloadProgress>, snd: Arc<Sender<GenericProgress>>) {
     for item in rec {
-        _ = snd.send(item.into());
+        _ = snd.send(item.into_generic());
     }
 }
 

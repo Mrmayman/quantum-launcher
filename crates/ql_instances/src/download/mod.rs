@@ -10,8 +10,8 @@ use ql_core::{
     file_utils::{self, LAUNCHER_DIR},
     impl_3_errs_jri, info,
     json::{InstanceConfigJson, Manifest, VersionDetails},
-    pt, DownloadFileError, DownloadProgress, GenericProgress, IntoIoError, IntoJsonError, IoError,
-    JsonError, ListEntry, RequestError,
+    pt, DownloadFileError, DownloadProgress, IntoIoError, IntoJsonError, IoError, JsonError,
+    ListEntry, RequestError,
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -138,14 +138,8 @@ impl GameDownloader {
         Ok(())
     }
 
-    pub async fn download_assets(
-        &self,
-        sender: Option<&Sender<GenericProgress>>,
-    ) -> Result<(), DownloadError> {
+    pub async fn download_assets(&self) -> Result<(), DownloadError> {
         info!("Downloading assets");
-        if let Some(sender) = sender {
-            sender.send(GenericProgress::default()).unwrap();
-        }
         let asset_index: AssetIndexMap =
             file_utils::download_file_to_json(&self.version_json.assetIndex.url, false).await?;
 
@@ -195,10 +189,6 @@ impl GameDownloader {
         });
 
         _ = do_jobs(results).await?;
-
-        if let Some(sender) = sender {
-            sender.send(GenericProgress::finished()).unwrap();
-        }
         Ok(())
     }
 

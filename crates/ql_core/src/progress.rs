@@ -75,21 +75,6 @@ impl Default for GenericProgress {
     }
 }
 
-impl From<DownloadProgress> for GenericProgress {
-    fn from(value: DownloadProgress) -> Self {
-        let done = (value.get_num() * 100.0) as usize;
-        let total = (DownloadProgress::total() * 100.0) as usize;
-        let message = value.get_message();
-
-        Self {
-            done,
-            total,
-            message,
-            has_finished: false,
-        }
-    }
-}
-
 impl GenericProgress {
     #[must_use]
     pub fn finished() -> Self {
@@ -106,6 +91,22 @@ pub trait Progress {
     fn get_num(&self) -> f32;
     fn get_message(&self) -> Option<String>;
     fn total() -> f32;
+
+    fn into_generic(self) -> GenericProgress
+    where
+        Self: Sized,
+    {
+        let done = (self.get_num() * 100.0) as usize;
+        let total = (Self::total() * 100.0) as usize;
+        let message = self.get_message();
+
+        GenericProgress {
+            done,
+            total,
+            message,
+            has_finished: false,
+        }
+    }
 }
 
 impl Progress for DownloadProgress {
