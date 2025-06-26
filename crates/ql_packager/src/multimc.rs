@@ -53,7 +53,7 @@ pub async fn import(
             "Forge" => {
                 mmc_forge(&sender, &instance_selection, component).await?;
             }
-            name @ "Fabric" | name @ "Quilt" => {
+            name @ ("Fabric" | "Quilt") => {
                 ql_mod_manager::loaders::fabric::install(
                     Some(component.version.clone()),
                     instance_selection.clone(),

@@ -14,6 +14,7 @@ use ql_core::{
 };
 use zip_extract::ZipExtractError;
 
+#[allow(clippy::wildcard_imports)]
 use crate::download::constants::*;
 
 use super::{DownloadError, GameDownloader};

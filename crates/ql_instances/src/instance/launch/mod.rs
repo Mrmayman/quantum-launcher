@@ -1,10 +1,7 @@
 use crate::mc_auth::AccountData;
 use error::GameLaunchError;
-use ql_core::{info, no_window, GenericProgress};
-use std::{
-    process::Stdio,
-    sync::{mpsc::Sender, Arc, Mutex},
-};
+use ql_core::{info, GenericProgress};
+use std::sync::{mpsc::Sender, Arc, Mutex};
 use tokio::process::Child;
 
 pub(super) mod error;
@@ -68,11 +65,25 @@ pub async fn launch(
         )
         .await?;
 
-    let mut command = game_launcher.get_java_command().await?;
-
     info!("Java args: {java_arguments:?}\n");
 
-    censor(&mut game_arguments, "--clientId", |args| {
+    print_censored_args(auth, &mut game_arguments);
+
+    let mut command = game_launcher
+        .get_command(game_arguments, java_arguments)
+        .await?;
+    let child = command.spawn().map_err(GameLaunchError::CommandError)?;
+
+    if game_launcher.config_json.close_on_start.unwrap_or(false) {
+        ql_core::logger_finish();
+        std::process::exit(0);
+    }
+
+    Ok(Arc::new(Mutex::new(child)))
+}
+
+fn print_censored_args(auth: Option<AccountData>, game_arguments: &mut Vec<String>) {
+    censor(game_arguments, "--clientId", |args| {
         censor(args, "--session", |args| {
             censor(args, "--accessToken", |args| {
                 censor(args, "--uuid", |args| {
@@ -90,73 +101,6 @@ pub async fn launch(
             });
         });
     });
-
-    let n = game_launcher
-        .config_json
-        .java_args
-        .clone()
-        .unwrap_or_default();
-
-    let mut command = command.args(
-        n.iter()
-            .chain(java_arguments.iter())
-            .chain(game_arguments.iter())
-            .chain(
-                game_launcher
-                    .config_json
-                    .game_args
-                    .clone()
-                    .unwrap_or_default()
-                    .iter(),
-            )
-            .filter(|n| !n.is_empty()),
-    );
-    command = if game_launcher.config_json.enable_logger.unwrap_or(true) {
-        command.stdout(Stdio::piped()).stderr(Stdio::piped())
-    } else {
-        command
-    }
-    .current_dir(&game_launcher.minecraft_dir);
-
-    if game_launcher.config_json.enable_logger.unwrap_or(true) {
-        no_window!(command);
-    }
-
-    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-    {
-        use chrono::DateTime;
-        use ql_core::err;
-
-        match (
-            DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
-            // Minecraft 21w19a release date (1.17 snapshot)
-            // Not sure if this is the right place to start,
-            // but the env var started being required sometime between 1.16.5 and 1.17
-            DateTime::parse_from_rfc3339("2021-05-12T11:19:15+00:00"),
-        ) {
-            // On Raspberry Pi (aarch64 linux), the game crashes with some GL
-            // error. But adding this environment variable fixes it.
-            // I don't know if this is the perfect solution though,
-            // contact me if this solution sucks.
-            (Ok(dt), Ok(v1_20)) => {
-                if dt >= v1_20 {
-                    command = command.env("MESA_GL_VERSION_OVERRIDE", "3.3")
-                }
-            }
-            (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
-                err!("Could not parse instance date/time: {e}")
-            }
-        }
-    }
-
-    let child = command.spawn().map_err(GameLaunchError::CommandError)?;
-
-    if game_launcher.config_json.close_on_start.unwrap_or(false) {
-        ql_core::logger_finish();
-        std::process::exit(0);
-    }
-
-    Ok(Arc::new(Mutex::new(child)))
 }
 
 fn censor<F: FnOnce(&mut Vec<String>)>(vec: &mut Vec<String>, argument: &str, code: F) {
