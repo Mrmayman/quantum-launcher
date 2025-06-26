@@ -60,11 +60,11 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]
 
+pub mod auth;
 mod download;
 mod instance;
 mod json_profiles;
 mod launcher_update_detector;
-pub mod mc_auth;
 
 pub use download::{constants::OS_NAME, DownloadError};
 pub use instance::create::create_instance;
@@ -73,10 +73,6 @@ pub use instance::list_versions::list_versions;
 pub use instance::read_log::{read_logs, LogEvent, LogLine, ReadError};
 pub use launcher_update_detector::{
     check_for_launcher_updates, install_launcher_update, UpdateCheckInfo, UpdateError,
-};
-pub use mc_auth::{
-    login_1_link, login_2_wait, login_3_xbox, login_refresh, logout, read_refresh_token,
-    AccountData, AuthCodeResponse, AuthError, AuthTokenResponse, CLIENT_ID,
 };
 pub use ql_core::jarmod;
 pub use ql_java_handler::delete_java_installs;

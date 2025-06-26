@@ -18,7 +18,11 @@ use ql_core::{
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::Command;
 
-use crate::{download::GameDownloader, jarmod, mc_auth::AccountType, AccountData, CLIENT_ID};
+use crate::{
+    auth::{ms::CLIENT_ID, AccountData, AccountType},
+    download::GameDownloader,
+    jarmod,
+};
 
 use super::{error::GameLaunchError, replace_var};
 

@@ -14,7 +14,7 @@ use ql_core::{
     err, json::instance_config::InstanceConfigJson, GenericProgress, InstanceSelection,
     IntoIoError, IntoJsonError, IntoStringError, JsonFileError,
 };
-use ql_instances::{AccountData, ReadError};
+use ql_instances::{auth::AccountData, ReadError};
 use ql_mod_manager::{loaders, store::ModIndex};
 use tokio::process::Child;
 

@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
+use auth::AccountData;
 use iced::Task;
 use ql_core::IntoStringError;
+use ql_instances::auth;
 
 use crate::{
     config::ConfigAccount,
@@ -49,7 +51,7 @@ impl Launcher {
             }
             AccountMessage::LogoutConfirm => {
                 let username = self.accounts_selected.clone().unwrap();
-                if let Err(err) = ql_instances::logout(&username) {
+                if let Err(err) = auth::ms::logout(&username) {
                     self.set_error(err);
                 }
                 if let Some(accounts) = &mut self.config.accounts {
@@ -96,7 +98,7 @@ impl Launcher {
                 is_from_welcome_screen,
             } => {
                 self.state = State::GenericMessage("Loading Login...".to_owned());
-                return Task::perform(ql_instances::login_1_link(), move |n| {
+                return Task::perform(auth::ms::login_1_link(), move |n| {
                     Message::Account(AccountMessage::Response1 {
                         r: n.strerr(),
                         is_from_welcome_screen,
@@ -144,7 +146,7 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn account_refresh(&mut self, account: &ql_instances::AccountData) -> Task<Message> {
+    pub fn account_refresh(&mut self, account: &AccountData) -> Task<Message> {
         let (sender, receiver) = std::sync::mpsc::channel();
 
         self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
@@ -152,12 +154,12 @@ impl Launcher {
         let username = account.username.clone();
         let refresh_token = account.refresh_token.clone();
         Task::perform(
-            ql_instances::login_refresh(username, refresh_token, Some(sender)),
+            auth::ms::login_refresh(username, refresh_token, Some(sender)),
             |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
         )
     }
 
-    fn account_response_3(&mut self, data: ql_instances::AccountData) -> Task<Message> {
+    fn account_response_3(&mut self, data: AccountData) -> Task<Message> {
         self.accounts_dropdown.insert(0, data.username.clone());
 
         if self.config.accounts.is_none() {
@@ -179,20 +181,20 @@ impl Launcher {
         self.go_to_launch_screen::<String>(None)
     }
 
-    fn account_response_2(&mut self, token: ql_instances::AuthTokenResponse) -> Task<Message> {
+    fn account_response_2(&mut self, token: auth::ms::AuthTokenResponse) -> Task<Message> {
         let (sender, receiver) = std::sync::mpsc::channel();
         self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
-        Task::perform(ql_instances::login_3_xbox(token, Some(sender), true), |n| {
+        Task::perform(auth::ms::login_3_xbox(token, Some(sender), true), |n| {
             Message::Account(AccountMessage::Response3(n.strerr()))
         })
     }
 
     fn account_response_1(
         &mut self,
-        code: ql_instances::AuthCodeResponse,
+        code: auth::ms::AuthCodeResponse,
         is_from_welcome_screen: bool,
     ) -> Task<Message> {
-        let (task, handle) = Task::perform(ql_instances::login_2_wait(code.clone()), |n| {
+        let (task, handle) = Task::perform(auth::ms::login_2_wait(code.clone()), |n| {
             Message::Account(AccountMessage::Response2(n.strerr()))
         })
         .abortable();

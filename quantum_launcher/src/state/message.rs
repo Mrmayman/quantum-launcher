@@ -9,7 +9,13 @@ use iced::widget;
 use ql_core::{
     file_utils::DirItem, jarmod::JarMods, InstanceSelection, ListEntry, ModId, StoreBackendType,
 };
-use ql_instances::{AccountData, AuthCodeResponse, AuthTokenResponse, UpdateCheckInfo};
+use ql_instances::{
+    auth::{
+        ms::{AuthCodeResponse, AuthTokenResponse},
+        AccountData,
+    },
+    UpdateCheckInfo,
+};
 use ql_mod_manager::{
     loaders::fabric::FabricVersionListItem,
     store::{CurseforgeNotAllowed, ImageResult, ModIndex, QueryType, RecommendedMod, SearchResult},

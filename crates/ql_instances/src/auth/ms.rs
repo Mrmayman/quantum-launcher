@@ -75,6 +75,10 @@ use serde_json::json;
 use std::collections::HashMap;
 use thiserror::Error;
 
+use crate::auth::AccountType;
+
+use super::AccountData;
+
 /// The API key for logging into Minecraft.
 ///
 /// It's (kinda) safe to leave this public,
@@ -87,31 +91,6 @@ use thiserror::Error;
 /// **Do not use this for any real projects or production code,
 /// outside of this launcher**.
 pub const CLIENT_ID: &str = "43431a16-38f5-4b42-91f9-4bf70c3bee1e";
-
-#[derive(Debug, Clone)]
-pub struct AccountData {
-    pub access_token: Option<String>,
-    pub uuid: String,
-    pub username: String,
-    pub refresh_token: String,
-    pub needs_refresh: bool,
-
-    pub account_type: AccountType,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum AccountType {
-    Microsoft,
-    ElyBy,
-}
-
-impl AccountData {
-    #[must_use]
-    pub fn is_elyby(&self) -> bool {
-        let account_type = self.account_type;
-        matches!(account_type, AccountType::ElyBy)
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct AuthCodeResponse {

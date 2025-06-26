@@ -1,4 +1,4 @@
-use crate::mc_auth::AccountData;
+use crate::auth::AccountData;
 use error::GameLaunchError;
 use ql_core::{info, GenericProgress};
 use std::sync::{mpsc::Sender, Arc, Mutex};

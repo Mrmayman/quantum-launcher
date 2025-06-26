@@ -10,7 +10,10 @@ use ql_core::{
     err, file_utils, GenericProgress, InstanceSelection, IntoIoError, IntoStringError,
     JsonFileError, ListEntry, Progress, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
-use ql_instances::{mc_auth::AccountType, AccountData, LogLine, CLIENT_ID};
+use ql_instances::{
+    auth::{ms::CLIENT_ID, AccountData, AccountType},
+    LogLine,
+};
 use tokio::process::{Child, ChildStdin};
 
 use crate::{
@@ -129,7 +132,7 @@ impl Launcher {
 
         if let Some(config_accounts) = &config.accounts {
             for (username, account) in config_accounts {
-                match ql_instances::read_refresh_token(username) {
+                match ql_instances::auth::ms::read_refresh_token(username) {
                     Ok(refresh_token) => {
                         let account_type = match account.account_type.as_deref() {
                             Some("ElyBy") => AccountType::ElyBy,

@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use ql_core::{json::VersionDetails, IoError, JsonFileError};
 
-use crate::{download::DownloadError, jarmod::JarModError, mc_auth::AuthError};
+use crate::{auth::ms::AuthError, download::DownloadError, jarmod::JarModError};
 
 const GAME_ERR_PREFIX: &str = "while launching game:\n";
 
