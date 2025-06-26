@@ -243,36 +243,34 @@ impl MenuLauncherSettings {
                 widget::container(
                     widget::column!(
                         widget::row![
-                            button_with_icon(icon_manager::page(), "View Changelog", 16)
-                                .on_press(Message::CoreOpenChangeLog),
-                            button_with_icon(icon_manager::page(), "View Intro", 16)
-                                .on_press(Message::CoreOpenIntro),
+                            widget::button("Changelog").on_press(Message::CoreOpenChangeLog),
+                            widget::button("Welcome Screen").on_press(Message::CoreOpenIntro),
                         ].spacing(5).wrap(),
                         widget::row![
-                            button_with_icon(icon_manager::page(), "Open Website", 16).on_press(
+                            button_with_icon(icon_manager::page(), "Website", 16).on_press(
                                 Message::CoreOpenLink(
                                     "https://mrmayman.github.io/quantumlauncher".to_owned()
                                 )
                             ),
-                            button_with_icon(icon_manager::github(), "Open Github Repo", 16).on_press(
+                            button_with_icon(icon_manager::github(), "Github", 16).on_press(
                                 Message::CoreOpenLink(
                                     GITHUB.to_owned()
                                 )
                             ),
-                            button_with_icon(icon_manager::chat(), "Join our Discord", 16).on_press(
+                            button_with_icon(icon_manager::chat(), "Discord", 16).on_press(
                                 Message::CoreOpenLink(DISCORD.to_owned())
                             ),
                         ].spacing(5).wrap(),
                         widget::column![
-                            widget::text("QuantumLauncher is free and open source software under the GNU GPLv3 license.").size(12),
-                            widget::text("No warranty is provided for this software.").size(12),
-                            widget::text("You're free to share, modify, and redistribute it under the same license.").size(12),
+                            widget::text(r"QuantumLauncher is free and open source software under the GNU GPLv3 license.
+No warranty is provided for this software.
+You're free to share, modify, and redistribute it under the same license.").size(12),
                             widget::button("View License").on_press(
                                 Message::CoreOpenLink("https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned())
                             ),
                         ].spacing(5),
-                        "If you like this launcher, consider sharing it with your friends.",
-                        "Every new user motivates me to keep working on this :)"
+                        widget::text(r"If you like this launcher, consider sharing it with your friends.
+Every new user motivates me to keep working on this :)").size(12)
                     )
                     .padding(10)
                     .spacing(10)
