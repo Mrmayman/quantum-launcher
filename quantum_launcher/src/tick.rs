@@ -125,11 +125,9 @@ impl Launcher {
                     progress.tick();
                 }
             }
-            State::AccountLoginProgress(progress) | State::ImportModpack(progress) => {
-                progress.tick();
-            }
-
-            State::ExportInstance(MenuExportInstance {
+            State::AccountLoginProgress(progress)
+            | State::ImportModpack(progress)
+            | State::ExportInstance(MenuExportInstance {
                 progress: Some(progress),
                 ..
             }) => {
@@ -429,8 +427,7 @@ impl MenuEditMods {
 impl MenuCreateInstance {
     pub fn tick(&mut self) {
         match self {
-            MenuCreateInstance::LoadingList { .. } => {}
-            MenuCreateInstance::Choosing { .. } => {}
+            MenuCreateInstance::LoadingList { .. } | MenuCreateInstance::Choosing { .. } => {}
             MenuCreateInstance::DownloadingInstance(progress) => {
                 progress.tick();
             }

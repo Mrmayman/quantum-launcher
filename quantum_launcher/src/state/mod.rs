@@ -133,7 +133,7 @@ impl Launcher {
                     Ok(refresh_token) => {
                         let account_type = match account.account_type.as_deref() {
                             Some("ElyBy") => AccountType::ElyBy,
-                            Some("Microsoft") | Some(_) | None => AccountType::Microsoft,
+                            Some(_) | None => AccountType::Microsoft,
                         };
                         accounts_dropdown.insert(0, username.clone());
                         accounts.insert(

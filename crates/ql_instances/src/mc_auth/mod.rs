@@ -106,6 +106,7 @@ pub enum AccountType {
 }
 
 impl AccountData {
+    #[must_use]
     pub fn is_elyby(&self) -> bool {
         let account_type = self.account_type;
         matches!(account_type, AccountType::ElyBy)

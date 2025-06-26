@@ -18,13 +18,13 @@ pub const EXCEPTIONS: &[&str] = &[
 fn create_instance_info(
     instance: &InstanceSelection,
     mut exceptions: HashSet<String>,
-) -> Result<InstanceInfo, InstancePackageError> {
+) -> InstanceInfo {
     exceptions.extend(EXCEPTIONS.iter().map(|n| (*n).to_owned()));
-    Ok(InstanceInfo {
+    InstanceInfo {
         instance_name: instance.get_name().to_owned(),
         exceptions,
         is_server: instance.is_server(),
-    })
+    }
 }
 
 /// Exports a Minecraft instance by copying its files to a temporary directory,
@@ -64,7 +64,7 @@ pub async fn export_instance(
     progress: Option<Sender<GenericProgress>>,
 ) -> Result<Vec<u8>, InstancePackageError> {
     info!("Exporting instance...");
-    let export_config = create_instance_info(&instance, exceptions)?;
+    let export_config = create_instance_info(&instance, exceptions);
     // println!("{:?}",export_config);
 
     pt!(

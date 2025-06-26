@@ -141,7 +141,7 @@ fn expect_got_modrinth(index_json: &PackIndex, config: &InstanceConfigJson) -> P
         .map(|loader| {
             loader
                 .strip_suffix("-loader")
-                .map(|n| n.to_owned())
+                .map(str::to_owned)
                 .unwrap_or(loader)
         })
         .next()

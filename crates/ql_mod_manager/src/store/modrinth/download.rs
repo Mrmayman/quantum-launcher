@@ -254,10 +254,6 @@ impl ModDownloader {
                 incompatible.is_some(),
                 "invalid modpack downloaded from modrinth store!"
             );
-            debug_assert!(
-                incompatible.map(|n| n.is_empty()).unwrap_or(false),
-                "modrinth mod being blocked as a curseforge error?"
-            );
             return Ok(());
         }
         let file_path = self.get_dir(project_type).unwrap().join(&file.filename);

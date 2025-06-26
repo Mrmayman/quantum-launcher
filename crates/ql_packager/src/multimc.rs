@@ -47,11 +47,11 @@ pub async fn import(
     for component in &mmc_pack.components {
         match component.cachedName.as_str() {
             "Minecraft" => {
-                mmc_minecraft(download_assets, &sender, &instance_name, component).await?;
+                mmc_minecraft(download_assets, sender.clone(), &instance_name, component).await?;
             }
 
             "Forge" => {
-                mmc_forge(&sender, &instance_selection, component).await?;
+                mmc_forge(sender.clone(), &instance_selection, component).await?;
             }
             name @ ("Fabric" | "Quilt") => {
                 ql_mod_manager::loaders::fabric::install(
@@ -95,7 +95,7 @@ pub async fn import(
 
 async fn mmc_minecraft(
     download_assets: bool,
-    sender: &Option<Arc<Sender<GenericProgress>>>,
+    sender: Option<Arc<Sender<GenericProgress>>>,
     instance_name: &str,
     component: &MmcPackComponent,
 ) -> Result<(), InstancePackageError> {
@@ -120,7 +120,7 @@ async fn mmc_minecraft(
 }
 
 async fn mmc_forge(
-    sender: &Option<Arc<Sender<GenericProgress>>>,
+    sender: Option<Arc<Sender<GenericProgress>>>,
     instance_selection: &InstanceSelection,
     component: &MmcPackComponent,
 ) -> Result<(), InstancePackageError> {
