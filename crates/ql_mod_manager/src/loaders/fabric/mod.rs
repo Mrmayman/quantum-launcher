@@ -1,6 +1,5 @@
 use std::{path::Path, sync::mpsc::Sender};
 
-use error::FabricInstallError;
 use ql_core::{
     file_utils, info,
     json::{FabricJSON, VersionDetails},
@@ -12,6 +11,7 @@ use version_compare::compare_versions;
 use super::change_instance_type;
 
 mod error;
+pub use error::FabricInstallError;
 mod make_launch_jar;
 mod uninstall;
 pub use uninstall::{uninstall, uninstall_client, uninstall_server};

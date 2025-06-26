@@ -22,7 +22,7 @@ async fn change_instance_type(
     instance_dir: &Path,
     instance_type: String,
 ) -> Result<(), JsonFileError> {
-    let mut config = InstanceConfigJson::read_from_path(instance_dir).await?;
+    let mut config = InstanceConfigJson::read_from_dir(instance_dir).await?;
 
     config.mod_type = instance_type;
 

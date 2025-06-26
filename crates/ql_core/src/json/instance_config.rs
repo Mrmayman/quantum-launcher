@@ -134,7 +134,7 @@ impl InstanceConfigJson {
     /// - `dir`/`config.json` doesn't exist or isn't a file
     /// - `config.json` file couldn't be loaded
     /// - `config.json` couldn't be parsed into valid JSON
-    pub async fn read_from_path(dir: &Path) -> Result<Self, JsonFileError> {
+    pub async fn read_from_dir(dir: &Path) -> Result<Self, JsonFileError> {
         let config_json_path = dir.join("config.json");
         let config_json = tokio::fs::read_to_string(&config_json_path)
             .await
@@ -149,6 +149,30 @@ impl InstanceConfigJson {
     /// - `config.json` file couldn't be loaded
     /// - `config.json` couldn't be parsed into valid JSON
     pub async fn read(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        Self::read_from_path(&instance.get_instance_path()).await
+        Self::read_from_dir(&instance.get_instance_path()).await
+    }
+
+    /// Saves the launcher-specific instance configuration to disk,
+    /// based on a path to the root of the instance directory.
+    ///
+    /// # Errors
+    /// - `config.json` file couldn't be written to
+    pub async fn save_to_dir(&self, dir: &Path) -> Result<(), JsonFileError> {
+        let config_json_path = dir.join("config.json");
+        let config_json = serde_json::to_string_pretty(self).json_to()?;
+        tokio::fs::write(&config_json_path, config_json)
+            .await
+            .path(config_json_path)?;
+        Ok(())
+    }
+
+    /// Saves the launcher-specific instance configuration to disk,
+    /// based on a specific `InstanceSelection`
+    ///
+    /// # Errors
+    /// - `config.json` file couldn't be written to
+    /// - `self` couldn't be serialized into valid JSON
+    pub async fn save(&self, instance: &InstanceSelection) -> Result<(), JsonFileError> {
+        self.save_to_dir(&instance.get_instance_path()).await
     }
 }
