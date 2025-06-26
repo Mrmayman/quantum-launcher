@@ -150,15 +150,22 @@ pub enum EditPresetsMessage {
 #[derive(Debug, Clone)]
 pub enum AccountMessage {
     Selected(String),
-    Response1(Res<AuthCodeResponse>),
+    Response1 {
+        r: Res<AuthCodeResponse>,
+        is_from_welcome_screen: bool,
+    },
     Response2(Res<AuthTokenResponse>),
     Response3(Res<AccountData>),
     LogoutCheck,
     LogoutConfirm,
     RefreshComplete(Res<AccountData>),
 
-    OpenMicrosoft,
-    OpenElyBy,
+    OpenMicrosoft {
+        is_from_welcome_screen: bool,
+    },
+    OpenElyBy {
+        is_from_welcome_screen: bool,
+    },
 
     ElyByUsernameInput(String),
     ElyByPasswordInput(String),
@@ -180,8 +187,8 @@ pub enum Message {
     #[allow(unused)]
     Nothing,
 
-    WelcomeContinue1,
-    WelcomeContinue2,
+    WelcomeContinueToTheme,
+    WelcomeContinueToAuth,
 
     Account(AccountMessage),
     CreateInstance(CreateInstanceMessage),

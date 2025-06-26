@@ -6,8 +6,8 @@ use ql_core::IntoStringError;
 use crate::{
     config::ConfigAccount,
     state::{
-        AccountMessage, Launcher, MenuElyByLogin, Message, ProgressBar, State, NEW_ACCOUNT_NAME,
-        OFFLINE_ACCOUNT_NAME,
+        AccountMessage, Launcher, MenuLoginElyBy, MenuLoginMS, Message, ProgressBar, State,
+        NEW_ACCOUNT_NAME, OFFLINE_ACCOUNT_NAME,
     },
 };
 
@@ -17,14 +17,17 @@ impl Launcher {
             AccountMessage::Selected(account) => {
                 return self.account_selected(account);
             }
-            AccountMessage::Response1(Err(err))
+            AccountMessage::Response1 { r: Err(err), .. }
             | AccountMessage::Response2(Err(err))
             | AccountMessage::Response3(Err(err))
             | AccountMessage::RefreshComplete(Err(err)) => {
                 self.set_error(err);
             }
-            AccountMessage::Response1(Ok(code)) => {
-                return self.account_response_1(code);
+            AccountMessage::Response1 {
+                r: Ok(code),
+                is_from_welcome_screen,
+            } => {
+                return self.account_response_1(code, is_from_welcome_screen);
             }
             AccountMessage::Response2(Ok(token)) => {
                 return self.account_response_2(token);
@@ -89,34 +92,42 @@ impl Launcher {
                 ]);
             }
 
-            AccountMessage::OpenMicrosoft => {
+            AccountMessage::OpenMicrosoft {
+                is_from_welcome_screen,
+            } => {
                 self.state = State::GenericMessage("Loading Login...".to_owned());
-                return Task::perform(ql_instances::login_1_link(), |n| {
-                    Message::Account(AccountMessage::Response1(n.strerr()))
+                return Task::perform(ql_instances::login_1_link(), move |n| {
+                    Message::Account(AccountMessage::Response1 {
+                        r: n.strerr(),
+                        is_from_welcome_screen,
+                    })
                 });
             }
-            AccountMessage::OpenElyBy => {
-                self.state = State::ElyByLogin(MenuElyByLogin {
+            AccountMessage::OpenElyBy {
+                is_from_welcome_screen,
+            } => {
+                self.state = State::LoginElyBy(MenuLoginElyBy {
                     username: String::new(),
                     password: String::new(),
                     is_loading: false,
                     status: None,
                     show_password: false,
+                    is_from_welcome_screen,
                 });
             }
 
             AccountMessage::ElyByUsernameInput(username) => {
-                if let State::ElyByLogin(menu) = &mut self.state {
+                if let State::LoginElyBy(menu) = &mut self.state {
                     menu.username = username;
                 }
             }
             AccountMessage::ElyByPasswordInput(password) => {
-                if let State::ElyByLogin(menu) = &mut self.state {
+                if let State::LoginElyBy(menu) = &mut self.state {
                     menu.password = password;
                 }
             }
             AccountMessage::ElyByShowPassword(t) => {
-                if let State::ElyByLogin(menu) = &mut self.state {
+                if let State::LoginElyBy(menu) = &mut self.state {
                     menu.show_password = t;
                 }
             }
@@ -176,17 +187,22 @@ impl Launcher {
         })
     }
 
-    fn account_response_1(&mut self, code: ql_instances::AuthCodeResponse) -> Task<Message> {
+    fn account_response_1(
+        &mut self,
+        code: ql_instances::AuthCodeResponse,
+        is_from_welcome_screen: bool,
+    ) -> Task<Message> {
         let (task, handle) = Task::perform(ql_instances::login_2_wait(code.clone()), |n| {
             Message::Account(AccountMessage::Response2(n.strerr()))
         })
         .abortable();
 
-        self.state = State::MSAccountLogin {
+        self.state = State::LoginMS(MenuLoginMS {
             url: code.verification_uri,
             code: code.user_code,
+            is_from_welcome_screen,
             _cancel_handle: handle.abort_on_drop(),
-        };
+        });
 
         task
     }

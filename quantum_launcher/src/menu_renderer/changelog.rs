@@ -8,7 +8,7 @@ use iced::{
 use crate::{
     config::LauncherConfig,
     icon_manager,
-    state::{AccountMessage, MenuWelcome, Message, NEW_ACCOUNT_NAME},
+    state::{AccountMessage, MenuWelcome, Message},
 };
 
 use super::{button_with_icon, center_x, get_themes_and_styles, Element, DISCORD};
@@ -231,7 +231,7 @@ impl MenuWelcome {
                 widget::vertical_space(),
                 center_x(widget::image(IMG_LOGO.clone()).width(200)),
                 center_x(widget::text("Welcome to QuantumLauncher!").size(20)),
-                center_x(widget::button("Get Started").on_press(Message::WelcomeContinue1)),
+                center_x(widget::button("Get Started").on_press(Message::WelcomeContinueToTheme)),
                 widget::vertical_space(),
             ]
             .align_x(iced::alignment::Horizontal::Center)
@@ -263,7 +263,7 @@ impl MenuWelcome {
                             .on_press(Message::CoreOpenLink(DISCORD.to_owned()))
                     ),
                     widget::Space::with_height(5),
-                    center_x(widget::button("Continue").on_press(Message::WelcomeContinue2)),
+                    center_x(widget::button("Continue").on_press(Message::WelcomeContinueToAuth)),
                     widget::vertical_space(),
                 ]
                 .spacing(10)
@@ -286,14 +286,21 @@ impl MenuWelcome {
                             }
                         ))
                 ),
-                widget::Space::with_height(10),
+                widget::Space::with_height(7),
                 center_x(widget::text("OR").size(20)),
-                widget::Space::with_height(10),
+                widget::Space::with_height(7),
                 center_x(
                     widget::button("Login to Microsoft").on_press(Message::Account(
-                        AccountMessage::Selected(NEW_ACCOUNT_NAME.to_owned())
+                        AccountMessage::OpenMicrosoft {
+                            is_from_welcome_screen: true
+                        }
                     ))
                 ),
+                center_x(widget::button("Login to ely.by").on_press(Message::Account(
+                    AccountMessage::OpenElyBy {
+                        is_from_welcome_screen: true
+                    }
+                ))),
                 widget::vertical_space(),
             ]
             .spacing(5)

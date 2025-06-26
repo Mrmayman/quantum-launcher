@@ -329,13 +329,22 @@ pub struct MenuExportInstance {
     pub progress: Option<ProgressBar<GenericProgress>>,
 }
 
-pub struct MenuElyByLogin {
+pub struct MenuLoginElyBy {
     pub username: String,
     pub password: String,
     pub show_password: bool,
 
     pub is_loading: bool,
     pub status: Option<String>,
+
+    pub is_from_welcome_screen: bool,
+}
+
+pub struct MenuLoginMS {
+    pub url: String,
+    pub code: String,
+    pub is_from_welcome_screen: bool,
+    pub _cancel_handle: iced::task::Handle,
 }
 
 /// The enum that represents which menu is opened currently.
@@ -366,12 +375,8 @@ pub enum State {
     GenericMessage(String),
 
     AccountLoginProgress(ProgressBar<GenericProgress>),
-    MSAccountLogin {
-        url: String,
-        code: String,
-        _cancel_handle: iced::task::Handle,
-    },
-    ElyByLogin(MenuElyByLogin),
+    LoginMS(MenuLoginMS),
+    LoginElyBy(MenuLoginElyBy),
     AccountLogin,
 
     InstallPaper,

@@ -38,10 +38,10 @@ impl Launcher {
             | Message::ServerManageEndedLog(Err(err))
             | Message::CoreListLoaded(Err(err)) => self.set_error(err),
 
-            Message::WelcomeContinue1 => {
+            Message::WelcomeContinueToTheme => {
                 self.state = State::Welcome(MenuWelcome::P2Theme);
             }
-            Message::WelcomeContinue2 => {
+            Message::WelcomeContinueToAuth => {
                 self.state = State::Welcome(MenuWelcome::P3Auth);
             }
 

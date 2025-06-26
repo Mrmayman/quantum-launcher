@@ -7,9 +7,9 @@ use iced::{
 use ql_core::{err, info, info_no_log, jarmod::JarMod, InstanceSelection};
 
 use crate::state::{
-    Launcher, MenuCreateInstance, MenuEditMods, MenuElyByLogin, MenuExportInstance,
-    MenuInstallFabric, MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, MenuServerCreate,
-    Message, State,
+    Launcher, MenuCreateInstance, MenuEditMods, MenuExportInstance, MenuInstallFabric,
+    MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, MenuLoginElyBy, MenuLoginMS,
+    MenuServerCreate, Message, State,
 };
 
 use super::{SIDEBAR_DRAG_LEEWAY, SIDEBAR_LIMIT_LEFT, SIDEBAR_LIMIT_RIGHT};
@@ -241,10 +241,10 @@ impl Launcher {
             | State::Error { .. }
             | State::UpdateFound(MenuLauncherUpdate { progress: None, .. })
             | State::LauncherSettings(_)
-            | State::MSAccountLogin { .. }
+            | State::LoginMS(MenuLoginMS { .. })
             | State::AccountLogin
             | State::ExportInstance(MenuExportInstance { progress: None, .. })
-            | State::ElyByLogin(MenuElyByLogin {
+            | State::LoginElyBy(MenuLoginElyBy {
                 is_loading: false, ..
             })
             | State::Welcome(_) => {
@@ -286,7 +286,7 @@ impl Launcher {
             | State::AccountLoginProgress(_)
             | State::ImportModpack(_)
             | State::CurseforgeManualDownload(_)
-            | State::ElyByLogin(_)
+            | State::LoginElyBy(_)
             | State::Launch(_) => {}
         }
 

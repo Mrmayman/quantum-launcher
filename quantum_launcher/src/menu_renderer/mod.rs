@@ -6,8 +6,9 @@ use crate::{
     icon_manager,
     state::{
         AccountMessage, CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage,
-        ManageModsMessage, MenuCreateInstance, MenuCurseforgeManualDownload, MenuElyByLogin,
-        MenuLauncherSettings, MenuLauncherUpdate, MenuServerCreate, Message, ProgressBar,
+        ManageModsMessage, MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherSettings,
+        MenuLauncherUpdate, MenuLoginElyBy, MenuLoginMS, MenuServerCreate, Message, ProgressBar,
+        NEW_ACCOUNT_NAME,
     },
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -341,30 +342,34 @@ impl<T: Progress> ProgressBar<T> {
     }
 }
 
-pub fn view_account_login<'a>(url: &'a str, code: &'a str) -> Element<'a> {
-    widget::column![
-        back_button().on_press(Message::LaunchScreenOpen {
-            message: None,
-            clear_selection: false
-        }),
-        widget::row!(
-            widget::horizontal_space(),
-            widget::column!(
-                widget::vertical_space(),
-                widget::text("Login to Microsoft").size(20),
-                "Open this link and enter the code:",
-                widget::text!("Code: {code}"),
-                widget::button("Copy").on_press(Message::CoreCopyText(code.to_owned())),
-                widget::text!("Link: {url}"),
-                widget::button("Open").on_press(Message::CoreOpenLink(url.to_owned())),
-                widget::vertical_space(),
+impl MenuLoginMS {
+    pub fn view<'a>(&self) -> Element<'a> {
+        widget::column![
+            back_button().on_press(if self.is_from_welcome_screen {
+                Message::WelcomeContinueToAuth
+            } else {
+                Message::Account(AccountMessage::Selected(NEW_ACCOUNT_NAME.to_owned()))
+            }),
+            widget::row!(
+                widget::horizontal_space(),
+                widget::column!(
+                    widget::vertical_space(),
+                    widget::text("Login to Microsoft").size(20),
+                    "Open this link and enter the code:",
+                    widget::text!("Code: {}", self.code),
+                    widget::button("Copy").on_press(Message::CoreCopyText(self.code.clone())),
+                    widget::text!("Link: {}", self.url),
+                    widget::button("Open").on_press(Message::CoreOpenLink(self.url.clone())),
+                    widget::vertical_space(),
+                )
+                .spacing(5)
+                .align_x(iced::Alignment::Center),
+                widget::horizontal_space()
             )
-            .spacing(5)
-            .align_x(iced::Alignment::Center),
-            widget::horizontal_space()
-        )
-    ]
-    .into()
+        ]
+        .padding(10)
+        .into()
+    }
 }
 
 impl MenuCurseforgeManualDownload {
@@ -452,7 +457,7 @@ impl MenuServerCreate {
     }
 }
 
-impl MenuElyByLogin {
+impl MenuLoginElyBy {
     pub fn view(&self, tick_timer: usize) -> Element {
         let status: Element = if self.is_loading {
             let dots = ".".repeat((tick_timer % 3) + 1);
@@ -480,9 +485,10 @@ impl MenuElyByLogin {
         };
 
         widget::column![
-            back_button().on_press(Message::LaunchScreenOpen {
-                message: None,
-                clear_selection: false
+            back_button().on_press(if self.is_from_welcome_screen {
+                Message::WelcomeContinueToAuth
+            } else {
+                Message::Account(AccountMessage::Selected(NEW_ACCOUNT_NAME.to_owned()))
             }),
             widget::row![
                 widget::horizontal_space(),

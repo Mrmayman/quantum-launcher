@@ -14,8 +14,8 @@ use ql_mod_manager::store::{ModConfig, ModIndex};
 use crate::state::{
     EditInstanceMessage, ImageState, InstallModsMessage, InstanceLog, LaunchTabId, Launcher,
     ManageJarModsMessage, MenuCreateInstance, MenuEditMods, MenuEditPresetsInner,
-    MenuExportInstance, MenuInstallFabric, MenuLaunch, MenuModsDownload, MenuServerCreate, Message,
-    ModListEntry, ServerProcess, State,
+    MenuExportInstance, MenuInstallFabric, MenuLaunch, MenuLoginMS, MenuModsDownload,
+    MenuServerCreate, Message, ModListEntry, ServerProcess, State,
 };
 
 impl Launcher {
@@ -136,13 +136,13 @@ impl Launcher {
 
             // These menus don't require background ticking
             State::Error { .. }
-            | State::ElyByLogin(_)
+            | State::LoginElyBy(_)
             | State::AccountLogin
             | State::ExportInstance(_)
             | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::Welcome(_)
-            | State::MSAccountLogin { .. }
+            | State::LoginMS(MenuLoginMS { .. })
             | State::GenericMessage(_)
             | State::CurseforgeManualDownload(_)
             | State::InstallPaper => {}
