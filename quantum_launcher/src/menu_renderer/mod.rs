@@ -296,6 +296,7 @@ fn get_themes_and_styles(config: &LauncherConfig) -> (Element, Element) {
         "Purple".to_owned(),
         "Sky Blue".to_owned(),
         "Catppuccin".to_owned(),
+        "Teal".to_owned(),
     ];
 
     let theme_list = widget::pick_list(themes, config.theme.clone(), |n| {

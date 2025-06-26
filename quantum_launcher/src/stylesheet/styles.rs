@@ -4,7 +4,7 @@ use iced::widget;
 use ql_core::err;
 
 use super::{
-    color::{Color, BROWN, CATPPUCCIN, PURPLE, SKY_BLUE},
+    color::{Color, BROWN, CATPPUCCIN, PURPLE, SKY_BLUE, TEAL},
     widgets::{IsFlat, StyleButton, StyleScrollable},
 };
 
@@ -18,6 +18,7 @@ pub enum LauncherThemeColor {
     Purple,
     SkyBlue,
     Catppuccin,
+    Teal,
 }
 
 impl Display for LauncherThemeColor {
@@ -30,6 +31,7 @@ impl Display for LauncherThemeColor {
                 LauncherThemeColor::Purple => "Purple",
                 LauncherThemeColor::SkyBlue => "Sky Blue",
                 LauncherThemeColor::Catppuccin => "Catppuccin",
+                LauncherThemeColor::Teal => "Teal",
             },
         )
     }
@@ -44,6 +46,7 @@ impl FromStr for LauncherThemeColor {
             "Purple" => LauncherThemeColor::Purple,
             "Sky Blue" => LauncherThemeColor::SkyBlue,
             "Catppuccin" => LauncherThemeColor::Catppuccin,
+            "Teal" => LauncherThemeColor::Teal,
             _ => {
                 err!("Unknown style: {s:?}");
                 LauncherThemeColor::default()
@@ -75,13 +78,21 @@ impl LauncherTheme {
         palette.get(color)
     }
 
-    fn get_base(&self, invert: bool, color: Color) -> (&super::color::Pallete, Color) {
+    fn get_base(&self, invert: bool, mut color: Color) -> (&super::color::Pallete, Color) {
         let palette = match self.color {
             LauncherThemeColor::Brown => &BROWN,
             LauncherThemeColor::Purple => &PURPLE,
             LauncherThemeColor::SkyBlue => &SKY_BLUE,
             LauncherThemeColor::Catppuccin => &CATPPUCCIN,
+            LauncherThemeColor::Teal => &TEAL,
         };
+        if let LauncherThemeLightness::Light = self.lightness {
+            if let Color::ExtraDark = color {
+                color = Color::Dark;
+            } else if let Color::Dark = color {
+                color = Color::ExtraDark;
+            }
+        }
         let color = if invert {
             match self.lightness {
                 LauncherThemeLightness::Dark => color,
