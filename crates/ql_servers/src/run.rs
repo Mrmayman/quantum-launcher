@@ -39,7 +39,7 @@ pub async fn run(
 ) -> Result<(Arc<Mutex<Child>>, bool), ServerError> {
     let server_dir = LAUNCHER_DIR.join("servers").join(name);
 
-    let config_json = InstanceConfigJson::read_from_path(&server_dir).await?;
+    let config_json = InstanceConfigJson::read_from_dir(&server_dir).await?;
 
     let server_jar_path = if config_json.mod_type == "Fabric" || config_json.mod_type == "Quilt" {
         server_dir.join("fabric-server-launch.jar")

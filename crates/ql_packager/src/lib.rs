@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
-use ql_core::{IoError, JsonError};
-use ql_mod_manager::loaders::forge::ForgeInstallError;
+use ql_core::{IoError, JsonError, JsonFileError};
+use ql_mod_manager::loaders::{fabric::FabricInstallError, forge::ForgeInstallError};
 use ql_servers::ServerError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -38,6 +38,8 @@ pub enum InstancePackageError {
 
     #[error("{PKG_ERR_PREFIX}{0}")]
     Forge(#[from] ForgeInstallError),
+    #[error("{PKG_ERR_PREFIX}{0}")]
+    Fabric(#[from] FabricInstallError),
 
     #[error("{PKG_ERR_PREFIX}while extracting zip:\n{0}")]
     ZipExtract(#[from] ZipExtractError),
@@ -52,6 +54,15 @@ pub enum InstancePackageError {
     Ini(#[from] ini::ParseError),
     #[error("{PKG_ERR_PREFIX}in ini file:\nentry {1:?} of section {0:?} is missing!")]
     IniFieldMissing(String, String),
+}
+
+impl From<JsonFileError> for InstancePackageError {
+    fn from(value: JsonFileError) -> Self {
+        match value {
+            JsonFileError::SerdeError(err) => Self::Json(err),
+            JsonFileError::Io(err) => Self::Io(err),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

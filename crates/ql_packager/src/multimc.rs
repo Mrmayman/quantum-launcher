@@ -6,7 +6,7 @@ use std::{
 use crate::{InstancePackageError, import::OUT_OF, import::pipe_progress};
 use ql_core::{
     GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, ListEntry, err, file_utils,
-    info,
+    info, json::InstanceConfigJson,
 };
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -47,43 +47,22 @@ pub async fn import(
     for component in &mmc_pack.components {
         match component.cachedName.as_str() {
             "Minecraft" => {
-                let version = ListEntry {
-                    name: component.version.clone(),
-                    is_classic_server: false,
-                };
-
-                let (d_send, d_recv) = std::sync::mpsc::channel();
-
-                if let Some(sender) = sender.clone() {
-                    std::thread::spawn(|| {
-                        pipe_progress(d_recv, sender);
-                    });
-                }
-
-                ql_instances::create_instance(
-                    instance_name.clone(),
-                    version,
-                    Some(d_send),
-                    download_assets,
-                )
-                .await?;
+                mmc_minecraft(download_assets, &sender, &instance_name, component).await?;
             }
-            "Forge" => {
-                let (f_send, f_recv) = std::sync::mpsc::channel();
-                if let Some(sender) = sender.clone() {
-                    std::thread::spawn(|| {
-                        pipe_progress(f_recv, sender);
-                    });
-                }
 
-                ql_mod_manager::loaders::forge::install(
+            "Forge" => {
+                mmc_forge(&sender, &instance_selection, component).await?;
+            }
+            name @ "Fabric" | name @ "Quilt" => {
+                ql_mod_manager::loaders::fabric::install(
                     Some(component.version.clone()),
                     instance_selection.clone(),
-                    Some(f_send),
-                    None, // TODO: Java install progress
+                    sender.as_deref(),
+                    name == "Quilt",
                 )
                 .await?;
             }
+
             "LWJGL 2" | "LWJGL 3" => {}
             name => err!("Unknown component (in MultiMC instance): {name}"),
         }
@@ -102,8 +81,63 @@ pub async fn import(
         }
         file_utils::copy_dir_recursive(&src, &dst).await?;
     }
+
+    let mut config = InstanceConfigJson::read(&instance_selection).await?;
+    if let Some(jvmargs) = ini.get_from(Some("General"), "JvmArgs") {
+        let mut java_args = config.java_args.clone().unwrap_or_default();
+        java_args.extend(jvmargs.split_whitespace().map(str::to_owned));
+        config.java_args = Some(java_args);
+    }
+    config.save(&instance_selection).await?;
     info!("Finished importing MultiMC instance");
     Ok(instance_selection)
+}
+
+async fn mmc_minecraft(
+    download_assets: bool,
+    sender: &Option<Arc<Sender<GenericProgress>>>,
+    instance_name: &str,
+    component: &MmcPackComponent,
+) -> Result<(), InstancePackageError> {
+    let version = ListEntry {
+        name: component.version.clone(),
+        is_classic_server: false,
+    };
+    let (d_send, d_recv) = std::sync::mpsc::channel();
+    if let Some(sender) = sender.clone() {
+        std::thread::spawn(|| {
+            pipe_progress(d_recv, sender);
+        });
+    }
+    ql_instances::create_instance(
+        instance_name.to_owned(),
+        version,
+        Some(d_send),
+        download_assets,
+    )
+    .await?;
+    Ok(())
+}
+
+async fn mmc_forge(
+    sender: &Option<Arc<Sender<GenericProgress>>>,
+    instance_selection: &InstanceSelection,
+    component: &MmcPackComponent,
+) -> Result<(), InstancePackageError> {
+    let (f_send, f_recv) = std::sync::mpsc::channel();
+    if let Some(sender) = sender.clone() {
+        std::thread::spawn(|| {
+            pipe_progress(f_recv, sender);
+        });
+    }
+    ql_mod_manager::loaders::forge::install(
+        Some(component.version.clone()),
+        instance_selection.clone(),
+        Some(f_send),
+        None, // TODO: Java install progress
+    )
+    .await?;
+    Ok(())
 }
 
 fn filter_bytearray(input: String) -> String {

@@ -251,7 +251,7 @@ pub struct SearchMod {
 
 async fn get_loader(instance: &InstanceSelection) -> Result<Option<Loader>, ModError> {
     let instance_dir = instance.get_instance_path();
-    let config_json = InstanceConfigJson::read_from_path(&instance_dir).await?;
+    let config_json = InstanceConfigJson::read_from_dir(&instance_dir).await?;
 
     Ok(match config_json.mod_type.as_str() {
         "Fabric" => Some(Loader::Fabric),
