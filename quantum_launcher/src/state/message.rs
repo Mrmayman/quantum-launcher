@@ -175,7 +175,10 @@ pub enum AccountMessage {
 
     ElyByUsernameInput(String),
     ElyByPasswordInput(String),
+    ElyByOtpInput(String),
     ElyByShowPassword(bool),
+    ElyByLogin,
+    ElyByLoginResponse(Res<ql_instances::auth::elyby::Account>),
 }
 
 #[derive(Debug, Clone)]

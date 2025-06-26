@@ -335,7 +335,7 @@ pub struct MenuLoginElyBy {
     pub show_password: bool,
 
     pub is_loading: bool,
-    pub status: Option<String>,
+    pub otp: Option<String>,
 
     pub is_from_welcome_screen: bool,
 }

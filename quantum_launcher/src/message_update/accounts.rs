@@ -16,14 +16,15 @@ use crate::{
 impl Launcher {
     pub fn update_account(&mut self, msg: AccountMessage) -> Task<Message> {
         match msg {
-            AccountMessage::Selected(account) => {
-                return self.account_selected(account);
-            }
             AccountMessage::Response1 { r: Err(err), .. }
             | AccountMessage::Response2(Err(err))
             | AccountMessage::Response3(Err(err))
+            | AccountMessage::ElyByLoginResponse(Err(err))
             | AccountMessage::RefreshComplete(Err(err)) => {
                 self.set_error(err);
+            }
+            AccountMessage::Selected(account) => {
+                return self.account_selected(account);
             }
             AccountMessage::Response1 {
                 r: Ok(code),
@@ -112,7 +113,7 @@ impl Launcher {
                     username: String::new(),
                     password: String::new(),
                     is_loading: false,
-                    status: None,
+                    otp: None,
                     show_password: false,
                     is_from_welcome_screen,
                 });
@@ -128,11 +129,35 @@ impl Launcher {
                     menu.password = password;
                 }
             }
+            AccountMessage::ElyByOtpInput(otp) => {
+                if let State::LoginElyBy(menu) = &mut self.state {
+                    menu.otp = Some(otp);
+                }
+            }
             AccountMessage::ElyByShowPassword(t) => {
                 if let State::LoginElyBy(menu) = &mut self.state {
                     menu.show_password = t;
                 }
             }
+
+            AccountMessage::ElyByLogin => {
+                if let State::LoginElyBy(menu) = &self.state {
+                    return Task::perform(
+                        auth::elyby::login_fresh(menu.username.clone(), menu.password.clone()),
+                        |n| Message::Account(AccountMessage::ElyByLoginResponse(n.strerr())),
+                    );
+                }
+            }
+            AccountMessage::ElyByLoginResponse(Ok(acc)) => match acc {
+                auth::elyby::Account::Account(data) => {
+                    return self.account_response_3(data);
+                }
+                auth::elyby::Account::NeedsOTP => {
+                    if let State::LoginElyBy(menu) = &mut self.state {
+                        menu.otp = Some(String::new());
+                    }
+                }
+            },
         }
         Task::none()
     }
@@ -171,7 +196,7 @@ impl Launcher {
             ConfigAccount {
                 uuid: data.uuid.clone(),
                 skin: None,
-                account_type: Some("Microsoft".to_owned()),
+                account_type: Some(data.account_type.to_string()),
             },
         );
 

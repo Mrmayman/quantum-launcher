@@ -1,3 +1,4 @@
+pub mod elyby;
 pub mod ms;
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,19 @@ pub struct AccountData {
 pub enum AccountType {
     Microsoft,
     ElyBy,
+}
+
+impl std::fmt::Display for AccountType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AccountType::Microsoft => "Microsoft",
+                AccountType::ElyBy => "ElyBy",
+            }
+        )
+    }
 }
 
 impl AccountData {
