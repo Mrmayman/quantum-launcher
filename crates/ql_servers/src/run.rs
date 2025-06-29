@@ -89,20 +89,20 @@ pub async fn run(
     info!("Game args: {game_args:?}\n");
 
     let mut command = Command::new(java_path);
-    let mut command = command.args(java_args.iter().chain(game_args.iter()));
-    no_window!(command);
+    command
+        .args(java_args.iter().chain(game_args.iter()))
+        .current_dir(&server_dir)
+        .kill_on_drop(true);
 
-    command = if config_json.enable_logger.unwrap_or(true) {
+    if config_json.enable_logger.unwrap_or(true) {
+        no_window!(command);
         command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .stdin(Stdio::piped())
-    } else {
-        command
+            .stdin(Stdio::piped());
     }
-    .current_dir(&server_dir);
 
-    let child = command.kill_on_drop(true).spawn().path(server_jar_path)?;
+    let child = command.spawn().path(server_jar_path)?;
     info!("Started server");
     Ok((Arc::new(Mutex::new(child)), is_classic_server))
 }

@@ -12,8 +12,8 @@ use ql_core::{
         version::{LibraryDownloadArtifact, LibraryDownloads},
         FabricJSON, InstanceConfigJson, JsonOptifine, VersionDetails,
     },
-    no_window, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError,
-    JsonFileError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
+    GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonFileError,
+    CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
 use tokio::process::Command;
@@ -670,11 +670,6 @@ impl GameLauncher {
     }
 
     pub async fn get_java_command(&mut self) -> Result<Command, GameLaunchError> {
-        // #[cfg(target_os = "windows")]
-        // const JAVA: &str = "javaw";
-        // #[cfg(not(target_os = "windows"))]
-        const JAVA: &str = "java";
-
         if let Some(java_override) = &self.config_json.java_override {
             if !java_override.is_empty() {
                 return Ok(Command::new(java_override));
@@ -688,7 +683,11 @@ impl GameLauncher {
 
         let program = get_java_binary(
             version,
-            JAVA,
+            if cfg!(target_os = "windows") && self.config_json.enable_logger.unwrap_or(true) {
+                "javaw"
+            } else {
+                "java"
+            },
             self.java_install_progress_sender.take().as_ref(),
         )
         .await?;
@@ -734,39 +733,29 @@ impl GameLauncher {
                 .chain(self.config_json.game_args.iter().flatten())
                 .filter(|n| !n.is_empty()),
         );
+        command.current_dir(&self.minecraft_dir);
         if self.config_json.enable_logger.unwrap_or(true) {
             command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        }
-        command.current_dir(&self.minecraft_dir);
-
-        if self.config_json.enable_logger.unwrap_or(true) {
-            no_window!(command);
         }
 
         #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
         {
-            use chrono::DateTime;
-            use ql_core::err;
+            // Minecraft 21w19a release date (1.17 snapshot)
+            // Not sure if this is the right place to start,
+            // but the env var started being required sometime between 1.16.5 and 1.17
+            const MC_1_17: &str = "2021-05-12T11:19:15+00:00";
 
-            match (
-                DateTime::parse_from_rfc3339(&game_launcher.version_json.releaseTime),
-                // Minecraft 21w19a release date (1.17 snapshot)
-                // Not sure if this is the right place to start,
-                // but the env var started being required sometime between 1.16.5 and 1.17
-                DateTime::parse_from_rfc3339("2021-05-12T11:19:15+00:00"),
+            if let (Ok(dt), Ok(v1_17)) = (
+                chrono::DateTime::parse_from_rfc3339(&self.version_json.releaseTime),
+                chrono::DateTime::parse_from_rfc3339(MC_1_17),
             ) {
                 // On Raspberry Pi (aarch64 linux), the game crashes with some GL
-                // error. But adding this environment variable fixes it.
-                // I don't know if this is the perfect solution though,
-                // contact me if this solution sucks.
-                (Ok(dt), Ok(v1_20)) => {
-                    if dt >= v1_20 {
-                        command = command.env("MESA_GL_VERSION_OVERRIDE", "3.3")
-                    }
+                // error. Adding this environment variable fixes it.
+                if dt >= v1_17 {
+                    command.env("MESA_GL_VERSION_OVERRIDE", "3.3");
                 }
-                (Err(e), Err(_) | Ok(_)) | (Ok(_), Err(e)) => {
-                    err!("Could not parse instance date/time: {e}")
-                }
+                // Idk if this is the perfect solution,
+                // contact me if there's a better way
             }
         }
         Ok(command)

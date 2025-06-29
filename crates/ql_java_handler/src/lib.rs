@@ -23,6 +23,11 @@ mod java_list;
 pub use java_list::JavaVersion;
 use zip_extract::ZipExtractError;
 
+#[cfg(target_os = "windows")]
+pub const JAVA: &str = "javaw";
+#[cfg(not(target_os = "windows"))]
+pub const JAVA: &str = "java";
+
 /// Returns a `PathBuf` pointing to a Java executable of your choice.
 ///
 /// This downloads and installs Java if not already installed,

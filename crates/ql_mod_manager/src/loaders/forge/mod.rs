@@ -16,7 +16,7 @@ use ql_core::{
     no_window, pt, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError,
     Progress, CLASSPATH_SEPARATOR,
 };
-use ql_java_handler::{get_java_binary, JavaVersion};
+use ql_java_handler::{get_java_binary, JavaVersion, JAVA};
 
 use crate::loaders::change_instance_type;
 
@@ -234,8 +234,7 @@ impl ForgeInstaller {
         pt!("Compiling Installer");
         self.send_progress(ForgeInstallProgress::P4RunningInstaller);
         let mut command = Command::new(&javac_path);
-        #[allow(unused_mut)]
-        let mut command = command
+        command
             .args(["-cp", installer_name, "ForgeInstaller.java", "-d", "."])
             .current_dir(&self.forge_dir);
         no_window!(command);
@@ -248,18 +247,16 @@ impl ForgeInstaller {
             ));
         }
 
-        let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
+        let java_path = get_java_binary(JavaVersion::Java21, JAVA, None).await?;
         pt!("Running Installer");
         let mut command = Command::new(&java_path);
-        #[allow(unused_mut)]
-        let mut command = command
+        command
             .args([
                 "-cp",
                 &format!("{installer_name}{CLASSPATH_SEPARATOR}."),
                 "ForgeInstaller",
             ])
             .current_dir(&self.forge_dir);
-        no_window!(command);
 
         let output = command.output().path(java_path)?;
         if !output.status.success() {

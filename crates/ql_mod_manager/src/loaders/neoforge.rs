@@ -5,7 +5,7 @@ use ql_core::{
     file_utils, info, json::VersionDetails, no_window, pt, GenericProgress, InstanceSelection,
     IntoIoError, IntoJsonError, IoError, CLASSPATH_SEPARATOR,
 };
-use ql_java_handler::{get_java_binary, JavaVersion};
+use ql_java_handler::{get_java_binary, JavaVersion, JAVA};
 use serde::Deserialize;
 use tokio::process::Command;
 
@@ -253,8 +253,7 @@ async fn compile_and_run_installer(
 
     pt!("Compiling Installer");
     let mut command = Command::new(&javac_path);
-    #[allow(unused_mut)]
-    let mut command = command
+    command
         .args(["-cp", INSTALLER_NAME, "ForgeInstaller.java", "-d", "."])
         .current_dir(neoforge_dir);
     no_window!(command);
@@ -267,19 +266,17 @@ async fn compile_and_run_installer(
         ));
     }
 
-    let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
+    let java_path = get_java_binary(JavaVersion::Java21, JAVA, None).await?;
 
     pt!("Running Installer");
     let mut command = Command::new(&java_path);
-    #[allow(unused_mut)]
-    let mut command = command
+    command
         .args([
             "-cp",
             &format!("{INSTALLER_NAME}{CLASSPATH_SEPARATOR}."),
             "ForgeInstaller",
         ])
         .current_dir(neoforge_dir);
-    no_window!(command);
 
     let output = command.output().await.path(java_path)?;
 

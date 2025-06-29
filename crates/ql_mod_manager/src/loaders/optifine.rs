@@ -11,7 +11,7 @@ use ql_core::{
     no_window, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonError,
     Progress, RequestError, CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
-use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion};
+use ql_java_handler::{get_java_binary, JavaInstallError, JavaVersion, JAVA};
 use thiserror::Error;
 
 use super::change_instance_type;
@@ -256,10 +256,9 @@ async fn download_libraries(
 }
 
 async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(), OptifineError> {
-    let java_path = get_java_binary(JavaVersion::Java21, "java", None).await?;
+    let java_path = get_java_binary(JavaVersion::Java21, JAVA, None).await?;
     let mut command = Command::new(&java_path);
-    #[allow(unused_mut)]
-    let mut command = command
+    command
         .args([
             "-cp",
             &format!(
@@ -269,8 +268,6 @@ async fn run_hook(new_installer_path: &Path, optifine_path: &Path) -> Result<(),
             "OptifineInstaller",
         ])
         .current_dir(optifine_path);
-
-    no_window!(command);
 
     let output = command.output().path(java_path)?;
     if !output.status.success() {
@@ -289,8 +286,7 @@ async fn compile_hook(
 ) -> Result<(), OptifineError> {
     let javac_path = get_java_binary(JavaVersion::Java21, "javac", java_progress_sender).await?;
     let mut command = Command::new(&javac_path);
-    #[allow(unused_mut)]
-    let mut command = command
+    command
         .arg("-cp")
         .arg(new_installer_path.as_os_str())
         .args(["OptifineInstaller.java", "-d", "."])

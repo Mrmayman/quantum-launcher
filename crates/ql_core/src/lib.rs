@@ -49,7 +49,8 @@ pub const CLASSPATH_SEPARATOR: char = if cfg!(unix) { ':' } else { ';' };
 
 /// To prevent spawning of terminal (windows only).
 ///
-/// Takes in a &mut Command (both `tokio` or `std` will do).
+/// Takes in a `Command` (owned or mutable reference, both are fine).
+/// This supports `process::Command` of both `tokio` and `std`.
 #[macro_export]
 macro_rules! no_window {
     ($cmd:expr) => {
@@ -57,7 +58,7 @@ macro_rules! no_window {
         {
             use std::os::windows::process::CommandExt;
             // 0x08000000 => CREATE_NO_WINDOW
-            $cmd = $cmd.creation_flags(0x08000000);
+            $cmd.creation_flags(0x08000000);
         }
     };
 }
