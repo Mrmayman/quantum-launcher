@@ -11,21 +11,22 @@ pub async fn install_third_party_java(
 ) -> Result<(), JavaInstallError> {
     #[allow(unused_mut)]
     let mut only_old_supported = false;
+    let url;
 
     #[cfg(all(target_os = "linux", target_arch = "arm"))]
     {
         only_old_supported = true;
-        let url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-linux-arm32-vfp-hflt.tar.gz";
+        url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-linux-arm32-vfp-hflt.tar.gz";
     }
     #[cfg(all(target_os = "solaris", target_arch = "x86_64"))]
     {
         only_old_supported = true;
-        let url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-solaris-x64.tar.gz";
+        url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-solaris-x64.tar.gz";
     }
     #[cfg(all(target_os = "solaris", target_arch = "sparc64"))]
     {
         only_old_supported = true;
-        let url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-solaris-sparcv9.tar.gz";
+        url = "https://github.com/hmsjy2017/get-jdk/releases/download/v8u231/jdk-8u231-solaris-sparcv9.tar.gz";
     }
 
     if let JavaVersion::Java16 | JavaVersion::Java17 | JavaVersion::Java21 = version {
@@ -34,14 +35,16 @@ pub async fn install_third_party_java(
         }
     }
 
-    #[rustfmt::skip]
     #[cfg(not(any(
         all(target_os = "linux", target_arch = "arm"),
-        all(target_os = "solaris", any(
-            target_arch = "x86_64", target_arch = "sparc64"
-        ))
+        all(
+            target_os = "solaris",
+            any(target_arch = "x86_64", target_arch = "sparc64")
+        )
     )))]
-    let url = version.get_corretto_url();
+    {
+        url = version.get_corretto_url();
+    }
 
     send_progress(
         java_install_progress_sender,
