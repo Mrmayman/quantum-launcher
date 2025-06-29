@@ -50,10 +50,16 @@ pub async fn import(
                 mmc_minecraft(download_assets, sender.clone(), &instance_name, component).await?;
             }
 
-            "Forge" => {
-                mmc_forge(sender.clone(), &instance_selection, component).await?;
+            name @ ("Forge" | "NeoForge") => {
+                mmc_forge(
+                    sender.clone(),
+                    &instance_selection,
+                    component,
+                    name == "NeoForge",
+                )
+                .await?;
             }
-            name @ ("Fabric" | "Quilt") => {
+            name @ ("Fabric Loader" | "Quilt Loader") => {
                 ql_mod_manager::loaders::fabric::install(
                     Some(component.version.clone()),
                     instance_selection.clone(),
@@ -123,6 +129,7 @@ async fn mmc_forge(
     sender: Option<Arc<Sender<GenericProgress>>>,
     instance_selection: &InstanceSelection,
     component: &MmcPackComponent,
+    is_neoforge: bool,
 ) -> Result<(), InstancePackageError> {
     let (f_send, f_recv) = std::sync::mpsc::channel();
     if let Some(sender) = sender.clone() {
@@ -130,13 +137,22 @@ async fn mmc_forge(
             pipe_progress(f_recv, sender);
         });
     }
-    ql_mod_manager::loaders::forge::install(
-        Some(component.version.clone()),
-        instance_selection.clone(),
-        Some(f_send),
-        None, // TODO: Java install progress
-    )
-    .await?;
+    if is_neoforge {
+        ql_mod_manager::loaders::neoforge::install(
+            instance_selection.clone(),
+            Some(f_send),
+            None, // TODO: Java install progress
+        )
+        .await?;
+    } else {
+        ql_mod_manager::loaders::forge::install(
+            Some(component.version.clone()),
+            instance_selection.clone(),
+            Some(f_send),
+            None, // TODO: Java install progress
+        )
+        .await?;
+    }
     Ok(())
 }
 
