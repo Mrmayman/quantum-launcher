@@ -1,3 +1,5 @@
+use crate::auth;
+
 pub mod elyby;
 pub mod ms;
 
@@ -10,6 +12,16 @@ pub struct AccountData {
     pub needs_refresh: bool,
 
     pub account_type: AccountType,
+}
+
+impl AccountData {
+    pub fn get_username_modified(&self) -> String {
+        let suffix = match self.account_type {
+            auth::AccountType::Microsoft => "",
+            auth::AccountType::ElyBy => " (elyby)",
+        };
+        format!("{}{suffix}", self.username)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

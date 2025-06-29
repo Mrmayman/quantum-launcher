@@ -50,6 +50,7 @@ pub struct Launcher {
     pub tick_timer: usize,
 
     pub java_recv: Option<ProgressBar<GenericProgress>>,
+    pub is_launching_game: bool,
 
     pub accounts: HashMap<String, AccountData>,
     pub accounts_dropdown: Vec<String>,
@@ -132,19 +133,28 @@ impl Launcher {
 
         if let Some(config_accounts) = &config.accounts {
             for (username, account) in config_accounts {
-                match ql_instances::auth::ms::read_refresh_token(username) {
+                let username_stripped = username.strip_suffix(" (elyby)").unwrap_or(&username);
+
+                let (account_type, refresh_token) = match account.account_type.as_deref() {
+                    Some("ElyBy") => (
+                        AccountType::ElyBy,
+                        ql_instances::auth::elyby::read_refresh_token(username_stripped).strerr(),
+                    ),
+                    Some(_) | None => (
+                        AccountType::Microsoft,
+                        ql_instances::auth::ms::read_refresh_token(username_stripped).strerr(),
+                    ),
+                };
+
+                match refresh_token {
                     Ok(refresh_token) => {
-                        let account_type = match account.account_type.as_deref() {
-                            Some("ElyBy") => AccountType::ElyBy,
-                            Some(_) | None => AccountType::Microsoft,
-                        };
                         accounts_dropdown.insert(0, username.clone());
                         accounts.insert(
                             username.clone(),
                             AccountData {
                                 access_token: None,
                                 uuid: account.uuid.clone(),
-                                username: username.clone(),
+                                username: username_stripped.to_owned(),
                                 refresh_token,
                                 needs_refresh: true,
                                 account_type,
@@ -176,6 +186,7 @@ impl Launcher {
             selected_instance: None,
             images: ImageState::default(),
             theme,
+            is_launching_game: false,
             client_version_list_cache: None,
             server_version_list_cache: None,
             server_processes: HashMap::new(),
@@ -214,6 +225,7 @@ impl Launcher {
             is_log_open: false,
             log_scroll: 0,
             java_recv: None,
+            is_launching_game: false,
             client_list: None,
             server_list: None,
             config,

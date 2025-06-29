@@ -385,7 +385,8 @@ impl Launcher {
                 )
             } else {
                 tooltip(
-                    play_button.on_press(Message::LaunchStart),
+                    play_button
+                        .on_press_maybe((!self.is_launching_game).then_some(Message::LaunchStart)),
                     shortcut_ctrl("Enter"),
                 )
             }

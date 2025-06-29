@@ -65,6 +65,7 @@ impl Launcher {
 
     pub fn finish_launching(&mut self, result: Result<Arc<Mutex<Child>>, String>) -> Task<Message> {
         self.java_recv = None;
+        self.is_launching_game = false;
         match result {
             Ok(child) => {
                 let Some(InstanceSelection::Instance(selected_instance)) =
@@ -561,6 +562,7 @@ impl Launcher {
             return Task::none();
         }
 
+        self.is_launching_game = true;
         let account_data = if let Some(account) = &self.accounts_selected {
             if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
                 None

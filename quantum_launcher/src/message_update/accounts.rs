@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use auth::AccountData;
 use iced::Task;
 use ql_core::IntoStringError;
@@ -77,7 +75,7 @@ impl Launcher {
                 return self.go_to_launch_screen(Option::<String>::None);
             }
             AccountMessage::RefreshComplete(Ok(data)) => {
-                self.accounts.insert(data.username.clone(), data);
+                self.accounts.insert(data.get_username_modified(), data);
 
                 let account_data = if let Some(account) = &self.accounts_selected {
                     if account == NEW_ACCOUNT_NAME || account == OFFLINE_ACCOUNT_NAME {
@@ -142,8 +140,13 @@ impl Launcher {
 
             AccountMessage::ElyByLogin => {
                 if let State::LoginElyBy(menu) = &self.state {
+                    let mut password = menu.password.clone();
+                    if let Some(otp) = &menu.otp {
+                        password.push(':');
+                        password.push_str(otp);
+                    }
                     return Task::perform(
-                        auth::elyby::login_fresh(menu.username.clone(), menu.password.clone()),
+                        auth::elyby::login_new(menu.username.clone(), password),
                         |n| Message::Account(AccountMessage::ElyByLoginResponse(n.strerr())),
                     );
                 }
@@ -172,27 +175,34 @@ impl Launcher {
     }
 
     pub fn account_refresh(&mut self, account: &AccountData) -> Task<Message> {
-        let (sender, receiver) = std::sync::mpsc::channel();
+        match account.account_type {
+            auth::AccountType::Microsoft => {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
 
-        self.state = State::AccountLoginProgress(ProgressBar::with_recv(receiver));
-
-        let username = account.username.clone();
-        let refresh_token = account.refresh_token.clone();
-        Task::perform(
-            auth::ms::login_refresh(username, refresh_token, Some(sender)),
-            |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
-        )
+                Task::perform(
+                    auth::ms::login_refresh(
+                        account.username.clone(),
+                        account.refresh_token.clone(),
+                        Some(sender),
+                    ),
+                    |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
+                )
+            }
+            auth::AccountType::ElyBy => Task::perform(
+                auth::elyby::login_refresh(account.username.clone(), account.refresh_token.clone()),
+                |n| Message::Account(AccountMessage::RefreshComplete(n.strerr())),
+            ),
+        }
     }
 
     fn account_response_3(&mut self, data: AccountData) -> Task<Message> {
         self.accounts_dropdown.insert(0, data.username.clone());
 
-        if self.config.accounts.is_none() {
-            self.config.accounts = Some(HashMap::new());
-        }
-        let accounts = self.config.accounts.as_mut().unwrap();
+        let accounts = self.config.accounts.get_or_insert_default();
+        let username = data.get_username_modified();
         accounts.insert(
-            data.username.clone(),
+            username.clone(),
             ConfigAccount {
                 uuid: data.uuid.clone(),
                 skin: None,
@@ -200,8 +210,8 @@ impl Launcher {
             },
         );
 
-        self.accounts_selected = Some(data.username.clone());
-        self.accounts.insert(data.username.clone(), data);
+        self.accounts_selected = Some(username.clone());
+        self.accounts.insert(username.clone(), data);
 
         self.go_to_launch_screen::<String>(None)
     }

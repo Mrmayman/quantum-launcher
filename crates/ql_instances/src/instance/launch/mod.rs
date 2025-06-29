@@ -39,7 +39,7 @@ pub async fn launch(
     game_launcher.create_mods_dir().await?;
 
     let mut game_arguments = game_launcher.init_game_arguments(auth.as_ref())?;
-    let mut java_arguments = game_launcher.init_java_arguments(auth.is_some())?;
+    let mut java_arguments = game_launcher.init_java_arguments(auth.as_ref()).await?;
 
     let fabric_json = game_launcher
         .setup_fabric(&mut java_arguments, &mut game_arguments)

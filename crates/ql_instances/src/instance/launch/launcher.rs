@@ -206,9 +206,9 @@ impl GameLauncher {
         Ok(())
     }
 
-    pub fn init_java_arguments(
+    pub async fn init_java_arguments(
         &mut self,
-        is_logged_in: bool,
+        auth: Option<&AccountData>,
     ) -> Result<Vec<String>, GameLaunchError> {
         let natives_path = self.instance_dir.join("libraries").join("natives");
         let natives_path = natives_path
@@ -248,12 +248,14 @@ impl GameLauncher {
             args.push("-XX:G1HeapRegionSize=32M".to_owned());
         }
 
-        if !is_logged_in && self.version_json.id.starts_with("1.16") {
+        if auth.is_none_or(AccountData::is_elyby) && self.version_json.id.starts_with("1.16") {
             // Fixes "Multiplayer is disabled" issue on 1.16.x
             args.push("-Dminecraft.api.auth.host=https://nope.invalid".to_owned());
             args.push("-Dminecraft.api.account.host=https://nope.invalid".to_owned());
             args.push("-Dminecraft.api.session.host=https://nope.invalid".to_owned());
             args.push("-Dminecraft.api.services.host=https://nope.invalid".to_owned());
+        } else if auth.is_some_and(AccountData::is_elyby) {
+            args.push(crate::auth::elyby::get_authlib_injector().await?);
         }
 
         if cfg!(target_pointer_width = "32") {
