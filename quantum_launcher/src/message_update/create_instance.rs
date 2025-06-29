@@ -90,12 +90,14 @@ then go to "Mods->Add File""#,
             Ok(versions) => {
                 self.client_version_list_cache = Some(versions.clone());
                 let combo_state = iced::widget::combo_box::State::new(versions.clone());
-                self.state = State::Create(MenuCreateInstance::Choosing {
-                    instance_name: String::new(),
-                    selected_version: None,
-                    download_assets: true,
-                    combo_state: Box::new(combo_state),
-                });
+                if let State::Create(MenuCreateInstance::LoadingList { .. }) = &self.state {
+                    self.state = State::Create(MenuCreateInstance::Choosing {
+                        instance_name: String::new(),
+                        selected_version: None,
+                        download_assets: true,
+                        combo_state: Box::new(combo_state),
+                    });
+                }
             }
             Err(n) => self.set_error(n),
         }
