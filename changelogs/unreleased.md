@@ -10,6 +10,7 @@
 ---
 
 - Overhauled portable dir system (see `docs/PORTABLE.md` for more info)
+- Added a new Teal color scheme!
 
 ## Elyby integration
 - All versions before 1.21.6 will now support skins from elyby by default (b)
@@ -28,6 +29,8 @@
 - snapshots of 1.0 to 1.5.2 are no longer missing for download (b)
 - performance of loading the version list
   (when clicking New button) is **way** better now (b)
+- fixed getting stuck in an infinite loop when downloading some curseforge mods
+- fixed Fabric API being missing for some curseforge mods
 - fixed game crashes in portable mode
 - made a few cryptic errors more understandable
 - improved support for weird character encodings in file paths

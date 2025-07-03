@@ -261,6 +261,9 @@ impl Backend for CurseforgeBackend {
         sender: Option<Sender<GenericProgress>>,
     ) -> Result<HashSet<CurseforgeNotAllowed>, super::ModError> {
         let mut downloader = ModDownloader::new(instance.clone(), sender.as_ref()).await?;
+
+        downloader.ensure_essential_mods().await?;
+
         downloader.download(id, None).await?;
         downloader.index.save(instance).await?;
 
@@ -275,6 +278,7 @@ impl Backend for CurseforgeBackend {
         sender: Option<&Sender<GenericProgress>>,
     ) -> Result<HashSet<CurseforgeNotAllowed>, super::ModError> {
         let mut downloader = ModDownloader::new(instance.clone(), sender).await?;
+        downloader.ensure_essential_mods().await?;
         downloader.query_cache.extend(
             CFSearchResult::get_from_ids(ids)
                 .await?

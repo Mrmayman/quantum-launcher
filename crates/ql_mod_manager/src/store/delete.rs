@@ -27,11 +27,12 @@ pub async fn delete_mods(
     }
 
     let mut has_been_removed;
-    let mut iteration = 0;
+    // let mut iteration = 0;
     loop {
-        iteration += 1;
+        // iteration += 1;
+        // pt!("Iteration {iteration}");
+
         has_been_removed = false;
-        pt!("Iteration {iteration}");
         let mut removed_dependents_map = HashMap::new();
 
         for (mod_id, mod_info) in &index.mods {

@@ -18,15 +18,18 @@ use super::Mod;
 
 pub struct ModDownloader<'a> {
     version: String,
-    loader: Option<String>,
+    instance: InstanceSelection,
+    pub loader: Option<String>,
     pub index: ModIndex,
+
     mods_dir: PathBuf,
     resourcepacks_dir: PathBuf,
     shaderpacks_dir: PathBuf,
+
     pub query_cache: HashMap<String, Mod>,
-    instance: InstanceSelection,
-    pub sender: Option<&'a Sender<GenericProgress>>,
     pub not_allowed: HashSet<CurseforgeNotAllowed>,
+    pub already_installed: HashSet<String>,
+    pub sender: Option<&'a Sender<GenericProgress>>,
 }
 
 impl<'a> ModDownloader<'a> {
@@ -47,6 +50,7 @@ impl<'a> ModDownloader<'a> {
             mods_dir,
             resourcepacks_dir,
             shaderpacks_dir,
+            already_installed: HashSet::new(),
             query_cache: HashMap::new(),
             instance,
             sender,
@@ -56,6 +60,9 @@ impl<'a> ModDownloader<'a> {
 
     pub async fn download(&mut self, id: &str, dependent: Option<&str>) -> Result<(), ModError> {
         // Mod already installed.
+        if !self.already_installed.insert(id.to_owned()) {
+            return Ok(());
+        }
         if let Some(config) = self.index.mods.get_mut(id) {
             // Is this mod a dependency of something else?
             if let Some(dependent) = dependent {
@@ -66,7 +73,11 @@ impl<'a> ModDownloader<'a> {
             return Ok(());
         }
 
-        info!("Installing mod {id}");
+        if let Some(dependent) = dependent {
+            info!("Installing mod (id: {id}, dependency of {dependent})");
+        } else {
+            info!("Installing mod (id: {id})");
+        }
         let response = self.get_query(id).await?;
         pt!("Name: {}", response.name);
 
@@ -135,7 +146,6 @@ impl<'a> ModDownloader<'a> {
 
         for dependency in &file_query.data.dependencies {
             let dep_id = dependency.modId.to_string();
-            pt!("Installing dependency {dep_id}");
             Box::pin(self.download(&dep_id, Some(id))).await?;
         }
 
@@ -143,6 +153,17 @@ impl<'a> ModDownloader<'a> {
 
         pt!("Finished installing {query_type}: {}", response.name);
 
+        Ok(())
+    }
+
+    pub async fn ensure_essential_mods(&mut self) -> Result<(), ModError> {
+        const FABRIC: &str = "4";
+
+        if self.loader.as_deref() == Some(FABRIC)
+            && !self.index.mods.values_mut().any(|n| n.name == "Fabric API")
+        {
+            self.download("306612", None).await?;
+        }
         Ok(())
     }
 
