@@ -174,12 +174,17 @@ impl widget::button::Catalog for LauncherTheme {
 }
 
 impl widget::text::Catalog for LauncherTheme {
-    type Class<'a> = ();
+    type Class<'a> = widget::text::StyleFn<'a, LauncherTheme>;
 
-    fn default<'a>() -> Self::Class<'a> {}
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(|n| n.style_text(Color::White))
+    }
 
-    fn style(&self, (): &()) -> widget::text::Style {
-        widget::text::Style { color: None }
+    fn style<'a>(
+        &self,
+        style_fn: &<Self as widget::text::Catalog>::Class<'a>,
+    ) -> widget::text::Style {
+        style_fn(self)
     }
 }
 

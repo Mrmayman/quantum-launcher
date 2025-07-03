@@ -11,7 +11,7 @@ use crate::{
     state::{AccountMessage, MenuWelcome, Message},
 };
 
-use super::{button_with_icon, center_x, get_themes_and_styles, Element, DISCORD};
+use super::{button_with_icon, center_x, get_color_schemes, get_theme_selector, Element, DISCORD};
 
 pub static IMG_LAUNCHER: LazyLock<Handle> = LazyLock::new(|| {
     Handle::from_bytes(include_bytes!("../../../quantum_launcher.png").as_slice())
@@ -238,14 +238,15 @@ impl MenuWelcome {
             .spacing(10)
             .into(),
             MenuWelcome::P2Theme => {
-                let (theme, style) = get_themes_and_styles(config);
+                let style = get_color_schemes(config);
+                let (light, dark) = get_theme_selector(config);
                 widget::column![
                     widget::vertical_space(),
                     center_x(widget::text("Customize your launcher!").size(24)),
                     widget::row![
                         widget::horizontal_space(),
                         "Select Theme:",
-                        theme,
+                        widget::row![light, dark].spacing(5),
                         widget::horizontal_space(),
                     ]
                     .spacing(10),

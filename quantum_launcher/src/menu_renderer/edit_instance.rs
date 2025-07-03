@@ -17,6 +17,8 @@ impl MenuEditInstance {
         // 2 ^ 13 = 8192 MB
         const MEM_8192_MB_IN_TWOS_EXPONENT: f32 = 13.0;
 
+        let ts = |n: &LauncherTheme| n.style_text(Color::SecondLight);
+
         widget::scrollable(
             widget::column![
                 widget::container(widget::column!(
@@ -33,7 +35,8 @@ impl MenuEditInstance {
                 ).padding(10).spacing(10)).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
                     widget::column![
-                        "Use a special Java install instead of the default one. (Enter path, leave blank if none)",
+                        "Custom Java executable",
+                        widget::text("Enter full path, leave blank if none").style(ts),
                         widget::text_input(
                             "Enter Java override path...",
                             self.config
@@ -49,9 +52,9 @@ impl MenuEditInstance {
                 widget::container(
                     widget::column![
                         "Allocated memory",
-                        widget::text("For normal Minecraft, allocate 2 - 3 GB").size(12),
-                        widget::text("For old versions, allocate 512 MB - 1 GB").size(12),
-                        widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB").size(12),
+                        widget::text("For normal Minecraft, allocate 2 - 3 GB").size(12).style(ts),
+                        widget::text("For old versions, allocate 512 MB - 1 GB").size(12).style(ts),
+                        widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB").size(12).style(ts),
                         widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, self.slider_value, |n| Message::EditInstance(EditInstanceMessage::MemoryChanged(n))).step(0.1),
                         widget::text(&self.slider_text),
                     ]
@@ -63,18 +66,18 @@ impl MenuEditInstance {
                         widget::column![
                             widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
                                 .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
-                            widget::text("- Recommended to enable this (default) for most cases").size(12),
-                            widget::text("- Disable if logs aren't visible properly for some reason").size(12),
-                            widget::text("- Once disabled, logs will be printed in launcher STDOUT. Run the launcher executable from the terminal/command prompt to see it").size(12),
+                            widget::text("- Recommended to enable this (default) for most cases").size(12).style(ts),
+                            widget::text("- Disable if logs aren't visible properly for some reason").size(12).style(ts),
+                            widget::text("- Once disabled, logs will be printed in launcher STDOUT. Run the launcher executable from the terminal/command prompt to see it").size(12).style(ts),
                             widget::horizontal_space(),
                         ].spacing(5)
                     ].push_maybe((!selected_instance.is_server()).then_some(widget::column![
                         widget::checkbox("Close launcher after game opens", self.config.close_on_start.unwrap_or(false))
                             .on_toggle(|t| Message::EditInstance(EditInstanceMessage::CloseLauncherToggle(t))),
-                        widget::text("Disabled by default, enable if you want the launcher to close when the game opens.").size(12),
-                        widget::text("It's recommended you leave this off because:").size(12),
-                        widget::text("- This prevents you from seeing logs or killing the process.").size(12),
-                        widget::text("- Besides, closing the launcher won't make your game run faster (it's already super lightweight).").size(12),
+                        widget::text("Disabled by default, enable if you want the launcher to close when the game opens.").size(12).style(ts),
+                        widget::text("It's recommended you leave this off because:").size(12).style(ts),
+                        widget::text("- This prevents you from seeing logs or killing the process.").size(12).style(ts),
+                        widget::text("- Besides, closing the launcher won't make your game run faster (it's already super lightweight).").size(12).style(ts),
                     ].spacing(5)))
                     .padding(10)
                     .spacing(10)

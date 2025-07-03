@@ -9,7 +9,11 @@ use crate::{
         MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherSettings, MenuLauncherUpdate,
         MenuServerCreate, Message, ProgressBar,
     },
-    stylesheet::{color::Color, styles::LauncherTheme},
+    stylesheet::{
+        color::Color,
+        styles::{LauncherTheme, LauncherThemeColor},
+        widgets::StyleButton,
+    },
 };
 
 pub mod changelog;
@@ -24,7 +28,7 @@ pub const GITHUB: &str = "https://github.com/Mrmayman/quantumlauncher";
 
 pub type Element<'a> = iced::Element<'a, Message, LauncherTheme, iced::Renderer>;
 
-fn center_x<'a>(e: impl Into<Element<'a>>) -> Element<'a> {
+pub fn center_x<'a>(e: impl Into<Element<'a>>) -> Element<'a> {
     widget::row![
         widget::horizontal_space(),
         e.into(),
@@ -189,93 +193,56 @@ impl MenuLauncherUpdate {
 
 impl MenuLauncherSettings {
     pub fn view<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
-        let (theme_list, style_list) = get_themes_and_styles(config);
+        let config_view: Element = self.view_options(config);
 
-        let config_view = widget::row!(
-            widget::container(
-                widget::column!(
-                    "Select theme:",
-                    theme_list,
-                )
-                .padding(10)
-                .spacing(10)
-            ),
-            widget::container(
-                widget::column!(
-                    "Select style:",
-                    style_list
-                )
-                .padding(10)
-                .spacing(10)
-            ),
-            widget::container(
-                widget::column![
-                    "Change UI Scaling: (warning: slightly buggy)",
-                    widget::slider(0.5..=2.0, self.temp_scale, |n| Message::LauncherSettings(
-                        LauncherSettingsMessage::UiScale(n)
-                    ))
-                    .step(0.1),
-                    widget::text!("Scale: {:.2}x", self.temp_scale),
-                    widget::button("Apply").on_press(Message::LauncherSettings(
-                        LauncherSettingsMessage::UiScaleApply
-                    ))
-                ]
-                .padding(10)
-                .spacing(10)
-            ),
-            widget::container(widget::column![
-                button_with_icon(icon_manager::delete(), "Clear Java installs", 16)
-                    .on_press(Message::LauncherSettings(LauncherSettingsMessage::ClearJavaInstalls)),
-                widget::text("Might fix any problems with Java. Should be safe, you just need to redownload the Java Runtime").size(12),
-            ].padding(10).spacing(10))
-        )
-        .spacing(10)
+        let links = widget::row![
+            button_with_icon(icon_manager::page(), "Website", 16).on_press(Message::CoreOpenLink(
+                "https://mrmayman.github.io/quantumlauncher".to_owned()
+            )),
+            button_with_icon(icon_manager::github(), "Github", 16)
+                .on_press(Message::CoreOpenLink(GITHUB.to_owned())),
+            button_with_icon(icon_manager::chat(), "Discord", 16)
+                .on_press(Message::CoreOpenLink(DISCORD.to_owned())),
+        ]
+        .spacing(5)
+        .wrap();
+
+        let menus = widget::row![
+            widget::button("Changelog").on_press(Message::CoreOpenChangeLog),
+            widget::button("Welcome Screen").on_press(Message::CoreOpenIntro),
+        ]
+        .spacing(5)
         .wrap();
 
         widget::scrollable(
             widget::column!(
-                back_button().on_press(
-                    Message::LaunchScreenOpen {
-                        message: None,
-                        clear_selection: false
-                    }
-                ),
+                back_button().on_press(Message::LaunchScreenOpen {
+                    message: None,
+                    clear_selection: false
+                }),
                 config_view,
                 widget::container(
-                    widget::column!(
-                        widget::row![
-                            widget::button("Changelog").on_press(Message::CoreOpenChangeLog),
-                            widget::button("Welcome Screen").on_press(Message::CoreOpenIntro),
-                        ].spacing(5).wrap(),
-                        widget::row![
-                            button_with_icon(icon_manager::page(), "Website", 16).on_press(
-                                Message::CoreOpenLink(
-                                    "https://mrmayman.github.io/quantumlauncher".to_owned()
-                                )
-                            ),
-                            button_with_icon(icon_manager::github(), "Github", 16).on_press(
-                                Message::CoreOpenLink(
-                                    GITHUB.to_owned()
-                                )
-                            ),
-                            button_with_icon(icon_manager::chat(), "Discord", 16).on_press(
-                                Message::CoreOpenLink(DISCORD.to_owned())
-                            ),
-                        ].spacing(5).wrap(),
+                    widget::row![
+                        widget::column![menus, links].spacing(5),
+                        widget::horizontal_space(),
                         widget::column![
-                            widget::text(r"QuantumLauncher is free and open source software under the GNU GPLv3 license.
-No warranty is provided for this software.
-You're free to share, modify, and redistribute it under the same license.").size(12),
-                            widget::button("View License").on_press(
-                                Message::CoreOpenLink("https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned())
-                            ),
+                            widget::rich_text![
+                                widget::span("e")
+                            ],
+                            widget::text("QuantumLauncher is free and open source software under the GNU GPLv3 license").size(12),
+                            widget::text("No warranty is provided for this software.").size(12),
+                            widget::text("You're free to share, modify, and redistribute it under the same license.").size(12),
+                            widget::button("View License").on_press(Message::CoreOpenLink(
+                                "https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned()
+                            )),
+                            widget::text("If you like this launcher, consider sharing it with your friends.").size(12),
+                            widget::text("Every new user motivates me to keep working on this :)").size(12),
                         ].spacing(5),
-                        widget::text(r"If you like this launcher, consider sharing it with your friends.
-Every new user motivates me to keep working on this :)").size(12)
-                    )
+                    ]
                     .padding(10)
                     .spacing(10)
-                ),
+                )
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
             )
             .padding(10)
             .spacing(10),
@@ -285,11 +252,113 @@ Every new user motivates me to keep working on this :)").size(12)
         .height(Length::Fill)
         .into()
     }
+
+    fn view_options<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
+        let (light, dark) = get_theme_selector(config);
+
+        let color_scheme_picker = LauncherThemeColor::ALL.iter().map(|color| {
+            widget::button(widget::text(color.to_string()).size(14))
+                .style(|theme: &LauncherTheme, s| {
+                    LauncherTheme {
+                        lightness: theme.lightness,
+                        color: *color,
+                    }
+                    .style_button(s, StyleButton::Round)
+                })
+                .on_press(Message::LauncherSettings(
+                    LauncherSettingsMessage::StylePicked(color.to_string()),
+                ))
+                .into()
+        });
+
+        widget::row!(
+            widget::container(
+                widget::column!("Theme:", widget::row![light, dark].spacing(5),)
+                    .padding(10)
+                    .spacing(10)
+            ),
+            widget::container(
+                widget::column!("Color scheme:", widget::row(color_scheme_picker).spacing(5),)
+                    .padding(10)
+                    .spacing(10)
+            ),
+            widget::container(
+                widget::column![
+                    widget::row![
+                        widget::text!("UI Scale ({:.2}x)  ", self.temp_scale),
+                        widget::button(widget::text("Apply").size(13)).on_press(
+                            Message::LauncherSettings(LauncherSettingsMessage::UiScaleApply)
+                        ),
+                    ]
+                    .align_y(iced::Alignment::Center),
+                    widget::slider(0.5..=2.0, self.temp_scale, |n| Message::LauncherSettings(
+                        LauncherSettingsMessage::UiScale(n)
+                    ))
+                    .step(0.1)
+                    .width(330),
+                    widget::text("Warning: slightly buggy").size(12),
+                ]
+                .padding(10)
+                .spacing(5)
+            ),
+            widget::container(
+                widget::row![
+                    button_with_icon(icon_manager::delete(), "Clear Java installs", 16).on_press(
+                        Message::LauncherSettings(LauncherSettingsMessage::ClearJavaInstalls)
+                    ),
+                    widget::text(
+                        "Might fix some Java problems.\nPerfectly safe, will be redownloaded."
+                    )
+                    .size(12),
+                ]
+                .align_y(iced::Alignment::Center)
+                .padding(10)
+                .spacing(10)
+            )
+        )
+        .spacing(10)
+        .wrap()
+        .into()
+    }
 }
 
-fn get_themes_and_styles(config: &LauncherConfig) -> (Element, Element) {
+pub fn get_theme_selector(config: &LauncherConfig) -> (Element, Element) {
+    const PADDING: iced::Padding = iced::Padding {
+        top: 5.0,
+        bottom: 5.0,
+        right: 10.0,
+        left: 10.0,
+    };
+
+    let theme = config.theme.as_deref().unwrap_or("Dark");
+    let (light, dark): (Element, Element) = if theme == "Dark" {
+        (
+            widget::button(widget::text("Light").size(14))
+                .on_press(Message::LauncherSettings(
+                    LauncherSettingsMessage::ThemePicked("Light".to_owned()),
+                ))
+                .into(),
+            widget::container(widget::text("Dark").size(14))
+                .padding(PADDING)
+                .into(),
+        )
+    } else {
+        (
+            widget::container(widget::text("Light").size(14))
+                .padding(PADDING)
+                .into(),
+            widget::button(widget::text("Dark").size(14))
+                .on_press(Message::LauncherSettings(
+                    LauncherSettingsMessage::ThemePicked("Dark".to_owned()),
+                ))
+                .into(),
+        )
+    };
+    (light, dark)
+}
+
+fn get_color_schemes(config: &LauncherConfig) -> Element {
     // HOOK: Add more themes
-    let themes = ["Dark".to_owned(), "Light".to_owned()];
     let styles = [
         "Brown".to_owned(),
         "Purple".to_owned(),
@@ -298,16 +367,10 @@ fn get_themes_and_styles(config: &LauncherConfig) -> (Element, Element) {
         "Teal".to_owned(),
     ];
 
-    let theme_list = widget::pick_list(themes, config.theme.clone(), |n| {
-        Message::LauncherSettings(LauncherSettingsMessage::ThemePicked(n))
-    })
-    .into();
-
-    let style_list = widget::pick_list(styles, config.style.clone(), |n| {
+    widget::pick_list(styles, config.style.clone(), |n| {
         Message::LauncherSettings(LauncherSettingsMessage::StylePicked(n))
     })
-    .into();
-    (theme_list, style_list)
+    .into()
 }
 
 fn back_to_launch_screen(

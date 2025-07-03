@@ -11,7 +11,7 @@ use super::{
 pub const BORDER_WIDTH: f32 = 2.0;
 pub const BORDER_RADIUS: f32 = 8.0;
 
-#[derive(Clone, Debug, Copy, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum LauncherThemeColor {
     Brown,
     #[default]
@@ -19,6 +19,17 @@ pub enum LauncherThemeColor {
     SkyBlue,
     Catppuccin,
     Teal,
+}
+
+impl LauncherThemeColor {
+    // HOOK: Add themes here
+    pub const ALL: &[Self] = &[
+        Self::Purple,
+        Self::Brown,
+        Self::SkyBlue,
+        Self::Catppuccin,
+        Self::Teal,
+    ];
 }
 
 impl Display for LauncherThemeColor {
@@ -55,7 +66,7 @@ impl FromStr for LauncherThemeColor {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug)]
 pub enum LauncherThemeLightness {
     #[default]
     Dark,
@@ -436,6 +447,12 @@ impl LauncherTheme {
                 border: self.get_border_style(&style, Color::SecondDark, true),
                 ..Default::default()
             },
+        }
+    }
+
+    pub fn style_text(&self, color: Color) -> widget::text::Style {
+        widget::text::Style {
+            color: Some(self.get(color, true)),
         }
     }
 }
