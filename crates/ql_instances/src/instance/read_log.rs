@@ -230,6 +230,8 @@ pub struct LogEvent {
     pub thread: String,
     #[serde(rename = "Message")]
     pub message: Option<String>,
+    #[serde(rename = "Throwable")]
+    pub throwable: Option<String>,
 }
 
 impl LogEvent {
@@ -256,7 +258,11 @@ impl Display for LogEvent {
             thread = self.thread,
             class = self.logger,
             msg = if let Some(n) = &self.message { &n } else { "" }
-        )
+        )?;
+        if let Some(throwable) = self.throwable.as_deref() {
+            writeln!(f, "Caused by {throwable}")?;
+        }
+        Ok(())
     }
 }
 

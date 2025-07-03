@@ -83,14 +83,11 @@ mod tick;
 const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
 impl Launcher {
-    fn new() -> (Self, iced::Task<Message>) {
+    fn new(is_new_user: bool) -> (Self, iced::Task<Message>) {
         let check_for_updates_command = Task::perform(
             async move { ql_instances::check_for_launcher_updates().await.strerr() },
             Message::UpdateCheckResult,
         );
-
-        let is_new_user = file_utils::is_new_user();
-        // let is_new_user = true; // Uncomment to test the intro screen.
 
         let get_entries_command = Task::perform(
             get_entries("instances".to_owned(), false),
@@ -159,6 +156,9 @@ const WINDOW_WIDTH: f32 = 600.0;
 fn main() {
     #[cfg(target_os = "windows")]
     attach_to_console();
+
+    let is_new_user = file_utils::is_new_user();
+    // let is_new_user = true; // Uncomment to test the intro screen.
 
     let launcher_dir_res = file_utils::get_launcher_dir();
     let mut launcher_dir = None;
@@ -254,7 +254,7 @@ fn main() {
             }),
             ..Default::default()
         })
-        .run_with(Launcher::new)
+        .run_with(move || Launcher::new(is_new_user))
         .unwrap();
 }
 

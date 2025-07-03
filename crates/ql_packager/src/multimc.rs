@@ -69,7 +69,7 @@ pub async fn import(
                 .await?;
             }
 
-            "LWJGL 2" | "LWJGL 3" => {}
+            "Intermediary Mappings" | "LWJGL 2" | "LWJGL 3" => {}
             name => err!("Unknown component (in MultiMC instance): {name}"),
         }
     }
