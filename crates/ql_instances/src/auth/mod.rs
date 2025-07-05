@@ -74,8 +74,9 @@ impl Display for KeyringError {
             {
                 write!(
                     f,
-                    "{error}\n\n{}",
-                    r#"Install the "seahorse" app and open it,
+                    r#"{error}
+
+Install the "seahorse" app and open it,
 Check for "Login" in the sidebar.
 If it's there, make sure it's unlocked (right-click -> Unlock)
 

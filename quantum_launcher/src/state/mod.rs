@@ -256,7 +256,7 @@ fn load_account(
     accounts: &mut HashMap<String, AccountData>,
     accounts_dropdown: &mut Vec<String>,
     accounts_to_remove: &mut Vec<String>,
-    username: &String,
+    username: &str,
     account: &mut crate::config::ConfigAccount,
 ) {
     let username_stripped = username.strip_suffix(" (elyby)").unwrap_or(username);
@@ -276,9 +276,9 @@ fn load_account(
 
     match refresh_token {
         Ok(refresh_token) => {
-            accounts_dropdown.insert(0, username.clone());
+            accounts_dropdown.insert(0, username.to_owned());
             accounts.insert(
-                username.clone(),
+                username.to_owned(),
                 AccountData {
                     access_token: None,
                     uuid: account.uuid.clone(),
@@ -299,7 +299,7 @@ fn load_account(
                 "Could not load account: {err}\nUsername: {username_stripped}, Account Type: {}",
                 account_type.to_string()
             );
-            accounts_to_remove.push(username.clone());
+            accounts_to_remove.push(username.to_owned());
         }
     }
 }
