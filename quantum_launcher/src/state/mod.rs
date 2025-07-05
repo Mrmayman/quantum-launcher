@@ -131,40 +131,21 @@ impl Launcher {
         let mut accounts_dropdown =
             vec![OFFLINE_ACCOUNT_NAME.to_owned(), NEW_ACCOUNT_NAME.to_owned()];
 
-        if let Some(config_accounts) = &config.accounts {
-            for (username, account) in config_accounts {
-                let username_stripped = username.strip_suffix(" (elyby)").unwrap_or(&username);
+        if let Some(config_accounts) = config.accounts.as_mut() {
+            let mut accounts_to_remove = Vec::new();
 
-                let (account_type, refresh_token) = match account.account_type.as_deref() {
-                    Some("ElyBy") => (
-                        AccountType::ElyBy,
-                        ql_instances::auth::elyby::read_refresh_token(username_stripped).strerr(),
-                    ),
-                    Some(_) | None => (
-                        AccountType::Microsoft,
-                        ql_instances::auth::ms::read_refresh_token(username_stripped).strerr(),
-                    ),
-                };
+            for (username, account) in config_accounts.into_iter() {
+                load_account(
+                    &mut accounts,
+                    &mut accounts_dropdown,
+                    &mut accounts_to_remove,
+                    username,
+                    account,
+                );
+            }
 
-                match refresh_token {
-                    Ok(refresh_token) => {
-                        accounts_dropdown.insert(0, username.clone());
-                        accounts.insert(
-                            username.clone(),
-                            AccountData {
-                                access_token: None,
-                                uuid: account.uuid.clone(),
-                                username: username_stripped.to_owned(),
-                                refresh_token,
-                                needs_refresh: true,
-                                account_type,
-                            },
-                        );
-                    }
-                    Err(err) => {
-                        err!("Could not load account: {err}");
-                    }
-                }
+            for rem in accounts_to_remove {
+                config_accounts.remove(&rem);
             }
         }
 
@@ -268,6 +249,53 @@ impl Launcher {
             get_entries("instances".to_owned(), false),
             Message::CoreListLoaded,
         )
+    }
+}
+
+fn load_account(
+    accounts: &mut HashMap<String, AccountData>,
+    accounts_dropdown: &mut Vec<String>,
+    accounts_to_remove: &mut Vec<String>,
+    username: &String,
+    account: &mut crate::config::ConfigAccount,
+) {
+    let username_stripped = username.strip_suffix(" (elyby)").unwrap_or(&username);
+
+    let (account_type, refresh_token) =
+        if account.account_type.as_deref() == Some("ElyBy") || username.ends_with(" (elyby)") {
+            (
+                AccountType::ElyBy,
+                ql_instances::auth::elyby::read_refresh_token(username_stripped).strerr(),
+            )
+        } else {
+            (
+                AccountType::Microsoft,
+                ql_instances::auth::ms::read_refresh_token(username_stripped).strerr(),
+            )
+        };
+
+    match refresh_token {
+        Ok(refresh_token) => {
+            accounts_dropdown.insert(0, username.clone());
+            accounts.insert(
+                username.clone(),
+                AccountData {
+                    access_token: None,
+                    uuid: account.uuid.clone(),
+                    username: username_stripped.to_owned(),
+                    refresh_token,
+                    needs_refresh: true,
+                    account_type,
+                },
+            );
+        }
+        Err(err) => {
+            err!(
+                "Could not load account: {err}\nUsername: {username_stripped}, Account Type: {}",
+                account_type.to_string()
+            );
+            accounts_to_remove.push(username.clone());
+        }
     }
 }
 
