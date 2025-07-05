@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::auth;
 
 pub mod elyby;
@@ -48,5 +50,41 @@ impl AccountData {
     pub fn is_elyby(&self) -> bool {
         let account_type = self.account_type;
         matches!(account_type, AccountType::ElyBy)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub struct KeyringError(pub keyring::Error);
+
+impl Display for KeyringError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Account keyring error:")?;
+        match &self.0 {
+            #[cfg(target_os = "linux")]
+            keyring::Error::PlatformFailure(error)
+                if error.to_string().contains("The name is not activatable") =>
+            {
+                write!(f, "{error}\n\nTry installing gnome-keyring and libsecret packages\n(may be called differently depending on your distro)")
+            }
+            #[cfg(target_os = "linux")]
+            keyring::Error::NoStorageAccess(error)
+                if error.to_string().contains("no result found") =>
+            {
+                write!(
+                    f,
+                    "{error}\n\n{}",
+                    r#"Install the "seahorse" app and open it,
+Check for "Login" in the sidebar.
+If it's there, make sure it's unlocked (right-click -> Unlock)
+
+If it's not there, click on + then "Password Keyring",
+and name it "Login" and put your preferred password
+
+Now after this, in the sidebar, right click it and click "Set as Default""#
+                )
+            }
+
+            _ => write!(f, "{}", self.0),
+        }
     }
 }

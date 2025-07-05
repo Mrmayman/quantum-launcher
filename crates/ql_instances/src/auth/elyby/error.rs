@@ -1,6 +1,7 @@
 use ql_core::{JsonError, RequestError};
 use serde::Deserialize;
-use thiserror::Error;
+
+use crate::auth::KeyringError;
 
 #[derive(Deserialize, Clone, Debug)]
 #[allow(non_snake_case)]
@@ -17,25 +18,26 @@ impl std::fmt::Display for AccountResponseError {
 }
 
 const AUTH_ERR_PREFIX: &str = "while logging into ely.by account:\n";
-#[derive(Debug, Error)]
-pub enum AccountError {
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     #[error("{AUTH_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
     #[error("{AUTH_ERR_PREFIX}{0}")]
     Json(#[from] JsonError),
     #[error("{AUTH_ERR_PREFIX}\n{0}")]
     Response(#[from] AccountResponseError),
-
-    #[cfg(not(target_os = "linux"))]
-    #[error("{AUTH_ERR_PREFIX}keyring error: {0}")]
-    KeyringError(#[from] keyring::Error),
-    #[cfg(target_os = "linux")]
-    #[error("{AUTH_ERR_PREFIX}keyring error: {0}\n\nSee https://mrmayman.github.io/quantumlauncher/#keyring-error for help")]
-    KeyringError(#[from] keyring::Error),
+    #[error("{AUTH_ERR_PREFIX}{0}")]
+    KeyringError(#[from] KeyringError),
 }
 
-impl From<ql_reqwest::Error> for AccountError {
+impl From<ql_reqwest::Error> for Error {
     fn from(value: ql_reqwest::Error) -> Self {
         Self::Request(RequestError::ReqwestError(value))
+    }
+}
+
+impl From<keyring::Error> for Error {
+    fn from(err: keyring::Error) -> Self {
+        Self::KeyringError(KeyringError(err))
     }
 }

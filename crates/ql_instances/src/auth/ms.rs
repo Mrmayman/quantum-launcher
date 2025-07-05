@@ -73,11 +73,10 @@ use ql_reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
-use thiserror::Error;
 
 use crate::auth::AccountType;
 
-use super::AccountData;
+use super::{AccountData, KeyringError};
 
 /// The API key for logging into Minecraft.
 ///
@@ -150,8 +149,8 @@ struct MinecraftFinalDetails {
 
 const AUTH_ERR_PREFIX: &str = "while managing microsoft account:\n";
 
-#[derive(Debug, Error)]
-pub enum AuthError {
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     #[error("{AUTH_ERR_PREFIX}{0}")]
     Request(#[from] RequestError),
     #[error("{AUTH_ERR_PREFIX}{0}")]
@@ -166,18 +165,19 @@ pub enum AuthError {
     NoUuid,
     #[error("Your microsoft account doesn't own minecraft!\nJust enter the username in the text box instead of logging in.")]
     DoesntOwnGame,
-
-    #[cfg(not(target_os = "linux"))]
-    #[error("{AUTH_ERR_PREFIX}keyring error: {0}")]
-    KeyringError(#[from] keyring::Error),
-    #[cfg(target_os = "linux")]
-    #[error("{AUTH_ERR_PREFIX}keyring error: {0}\n\nSee https://mrmayman.github.io/quantumlauncher/#keyring-error for help")]
-    KeyringError(#[from] keyring::Error),
+    #[error("{AUTH_ERR_PREFIX}{0}")]
+    KeyringError(#[from] KeyringError),
 }
 
-impl From<ql_reqwest::Error> for AuthError {
+impl From<ql_reqwest::Error> for Error {
     fn from(value: ql_reqwest::Error) -> Self {
         Self::Request(RequestError::ReqwestError(value))
+    }
+}
+
+impl From<keyring::Error> for Error {
+    fn from(err: keyring::Error) -> Self {
+        Self::KeyringError(KeyringError(err))
     }
 }
 
@@ -203,7 +203,7 @@ pub async fn login_refresh(
     username: String,
     refresh_token: String,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
-) -> Result<AccountData, AuthError> {
+) -> Result<AccountData, Error> {
     send_progress(sender.as_ref(), 0, 4, "Refreshing account token...");
 
     let response = retry(async || {
@@ -241,7 +241,7 @@ pub async fn login_refresh(
     Ok(data)
 }
 
-pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
+pub async fn login_1_link() -> Result<AuthCodeResponse, Error> {
     info!("Logging into Microsoft Account...");
 
     pt!("Sending device code request");
@@ -267,7 +267,7 @@ pub async fn login_1_link() -> Result<AuthCodeResponse, AuthError> {
     Ok(data)
 }
 
-pub fn read_refresh_token(username: &str) -> Result<String, AuthError> {
+pub fn read_refresh_token(username: &str) -> Result<String, Error> {
     let entry = keyring::Entry::new("QuantumLauncher", username)?;
     let refresh_token = entry.get_password()?;
     Ok(refresh_token)
@@ -277,7 +277,7 @@ pub async fn login_3_xbox(
     data: AuthTokenResponse,
     sender: Option<std::sync::mpsc::Sender<GenericProgress>>,
     check_ownership: bool,
-) -> Result<AccountData, AuthError> {
+) -> Result<AccountData, Error> {
     let steps = if check_ownership { 5 } else { 4 };
 
     send_progress(sender.as_ref(), 1, steps, "Logging into xbox live...");
@@ -292,7 +292,7 @@ pub async fn login_3_xbox(
         let owns_game = check_minecraft_ownership(&minecraft.access_token).await?;
 
         if !owns_game {
-            return Err(AuthError::DoesntOwnGame);
+            return Err(Error::DoesntOwnGame);
         }
     }
 
@@ -301,7 +301,7 @@ pub async fn login_3_xbox(
 
     let data = AccountData {
         access_token: Some(minecraft.access_token),
-        uuid: final_details.id.ok_or(AuthError::NoUuid)?,
+        uuid: final_details.id.ok_or(Error::NoUuid)?,
         username: final_details.name,
         refresh_token: data.refresh_token,
         needs_refresh: false,
@@ -330,7 +330,7 @@ fn send_progress(
     }
 }
 
-pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenResponse, AuthError> {
+pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenResponse, Error> {
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(response.interval + 1)).await;
 
@@ -351,7 +351,7 @@ pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenRespons
                 let error: AuthServiceErrorMessage = serde_json::from_str(&txt).json(txt)?;
                 match &error.error as &str {
                     "authorization_declined" | "expired_token" | "invalid_grant" => {
-                        return Err(AuthError::InvalidAccessToken);
+                        return Err(Error::InvalidAccessToken);
                     }
                     _ => {}
                 }
@@ -363,7 +363,7 @@ pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenRespons
                 return Ok(response);
             }
             code => {
-                return Err(AuthError::UnknownError(code));
+                return Err(Error::UnknownError(code));
             }
         }
     }
@@ -372,7 +372,7 @@ pub async fn login_2_wait(response: AuthCodeResponse) -> Result<AuthTokenRespons
 async fn login_in_xbox_live(
     client: &Client,
     auth_token: &AuthTokenResponse,
-) -> Result<XboxLiveAuthResponse, AuthError> {
+) -> Result<XboxLiveAuthResponse, Error> {
     let xbox_authenticate_json = json!({
         "Properties": {
             "AuthMethod": "RPS",
@@ -398,20 +398,20 @@ async fn login_in_xbox_live(
 async fn login_in_minecraft(
     client: &Client,
     xbox_res: &XboxLiveAuthResponse,
-) -> Result<MinecraftAuthResponse, AuthError> {
+) -> Result<MinecraftAuthResponse, Error> {
     let xbox_token = &xbox_res.token;
     let user_hash = &xbox_res
         .display_claims
         .get("xui")
-        .ok_or(AuthError::MissingField(
+        .ok_or(Error::MissingField(
             "xbox_res.display_claims.xui".to_owned(),
         ))?
         .first()
-        .ok_or(AuthError::MissingField(
+        .ok_or(Error::MissingField(
             "xbox_res.display_claims.xui[0]".to_owned(),
         ))?
         .get("uhs")
-        .ok_or(AuthError::MissingField(
+        .ok_or(Error::MissingField(
             "xbox_res.display_claims.xui[0].uhs".to_owned(),
         ))?;
 
@@ -456,7 +456,7 @@ async fn login_in_minecraft(
 async fn get_final_details(
     client: &Client,
     minecraft_res: &MinecraftAuthResponse,
-) -> Result<MinecraftFinalDetails, AuthError> {
+) -> Result<MinecraftFinalDetails, Error> {
     let text = client
         .get("https://api.minecraftservices.com/minecraft/profile")
         .header("Accept", "application/json")
@@ -469,7 +469,7 @@ async fn get_final_details(
     Ok(serde_json::from_str(&text).json(text)?)
 }
 
-async fn check_minecraft_ownership(access_token: &str) -> Result<bool, AuthError> {
+async fn check_minecraft_ownership(access_token: &str) -> Result<bool, Error> {
     #[derive(Deserialize)]
     struct Ownership {
         items: Vec<serde_json::Value>,

@@ -5,12 +5,12 @@ use serde::Deserialize;
 mod authlib;
 mod error;
 pub(crate) use authlib::get_authlib_injector;
-pub use error::{AccountError, AccountResponseError};
+pub use error::{AccountResponseError, Error};
 
 // Well, no one's gonna be stealing this one :)
 pub const CLIENT_ID: &str = "quantumlauncher1";
 
-pub async fn login_new(username: String, password: String) -> Result<Account, AccountError> {
+pub async fn login_new(username: String, password: String) -> Result<Account, Error> {
     info!("Logging into elyby... (username/email: {username})");
     let response = CLIENT
         .post("https://authserver.ely.by/auth/authenticate")
@@ -62,15 +62,12 @@ pub async fn login_new(username: String, password: String) -> Result<Account, Ac
     }))
 }
 
-pub fn read_refresh_token(username: &str) -> Result<String, AccountError> {
+pub fn read_refresh_token(username: &str) -> Result<String, Error> {
     let entry = get_keyring_entry(username)?;
     Ok(entry.get_password()?)
 }
 
-pub async fn login_refresh(
-    username: String,
-    refresh_token: String,
-) -> Result<AccountData, AccountError> {
+pub async fn login_refresh(username: String, refresh_token: String) -> Result<AccountData, Error> {
     pt!("Refreshing ely.by account...");
     let entry = get_keyring_entry(&username)?;
 
@@ -106,7 +103,7 @@ pub async fn login_refresh(
     })
 }
 
-fn get_keyring_entry(username: &str) -> Result<keyring::Entry, AccountError> {
+fn get_keyring_entry(username: &str) -> Result<keyring::Entry, Error> {
     Ok(keyring::Entry::new(
         "QuantumLauncher",
         &format!("{username}#elyby"),

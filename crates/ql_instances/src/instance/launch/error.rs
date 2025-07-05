@@ -1,14 +1,13 @@
 use ql_java_handler::JavaInstallError;
 use std::path::PathBuf;
-use thiserror::Error;
 
 use ql_core::{impl_3_errs_jri, json::VersionDetails, IoError, JsonError, RequestError};
 
-use crate::{auth::ms::AuthError, download::DownloadError, jarmod::JarModError};
+use crate::{download::DownloadError, jarmod::JarModError};
 
 const GAME_ERR_PREFIX: &str = "while launching game:\n";
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum GameLaunchError {
     #[error("{GAME_ERR_PREFIX}{0}")]
     Io(#[from] IoError),
@@ -41,7 +40,7 @@ pub enum GameLaunchError {
     JarMod(#[from] JarModError),
 
     #[error("{GAME_ERR_PREFIX}{0}")]
-    MsAuth(#[from] AuthError),
+    MsAuth(#[from] crate::auth::ms::Error),
     #[error("{GAME_ERR_PREFIX}microsoft account token was not loaded\n\nTry logging out of your account and logging back in")]
     InvalidToken,
 
