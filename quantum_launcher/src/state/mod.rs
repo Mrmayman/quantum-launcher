@@ -134,7 +134,7 @@ impl Launcher {
         if let Some(config_accounts) = config.accounts.as_mut() {
             let mut accounts_to_remove = Vec::new();
 
-            for (username, account) in config_accounts.into_iter() {
+            for (username, account) in config_accounts.iter_mut() {
                 load_account(
                     &mut accounts,
                     &mut accounts_dropdown,
@@ -259,7 +259,7 @@ fn load_account(
     username: &String,
     account: &mut crate::config::ConfigAccount,
 ) {
-    let username_stripped = username.strip_suffix(" (elyby)").unwrap_or(&username);
+    let username_stripped = username.strip_suffix(" (elyby)").unwrap_or(username);
 
     let (account_type, refresh_token) =
         if account.account_type.as_deref() == Some("ElyBy") || username.ends_with(" (elyby)") {

@@ -1,10 +1,7 @@
 use std::{
     fmt::Display,
     process::ExitStatus,
-    sync::{
-        mpsc::{SendError, Sender},
-        Arc, Mutex,
-    },
+    sync::{mpsc::Sender, Arc, Mutex},
 };
 
 use serde::Deserialize;
@@ -85,13 +82,13 @@ pub async fn read_logs(
                     if uses_xml {
                         xml_parse(&sender, &mut xml_cache, &line, &mut has_errored)?;
                     } else {
-                        sender.send(LogLine::Message(line))?;
+                        _ = sender.send(LogLine::Message(line));
                     }
                 } // else EOF
             },
             line = stderr_reader.next_line() => {
                 if let Some(line) = line? {
-                    sender.send(LogLine::Error(line))?;
+                    _ = sender.send(LogLine::Error(line));
                 }
             }
         }
@@ -117,7 +114,7 @@ fn xml_parse(
         Some(start) if start > 0 => {
             let other_text = xml[..start].trim();
             if !other_text.is_empty() {
-                sender.send(LogLine::Message(other_text.to_owned()))?;
+                _ = sender.send(LogLine::Message(other_text.to_owned()));
             }
             &xml[start..]
         }
@@ -125,13 +122,13 @@ fn xml_parse(
     };
 
     if let Ok(log_event) = quick_xml::de::from_str(text) {
-        sender.send(LogLine::Info(log_event))?;
+        _ = sender.send(LogLine::Info(log_event));
         xml_cache.clear();
     } else {
         let no_unicode = any_ascii::any_ascii(text);
         match quick_xml::de::from_str(&no_unicode) {
             Ok(log_event) => {
-                sender.send(LogLine::Info(log_event))?;
+                _ = sender.send(LogLine::Info(log_event));
                 xml_cache.clear();
             }
             Err(err) => {
@@ -191,8 +188,6 @@ pub enum ReadError {
     Io(#[from] std::io::Error),
     #[error("{READ_ERR_PREFIX}{0}")]
     IoError(#[from] IoError),
-    #[error("{READ_ERR_PREFIX}send error: {0}")]
-    Send(#[from] SendError<LogLine>),
     #[error("{READ_ERR_PREFIX}{0}")]
     Json(#[from] JsonError),
 }
