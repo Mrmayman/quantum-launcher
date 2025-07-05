@@ -11,7 +11,7 @@ impl MenuLoginElyBy {
     pub fn view(&self, tick_timer: usize) -> Element {
         let status: Element = if self.is_loading {
             let dots = ".".repeat((tick_timer % 3) + 1);
-            widget::text!("Loading...{dots}").into()
+            widget::text!("Loading{dots}").into()
         } else {
             button_with_icon(icon_manager::tick(), "Login", 16)
                 .on_press(Message::Account(AccountMessage::ElyByLogin))

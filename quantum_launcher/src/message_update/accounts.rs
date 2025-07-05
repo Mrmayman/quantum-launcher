@@ -50,7 +50,18 @@ impl Launcher {
             }
             AccountMessage::LogoutConfirm => {
                 let username = self.accounts_selected.clone().unwrap();
-                if let Err(err) = auth::ms::logout(&username) {
+                let account_type = self
+                    .accounts
+                    .get(&username)
+                    .map(|n| n.account_type)
+                    .unwrap_or(auth::AccountType::Microsoft);
+
+                if let Err(err) = match account_type {
+                    auth::AccountType::Microsoft => auth::ms::logout(&username),
+                    auth::AccountType::ElyBy => {
+                        auth::elyby::logout(username.strip_suffix(" (elyby)").unwrap_or(&username))
+                    }
+                } {
                     self.set_error(err);
                 }
                 if let Some(accounts) = &mut self.config.accounts {
@@ -139,28 +150,32 @@ impl Launcher {
             }
 
             AccountMessage::ElyByLogin => {
-                if let State::LoginElyBy(menu) = &self.state {
+                if let State::LoginElyBy(menu) = &mut self.state {
                     let mut password = menu.password.clone();
                     if let Some(otp) = &menu.otp {
                         password.push(':');
                         password.push_str(otp);
                     }
+                    menu.is_loading = true;
                     return Task::perform(
                         auth::elyby::login_new(menu.username.clone(), password),
                         |n| Message::Account(AccountMessage::ElyByLoginResponse(n.strerr())),
                     );
                 }
             }
-            AccountMessage::ElyByLoginResponse(Ok(acc)) => match acc {
-                auth::elyby::Account::Account(data) => {
-                    return self.account_response_3(data);
-                }
-                auth::elyby::Account::NeedsOTP => {
-                    if let State::LoginElyBy(menu) = &mut self.state {
-                        menu.otp = Some(String::new());
+            AccountMessage::ElyByLoginResponse(Ok(acc)) => {
+                if let State::LoginElyBy(menu) = &mut self.state {
+                    menu.is_loading = false;
+                    match acc {
+                        auth::elyby::Account::Account(data) => {
+                            return self.account_response_3(data);
+                        }
+                        auth::elyby::Account::NeedsOTP => {
+                            menu.otp = Some(String::new());
+                        }
                     }
                 }
-            },
+            }
         }
         Task::none()
     }

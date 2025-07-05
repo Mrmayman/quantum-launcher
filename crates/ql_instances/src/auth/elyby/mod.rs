@@ -123,7 +123,7 @@ fn get_keyring_entry(username: &str) -> Result<keyring::Entry, Error> {
 pub fn logout(username: &str) -> Result<(), String> {
     let entry = get_keyring_entry(username).strerr()?;
     if let Err(err) = entry.delete_credential() {
-        err!("Couldn't remove account credential: {err}");
+        err!("Couldn't remove elyby account credential (Username: {username}):\n{err}");
     }
     Ok(())
 }
