@@ -38,8 +38,8 @@ impl Launcher {
     pub fn launch_game(&mut self, account_data: Option<AccountData>) -> Task<Message> {
         let selected_instance = self.selected_instance.as_ref().unwrap().get_name();
         let username = if let Some(account_data) = &account_data {
-            // Microsoft account
-            account_data.username.clone()
+            // Logged in account
+            account_data.nice_username.clone()
         } else {
             // Offline username
             self.config.username.clone()

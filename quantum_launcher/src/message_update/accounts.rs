@@ -207,6 +207,7 @@ impl Launcher {
                 uuid: data.uuid.clone(),
                 skin: None,
                 account_type: Some(data.account_type.to_string()),
+                username_nice: Some(data.nice_username.clone()),
             },
         );
 

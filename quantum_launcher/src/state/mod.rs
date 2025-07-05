@@ -282,10 +282,15 @@ fn load_account(
                 AccountData {
                     access_token: None,
                     uuid: account.uuid.clone(),
-                    username: username_stripped.to_owned(),
                     refresh_token,
                     needs_refresh: true,
                     account_type,
+
+                    username: username_stripped.to_owned(),
+                    nice_username: account
+                        .username_nice
+                        .clone()
+                        .unwrap_or(username_stripped.to_owned()),
                 },
             );
         }

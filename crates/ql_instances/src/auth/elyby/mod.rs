@@ -10,12 +10,14 @@ pub use error::{AccountResponseError, Error};
 // Well, no one's gonna be stealing this one :)
 pub const CLIENT_ID: &str = "quantumlauncher1";
 
-pub async fn login_new(username: String, password: String) -> Result<Account, Error> {
-    info!("Logging into elyby... (username/email: {username})");
+pub async fn login_new(email: String, password: String) -> Result<Account, Error> {
+    // NOTE: It says email, but both username and email are accepted
+
+    info!("Logging into elyby... ({email})");
     let response = CLIENT
         .post("https://authserver.ely.by/auth/authenticate")
         .json(&serde_json::json!({
-            "username": &username,
+            "username": &email,
             "password": &password,
             "clientToken": CLIENT_ID
         }))
@@ -49,13 +51,16 @@ pub async fn login_new(username: String, password: String) -> Result<Account, Er
         }
     };
 
-    let entry = get_keyring_entry(&username)?;
+    let entry = get_keyring_entry(&email)?;
     entry.set_password(&account_response.accessToken)?;
 
     Ok(Account::Account(AccountData {
         access_token: Some(account_response.accessToken.clone()),
         uuid: account_response.selectedProfile.id,
-        username,
+
+        username: email,
+        nice_username: account_response.selectedProfile.name,
+
         refresh_token: account_response.accessToken,
         needs_refresh: false,
         account_type: super::AccountType::ElyBy,
@@ -67,9 +72,11 @@ pub fn read_refresh_token(username: &str) -> Result<String, Error> {
     Ok(entry.get_password()?)
 }
 
-pub async fn login_refresh(username: String, refresh_token: String) -> Result<AccountData, Error> {
+pub async fn login_refresh(email: String, refresh_token: String) -> Result<AccountData, Error> {
+    // NOTE: It says email, but both username and email are accepted
+
     pt!("Refreshing ely.by account...");
-    let entry = get_keyring_entry(&username)?;
+    let entry = get_keyring_entry(&email)?;
 
     let response = CLIENT
         .post("https://authserver.ely.by/auth/refresh")
@@ -96,7 +103,10 @@ pub async fn login_refresh(username: String, refresh_token: String) -> Result<Ac
     Ok(AccountData {
         access_token: Some(account_response.accessToken.clone()),
         uuid: account_response.selectedProfile.id,
-        username,
+
+        username: email,
+        nice_username: account_response.selectedProfile.name,
+
         refresh_token: account_response.accessToken,
         needs_refresh: false,
         account_type: super::AccountType::ElyBy,
@@ -128,7 +138,7 @@ struct AccountResponse {
 #[derive(Deserialize, Clone, Debug)]
 struct AccountResponseProfile {
     pub id: String,
-    // pub name: String,
+    pub name: String,
 }
 
 #[derive(Debug, Clone)]

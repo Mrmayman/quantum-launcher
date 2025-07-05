@@ -302,10 +302,12 @@ pub async fn login_3_xbox(
     let data = AccountData {
         access_token: Some(minecraft.access_token),
         uuid: final_details.id.ok_or(Error::NoUuid)?,
-        username: final_details.name,
         refresh_token: data.refresh_token,
         needs_refresh: false,
         account_type: AccountType::Microsoft,
+
+        username: final_details.name.clone(),
+        nice_username: final_details.name,
     };
 
     info!("Finished Microsoft Account login!");

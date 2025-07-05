@@ -9,9 +9,11 @@ pub mod ms;
 pub struct AccountData {
     pub access_token: Option<String>,
     pub uuid: String,
-    pub username: String,
     pub refresh_token: String,
     pub needs_refresh: bool,
+
+    pub username: String,
+    pub nice_username: String,
 
     pub account_type: AccountType,
 }

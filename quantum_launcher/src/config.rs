@@ -173,4 +173,15 @@ pub struct ConfigAccount {
     /// - `"Microsoft"`
     /// - `"ElyBy"`
     pub account_type: Option<String>,
+
+    /// A game-readable "nice" username.
+    ///
+    /// This will be identical to the regular
+    /// username of the account in most cases
+    /// except for the case where the user
+    /// has an elyby account with an email.
+    /// In that case, this will be the actual
+    /// username while the regular "username"
+    /// would be an email.
+    pub username_nice: Option<String>,
 }
