@@ -392,6 +392,9 @@ pub enum State {
     Error {
         error: String,
     },
+    /// "Are you sure you want to {msg1}?"
+    /// screen. Used for confirming if the user
+    /// wants to do certain actions.
     ConfirmAction {
         msg1: String,
         msg2: String,
@@ -400,10 +403,13 @@ pub enum State {
     },
     GenericMessage(String),
 
+    /// Progress bar when logging into accounts
     AccountLoginProgress(ProgressBar<GenericProgress>),
+    /// A parent menu to choose whether you want to login
+    /// with Microsoft or ely.by
+    AccountLogin,
     LoginMS(MenuLoginMS),
     LoginElyBy(MenuLoginElyBy),
-    AccountLogin,
 
     InstallPaper,
     InstallFabric(MenuInstallFabric),
@@ -416,6 +422,67 @@ pub enum State {
     LauncherSettings(MenuLauncherSettings),
     ServerCreate(MenuServerCreate),
     ManagePresets(MenuEditPresets),
+
+    License(MenuLicense),
+}
+
+pub struct MenuLicense {
+    pub selected_tab: LicenseTab,
+    pub content: iced::widget::text_editor::Content,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LicenseTab {
+    Gpl3,
+    OpenFontLicense,
+    PasswordAsterisks,
+    ForgeInstallerApache,
+}
+
+impl LicenseTab {
+    pub const ALL: &[Self] = &[
+        Self::Gpl3,
+        Self::ForgeInstallerApache,
+        Self::OpenFontLicense,
+        Self::PasswordAsterisks,
+    ];
+
+    pub fn get_text(&self) -> &'static str {
+        match self {
+            LicenseTab::Gpl3 => include_str!("../../../LICENSE"),
+            LicenseTab::OpenFontLicense => {
+                concat!(
+                    "For the Inter and JetBrains fonts used in QuantumLauncher:\n--------\n\n",
+                    include_str!("../../../assets/fonts/OFL.txt"),
+                )
+            }
+            LicenseTab::PasswordAsterisks => {
+                concat!(
+                    include_str!("../../../assets/fonts/password_asterisks/where.txt"),
+                    "\n--------\n",
+                    include_str!("../../../assets/fonts/password_asterisks/CC_BY_SA_3_0.txt")
+                )
+            }
+            LicenseTab::ForgeInstallerApache => {
+                concat!(
+                    "For the Forge Installer script used in QuantumLauncher:\n--------\n\n",
+                    include_str!("../../../assets/installers/APACHE_2_LICENSE")
+                )
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for LicenseTab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            LicenseTab::Gpl3 => "QuantumLauncher",
+            LicenseTab::OpenFontLicense => "Fonts (Inter/Jetbrains Mono)",
+            LicenseTab::PasswordAsterisks => "Password Asterisks Font",
+            LicenseTab::ForgeInstallerApache => "Forge Installer",
+        };
+        write!(f, "{name}")
+    }
 }
 
 pub enum MenuServerCreate {

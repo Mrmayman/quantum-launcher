@@ -219,6 +219,7 @@ impl Launcher {
             State::LoginElyBy(menu) => menu.view(self.tick_timer),
             State::CurseforgeManualDownload(menu) => menu.view(),
             State::ExportInstance(menu) => menu.view(self.tick_timer),
+            State::License(menu) => menu.view(),
         }
     }
 }

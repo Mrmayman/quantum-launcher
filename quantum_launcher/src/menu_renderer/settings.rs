@@ -182,9 +182,7 @@ impl LauncherSettingsTab {
                         // Since I can't underline the buttons,
                         // I have to resort to making them pop out.
                         .style(|n: &LauncherTheme, status| n.style_button(status, StyleButton::Flat))
-                        .on_press(Message::CoreOpenLink(
-                            "https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned()
-                        ));
+                        .on_press(Message::LicenseChangeTab(crate::state::LicenseTab::Gpl3));
 
                 let links = widget::row![
                     button_with_icon(icon_manager::page(), "Website", 16).on_press(
@@ -209,6 +207,7 @@ impl LauncherSettingsTab {
                 let menus = widget::row![
                     widget::button("Changelog").on_press(Message::CoreOpenChangeLog),
                     widget::button("Welcome Screen").on_press(Message::CoreOpenIntro),
+                    widget::button("Licenses").on_press(Message::LicenseOpen),
                 ]
                 .padding(PADDING_LEFT)
                 .spacing(5)

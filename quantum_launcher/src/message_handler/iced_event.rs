@@ -7,9 +7,9 @@ use iced::{
 use ql_core::{err, info, info_no_log, jarmod::JarMod, InstanceSelection};
 
 use crate::state::{
-    Launcher, MenuCreateInstance, MenuEditMods, MenuExportInstance, MenuInstallFabric,
-    MenuInstallOptifine, MenuLaunch, MenuLauncherUpdate, MenuLoginElyBy, MenuLoginMS,
-    MenuServerCreate, Message, State,
+    Launcher, LauncherSettingsTab, MenuCreateInstance, MenuEditMods, MenuExportInstance,
+    MenuInstallFabric, MenuInstallOptifine, MenuLaunch, MenuLauncherSettings, MenuLauncherUpdate,
+    MenuLoginElyBy, MenuLoginMS, MenuServerCreate, Message, State,
 };
 
 use super::{SIDEBAR_DRAG_LEEWAY, SIDEBAR_LIMIT_LEFT, SIDEBAR_LIMIT_RIGHT};
@@ -249,6 +249,18 @@ impl Launcher {
             })
             | State::Welcome(_) => {
                 should_return_to_main_screen = true;
+            }
+            State::License(_) => {
+                if affect {
+                    if let State::LauncherSettings(_) = &self.state {
+                    } else {
+                        self.state = State::LauncherSettings(MenuLauncherSettings {
+                            temp_scale: self.config.ui_scale.unwrap_or(1.0),
+                            selected_tab: LauncherSettingsTab::About,
+                        });
+                    }
+                }
+                return (true, Task::none());
             }
             State::ConfirmAction { no, .. } => {
                 if affect {

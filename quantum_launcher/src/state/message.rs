@@ -22,7 +22,7 @@ use ql_mod_manager::{
 };
 use tokio::process::Child;
 
-use super::{LaunchTabId, LauncherSettingsTab, Res};
+use super::{LaunchTabId, LauncherSettingsTab, LicenseTab, Res};
 
 #[derive(Debug, Clone)]
 pub enum InstallFabricMessage {
@@ -296,4 +296,8 @@ pub enum Message {
     ServerCreateVersionSelected(ListEntry),
     ServerCreateStart,
     ServerCreateEnd(Res<String>),
+
+    LicenseOpen,
+    LicenseChangeTab(LicenseTab),
+    LicenseAction(iced::widget::text_editor::Action),
 }

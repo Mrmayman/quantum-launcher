@@ -431,45 +431,18 @@ impl widget::checkbox::Catalog for LauncherTheme {
 }
 
 impl widget::text_editor::Catalog for LauncherTheme {
-    type Class<'a> = ();
+    type Class<'a> = widget::text_editor::StyleFn<'a, LauncherTheme>;
 
-    fn default<'a>() -> <Self as widget::text_editor::Catalog>::Class<'a> {}
+    fn default<'a>() -> <Self as widget::text_editor::Catalog>::Class<'a> {
+        Box::new(LauncherTheme::style_text_editor_box)
+    }
 
-    fn style(&self, (): &(), status: widget::text_editor::Status) -> widget::text_editor::Style {
-        match status {
-            widget::text_editor::Status::Active => widget::text_editor::Style {
-                background: self.get_bg(Color::ExtraDark, true),
-                border: self.get_border(Color::SecondDark, true),
-                icon: self.get(Color::Light, true),
-                placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
-                selection: self.get(Color::Dark, true),
-            },
-            widget::text_editor::Status::Hovered => widget::text_editor::Style {
-                background: self.get_bg(Color::ExtraDark, true),
-                border: self.get_border(Color::Mid, true),
-                icon: self.get(Color::Light, true),
-                placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
-                selection: self.get(Color::Dark, true),
-            },
-            widget::text_editor::Status::Focused => widget::text_editor::Style {
-                background: self.get_bg(Color::Dark, true),
-                border: self.get_border(Color::Mid, true),
-                icon: self.get(Color::Light, true),
-                placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
-                selection: self.get(Color::SecondDark, true),
-            },
-            widget::text_editor::Status::Disabled => widget::text_editor::Style {
-                background: self.get_bg(Color::SecondDark, true),
-                border: self.get_border(Color::Mid, true),
-                icon: self.get(Color::Light, true),
-                placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
-                selection: self.get(Color::Dark, true),
-            },
-        }
+    fn style<'a>(
+        &self,
+        class: &<Self as widget::text_editor::Catalog>::Class<'a>,
+        status: widget::text_editor::Status,
+    ) -> widget::text_editor::Style {
+        class(self, status)
     }
 }
 

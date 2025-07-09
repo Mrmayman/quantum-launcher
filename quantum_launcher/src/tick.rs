@@ -142,6 +142,7 @@ impl Launcher {
             | State::ConfirmAction { .. }
             | State::ChangeLog
             | State::Welcome(_)
+            | State::License(_)
             | State::LoginMS(MenuLoginMS { .. })
             | State::GenericMessage(_)
             | State::CurseforgeManualDownload(_)

@@ -469,7 +469,7 @@ impl Launcher {
         Task::none()
     }
 
-    fn go_to_launcher_settings(&mut self) {
+    pub fn go_to_launcher_settings(&mut self) {
         if let State::LauncherSettings(_) = &self.state {
             return;
         }

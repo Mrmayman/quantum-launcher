@@ -9,7 +9,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::state::{
     LaunchTabId, Launcher, ManageModsMessage, MenuExportInstance, MenuLaunch, MenuLauncherUpdate,
-    MenuServerCreate, MenuWelcome, Message, ProgressBar, ServerProcess, State,
+    MenuLicense, MenuServerCreate, MenuWelcome, Message, ProgressBar, ServerProcess, State,
 };
 
 impl Launcher {
@@ -521,7 +521,40 @@ impl Launcher {
                 }
                 Err(err) => self.set_error(err),
             },
+            Message::LicenseOpen => {
+                self.go_to_licenses_menu();
+            }
+            Message::LicenseChangeTab(tab) => {
+                self.go_to_licenses_menu();
+                if let State::License(menu) = &mut self.state {
+                    menu.selected_tab = tab;
+                    menu.content = iced::widget::text_editor::Content::with_text(tab.get_text());
+                }
+            }
+            Message::LicenseAction(action) => {
+                match action {
+                    // Stop anyone from editing the license text
+                    iced::widget::text_editor::Action::Edit(_) => {}
+                    // Allow all other actions (movement, selection, clicking, scrolling, etc.)
+                    _ => {
+                        if let State::License(menu) = &mut self.state {
+                            menu.content.perform(action);
+                        }
+                    }
+                }
+            }
         }
         Task::none()
+    }
+
+    fn go_to_licenses_menu(&mut self) {
+        if let State::License(_) = self.state {
+            return;
+        }
+        let selected_tab = crate::state::LicenseTab::Gpl3;
+        self.state = State::License(MenuLicense {
+            selected_tab,
+            content: iced::widget::text_editor::Content::with_text(selected_tab.get_text()),
+        });
     }
 }

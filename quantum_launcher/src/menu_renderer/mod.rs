@@ -5,11 +5,11 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     state::{
-        CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage, ManageModsMessage,
-        MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherUpdate, MenuServerCreate,
-        Message, ProgressBar,
+        CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage, LicenseTab,
+        ManageModsMessage, MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherUpdate,
+        MenuLicense, MenuServerCreate, Message, ProgressBar,
     },
-    stylesheet::{color::Color, styles::LauncherTheme},
+    stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
 
 pub mod changelog;
@@ -352,6 +352,52 @@ impl MenuServerCreate {
         }
         .padding(10)
         .spacing(10)
+        .into()
+    }
+}
+
+impl MenuLicense {
+    pub fn view(&self) -> Element {
+        widget::row![
+            self.view_sidebar(),
+            widget::scrollable(
+                widget::text_editor(&self.content)
+                    .on_action(Message::LicenseAction)
+                    .style(LauncherTheme::style_text_editor_flat_extra_dark)
+            )
+            .style(LauncherTheme::style_scrollable_flat_dark)
+        ]
+        .into()
+    }
+
+    fn view_sidebar(&self) -> Element {
+        widget::column![
+            widget::column![back_button().on_press(Message::LauncherSettings(
+                LauncherSettingsMessage::ChangeTab(crate::state::LauncherSettingsTab::About)
+            ))]
+            .padding(10),
+            widget::container(widget::column(LicenseTab::ALL.iter().map(|tab| {
+                let text = widget::text(tab.to_string());
+                if *tab == self.selected_tab {
+                    widget::container(widget::row!(widget::Space::with_width(5), text))
+                        .style(LauncherTheme::style_container_selected_flat_button)
+                        .width(Length::Fill)
+                        .padding(5)
+                        .into()
+                } else {
+                    widget::button(text)
+                        .on_press(Message::LicenseChangeTab(*tab))
+                        .style(|n: &LauncherTheme, status| {
+                            n.style_button(status, StyleButton::FlatExtraDark)
+                        })
+                        .width(Length::Fill)
+                        .into()
+                }
+            })))
+            .height(Length::Fill)
+            .width(200)
+            .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark))
+        ]
         .into()
     }
 }
