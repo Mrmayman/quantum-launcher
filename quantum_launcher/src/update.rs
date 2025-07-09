@@ -176,7 +176,7 @@ impl Launcher {
                 }
             },
             Message::UpdateDownloadStart => return self.update_download_start(),
-            Message::LauncherSettings(msg) => self.update_launcher_settings(msg),
+            Message::LauncherSettings(msg) => return self.update_launcher_settings(msg),
 
             Message::InstallOptifine(msg) => return self.update_install_optifine(msg),
             Message::ServerManageOpen {

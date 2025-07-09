@@ -414,7 +414,7 @@ impl Launcher {
         Task::none()
     }
 
-    pub fn update_launcher_settings(&mut self, msg: LauncherSettingsMessage) {
+    pub fn update_launcher_settings(&mut self, msg: LauncherSettingsMessage) -> Task<Message> {
         match msg {
             LauncherSettingsMessage::ThemePicked(theme) => {
                 info!("Setting color mode {theme}");
@@ -427,9 +427,7 @@ impl Launcher {
                 }
             }
             LauncherSettingsMessage::Open => {
-                self.state = State::LauncherSettings(state::MenuLauncherSettings {
-                    temp_scale: self.config.ui_scale.unwrap_or(1.0),
-                });
+                self.go_to_launcher_settings();
             }
             LauncherSettingsMessage::StylePicked(style) => {
                 info!("Setting color scheme {style}");
@@ -447,8 +445,37 @@ impl Launcher {
                 }
             }
             LauncherSettingsMessage::ClearJavaInstalls => {
-                ql_instances::delete_java_installs();
+                self.state = State::ConfirmAction {
+                    msg1: "delete auto-installed Java files".to_owned(),
+                    msg2: "They will get reinstalled automatically as needed".to_owned(),
+                    yes: Message::LauncherSettings(
+                        LauncherSettingsMessage::ClearJavaInstallsConfirm,
+                    ),
+                    no: Message::LauncherSettings(LauncherSettingsMessage::ChangeTab(
+                        state::LauncherSettingsTab::Internal,
+                    )),
+                }
+            }
+            LauncherSettingsMessage::ClearJavaInstallsConfirm => {
+                return Task::perform(ql_instances::delete_java_installs(), |()| Message::Nothing);
+            }
+            LauncherSettingsMessage::ChangeTab(tab) => {
+                self.go_to_launcher_settings();
+                if let State::LauncherSettings(menu) = &mut self.state {
+                    menu.selected_tab = tab;
+                }
             }
         }
+        Task::none()
+    }
+
+    fn go_to_launcher_settings(&mut self) {
+        if let State::LauncherSettings(_) = &self.state {
+            return;
+        }
+        self.state = State::LauncherSettings(state::MenuLauncherSettings {
+            temp_scale: self.config.ui_scale.unwrap_or(1.0),
+            selected_tab: state::LauncherSettingsTab::UserInterface,
+        });
     }
 }

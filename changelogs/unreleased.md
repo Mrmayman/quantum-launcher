@@ -11,6 +11,7 @@
 
 - Overhauled portable dir system (see `docs/PORTABLE.md` for more info)
 - Added a new Teal color scheme!
+- Overhauled the Launcher Setings menu
 
 ## Elyby integration
 - All versions before 1.21.6 will now support skins from elyby by default (b)

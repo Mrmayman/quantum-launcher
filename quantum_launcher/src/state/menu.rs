@@ -277,6 +277,32 @@ pub struct MenuModsDownload {
 
 pub struct MenuLauncherSettings {
     pub temp_scale: f64,
+    pub selected_tab: LauncherSettingsTab,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LauncherSettingsTab {
+    UserInterface,
+    Internal,
+    About,
+}
+
+impl std::fmt::Display for LauncherSettingsTab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                LauncherSettingsTab::UserInterface => "Appearance",
+                LauncherSettingsTab::Internal => "Advanced",
+                LauncherSettingsTab::About => "About",
+            }
+        )
+    }
+}
+
+impl LauncherSettingsTab {
+    pub const ALL: &[Self] = &[Self::UserInterface, Self::Internal, Self::About];
 }
 
 pub struct MenuEditPresets {

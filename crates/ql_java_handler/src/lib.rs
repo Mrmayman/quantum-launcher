@@ -357,13 +357,13 @@ pub enum JavaInstallError {
     UnknownExtension(String),
 }
 
-pub fn delete_java_installs() {
+pub async fn delete_java_installs() {
     info!("Clearing Java installs");
     let java_installs = LAUNCHER_DIR.join("java_installs");
     if !java_installs.exists() {
         return;
     }
-    if let Err(err) = std::fs::remove_dir_all(&java_installs) {
+    if let Err(err) = tokio::fs::remove_dir_all(&java_installs).await {
         err!("Could not delete `java_installs` dir: {err}");
     }
 }

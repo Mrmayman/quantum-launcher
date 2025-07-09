@@ -6,14 +6,10 @@ use crate::{
     icon_manager,
     state::{
         CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage, ManageModsMessage,
-        MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherSettings, MenuLauncherUpdate,
-        MenuServerCreate, Message, ProgressBar,
+        MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherUpdate, MenuServerCreate,
+        Message, ProgressBar,
     },
-    stylesheet::{
-        color::Color,
-        styles::{LauncherTheme, LauncherThemeColor},
-        widgets::StyleButton,
-    },
+    stylesheet::{color::Color, styles::LauncherTheme},
 };
 
 pub mod changelog;
@@ -22,6 +18,7 @@ mod launch;
 mod log;
 mod login;
 mod mods;
+mod settings;
 
 pub const DISCORD: &str = "https://discord.gg/bWqRaSXar5";
 pub const GITHUB: &str = "https://github.com/Mrmayman/quantumlauncher";
@@ -187,137 +184,6 @@ impl MenuLauncherUpdate {
         }
         .padding(10)
         .spacing(10)
-        .into()
-    }
-}
-
-impl MenuLauncherSettings {
-    pub fn view<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
-        let config_view: Element = self.view_options(config);
-
-        let links = widget::row![
-            button_with_icon(icon_manager::page(), "Website", 16).on_press(Message::CoreOpenLink(
-                "https://mrmayman.github.io/quantumlauncher".to_owned()
-            )),
-            button_with_icon(icon_manager::github(), "Github", 16)
-                .on_press(Message::CoreOpenLink(GITHUB.to_owned())),
-            button_with_icon(icon_manager::chat(), "Discord", 16)
-                .on_press(Message::CoreOpenLink(DISCORD.to_owned())),
-        ]
-        .spacing(5)
-        .wrap();
-
-        let menus = widget::row![
-            widget::button("Changelog").on_press(Message::CoreOpenChangeLog),
-            widget::button("Welcome Screen").on_press(Message::CoreOpenIntro),
-        ]
-        .spacing(5)
-        .wrap();
-
-        widget::scrollable(
-            widget::column!(
-                back_button().on_press(Message::LaunchScreenOpen {
-                    message: None,
-                    clear_selection: false
-                }),
-                config_view,
-                widget::container(
-                    widget::row![
-                        widget::column![menus, links].spacing(5),
-                        widget::horizontal_space(),
-                        widget::column![
-                            widget::rich_text![
-                                widget::span("e")
-                            ],
-                            widget::text("QuantumLauncher is free and open source software under the GNU GPLv3 license").size(12),
-                            widget::text("No warranty is provided for this software.").size(12),
-                            widget::text("You're free to share, modify, and redistribute it under the same license.").size(12),
-                            widget::button("View License").on_press(Message::CoreOpenLink(
-                                "https://www.gnu.org/licenses/gpl-3.0.en.html".to_owned()
-                            )),
-                            widget::text("If you like this launcher, consider sharing it with your friends.").size(12),
-                            widget::text("Every new user motivates me to keep working on this :)").size(12),
-                        ].spacing(5),
-                    ]
-                    .padding(10)
-                    .spacing(10)
-                )
-                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
-            )
-            .padding(10)
-            .spacing(10),
-        )
-        .style(LauncherTheme::style_scrollable_flat_extra_dark)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
-    }
-
-    fn view_options<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
-        let (light, dark) = get_theme_selector(config);
-
-        let color_scheme_picker = LauncherThemeColor::ALL.iter().map(|color| {
-            widget::button(widget::text(color.to_string()).size(14))
-                .style(|theme: &LauncherTheme, s| {
-                    LauncherTheme {
-                        lightness: theme.lightness,
-                        color: *color,
-                    }
-                    .style_button(s, StyleButton::Round)
-                })
-                .on_press(Message::LauncherSettings(
-                    LauncherSettingsMessage::StylePicked(color.to_string()),
-                ))
-                .into()
-        });
-
-        widget::row!(
-            widget::container(
-                widget::column!("Theme:", widget::row![light, dark].spacing(5),)
-                    .padding(10)
-                    .spacing(10)
-            ),
-            widget::container(
-                widget::column!("Color scheme:", widget::row(color_scheme_picker).spacing(5),)
-                    .padding(10)
-                    .spacing(10)
-            ),
-            widget::container(
-                widget::column![
-                    widget::row![
-                        widget::text!("UI Scale ({:.2}x)  ", self.temp_scale),
-                        widget::button(widget::text("Apply").size(13)).on_press(
-                            Message::LauncherSettings(LauncherSettingsMessage::UiScaleApply)
-                        ),
-                    ]
-                    .align_y(iced::Alignment::Center),
-                    widget::slider(0.5..=2.0, self.temp_scale, |n| Message::LauncherSettings(
-                        LauncherSettingsMessage::UiScale(n)
-                    ))
-                    .step(0.1)
-                    .width(330),
-                    widget::text("Warning: slightly buggy").size(12),
-                ]
-                .padding(10)
-                .spacing(5)
-            ),
-            widget::container(
-                widget::row![
-                    button_with_icon(icon_manager::delete(), "Clear Java installs", 16).on_press(
-                        Message::LauncherSettings(LauncherSettingsMessage::ClearJavaInstalls)
-                    ),
-                    widget::text(
-                        "Might fix some Java problems.\nPerfectly safe, will be redownloaded."
-                    )
-                    .size(12),
-                ]
-                .align_y(iced::Alignment::Center)
-                .padding(10)
-                .spacing(10)
-            )
-        )
-        .spacing(10)
-        .wrap()
         .into()
     }
 }

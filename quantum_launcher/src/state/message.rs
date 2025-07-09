@@ -22,7 +22,7 @@ use ql_mod_manager::{
 };
 use tokio::process::Child;
 
-use super::{LaunchTabId, Res};
+use super::{LaunchTabId, LauncherSettingsTab, Res};
 
 #[derive(Debug, Clone)]
 pub enum InstallFabricMessage {
@@ -189,6 +189,8 @@ pub enum LauncherSettingsMessage {
     UiScale(f64),
     UiScaleApply,
     ClearJavaInstalls,
+    ClearJavaInstallsConfirm,
+    ChangeTab(LauncherSettingsTab),
 }
 
 #[derive(Debug, Clone)]

@@ -388,7 +388,7 @@ impl LauncherTheme {
     }
 
     pub fn style_rule_default(&self) -> widget::rule::Style {
-        self.style_rule(Color::Mid, 2)
+        self.style_rule(Color::SecondDark, 2)
     }
 
     pub fn style_button(
