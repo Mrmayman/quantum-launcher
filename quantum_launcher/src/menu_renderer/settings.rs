@@ -15,6 +15,18 @@ use crate::{
 use super::{back_button, button_with_icon, get_theme_selector, Element, DISCORD, GITHUB};
 
 const SETTINGS_SPACING: f32 = 7.0;
+const PADDING_NOT_BOTTOM: iced::Padding = iced::Padding {
+    top: 10.0,
+    bottom: 0.0,
+    left: 10.0,
+    right: 10.0,
+};
+const PADDING_LEFT: iced::Padding = iced::Padding {
+    top: 0.0,
+    right: 0.0,
+    bottom: 0.0,
+    left: 10.0,
+};
 
 impl MenuLauncherSettings {
     pub fn view<'a>(&'a self, config: &'a LauncherConfig) -> Element<'a> {
@@ -25,12 +37,7 @@ impl MenuLauncherSettings {
                         message: None,
                         clear_selection: false
                     }))
-                    .padding(iced::Padding {
-                        top: 10.0,
-                        bottom: 0.0,
-                        left: 10.0,
-                        right: 10.0,
-                    }),
+                    .padding(PADDING_NOT_BOTTOM),
                     widget::row![
                         icon_manager::settings_with_size(20),
                         widget::text("Settings").size(20),
@@ -94,9 +101,14 @@ impl MenuLauncherSettings {
         });
 
         widget::column!(
-            widget::text("User Interface").size(36),
+            widget::column![widget::text("User Interface").size(20)].padding(PADDING_NOT_BOTTOM),
             widget::column!("Theme:", widget::row![light, dark].spacing(5))
-                .padding(10)
+                .padding(iced::Padding {
+                    top: 0.0,
+                    bottom: 10.0,
+                    left: 10.0,
+                    right: 10.0,
+                })
                 .spacing(5),
             widget::horizontal_rule(1),
             widget::column!(
@@ -137,12 +149,12 @@ impl LauncherSettingsTab {
         match self {
             LauncherSettingsTab::UserInterface => menu.view_options(config),
             LauncherSettingsTab::Internal => widget::column![
-                widget::column![button_with_icon(
-                    icon_manager::folder(),
-                    "Open Launcher Folder",
-                    16
-                )
-                .on_press(Message::CoreOpenPath(LAUNCHER_DIR.clone()))]
+                widget::column![
+                    widget::text("Advanced").size(20),
+                    button_with_icon(icon_manager::folder(), "Open Launcher Folder", 16)
+                        .on_press(Message::CoreOpenPath(LAUNCHER_DIR.clone()))
+                ]
+                .spacing(10)
                 .padding(10),
                 widget::horizontal_rule(1),
                 widget::column![
@@ -185,7 +197,12 @@ impl LauncherSettingsTab {
                     button_with_icon(icon_manager::chat(), "Discord", 16)
                         .on_press(Message::CoreOpenLink(DISCORD.to_owned())),
                 ]
-                .padding(10)
+                .padding(iced::Padding {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 10.0,
+                    left: 10.0,
+                })
                 .spacing(5)
                 .wrap();
 
@@ -193,13 +210,14 @@ impl LauncherSettingsTab {
                     widget::button("Changelog").on_press(Message::CoreOpenChangeLog),
                     widget::button("Welcome Screen").on_press(Message::CoreOpenIntro),
                 ]
-                .padding(10)
+                .padding(PADDING_LEFT)
                 .spacing(5)
                 .wrap();
 
                 widget::column![
+                    widget::column![widget::text("About QuantumLauncher").size(20)]
+                        .padding(PADDING_NOT_BOTTOM),
                     menus,
-                    widget::horizontal_rule(1),
                     links,
                     widget::horizontal_rule(1),
                     widget::column![
@@ -222,7 +240,12 @@ Every new user motivates me to keep working on this :)"
                         )
                         .size(12),
                     ]
-                    .padding(10)
+                    .padding(iced::Padding {
+                        top: 10.0,
+                        bottom: 10.0,
+                        left: 15.0,
+                        right: 10.0,
+                    })
                     .spacing(5),
                 ]
                 .spacing(SETTINGS_SPACING)
