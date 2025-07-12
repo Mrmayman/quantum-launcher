@@ -17,8 +17,18 @@ pub enum JavaFile {
     },
     directory {},
     link {
-        target: String,
+        // target: String,
     },
+}
+
+impl JavaFile {
+    pub fn get_kind_name(&self) -> &'static str {
+        match self {
+            JavaFile::file { .. } => "file",
+            JavaFile::directory {} => "directory",
+            JavaFile::link { .. } => "symlink (TODO)",
+        }
+    }
 }
 
 #[derive(Deserialize)]
