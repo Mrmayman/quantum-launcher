@@ -22,6 +22,10 @@
 - Import/Export support for Prism Launcher/MultiMC instances
 - (TODO) Migration from other launchers
 
+# UI
+- overhauled launcher settings menu
+- added a licenses page
+
 ## Fixes
 - fixed Minecraft Indev and early Infdev being unplayable (b)
 - fixed many crashes on Linux ARM and macOS (b)
@@ -31,6 +35,7 @@
 - fixed game crashes in portable mode
 - fixed java install progress bar being stuck at the end
 - fixed many formatting issues in game logs
+- fixed welcome screen not working
 
 - old Minecraft versions are now in the correct order in the download list (b)
 - snapshots of 1.0 to 1.5.2 are no longer missing for download (b)
