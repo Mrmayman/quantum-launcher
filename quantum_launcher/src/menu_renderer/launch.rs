@@ -383,10 +383,14 @@ impl Launcher {
                         .width(98),
                     shortcut_ctrl("Backspace"),
                 )
+            } else if self.is_launching_game {
+                tooltip(
+                    button_with_icon(icon_manager::play(), "Loading...", 16).width(98),
+                    shortcut_ctrl("Please wait..."),
+                )
             } else {
                 tooltip(
-                    play_button
-                        .on_press_maybe((!self.is_launching_game).then_some(Message::LaunchStart)),
+                    play_button.on_press(Message::LaunchStart),
                     shortcut_ctrl("Enter"),
                 )
             }

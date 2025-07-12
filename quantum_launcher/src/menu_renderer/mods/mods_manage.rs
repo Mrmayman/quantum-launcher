@@ -3,7 +3,7 @@ use ql_core::{InstanceSelection, SelectedMod};
 
 use crate::{
     icon_manager,
-    menu_renderer::{back_button, back_to_launch_screen, button_with_icon, Element},
+    menu_renderer::{back_button, back_to_launch_screen, button_with_icon, tooltip, Element},
     state::{
         EditPresetsMessage, InstallFabricMessage, InstallModsMessage, InstallOptifineMessage,
         ManageJarModsMessage, ManageModsMessage, MenuEditMods, Message, ModListEntry,
@@ -175,7 +175,10 @@ impl MenuEditMods {
             },
 
             "Forge" => widget::column!(
-                widget::button("Install OptiFine"),
+                tooltip(
+                    widget::button("Install OptiFine"),
+                    "Coming in a future launcher version..."
+                ),
                 Self::get_uninstall_panel(
                     &self.config.mod_type,
                     Message::UninstallLoaderForgeStart,
