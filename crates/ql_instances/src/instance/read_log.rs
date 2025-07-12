@@ -80,7 +80,7 @@ pub async fn read_logs(
             line = stdout_reader.next_line() => {
                 if let Some(mut line) = line? {
                     if uses_xml {
-                        xml_parse(&sender, &mut xml_cache, &line, &mut has_errored)?;
+                        xml_parse(&sender, &mut xml_cache, &line, &mut has_errored);
                     } else {
                         line.push('\n');
                         _ = sender.send(LogLine::Message(line));
@@ -97,15 +97,10 @@ pub async fn read_logs(
     }
 }
 
-fn xml_parse(
-    sender: &Sender<LogLine>,
-    xml_cache: &mut String,
-    line: &str,
-    has_errored: &mut bool,
-) -> Result<(), ReadError> {
+fn xml_parse(sender: &Sender<LogLine>, xml_cache: &mut String, line: &str, has_errored: &mut bool) {
     if !line.starts_with("  </log4j:Event>") {
         xml_cache.push_str(line);
-        return Ok(());
+        return;
     }
 
     xml_cache.push_str(line);
@@ -144,8 +139,6 @@ fn xml_parse(
             }
         }
     }
-
-    Ok(())
 }
 
 async fn is_xml(instance_name: &str) -> Result<bool, ReadError> {

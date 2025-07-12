@@ -206,7 +206,8 @@ impl GameDownloader {
         let natives_dir = libraries_dir.join("natives");
 
         for (os, download) in classifiers {
-            if !(OS_NAMES.iter().any(|_os_name| {
+            #[allow(unused)]
+            if !(OS_NAMES.iter().any(|os_name| {
                 #[cfg(all(target_os = "windows", target_arch = "x86"))]
                 let matches = os == "natives-windows-32";
                 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
@@ -238,7 +239,7 @@ impl GameDownloader {
                     ),
                     all(target_os = "macos", target_arch = "aarch64")
                 )))]
-                let matches = *os == format!("natives-{_os_name}");
+                let matches = *os == format!("natives-{os_name}");
 
                 matches
             })) {

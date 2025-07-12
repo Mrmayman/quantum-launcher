@@ -506,22 +506,16 @@ impl LauncherTheme {
             radius: iced::border::Radius::new(0.0),
         };
         match status {
-            widget::text_editor::Status::Active => widget::text_editor::Style {
-                background: self.get_bg(Color::ExtraDark, true),
-                border,
-                icon: self.get(Color::Light, true),
-                placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
-                selection: self.get(Color::Dark, true),
-            },
-            widget::text_editor::Status::Hovered => widget::text_editor::Style {
-                background: self.get_bg(Color::ExtraDark, true),
-                border,
-                icon: self.get(Color::Light, true),
-                placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
-                selection: self.get(Color::Dark, true),
-            },
+            widget::text_editor::Status::Active | widget::text_editor::Status::Hovered => {
+                widget::text_editor::Style {
+                    background: self.get_bg(Color::ExtraDark, true),
+                    border,
+                    icon: self.get(Color::Light, true),
+                    placeholder: self.get(Color::Light, true),
+                    value: self.get(Color::White, true),
+                    selection: self.get(Color::Dark, true),
+                }
+            }
             widget::text_editor::Status::Focused => widget::text_editor::Style {
                 background: self.get_bg(Color::ExtraDark, true),
                 border,
@@ -535,7 +529,7 @@ impl LauncherTheme {
                 border,
                 icon: self.get(Color::Light, true),
                 placeholder: self.get(Color::Light, true),
-                value: self.get(Color::White, true),
+                value: self.get(Color::SecondLight, true),
                 selection: self.get(Color::Dark, true),
             },
         }

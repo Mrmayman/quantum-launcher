@@ -53,8 +53,7 @@ impl Launcher {
                 let account_type = self
                     .accounts
                     .get(&username)
-                    .map(|n| n.account_type)
-                    .unwrap_or(auth::AccountType::Microsoft);
+                    .map_or(auth::AccountType::Microsoft, |n| n.account_type);
 
                 if let Err(err) = match account_type {
                     auth::AccountType::Microsoft => auth::ms::logout(&username),

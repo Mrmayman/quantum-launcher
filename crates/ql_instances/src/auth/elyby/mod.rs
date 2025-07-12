@@ -42,12 +42,9 @@ pub async fn login_new(email: String, password: String) -> Result<Account, Error
                     && res_err.errorMessage == "Account protected with two factor auth."
                 {
                     return Ok(Account::NeedsOTP);
-                } else {
-                    return Err(err.into());
                 }
-            } else {
-                return Err(err.into());
             }
+            return Err(err.into());
         }
     };
 

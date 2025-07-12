@@ -100,7 +100,7 @@ async fn import_quantumlauncher(
     info!("Importing QuantumLauncher instance...");
 
     let instance_info: InstanceInfo = serde_json::from_str(&instance_info).json(instance_info)?;
-    let version_json: VersionDetails = VersionDetails::load_from_path(&temp_dir).await?;
+    let version_json: VersionDetails = VersionDetails::load_from_path(temp_dir).await?;
     let config_json: InstanceConfigJson = {
         let path = temp_dir.join("config.json");
         let file = fs::read_to_string(&path).await.path(&path)?;

@@ -447,7 +447,7 @@ impl LicenseTab {
         Self::PasswordAsterisks,
     ];
 
-    pub fn get_text(&self) -> &'static str {
+    pub fn get_text(self) -> &'static str {
         match self {
             LicenseTab::Gpl3 => include_str!("../../../LICENSE"),
             LicenseTab::OpenFontLicense => {

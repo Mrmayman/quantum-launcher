@@ -19,6 +19,7 @@ pub struct AccountData {
 }
 
 impl AccountData {
+    #[must_use]
     pub fn get_username_modified(&self) -> String {
         let suffix = match self.account_type {
             auth::AccountType::Microsoft => "",

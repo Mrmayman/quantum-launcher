@@ -67,7 +67,7 @@ pub async fn launch(
 
     info!("Java args: {java_arguments:?}\n");
 
-    print_censored_args(auth, &mut game_arguments);
+    print_censored_args(auth.as_ref(), &mut game_arguments);
 
     let mut command = game_launcher
         .get_command(game_arguments, java_arguments)
@@ -82,7 +82,7 @@ pub async fn launch(
     Ok(Arc::new(Mutex::new(child)))
 }
 
-fn print_censored_args(auth: Option<AccountData>, game_arguments: &mut Vec<String>) {
+fn print_censored_args(auth: Option<&AccountData>, game_arguments: &mut Vec<String>) {
     censor(game_arguments, "--clientId", |args| {
         censor(args, "--session", |args| {
             censor(args, "--accessToken", |args| {
