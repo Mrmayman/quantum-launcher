@@ -105,6 +105,20 @@ impl GameLauncher {
             }
         }
 
+        // Only applies to experimental builds of QuantumLauncher
+        // made after v0.4.1 but before the next update
+        if self.version_json.needs_launchwrapper_fix() {
+            // Fixes a crash in modern Minecraft
+
+            // WTF: No one will need this except for dumbass
+            // me who play a lot of instances made in this version
+            // and daily-drives bleeding edge shitcode.
+
+            // Thanks to [@Lassebq](https://github.com/Lassebq)
+            // for pointing this out :)
+            game_arguments.push("--disableSkinFix".to_owned());
+        }
+
         Ok(game_arguments)
     }
 

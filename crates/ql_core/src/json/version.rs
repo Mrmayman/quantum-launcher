@@ -52,9 +52,6 @@ pub struct VersionDetails {
     /// Quantum Launcher-specific field added here
     /// to cache the [`VersionDetails::is_legacy_version`] calculation.
     pub ql_is_legacy_version: Option<bool>,
-    /// Quantum Launcher-specific field to check if the instance
-    /// uses BetterJSONs (ie. was made in Quantum Launcher v0.4.2+)
-    pub ql_is_betterjsons: Option<bool>,
 }
 
 impl VersionDetails {
@@ -80,12 +77,8 @@ impl VersionDetails {
     /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load_from_path(path: &Path) -> Result<Self, JsonFileError> {
         let path = path.join("details.json");
-
         let file = tokio::fs::read_to_string(&path).await.path(path)?;
-
-        let is_betterjsons = file.contains("mcphackers");
-        let mut version_json: VersionDetails = serde_json::from_str(&file).json(file)?;
-        version_json.ql_is_betterjsons = Some(is_betterjsons);
+        let version_json: VersionDetails = serde_json::from_str(&file).json(file)?;
 
         Ok(version_json)
     }
@@ -112,15 +105,13 @@ impl VersionDetails {
             }
         };
 
-        let is_betterjsons = file.contains("mcphackers");
-        let mut details: VersionDetails = match serde_json::from_str(&file) {
+        let details: VersionDetails = match serde_json::from_str(&file) {
             Ok(n) => n,
             Err(err) => {
                 err!("Couldn't parse details.json: {err}");
                 return None;
             }
         };
-        details.ql_is_betterjsons = Some(is_betterjsons);
 
         Some(details)
     }
@@ -140,6 +131,14 @@ impl VersionDetails {
             self.ql_is_legacy_version = Some(res);
             res
         }
+    }
+
+    pub fn needs_launchwrapper_fix(&self) -> bool {
+        self.libraries
+            .iter()
+            .filter_map(|n| n.downloads.as_ref())
+            .filter_map(|n| n.artifact.as_ref())
+            .any(|n| n.path.contains("mcphackers/launchwrapper/1.1.2"))
     }
 }
 
