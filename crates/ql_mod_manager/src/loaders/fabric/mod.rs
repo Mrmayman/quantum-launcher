@@ -77,13 +77,7 @@ pub async fn install_server(
         .await
         .path(&libraries_dir)?;
 
-    let version_json_path = server_dir.join("details.json");
-    let version_json = tokio::fs::read_to_string(&version_json_path)
-        .await
-        .path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json).json(version_json)?;
-
-    let game_version = version_json.id;
+    let game_version = VersionDetails::load_from_path(&server_dir).await?.id;
 
     let json_url = format!("/versions/loader/{game_version}/{loader_version}/server/json");
     let json = download_file_to_string(&json_url, is_quilt).await?;
@@ -156,13 +150,7 @@ pub async fn install_client(
 
     let libraries_dir = instance_dir.join("libraries");
 
-    let version_json_path = instance_dir.join("details.json");
-    let version_json = tokio::fs::read_to_string(&version_json_path)
-        .await
-        .path(version_json_path)?;
-    let version_json: VersionDetails = serde_json::from_str(&version_json).json(version_json)?;
-
-    let game_version = version_json.id;
+    let game_version = VersionDetails::load_from_path(&instance_dir).await?.id;
 
     let json_path = instance_dir.join("fabric.json");
     let json_url = format!("/versions/loader/{game_version}/{loader_version}/profile/json");

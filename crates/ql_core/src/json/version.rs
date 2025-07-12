@@ -49,9 +49,12 @@ pub struct VersionDetails {
     /// Type of version, such as alpha, beta or release.
     pub r#type: String,
 
-    /// Not actually in the *real* Minecraft JSON, but this is a QuantumLauncher-specific field
-    /// added here to cache the [`VersionDetails::is_legacy_version`] calculation.
+    /// Quantum Launcher-specific field added here
+    /// to cache the [`VersionDetails::is_legacy_version`] calculation.
     pub ql_is_legacy_version: Option<bool>,
+    /// Quantum Launcher-specific field to check if the instance
+    /// uses BetterJSONs (ie. was made in Quantum Launcher v0.4.2+)
+    pub ql_is_betterjsons: Option<bool>,
 }
 
 impl VersionDetails {
@@ -62,13 +65,7 @@ impl VersionDetails {
     /// - `details.json` file couldn't be loaded
     /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load(instance: &InstanceSelection) -> Result<Self, JsonFileError> {
-        let path = instance.get_instance_path().join("details.json");
-
-        let file = tokio::fs::read_to_string(&path).await.path(path)?;
-
-        let details: VersionDetails = serde_json::from_str(&file).json(file)?;
-
-        Ok(details)
+        Self::load_from_path(&instance.get_instance_path()).await
     }
 
     /// Loads a Minecraft instance JSON from disk,
@@ -82,12 +79,14 @@ impl VersionDetails {
     /// - `details.json` file couldn't be loaded
     /// - `details.json` couldn't be parsed into valid JSON
     pub async fn load_from_path(path: &Path) -> Result<Self, JsonFileError> {
-        let version_json_path = path.join("details.json");
-        let version_json = tokio::fs::read_to_string(&version_json_path)
-            .await
-            .path(version_json_path)?;
-        let version_json: VersionDetails =
-            serde_json::from_str(&version_json).json(version_json)?;
+        let path = path.join("details.json");
+
+        let file = tokio::fs::read_to_string(&path).await.path(path)?;
+
+        let is_betterjsons = file.contains("mcphackers");
+        let mut version_json: VersionDetails = serde_json::from_str(&file).json(file)?;
+        version_json.ql_is_betterjsons = Some(is_betterjsons);
+
         Ok(version_json)
     }
 
@@ -113,13 +112,15 @@ impl VersionDetails {
             }
         };
 
-        let details: VersionDetails = match serde_json::from_str(&file) {
+        let is_betterjsons = file.contains("mcphackers");
+        let mut details: VersionDetails = match serde_json::from_str(&file) {
             Ok(n) => n,
             Err(err) => {
                 err!("Couldn't parse details.json: {err}");
                 return None;
             }
         };
+        details.ql_is_betterjsons = Some(is_betterjsons);
 
         Some(details)
     }
