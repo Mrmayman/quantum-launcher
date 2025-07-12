@@ -8,6 +8,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         mpsc::{Receiver, Sender},
+        Arc,
     },
 };
 use tokio::fs;

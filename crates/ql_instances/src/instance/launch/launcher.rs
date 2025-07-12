@@ -12,7 +12,7 @@ use ql_core::{
         version::{LibraryDownloadArtifact, LibraryDownloads},
         FabricJSON, InstanceConfigJson, JsonOptifine, VersionDetails,
     },
-    GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonFileError,
+    pt, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonFileError,
     CLASSPATH_SEPARATOR, LAUNCHER_DIR,
 };
 use ql_java_handler::{get_java_binary, JavaVersion};
@@ -480,7 +480,8 @@ impl GameLauncher {
         self.classpath_fabric_and_quilt(fabric_json, &mut class_path, &mut classpath_entries)?;
 
         // Vanilla libraries, have to load after everything else
-        self.add_libs_to_classpath(&mut class_path, &mut classpath_entries)?;
+        self.classpath_vanilla(&mut class_path, &mut classpath_entries)
+            .await?;
 
         // Sometimes mod loaders/core mods try to "override" their own
         // version of a library over the base game. This code is setup
@@ -608,12 +609,13 @@ impl GameLauncher {
         Ok(())
     }
 
-    fn add_libs_to_classpath(
+    async fn classpath_vanilla(
         &self,
         class_path: &mut String,
         classpath_entries: &mut HashSet<String>,
     ) -> Result<(), GameLaunchError> {
-        self.version_json
+        for (name, artifact) in self
+            .version_json
             .libraries
             .iter()
             .filter(|n| GameDownloader::download_libraries_library_is_allowed(n))
@@ -627,15 +629,14 @@ impl GameLauncher {
                 ) => Some((name, artifact)),
                 _ => None,
             })
-            .map(|(name, artifact)| {
-                self.add_entry_to_classpath(name, classpath_entries, artifact, class_path)
-            })
-            .find(std::result::Result::is_err)
-            .unwrap_or(Ok(()))?;
+        {
+            self.add_entry_to_classpath(name, classpath_entries, artifact, class_path)
+                .await?;
+        }
         Ok(())
     }
 
-    fn add_entry_to_classpath(
+    async fn add_entry_to_classpath(
         &self,
         name: &str,
         classpath_entries: &mut HashSet<String>,
@@ -650,22 +651,26 @@ impl GameLauncher {
         }
         let library_path = self.instance_dir.join("libraries").join(&artifact.path);
 
-        if library_path.exists() {
-            #[allow(unused_mut)]
-            let Some(mut library_path) = library_path.to_str() else {
-                return Err(GameLaunchError::PathBufToString(library_path));
-            };
-
-            #[cfg(target_os = "windows")]
-            if library_path.starts_with(r"\\?\") {
-                library_path = &library_path[4..];
+        if !library_path.exists() {
+            pt!("library {library_path:?} not found! Downloading...");
+            if let Err(err) =
+                file_utils::download_file_to_path(&artifact.url, false, &library_path).await
+            {
+                err!("Couldn't download library! Skipping...\n{err}");
             }
-
-            class_path.push_str(library_path);
-            class_path.push(CLASSPATH_SEPARATOR);
-        } else {
-            err!("Warning: library {library_path:?} not found!");
         }
+        #[allow(unused_mut)]
+        let Some(mut library_path) = library_path.to_str() else {
+            return Err(GameLaunchError::PathBufToString(library_path));
+        };
+
+        #[cfg(target_os = "windows")]
+        if library_path.starts_with(r"\\?\") {
+            library_path = &library_path[4..];
+        }
+
+        class_path.push_str(library_path);
+        class_path.push(CLASSPATH_SEPARATOR);
         Ok(())
     }
 
