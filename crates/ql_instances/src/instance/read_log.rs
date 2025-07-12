@@ -78,16 +78,18 @@ pub async fn read_logs(
 
         tokio::select! {
             line = stdout_reader.next_line() => {
-                if let Some(line) = line? {
+                if let Some(mut line) = line? {
                     if uses_xml {
                         xml_parse(&sender, &mut xml_cache, &line, &mut has_errored)?;
                     } else {
+                        line.push('\n');
                         _ = sender.send(LogLine::Message(line));
                     }
                 } // else EOF
             },
             line = stderr_reader.next_line() => {
-                if let Some(line) = line? {
+                if let Some(mut line) = line? {
+                    line.push('\n');
                     _ = sender.send(LogLine::Error(line));
                 }
             }

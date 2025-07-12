@@ -216,6 +216,7 @@ impl Launcher {
         server_logs: &mut HashMap<String, InstanceLog>,
     ) {
         while let Some(message) = process.receiver.as_ref().and_then(|n| n.try_recv().ok()) {
+            let message = message.replace('\t', &" ".repeat(8));
             let mut log_start = vec![
                 format!(
                     "Starting Minecraft Server ({})",
@@ -253,7 +254,7 @@ impl Launcher {
             return;
         };
         while let Ok(message) = receiver.try_recv() {
-            let message = message.to_string();
+            let message = message.to_string().replace('\t', &" ".repeat(8));
 
             let mut log_start = vec![
                 format!(
