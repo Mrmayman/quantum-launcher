@@ -156,8 +156,8 @@ What about the others? Well...
 
 # MSRV (Minimum Supported Rust Version)
 
-- The exact MSRV is unknown (feel free to find out for yourselves).
-- However, at least Rust 1.78.0 is required.
+The MSRV is Rust 1.82.0. Any deviation from this
+is considered a bug, please report if found.
 
 # Contributing/Contributors
 For more info, see [CONTRIBUTING.md](https://github.com/Mrmayman/quantumlauncher/tree/main/docs/CONTRIBUTING.md)
