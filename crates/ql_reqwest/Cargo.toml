@@ -1,7 +1,7 @@
 [package]
 name = "ql_reqwest"
 version = "0.0.0"
-edition = "2024"
+edition = "2021"
 
 # Default for all platforms (native-tls backend)
 [target.'cfg(not(target_os = "linux"))'.dependencies]
