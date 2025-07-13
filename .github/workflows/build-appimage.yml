@@ -42,7 +42,7 @@ jobs:
         build: [x86_64-linux, aarch64-linux]
         include:
           - build: x86_64-linux
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
             rust_target: x86_64-unknown-linux-gnu
             appimage_tool: appimagetool-x86_64.AppImage
             lib_path: /lib/x86_64-linux-gnu
@@ -51,7 +51,7 @@ jobs:
             ld_linux: /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
             ld_name: ld-linux-x86-64.so.2
           - build: aarch64-linux
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-24.04-arm
             rust_target: aarch64-unknown-linux-gnu
             appimage_tool: appimagetool-aarch64.AppImage
             lib_path: /lib/aarch64-linux-gnu
