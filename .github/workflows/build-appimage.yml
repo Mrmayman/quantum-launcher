@@ -108,7 +108,6 @@ jobs:
           # Copy the dynamic linker
           cp -L ${{ matrix.ld_linux }} AppDir/usr/lib/${{ matrix.ld_name }}
           # Copy glibc and other required libraries
-          cp -L ${{ matrix.lib_path }}/libstdc++.so.6 AppDir/usr/lib/
           cp -L ${{ matrix.lib_path }}/libc.so.6 AppDir/usr/lib/
           cp -L ${{ matrix.lib_path }}/libm.so.6 AppDir/usr/lib/
           cp -L ${{ matrix.lib_path }}/libdl.so.2 AppDir/usr/lib/
