@@ -76,11 +76,12 @@ jobs:
           fi
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.rust_target }}
-          override: true
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup default stable
+          rustup target add ${{ matrix.rust_target }}
+
 
       - name: Install cross for armv7
         if: matrix.cross
