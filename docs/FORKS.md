@@ -36,4 +36,4 @@ by the open-source community.
 
 If you have improvements or features in mind, we’d love your help!
 Consider submitting a Pull Request and contributing directly to the project,
-or contributing in other ways. For more info, see [CONTRIBUTING.md](https://github.com/Mrmayman/quantumlauncher/tree/main/docs/CONTRIBUTING.md)
+or contributing in other ways. For more info, see [CONTRIBUTING.md](https://github.com/Mrmayman/quantumlauncher/tree/main/CONTRIBUTING.md)

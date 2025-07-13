@@ -160,7 +160,7 @@ The MSRV is Rust 1.82.0. Any deviation from this
 is considered a bug, please report if found.
 
 # Contributing/Contributors
-For more info, see [CONTRIBUTING.md](https://github.com/Mrmayman/quantumlauncher/tree/main/docs/CONTRIBUTING.md)
+For more info, see [CONTRIBUTING.md](https://github.com/Mrmayman/quantumlauncher/tree/main/CONTRIBUTING.md)
 
 # Licensing and Credits
 
