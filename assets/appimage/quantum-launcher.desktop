@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Quantum Launcher
+Comment=A simple, powerful Minecraft launcher
+Exec=quantum-launcher
+Icon=quantum-launcher
+Categories=Game;
+Terminal=false
