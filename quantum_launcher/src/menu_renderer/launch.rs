@@ -459,12 +459,12 @@ fn get_tab_selector<'a>(selected_instance_s: Option<&'a str>, menu: &'a MenuLaun
     let settings_button = widget::button(
         widget::row![
             widget::horizontal_space(),
-            icon_manager::settings(),
+            icon_manager::settings_with_size(13),
             widget::horizontal_space()
         ]
+        .height(Length::Fill)
         .align_y(iced::Alignment::Center),
     )
-    .height(TAB_HEIGHT)
     .width(TAB_HEIGHT)
     .style(|n, status| n.style_button(status, StyleButton::FlatExtraDark))
     .on_press(Message::LauncherSettings(LauncherSettingsMessage::Open));
@@ -478,10 +478,10 @@ fn get_tab_selector<'a>(selected_instance_s: Option<&'a str>, menu: &'a MenuLaun
                     widget::text!("{instance}  ").size(14),
                     widget::vertical_space()
                 )
-                .height(TAB_HEIGHT)
             }),
         ),
     )
+    .height(TAB_HEIGHT)
     .style(|n| n.style_container_sharp_box(0.0, Color::ExtraDark))
     .into()
 }
