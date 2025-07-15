@@ -84,21 +84,14 @@ pub async fn insert(
 pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError> {
     let instance_dir = instance.get_instance_path();
     let jarmods_dir = instance_dir.join("jarmods");
-    tokio::fs::create_dir_all(&jarmods_dir)
-        .await
-        .path(&jarmods_dir)?;
 
-    let json = VersionDetails::load(instance).await?;
-    let optifine = JsonOptifine::read(instance.get_name()).await.ok();
+    let original_jar = get_original_jar(instance, &instance_dir).await?;
 
-    let original_jar_path = get_jar_path(
-        &json,
-        &instance_dir,
-        optifine.as_ref().map(|n| n.1.as_path()),
-    );
-
-    if is_dir_empty(&jarmods_dir).await {
-        return Ok(original_jar_path);
+    if !jarmods_dir.is_dir() || is_dir_empty(&jarmods_dir).await {
+        tokio::fs::create_dir_all(&jarmods_dir)
+            .await
+            .path(&jarmods_dir)?;
+        return Ok(original_jar);
     }
 
     let mut index = JarMods::get(instance).await?;
@@ -107,9 +100,7 @@ pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError>
     let tmp_dir = jarmods_dir.join("tmp");
     tokio::fs::create_dir_all(&tmp_dir).await.path(&tmp_dir)?;
 
-    let original_jar_bytes = tokio::fs::read(&original_jar_path)
-        .await
-        .path(&original_jar_path)?;
+    let original_jar_bytes = tokio::fs::read(&original_jar).await.path(&original_jar)?;
     zip_extract::extract(std::io::Cursor::new(&original_jar_bytes), &tmp_dir, true)?;
 
     for jar in &index.mods {
@@ -137,6 +128,19 @@ pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError>
     tokio::fs::remove_dir_all(&tmp_dir).await.path(&tmp_dir)?;
 
     Ok(out_jar)
+}
+
+async fn get_original_jar(
+    instance: &InstanceSelection,
+    instance_dir: &Path,
+) -> Result<PathBuf, JarModError> {
+    let json = VersionDetails::load(instance).await?;
+    let optifine = JsonOptifine::read(instance.get_name()).await.ok();
+    Ok(get_jar_path(
+        &json,
+        instance_dir,
+        optifine.as_ref().map(|n| n.1.as_path()),
+    ))
 }
 
 pub async fn is_dir_empty(path: &Path) -> bool {

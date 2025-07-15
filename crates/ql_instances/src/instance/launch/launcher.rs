@@ -9,7 +9,7 @@ use ql_core::{
     err, file_utils, info,
     json::{
         forge,
-        version::{LibraryDownloadArtifact, LibraryDownloads},
+        version::{Library, LibraryDownloadArtifact, LibraryDownloads},
         FabricJSON, InstanceConfigJson, JsonOptifine, VersionDetails,
     },
     pt, GenericProgress, InstanceSelection, IntoIoError, IntoJsonError, IoError, JsonFileError,
@@ -62,8 +62,9 @@ impl GameLauncher {
 
         let config_json = InstanceConfigJson::read_from_dir(&instance_dir).await?;
 
-        let version_json =
-            VersionDetails::load(&InstanceSelection::Instance(instance_name.clone())).await?;
+        let instance = InstanceSelection::Instance(instance_name.clone());
+        let mut version_json = VersionDetails::load(&instance).await?;
+        version_json.apply_tweaks(&instance).await?;
 
         Ok(Self {
             username,
@@ -628,7 +629,13 @@ impl GameLauncher {
         class_path: &mut String,
         classpath_entries: &mut HashSet<String>,
     ) -> Result<(), GameLaunchError> {
-        for (name, artifact) in self
+        let downloader = GameDownloader::with_existing_instance(
+            self.version_json.clone(),
+            self.instance_dir.clone(),
+            None,
+        );
+
+        for (library, name, artifact) in self
             .version_json
             .libraries
             .iter()
@@ -640,12 +647,19 @@ impl GameLauncher {
                         artifact: Some(artifact),
                         ..
                     }),
-                ) => Some((name, artifact)),
+                ) => Some((n, name, artifact)),
                 _ => None,
             })
         {
-            self.add_entry_to_classpath(name, classpath_entries, artifact, class_path)
-                .await?;
+            self.add_entry_to_classpath(
+                name,
+                classpath_entries,
+                artifact,
+                class_path,
+                &downloader,
+                library,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -656,6 +670,8 @@ impl GameLauncher {
         classpath_entries: &mut HashSet<String>,
         artifact: &LibraryDownloadArtifact,
         class_path: &mut String,
+        downloader: &GameDownloader,
+        library: &Library,
     ) -> Result<(), GameLaunchError> {
         if let Some(name) = remove_version_from_library(name) {
             if classpath_entries.contains(&name) {
@@ -663,13 +679,14 @@ impl GameLauncher {
             }
             classpath_entries.insert(name);
         }
-        let library_path = self.instance_dir.join("libraries").join(&artifact.path);
+        let library_path = self
+            .instance_dir
+            .join("libraries")
+            .join(artifact.get_path());
 
         if !library_path.exists() {
             pt!("library {library_path:?} not found! Downloading...");
-            if let Err(err) =
-                file_utils::download_file_to_path(&artifact.url, false, &library_path).await
-            {
+            if let Err(err) = downloader.download_library(library).await {
                 err!("Couldn't download library! Skipping...\n{err}");
             }
         }

@@ -20,7 +20,7 @@ pub struct MmcPack {
 #[allow(non_snake_case)]
 pub struct MmcPackComponent {
     pub cachedName: String,
-    pub version: String,
+    pub cachedVersion: String,
 }
 
 pub async fn import(
@@ -38,6 +38,7 @@ pub async fn import(
 
     let instance_name = ini
         .get_from(Some("General"), "name")
+        .or(ini.get_from(None::<String>, "name"))
         .ok_or_else(|| {
             InstancePackageError::IniFieldMissing("General".to_owned(), "name".to_owned())
         })?
@@ -61,7 +62,7 @@ pub async fn import(
             }
             name @ ("Fabric Loader" | "Quilt Loader") => {
                 ql_mod_manager::loaders::fabric::install(
-                    Some(component.version.clone()),
+                    Some(component.cachedVersion.clone()),
                     instance_selection.clone(),
                     sender.as_deref(),
                     name == "Quilt",
@@ -74,6 +75,24 @@ pub async fn import(
         }
     }
 
+    copy_files(temp_dir, sender, &instance_selection).await?;
+
+    let mut config = InstanceConfigJson::read(&instance_selection).await?;
+    if let Some(jvmargs) = ini.get_from(Some("General"), "JvmArgs") {
+        let mut java_args = config.java_args.clone().unwrap_or_default();
+        java_args.extend(jvmargs.split_whitespace().map(str::to_owned));
+        config.java_args = Some(java_args);
+    }
+    config.save(&instance_selection).await?;
+    info!("Finished importing MultiMC instance");
+    Ok(instance_selection)
+}
+
+async fn copy_files(
+    temp_dir: &Path,
+    sender: Option<Arc<Sender<GenericProgress>>>,
+    instance_selection: &InstanceSelection,
+) -> Result<(), InstancePackageError> {
     let src = temp_dir.join("minecraft");
     if src.is_dir() {
         let dst = instance_selection.get_dot_minecraft_path();
@@ -88,15 +107,23 @@ pub async fn import(
         file_utils::copy_dir_recursive(&src, &dst).await?;
     }
 
-    let mut config = InstanceConfigJson::read(&instance_selection).await?;
-    if let Some(jvmargs) = ini.get_from(Some("General"), "JvmArgs") {
-        let mut java_args = config.java_args.clone().unwrap_or_default();
-        java_args.extend(jvmargs.split_whitespace().map(str::to_owned));
-        config.java_args = Some(java_args);
+    copy_folder_over(temp_dir, instance_selection, "jarmods").await?;
+    copy_folder_over(temp_dir, instance_selection, "patches").await?;
+
+    Ok(())
+}
+
+async fn copy_folder_over(
+    temp_dir: &Path,
+    instance_selection: &InstanceSelection,
+    path: &'static str,
+) -> Result<(), InstancePackageError> {
+    let src = temp_dir.join(path);
+    if src.is_dir() {
+        let dst = instance_selection.get_instance_path().join(path);
+        file_utils::copy_dir_recursive(&src, &dst).await?;
     }
-    config.save(&instance_selection).await?;
-    info!("Finished importing MultiMC instance");
-    Ok(instance_selection)
+    Ok(())
 }
 
 async fn mmc_minecraft(
@@ -106,7 +133,7 @@ async fn mmc_minecraft(
     component: &MmcPackComponent,
 ) -> Result<(), InstancePackageError> {
     let version = ListEntry {
-        name: component.version.clone(),
+        name: component.cachedVersion.clone(),
         is_classic_server: false,
     };
     let (d_send, d_recv) = std::sync::mpsc::channel();
@@ -146,7 +173,7 @@ async fn mmc_forge(
         .await?;
     } else {
         ql_mod_manager::loaders::forge::install(
-            Some(component.version.clone()),
+            Some(component.cachedVersion.clone()),
             instance_selection.clone(),
             Some(f_send),
             None, // TODO: Java install progress

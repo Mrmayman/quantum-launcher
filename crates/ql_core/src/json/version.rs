@@ -4,7 +4,7 @@ use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{err, InstanceSelection, IntoIoError, IntoJsonError, JsonFileError};
+use crate::{err, pt, InstanceSelection, IntoIoError, IntoJsonError, JsonFileError};
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -116,6 +116,52 @@ impl VersionDetails {
         Some(details)
     }
 
+    pub async fn apply_tweaks(
+        &mut self,
+        instance: &InstanceSelection,
+    ) -> Result<(), JsonFileError> {
+        let patches_path = instance.get_instance_path().join("patches");
+        if !patches_path.is_dir() {
+            return Ok(());
+        }
+
+        let mut dir = tokio::fs::read_dir(&patches_path)
+            .await
+            .path(patches_path)?;
+
+        while let Ok(Some(dir)) = dir.next_entry().await {
+            let path = dir.path();
+            if !path.is_file() {
+                continue;
+            }
+            let name = path.file_name().unwrap_or(path.as_os_str());
+            pt!("JSON: applying patch: {name:?}");
+
+            let data = tokio::fs::read_to_string(&path).await.path(&path)?;
+            let json: VersionDetailsPatch = match serde_json::from_str(&data) {
+                Ok(n) => n,
+                Err(err) => {
+                    err!("Couldn't parse VersionDetails patch: {name:?}, skipping...\n{err}");
+                    continue;
+                }
+            };
+
+            self.patch(json);
+        }
+
+        Ok(())
+    }
+
+    fn patch(&mut self, json: VersionDetailsPatch) {
+        if let Some(args) = json.minecraftArguments {
+            self.minecraftArguments = Some(args);
+        }
+        if let Some(libraries) = json.libraries {
+            self.libraries.extend(libraries);
+        }
+        // TODO: More fields in the future
+    }
+
     pub fn is_legacy_version(&mut self) -> bool {
         if let Some(n) = self.ql_is_legacy_version {
             n
@@ -138,8 +184,19 @@ impl VersionDetails {
             .iter()
             .filter_map(|n| n.downloads.as_ref())
             .filter_map(|n| n.artifact.as_ref())
-            .any(|n| n.path.contains("mcphackers/launchwrapper/1.1.2"))
+            .any(|n| {
+                n.path
+                    .as_ref()
+                    .is_some_and(|n| n.contains("mcphackers/launchwrapper/1.1.2"))
+            })
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[allow(non_snake_case)]
+pub struct VersionDetailsPatch {
+    pub libraries: Option<Vec<Library>>,
+    pub minecraftArguments: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -311,10 +368,32 @@ impl Debug for LibraryRuleOS {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LibraryDownloadArtifact {
-    pub path: String,
+    pub path: Option<String>,
     pub sha1: String,
     pub size: usize,
     pub url: String,
+}
+
+impl LibraryDownloadArtifact {
+    pub fn get_path(&self) -> String {
+        self.path.clone().unwrap_or_else(|| {
+            // https://libraries.minecraft.net/net/java/jinput/jinput/2.0.5/jinput-2.0.5.jar
+            // -> libraries.minecraft.net/net/java/jinput/jinput/2.0.5/jinput-2.0.5.jar
+            let url = self
+                .url
+                .strip_prefix("https://")
+                .or(self.url.strip_prefix("http://"))
+                .unwrap_or(&self.url);
+
+            // libraries.minecraft.net/net/java/jinput/jinput/2.0.5/jinput-2.0.5.jar
+            // -> net/java/jinput/jinput/2.0.5/jinput-2.0.5.jar
+            if let Some(pos) = url.find('/') {
+                url[pos + 1..].to_string()
+            } else {
+                url.to_string()
+            }
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

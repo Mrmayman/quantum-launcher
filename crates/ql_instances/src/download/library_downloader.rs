@@ -95,7 +95,7 @@ impl GameDownloader {
         Ok(())
     }
 
-    async fn download_library(&self, library: &Library) -> Result<(), DownloadError> {
+    pub async fn download_library(&self, library: &Library) -> Result<(), DownloadError> {
         let libraries_dir = self.instance_dir.join("libraries");
 
         if let Some(LibraryDownloads {
@@ -176,7 +176,7 @@ impl GameDownloader {
         artifact: &LibraryDownloadArtifact,
         libraries_dir: &Path,
     ) -> Result<Vec<u8>, DownloadError> {
-        let lib_file_path = libraries_dir.join(PathBuf::from(&artifact.path));
+        let lib_file_path = libraries_dir.join(PathBuf::from(artifact.get_path()));
 
         let lib_dir_path = lib_file_path
             .parent()
