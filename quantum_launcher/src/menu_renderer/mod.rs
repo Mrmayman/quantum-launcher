@@ -167,7 +167,7 @@ impl MenuLauncherUpdate {
                             clear_selection: false
                         }
                     ),
-                    button_with_icon(icon_manager::page(), "Open Website", 16)
+                    button_with_icon(icon_manager::globe(), "Open Website", 16)
                         .on_press(Message::CoreOpenLink("https://mrmayman.github.com/quantumlauncher".to_owned())),
                 ).push_maybe((cfg!(target_os = "linux")).then_some(
                     widget::column!(

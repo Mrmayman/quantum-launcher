@@ -185,14 +185,14 @@ impl LauncherSettingsTab {
                         .on_press(Message::LicenseChangeTab(crate::state::LicenseTab::Gpl3));
 
                 let links = widget::row![
-                    button_with_icon(icon_manager::page(), "Website", 16).on_press(
+                    button_with_icon(icon_manager::globe(), "Website", 16).on_press(
                         Message::CoreOpenLink(
                             "https://mrmayman.github.io/quantumlauncher".to_owned()
                         )
                     ),
                     button_with_icon(icon_manager::github(), "Github", 16)
                         .on_press(Message::CoreOpenLink(GITHUB.to_owned())),
-                    button_with_icon(icon_manager::chat(), "Discord", 16)
+                    button_with_icon(icon_manager::discord(), "Discord", 16)
                         .on_press(Message::CoreOpenLink(DISCORD.to_owned())),
                 ]
                 .padding(iced::Padding {

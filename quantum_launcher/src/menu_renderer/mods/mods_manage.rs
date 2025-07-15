@@ -45,7 +45,7 @@ impl MenuEditMods {
                             .on_press(Message::InstallMods(InstallModsMessage::Open)),
                             button_with_icon(icon_manager::save(), "Mod Presets", 15)
                                 .on_press(Message::EditPresets(EditPresetsMessage::Open)),
-                            button_with_icon(icon_manager::page(), "Jarmod Patches", 15)
+                            button_with_icon(icon_manager::jar_file(), "Jarmod Patches", 15)
                                 .on_press(Message::ManageJarMods(ManageJarModsMessage::Open))
                         )
                         .spacing(5),
@@ -269,7 +269,7 @@ impl MenuEditMods {
                         widget::row![
                             button_with_icon(icon_manager::delete_with_size(13), "Delete", 13)
                                 .on_press(Message::ManageMods(ManageModsMessage::DeleteSelected)),
-                            button_with_icon(icon_manager::toggle_with_size(13), "Toggle", 13)
+                            button_with_icon(icon_manager::toggle_off_with_size(13), "Toggle", 13)
                                 .on_press(Message::ManageMods(ManageModsMessage::ToggleSelected)),
                             button_with_icon(
                                 icon_manager::tick_with_size(13),

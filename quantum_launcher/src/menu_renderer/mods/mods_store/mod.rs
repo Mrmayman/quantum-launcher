@@ -258,7 +258,7 @@ impl MenuModsDownload {
                     back_button()
                         .on_press(Message::InstallMods(InstallModsMessage::BackToMainScreen)),
                     widget::tooltip(
-                        button_with_icon(icon_manager::page(), "Open Mod Page", 16)
+                        button_with_icon(icon_manager::globe(), "Open Mod Page", 16)
                             .on_press(Message::CoreOpenLink(url.clone())),
                         widget::text(url),
                         widget::tooltip::Position::Bottom
