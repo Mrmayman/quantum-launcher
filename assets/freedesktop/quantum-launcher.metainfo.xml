@@ -76,7 +76,7 @@
     </screenshots>
 
     <releases>
-        <release version="0.4.1" date="2025-05-23">
+        <release version="0.4.2" date="2025-05-23">
             <description>
                 <ul>
                     <li>Added shaders, resource packs and modpack stores</li>

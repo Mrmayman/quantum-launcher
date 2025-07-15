@@ -238,7 +238,7 @@ impl Display for ListEntry {
     }
 }
 
-pub const LAUNCHER_VERSION_NAME: &str = "0.4.1";
+pub const LAUNCHER_VERSION_NAME: &str = "0.4.2";
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum ModId {
