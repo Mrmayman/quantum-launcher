@@ -240,10 +240,7 @@ fn main() {
                 include_bytes!("../../assets/fonts/password_asterisks/password-asterisks.ttf")
                     .as_slice()
                     .into(),
-                include_bytes!("../../assets/fonts/icons/launcher-icons.ttf")
-                    .as_slice()
-                    .into(),
-                include_bytes!("../../assets/fonts/icons/launcher-icons-2.ttf")
+                include_bytes!("../../assets/fonts/icons.ttf")
                     .as_slice()
                     .into(),
             ],
