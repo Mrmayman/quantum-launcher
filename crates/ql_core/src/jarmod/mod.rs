@@ -101,7 +101,8 @@ pub async fn build(instance: &InstanceSelection) -> Result<PathBuf, JarModError>
         return Ok(original_jar_path);
     }
 
-    let index = JarMods::get(instance).await?;
+    let mut index = JarMods::get(instance).await?;
+    index.expand(instance).await?;
 
     let tmp_dir = jarmods_dir.join("tmp");
     tokio::fs::create_dir_all(&tmp_dir).await.path(&tmp_dir)?;

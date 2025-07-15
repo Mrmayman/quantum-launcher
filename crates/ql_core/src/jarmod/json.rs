@@ -55,7 +55,7 @@ impl JarMods {
         self.mods.retain(|n| path.join(&n.filename).is_file());
     }
 
-    async fn expand(&mut self, instance: &InstanceSelection) -> Result<(), IoError> {
+    pub async fn expand(&mut self, instance: &InstanceSelection) -> Result<(), IoError> {
         let path = instance.get_instance_path().join("jarmods");
         if !path.is_dir() {
             tokio::fs::create_dir_all(&path).await.path(path)?;
