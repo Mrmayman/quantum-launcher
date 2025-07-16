@@ -47,6 +47,8 @@ icon_define!(tick2, '\u{e90C}');
 icon_define!(discord, '\u{e90D}');
 icon_define!(arrow_down, '\u{e90E}');
 icon_define!(download, '\u{e90F}');
+icon_define!(edit, '\u{e923}');
+icon_define!(sort, '\u{e900}'); // A-Z, Version, Playtime, Date Created, etc...
 
 icon_define!(download_file, '\u{e910}');
 icon_define!(settings_file, '\u{e911}');
@@ -66,4 +68,8 @@ icon_define!(toggle_off, '\u{e91C}');
 icon_define!(toggle_on, '\u{e91D}');
 
 icon_define!(arrow_up, '\u{e91E}');
-icon_define!(refresh_clock, '\u{e91F}');
+icon_define!(refresh_clock, '\u{e91F}'); // This is should be an update icon
+
+icon_define!(chatbox_alt, '\u{e920}'); // This is experimental i guess idk
+icon_define!(mode_dark, '\u{e921}');
+icon_define!(mode_light, '\u{e923}');
