@@ -1,3 +1,14 @@
+//! All the icons to be shown in the launcher's UI.
+//! For example, play, delete, etc.
+//!
+//! The icons are designed by [Aurlt](https://github.com/Aurlt).
+//!
+//! # How this works
+//! Internally, the icons are stored as a font,
+//! where each character is an icon. When showing an
+//! icon, a `widget::text` object is made with the icon font
+//! and the special character that corresponds to the icon.
+
 use crate::menu_renderer::Element;
 use paste::paste;
 
@@ -29,8 +40,6 @@ macro_rules! icon_define {
         }
     };
 }
-
-// # New icons, designed by Aurlt
 
 icon_define!(update, '\u{e901}');
 icon_define!(play, '\u{e902}');

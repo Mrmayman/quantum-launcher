@@ -3,11 +3,11 @@
 - Inter font (default) taken from [Inter](https://rsms.me/inter/)
 - Both of these above two are under SIL Open Font License 1.1 (see `OFL.txt`)
 
-- Launcher icons designed by Aurlt
+- Launcher icons designed by [Aurlt](https://github.com/Aurlt)
 - Password Censored font from [Password Asterisks](https://fontstruct.com/fontstructions/show/2362923/password-asterisks)
 
 # Icon
-- QuantumLauncher logo made by Aurlt
+- QuantumLauncher logo made by [Aurlt](https://github.com/Aurlt)
 
 # Installers
 - `ForgeInstaller.java` taken from

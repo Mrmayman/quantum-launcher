@@ -29,4 +29,4 @@ There are many ways you can help us out! We're open to any contribution.
 - [Mrmayman](https://github.com/Mrmayman) (lead developer)
 - [apicalshark](https://github.com/apicalshark) (github CI, packaging, distribution)
 - [Sreehari425](https://github.com/Sreehari425) (worked on a few features)
-- Aurlt (@exsclt_35289 on Discord) (icon design)
+- [Aurlt](https://github.com/Aurlt) (designed logo, icons and theme, help with UI design)
