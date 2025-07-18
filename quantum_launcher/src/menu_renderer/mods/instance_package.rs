@@ -13,7 +13,7 @@ impl MenuExportInstance {
                 message: None,
                 clear_selection: false
             }),
-            "Select the contents of \".minecraft\" folder you want to keep",
+            "Select the contents of the \".minecraft\" folder you want to keep",
             widget::scrollable(if let Some(entries) = &self.entries {
                 widget::column(entries.iter().enumerate().map(|(i, (entry, enabled))| {
                     let name = if entry.is_file {

@@ -84,7 +84,7 @@ impl Launcher {
         match &self.state {
             State::Launch(menu) => self.view_main_menu(menu),
             State::AccountLoginProgress(progress) => widget::column![
-                widget::text("Logging into microsoft account").size(20),
+                widget::text("Logging into Microsoft account").size(20),
                 progress.view()
             ]
             .spacing(10)

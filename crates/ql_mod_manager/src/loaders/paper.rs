@@ -97,7 +97,7 @@ pub async fn install(instance_name: String) -> Result<(), PaperInstallerError> {
     Ok(())
 }
 
-const PAPER_INSTALL_ERR_PREFIX: &str = "while installing Paper for minecraft server:\n";
+const PAPER_INSTALL_ERR_PREFIX: &str = "while installing Paper for Minecraft server:\n";
 
 #[derive(Debug, Error)]
 pub enum PaperInstallerError {

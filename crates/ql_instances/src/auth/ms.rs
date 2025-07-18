@@ -165,7 +165,7 @@ struct MinecraftFinalDetails {
     name: String,
 }
 
-const AUTH_ERR_PREFIX: &str = "while managing microsoft account:\n";
+const AUTH_ERR_PREFIX: &str = "while managing Microsoft account:\n";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -186,7 +186,7 @@ pub enum Error {
     #[error("{AUTH_ERR_PREFIX}{0}")]
     Response(MsaResponseError),
 
-    #[error("Your microsoft account doesn't own minecraft!\nJust enter the username in the text box instead of logging in.")]
+    #[error("Your Microsoft account doesn't own Minecraft!\nJust enter the username in the text box instead of logging in.")]
     DoesntOwnGame,
 }
 
@@ -301,9 +301,9 @@ pub async fn login_3_xbox(
 ) -> Result<AccountData, Error> {
     let steps = if check_ownership { 5 } else { 4 };
 
-    send_progress(sender.as_ref(), 1, steps, "Logging into xbox live...");
+    send_progress(sender.as_ref(), 1, steps, "Logging into Xbox live...");
     let xbox = login_in_xbox_live(&CLIENT, &data).await?;
-    send_progress(sender.as_ref(), 2, steps, "Logging into minecraft...");
+    send_progress(sender.as_ref(), 2, steps, "Logging into Minecraft...");
     let minecraft = login_in_minecraft(&CLIENT, &xbox).await?;
     send_progress(sender.as_ref(), 3, steps, "Getting account details...");
     let final_details = get_final_details(&CLIENT, &minecraft).await?;

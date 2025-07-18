@@ -41,7 +41,7 @@ pub enum GameLaunchError {
 
     #[error("{GAME_ERR_PREFIX}{0}")]
     MsAuth(#[from] crate::auth::ms::Error),
-    #[error("{GAME_ERR_PREFIX}microsoft account token was not loaded\n\nTry logging out of your account and logging back in")]
+    #[error("{GAME_ERR_PREFIX}Microsoft account token was not loaded\n\nTry logging out of your account and logging back in")]
     InvalidToken,
 
     #[error("{GAME_ERR_PREFIX}error upgrading forge install (transforming path)\n{FORGE_UPGRADE_MESSAGE}")]

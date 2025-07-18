@@ -27,7 +27,7 @@ It is designed to be simple and easy to use, with a focus on performance and fea
 
 ![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/new.png)
 
-## Full support for old minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
+## Full support for old Minecraft versions, integrated with Omniarchive. Includes skin and sound fixes!
 
 ![](https://github.com/Mrmayman/quantumlauncher/raw/main/assets/screenshots/old_mc.png)
 
