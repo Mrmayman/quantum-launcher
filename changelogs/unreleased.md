@@ -14,7 +14,7 @@
 - Overhauled the Launcher Setings menu
 
 ## Elyby integration
-- All versions before 1.21.6 will now support skins from elyby by default (b)
+- Minecraft 1.21.5 and below will now support skins from elyby by default (b)
 - You can also login with elyby accounts now!
 
 ## Instance Packaging
@@ -23,24 +23,25 @@
 - (TODO) Migration from other launchers
 
 # UI
-- overhauled launcher settings menu
-- added a licenses page
+- Revamped all icons in the launcher (thanks, [Aurlt](https://github.com/Aurlt) !)
+- Overhauled launcher settings menu
+- Added a licenses page
 
 ## Fixes
-- fixed Minecraft Indev and early Infdev being unplayable (b)
-- fixed many crashes on Linux ARM and macOS (b)
-- fixed broken colors in old versions on M-series Macs (b)
-- fixed getting stuck in an infinite loop when downloading some curseforge mods
-- fixed Fabric API being missing for some curseforge mods
-- fixed game crashes in portable mode
-- fixed java install progress bar being stuck at the end
-- fixed many formatting issues in game logs
-- fixed welcome screen not working
+- Fixed Minecraft Indev and early Infdev being unplayable (b)
+- Fixed many crashes on Linux ARM and macOS (b)
+- Fixed broken colors in old versions on M-series Macs (b)
+- Fixed getting stuck in an infinite loop when downloading some curseforge mods
+- Fixed Fabric API being missing for some curseforge mods
+- Fixed game crashes in portable mode
+- Fixed java install progress bar being stuck at the end
+- Fixed many formatting issues in game logs
+- Fixed welcome screen not working
 
-- old Minecraft versions are now in the correct order in the download list (b)
-- snapshots of 1.0 to 1.5.2 are no longer missing for download (b)
-- performance of loading the version list
+- Old Minecraft versions are now in the correct order in the download list (b)
+- Snapshots of 1.0 to 1.5.2 are no longer missing for download (b)
+- Performance of loading the version list
   (when clicking New button) is **way** better now (b)
-- made a few cryptic errors more understandable
-- improved support for weird character encodings in file paths
-- missing libraries are now auto-downloaded
+- Improved readability of a few errors
+- Improved support for weird character encodings in file paths
+- Missing libraries are now auto-downloaded
