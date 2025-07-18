@@ -141,6 +141,24 @@ struct AuthServiceErrorMessage {
     error: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[allow(non_snake_case)]
+pub struct MsaResponseError {
+    pub path: String,
+    pub error: String,
+    pub errorMessage: String,
+}
+
+impl std::fmt::Display for MsaResponseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "error: {}\nat: {}\n({})",
+            self.errorMessage, self.path, self.error
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 struct MinecraftFinalDetails {
     id: Option<String>,
@@ -163,10 +181,13 @@ pub enum Error {
     MissingField(String),
     #[error("{AUTH_ERR_PREFIX}no uuid found for account")]
     NoUuid,
-    #[error("Your microsoft account doesn't own minecraft!\nJust enter the username in the text box instead of logging in.")]
-    DoesntOwnGame,
     #[error("{AUTH_ERR_PREFIX}{0}")]
     KeyringError(#[from] KeyringError),
+    #[error("{AUTH_ERR_PREFIX}{0}")]
+    Response(MsaResponseError),
+
+    #[error("Your microsoft account doesn't own minecraft!\nJust enter the username in the text box instead of logging in.")]
+    DoesntOwnGame,
 }
 
 impl From<ql_reqwest::Error> for Error {
@@ -468,7 +489,21 @@ async fn get_final_details(
         .text()
         .await?;
 
-    Ok(serde_json::from_str(&text).json(text)?)
+    let info = match serde_json::from_str::<MinecraftFinalDetails>(&text).json(text.clone()) {
+        Ok(n) => n,
+        Err(err) => {
+            if let Ok(response_err) = serde_json::from_str::<MsaResponseError>(&text) {
+                return Err(if response_err.error == "NOT_FOUND" {
+                    Error::DoesntOwnGame
+                } else {
+                    Error::Response(response_err)
+                });
+            } else {
+                return Err(err.into());
+            }
+        }
+    };
+    Ok(info)
 }
 
 async fn check_minecraft_ownership(access_token: &str) -> Result<bool, Error> {
