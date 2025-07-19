@@ -19,7 +19,7 @@ use comrak::nodes::NodeValue;
 use iced::widget;
 
 use crate::{
-    menu_renderer::Element,
+    menu_renderer::{Element, FONT_MONO},
     state::{ImageState, MenuModsDownload, Message},
 };
 
@@ -106,8 +106,7 @@ impl MenuModsDownload {
                 widget::column!(
                     widget::button(widget::text("Copy").size(12))
                         .on_press(Message::CoreCopyText(block.literal.clone())),
-                    widget::text(block.literal.clone())
-                        .font(iced::Font::with_name("JetBrains Mono")),
+                    widget::text(block.literal.clone()).font(FONT_MONO),
                 )
                 .spacing(5),
             )
@@ -123,7 +122,7 @@ impl MenuModsDownload {
             NodeValue::TaskItem(_) => todoh!("task item"),
             NodeValue::SoftBreak | NodeValue::LineBreak => widget::column!().into(),
             NodeValue::Code(code) => widget::row![
-                widget::text(code.literal.clone()).font(iced::Font::with_name("JetBrains Mono")),
+                widget::text(code.literal.clone()).font(FONT_MONO),
                 widget::button(widget::text("Copy").size(12))
                     .on_press(Message::CoreCopyText(code.literal.clone())),
             ]

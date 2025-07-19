@@ -10,6 +10,7 @@ use markup5ever_rcdom::{Node, RcDom};
 
 use crate::{
     draw_children,
+    menu_renderer::FONT_MONO,
     state::{ImageState, MenuModsDownload, Message},
 };
 
@@ -75,7 +76,7 @@ impl MenuModsDownload {
 
                 *element = if data.monospace {
                     widget::row![
-                        widget::text(text.clone()).font(iced::Font::with_name("JetBrains Mono")),
+                        widget::text(text.clone()).font(FONT_MONO),
                         widget::button(widget::text("Copy").size(12))
                             .on_press(Message::CoreCopyText(text)),
                     ]
