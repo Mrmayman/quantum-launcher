@@ -42,40 +42,19 @@ impl Launcher {
             let text = {
                 if let Some(logger) = LOGGER.as_ref() {
                     let logger = logger.lock().unwrap();
-                    logger.text.clone()
+                    logger.text.iter().cloned().map(|n| n.0).collect()
                 } else {
                     Vec::new()
                 }
             };
 
-            let (text_len, column) = self.view_launcher_log(
-                &text,
+            Self::view_launcher_log(
+                text,
                 TEXT_SIZE,
                 self.log_scroll,
-                0.0,
-                self.window_size.1 / 2.0,
-            );
-
-            widget::mouse_area(
-                widget::container(widget::row![
-                    widget::column!(column).height(self.window_size.1 / 2.0),
-                    widget::vertical_slider(
-                        0.0..=text_len,
-                        text_len - self.log_scroll as f64,
-                        move |val| {
-                            Message::CoreLogScrollAbsolute(text_len as isize - val as isize)
-                        }
-                    )
-                ])
-                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+                Message::CoreLogScroll,
+                Message::CoreLogScrollAbsolute,
             )
-            .on_scroll(move |n| {
-                let lines = match n {
-                    iced::mouse::ScrollDelta::Lines { y, .. } => y as isize,
-                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as isize,
-                };
-                Message::CoreLogScroll(lines)
-            })
         }))
         .into()
     }

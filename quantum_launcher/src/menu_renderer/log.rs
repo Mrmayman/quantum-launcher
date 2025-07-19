@@ -1,24 +1,20 @@
 //! A "log viewer" made with iced widgets.
 //!
-//! This is honestly complete and utter garbage.
-//! I barely knew what I was doing when I made this,
-//! and better solutions definitely might exist.
-//!
-//! It supports:
-//! - Basic "word-wrapping" (cuts off words sometimes)
-//! - Rough, per-line scrolling (because `iced::widget::scrollable`
+//! # Features
+//! - Basic "word-wrapping" (cuts off sometimes)
+//! - Rough, basic scrolling (because `iced::widget::scrollable`
 //!   is magic I can't replicate).
-//! - Click to copy a line to clipboard.
+//! - Clicking to copy a line to clipboard.
+//! - High performance for large logs
 //!
-//! `iced::widget::scrollable` renders the whole damn thing, not slices,
+//! # Limitations
+//! - Scrolling is janky
+//! - When scrolling, large lines get jumped over
+//! - Overall layouting and widget size is messy sometimes
+//!
+//! `iced::widget::scrollable` renders the whole thing, not slices,
 //! so I can't use it. I can't figure out how to make this as smooth as
 //! `scrollable`.
-//!
-//! **NOTE: You have to handroll your own scrollbar**.
-//! It's pretty simple through, the integration/hooks are already there,
-//! you just need to place the final widget. See the places where
-//! [`Launcher::view_launcher_log`] is called, and look for a
-//! `widget::vertical_slider`, then copy the code.
 //!
 //! The way this works is,
 //! it assumes logs are a big list of lines.
@@ -46,12 +42,11 @@
 //!
 //! See [`Launcher::view_launcher_log`] for more info.
 
-use iced::widget;
-use ql_core::LogType;
+use iced::{widget, Length};
 
 use crate::{
     state::{Launcher, Message},
-    stylesheet::{styles::LauncherTheme, widgets::StyleButton},
+    stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
 
 use super::Element;
@@ -63,147 +58,88 @@ impl Launcher {
     /// # Arguments
     /// - `text`: A list of log lines and their type
     ///   (info/error/point)
-    /// - `text_size`: The size of the log text.
+    /// - `text_size`: The size of the characters of the log.
     ///   Recommended: `12.0`
     /// - `scroll`: The amount of lines scrolled down.
     ///   `0` for the beginning, add 1 to it as you scroll down.
-    /// - `width_reduction`, `height_reduction`: How much the other
-    ///   UI elements "eat into" the log space. I'll explain this in layouting.
     ///
-    /// # Returns
-    /// A tuple of:
-    /// - `f64`: the total height of the log in lines
-    ///   **including word wrapping, so it's not just `text.len()`**.
-    ///   You can use this in your handrolled scrollbar, by representing scroll as
-    ///   `(length - scroll) / length` (length is this number).
-    /// - `Element`: The iced element of the log, put this in your GUI.
+    /// - `msg`: A closure returning the [`Message`] to be
+    ///   called when scrolling **relative**.
+    /// - `msg_absolute`: A closure returning the [`Message`] to be
+    ///   called when scrolling **absolute**.
     ///
-    /// # Layouting
-    /// I made a deliberate (although questionable) design choice implementing this as
-    /// "cutting-into"s of the total space, instead of a width and height of the log.
-    ///
-    /// This was mainly for ease of implementation and because it was ok for the use case
-    /// of this log viewer. It's not exactly nice but it works.
-    ///
-    /// Essentially, lets say you have this GUI:
-    ///
-    /// ```txt
-    /// + new| [info] Starting  |
-    /// -----|   launcher...    |
-    /// hello| [info] Installing|
-    /// world|   fabric.        |
-    /// blah | - Downloading    |
-    /// foo  |   library (1/7)  |
-    /// bar  | - Downloading    |
-    /// -------------------------
-    /// ```
-    ///
-    /// Here, the sidebar and bottom bar "cut into"
-    /// the space of the log. In this terminology
-    /// we assume the log is destined to occupy the
-    /// entire screen but is unfortunately trespassed upon.
-    ///
-    /// So `width_reduction` would include the width of the
-    /// sidebar, and `height_reduction` would include the
-    /// height of the bottom bar.
-    pub fn view_launcher_log(
-        &self,
-        text: &[(String, LogType)],
+    /// Returns the `Elemeent` containing the log viewer.
+    pub fn view_launcher_log<'a>(
+        text: Vec<String>,
         text_size: f32,
         scroll: isize,
-        width_reduction: f32,
-        height_reduction: f32,
-    ) -> (f64, Element) {
-        let screen_width = (self.window_size.0 - width_reduction) / 7.4;
-        if screen_width < 5.0 {
-            return (0.0, widget::column![].into());
-        }
-        let screen_width = screen_width as usize - 5;
-        let height_limit = (self.window_size.1 - height_reduction) - 50.0;
 
-        let slice =
-            Self::calculate_word_wrapping(text, text_size, scroll, screen_width, height_limit);
+        msg: impl Fn(isize) -> Message + Clone + 'a,
+        msg_absolute: impl Fn(isize) -> Message + Clone + 'a,
+    ) -> Element<'a> {
+        widget::responsive(move |size| {
+            let msg = msg.clone();
+            let msg_absolute = msg_absolute.clone();
+            let text = text.clone();
 
-        let column = widget::column(slice.into_iter().map(|(msg, ty, i)| {
-            // For copy pasting
-            let msg_text = text
-                .get(i)
-                .map_or_else(|| msg.join(""), |(line, _)| line.clone());
+            let (text_len, column) = log_inner(text, text_size, scroll, size.height);
+            let text_len = text_len as f64;
 
-            widget::button(
-                widget::row![
-                    widget::text(match ty {
-                        ql_core::LogType::Info => ">",
-                        ql_core::LogType::Error => "(!)",
-                        ql_core::LogType::Point => "",
+            widget::mouse_area(
+                widget::container(widget::row![
+                    widget::column!(column).height(Length::Fill),
+                    widget::vertical_slider(0.0..=text_len, text_len - scroll as f64, move |val| {
+                        msg_absolute(text_len as isize - val as isize)
                     })
-                    .size(text_size),
-                    widget::column(msg.into_iter().map(|line| {
-                        widget::text(line)
-                            .font(iced::Font::with_name("JetBrains Mono"))
-                            .size(text_size)
-                            .into()
-                    })),
-                    widget::horizontal_space()
-                ]
-                .spacing(5),
+                ])
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
             )
-            .padding(0)
-            .style(|n: &LauncherTheme, status| n.style_button(status, StyleButton::FlatExtraDark))
-            .on_press(Message::CoreCopyText(msg_text))
+            .on_scroll(move |n| {
+                let lines = match n {
+                    iced::mouse::ScrollDelta::Lines { y, .. } => y as isize,
+                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / text_size) as isize,
+                };
+                msg(lines)
+            })
             .into()
-        }))
-        .push(widget::horizontal_space())
-        .spacing(4);
+        })
+        .into()
+    }
+}
 
-        (
-            text.iter()
-                .map(|n| Self::split_string_len(&n.0, screen_width))
-                .sum(),
-            column.into(),
+fn log_inner<'a>(
+    text: Vec<String>,
+    text_size: f32,
+    scroll: isize,
+    height_limit: f32,
+) -> (usize, Element<'a>) {
+    let len = text.len();
+
+    let start_pos = scroll as usize;
+    let end_pos = (height_limit / (text_size * 1.7)) as usize;
+    let end_pos = std::cmp::min(start_pos + end_pos, len);
+
+    let text = if start_pos >= len {
+        Vec::new()
+    } else {
+        text[start_pos..end_pos].to_vec()
+    };
+    let screen_len = text.len();
+
+    let column = widget::column(text.into_iter().map(|msg| {
+        widget::button(
+            widget::text(msg.clone())
+                .font(iced::Font::with_name("JetBrains Mono"))
+                .size(text_size)
+                .width(Length::Fill),
         )
-    }
+        .padding(0)
+        .style(|n: &LauncherTheme, status| n.style_button(status, StyleButton::FlatExtraDark))
+        .on_press(Message::CoreCopyText(msg))
+        .into()
+    }))
+    .push(widget::horizontal_space())
+    .spacing(4);
 
-    fn split_string_len(input: &str, interval: usize) -> f64 {
-        (input.len() as f64 / interval as f64).ceil()
-    }
-
-    fn calculate_word_wrapping(
-        text: &[(String, LogType)],
-        text_size: f32,
-        scroll: isize,
-        screen_width: usize,
-        height_limit: f32,
-    ) -> Vec<(Vec<String>, &LogType, usize)> {
-        let mut slice = Vec::new();
-        let mut start_pos = scroll as usize;
-        let mut achieved_height = 0.0;
-
-        for (i, (msg, ty)) in text.iter().enumerate() {
-            let word_wrapped = Self::split_string_at_intervals(msg, screen_width);
-            let len = word_wrapped.len();
-
-            if len <= start_pos {
-                start_pos -= len;
-            } else {
-                achieved_height += (len - start_pos) as f32 * text_size;
-                slice.push((word_wrapped[start_pos..len].to_vec(), ty, i));
-                start_pos = 0;
-            }
-
-            if achieved_height > height_limit {
-                break;
-            }
-        }
-        slice
-    }
-
-    fn split_string_at_intervals(input: &str, interval: usize) -> Vec<String> {
-        input
-            .chars()
-            .collect::<Vec<char>>()
-            .chunks(interval)
-            .map(|chunk| chunk.iter().collect())
-            .collect()
-    }
+    (len.checked_sub(screen_len).unwrap_or(len), column.into())
 }

@@ -25,6 +25,7 @@
 # UI
 - Revamped all icons in the launcher (thanks, [Aurlt](https://github.com/Aurlt) !)
 - Overhauled launcher settings menu
+- Made massive improvements to the log renderer
 - Added a licenses page
 
 ## Fixes

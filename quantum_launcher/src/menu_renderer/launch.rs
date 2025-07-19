@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::{widget, Length};
-use ql_core::{InstanceSelection, LogType, LAUNCHER_VERSION_NAME};
+use ql_core::{InstanceSelection, LAUNCHER_VERSION_NAME};
 
 use crate::{
     icon_manager,
@@ -153,73 +153,65 @@ impl Launcher {
         selected_instance: Option<&'element str>,
         is_server: bool,
     ) -> widget::Column<'element, Message, LauncherTheme> {
-        let (scroll, sidebar_width) = if let State::Launch(MenuLaunch {
-            log_scroll,
-            sidebar_width,
-            ..
-        }) = &self.state
-        {
-            (*log_scroll, *sidebar_width)
+        let scroll = if let State::Launch(MenuLaunch { log_scroll, .. }) = &self.state {
+            *log_scroll
         } else {
-            (0, 0)
+            0
         };
 
-        if let Some(Some(InstanceLog { log, has_crashed, command })) = selected_instance
+        if let Some(Some(InstanceLog {
+            log,
+            has_crashed,
+            command,
+        })) = selected_instance
             .as_ref()
             .map(|selection| logs.get(*selection))
         {
             const TEXT_SIZE: f32 = 12.0;
 
-            let log_new: Vec<(String, LogType)> = log.iter().map(|n| (n.clone(), LogType::Point)).collect();
-            let height_reduction = self.window_size.1 / 3.0 /*+ if self.is_log_open { self.window_size.1 / 2.0 } else { 0.0 }*/;
+            let log = Self::view_launcher_log(
+                log.clone(),
+                TEXT_SIZE,
+                scroll,
+                Message::LaunchLogScroll,
+                Message::LaunchLogScrollAbsolute,
+            );
 
-            let (text_len, column) =
-                self.view_launcher_log(&log_new,
-                    TEXT_SIZE,
-                    scroll,
-                    f32::from(sidebar_width) + 16.0,
-                    height_reduction
-                );
-
-            // TODO: Make scrolling precise when bottom launcher log bar is open
-            let screen_height_lines = f64::from(self.window_size.1 - height_reduction - 70.0) / 18.0;
-            let new_text_len = text_len - screen_height_lines;
-
-            let log = widget::mouse_area(
-                widget::container(widget::row![
-                    column,
-                    widget::vertical_slider(
-                        0.0..=new_text_len,
-                        new_text_len - scroll as f64,
-                        move |val| { Message::LaunchLogScrollAbsolute(new_text_len.ceil() as isize - val as isize) }
-                    )
-                ])
-                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+            widget::column![widget::row!(
+                widget::button(widget::text("Copy Log").size(14)).on_press(if is_server {
+                    Message::ServerManageCopyLog
+                } else {
+                    Message::LaunchCopyLog
+                }),
+                widget::button(widget::text("Join Discord").size(14))
+                    .on_press(Message::CoreOpenLink(DISCORD.to_owned())),
+                widget::text("Having issues? Copy and send the game log for support").size(12),
             )
-            .on_scroll(move |n| {
-                let lines = match n {
-                    iced::mouse::ScrollDelta::Lines { y, .. } => y as isize,
-                    iced::mouse::ScrollDelta::Pixels { y, .. } => (y / TEXT_SIZE) as isize,
-                };
-                Message::LaunchLogScroll(lines)
-            });
-
-            widget::column![
-                widget::row!(
-                    widget::button(widget::text("Copy Log").size(14)).on_press(if is_server {Message::ServerManageCopyLog} else {Message::LaunchCopyLog}),
-                    widget::button(widget::text("Join Discord").size(14)).on_press(Message::CoreOpenLink(DISCORD.to_owned())),
-                    widget::text("Having issues? Copy and send the game log for support").size(12),
-                ).spacing(10)
-            ]
-            .push_maybe(has_crashed.then_some(
-                widget::text!("The {} has crashed!", if is_server {"server"} else {"game"}).size(18)
-            ))
-            .push_maybe(is_server.then_some(
-                widget::text_input("Enter command...", command)
-                    .on_input(move |n| Message::ServerManageEditCommand(selected_instance.unwrap().to_owned(), n))
-                    .on_submit(Message::ServerManageSubmitCommand(selected_instance.unwrap().to_owned()))
-                    .width(190)
-            ))
+            .spacing(10)]
+            .push_maybe(
+                has_crashed.then_some(
+                    widget::text!(
+                        "The {} has crashed!",
+                        if is_server { "server" } else { "game" }
+                    )
+                    .size(18),
+                ),
+            )
+            .push_maybe(
+                is_server.then_some(
+                    widget::text_input("Enter command...", command)
+                        .on_input(move |n| {
+                            Message::ServerManageEditCommand(
+                                selected_instance.unwrap().to_owned(),
+                                n,
+                            )
+                        })
+                        .on_submit(Message::ServerManageSubmitCommand(
+                            selected_instance.unwrap().to_owned(),
+                        ))
+                        .width(190),
+                ),
+            )
             .push(log)
         } else {
             get_no_logs_message()
