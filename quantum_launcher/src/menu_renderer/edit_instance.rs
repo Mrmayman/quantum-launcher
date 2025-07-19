@@ -1,9 +1,9 @@
-use iced::widget;
+use iced::{widget, Length};
 use ql_core::InstanceSelection;
 
 use crate::{
     icon_manager,
-    menu_renderer::button_with_icon,
+    menu_renderer::{button_with_icon, FONT_MONO},
     state::{EditInstanceMessage, MenuEditInstance, Message},
     stylesheet::{color::Color, styles::LauncherTheme},
 };
@@ -21,24 +21,37 @@ impl MenuEditInstance {
 
         widget::scrollable(
             widget::column![
+                widget::container(
+                    widget::row![
+                        widget::text(selected_instance.get_name().to_owned()).size(20).font(FONT_MONO),
+                        widget::horizontal_space(),
+                        widget::text!("{} | {}  ",
+                            self.config.mod_type,
+                            if selected_instance.is_server() {
+                                "Server"
+                            } else {
+                                "Client"
+                            }
+                        )
+                    ].padding(10).spacing(5),
+                )
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
+
                 widget::container(widget::column!(
                     widget::row!(
                         widget::button("Rename").on_press(Message::EditInstance(EditInstanceMessage::RenameApply)),
                         widget::text_input("Rename Instance", &self.instance_name).on_input(|n| Message::EditInstance(EditInstanceMessage::RenameEdit(n))),
                     ).spacing(5),
-                    widget::text(
-                        match selected_instance {
-                            InstanceSelection::Instance(n) => format!("Editing {} instance: {n}", self.config.mod_type),
-                            InstanceSelection::Server(n) => format!("Editing {} server: {n}", self.config.mod_type),
-                        }
-                    ),
-                ).padding(10).spacing(10)).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+                )
+                .padding(10)
+                .spacing(10))
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+
                 widget::container(
                     widget::column![
-                        "Custom Java executable",
-                        widget::text("Enter full path, leave blank if none").style(ts),
+                        "Custom Java executable (full path)",
                         widget::text_input(
-                            "Enter Java override path...",
+                            "Leave blank if none",
                             self.config
                                 .java_override
                                 .as_deref()
@@ -54,7 +67,7 @@ impl MenuEditInstance {
                         "Allocated memory",
                         widget::text("For normal Minecraft, allocate 2 - 3 GB").size(12).style(ts),
                         widget::text("For old versions, allocate 512 MB - 1 GB").size(12).style(ts),
-                        widget::text("For heavy modpacks or very high render distances, allocate 4 - 8 GB").size(12).style(ts),
+                        widget::text("For heavy modpacks/very high render distances, allocate 4 - 8 GB").size(12).style(ts),
                         widget::slider(MEM_256_MB_IN_TWOS_EXPONENT..=MEM_8192_MB_IN_TWOS_EXPONENT, self.slider_value, |n| Message::EditInstance(EditInstanceMessage::MemoryChanged(n))).step(0.1),
                         widget::text(&self.slider_text),
                     ]
@@ -62,23 +75,19 @@ impl MenuEditInstance {
                     .spacing(5),
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
-                    widget::column![
-                        widget::column![
-                            widget::checkbox("Enable logging", self.config.enable_logger.unwrap_or(true))
-                                .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
-                            widget::text("- Recommended to enable this (default) for most cases").size(12).style(ts),
-                            widget::text("- Disable if logs aren't visible properly for some reason").size(12).style(ts),
-                            widget::text("- Once disabled, logs will be printed in launcher STDOUT. Run the launcher executable from the terminal/command prompt to see it").size(12).style(ts),
-                            widget::horizontal_space(),
-                        ].spacing(5)
-                    ].push_maybe((!selected_instance.is_server()).then_some(widget::column![
+                    widget::Column::new()
+                    .push_maybe((!selected_instance.is_server()).then_some(widget::column![
                         widget::checkbox("Close launcher after game opens", self.config.close_on_start.unwrap_or(false))
                             .on_toggle(|t| Message::EditInstance(EditInstanceMessage::CloseLauncherToggle(t))),
-                        widget::text("Disabled by default, enable if you want the launcher to close when the game opens.").size(12).style(ts),
-                        widget::text("It's recommended you leave this off because:").size(12).style(ts),
-                        widget::text("- This prevents you from seeing logs or killing the process.").size(12).style(ts),
-                        widget::text("- Besides, closing the launcher won't make your game run faster (it's already super lightweight).").size(12).style(ts),
                     ].spacing(5)))
+                    .push(
+                        widget::column![
+                            widget::checkbox("DEBUG: Enable log system (recommended)", self.config.enable_logger.unwrap_or(true))
+                                .on_toggle(|t| Message::EditInstance(EditInstanceMessage::LoggingToggle(t))),
+                            widget::text("Once disabled, logs will be printed in launcher STDOUT.\nRun the launcher executable from the terminal/command prompt to see it").size(12).style(ts),
+                            widget::horizontal_space(),
+                        ].spacing(5)
+                    )
                     .padding(10)
                     .spacing(10)
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
@@ -96,8 +105,7 @@ impl MenuEditInstance {
                             button_with_icon(icon_manager::create(), "Add", 16)
                                 .on_press(Message::EditInstance(EditInstanceMessage::JavaArgsAdd))
                         ),
-                        widget::horizontal_space(),
-                    ).padding(10).spacing(10)
+                    ).padding(10).spacing(10).width(Length::Fill)
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
                 widget::container(
                     widget::column!(
@@ -113,16 +121,15 @@ impl MenuEditInstance {
                             button_with_icon(icon_manager::create(), "Add", 16)
                                 .on_press(Message::EditInstance(EditInstanceMessage::GameArgsAdd))
                         ),
-                        widget::horizontal_space()
-                    ).padding(10).spacing(10)
+                    ).padding(10).spacing(10).width(Length::Fill)
                 ).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::Dark)),
-                widget::container(widget::row!(
+                widget::container(
                     button_with_icon(icon_manager::delete(), "Delete Instance", 16)
-                        .on_press(
-                            Message::DeleteInstanceMenu
-                        ),
-                    widget::horizontal_space(),
-                )).padding(10).style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
+                        .on_press(Message::DeleteInstanceMenu)
+                )
+                .width(Length::Fill)
+                .padding(10)
+                .style(|n: &LauncherTheme| n.style_container_sharp_box(0.0, Color::ExtraDark)),
             ]
         ).style(LauncherTheme::style_scrollable_flat_extra_dark).into()
     }
