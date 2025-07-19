@@ -92,7 +92,11 @@ pub struct ServerProcess {
 }
 
 impl Launcher {
-    pub fn load_new(message: Option<String>, is_new_user: bool) -> Result<Self, JsonFileError> {
+    pub fn load_new(
+        message: Option<String>,
+        is_new_user: bool,
+        config: Result<LauncherConfig, JsonFileError>,
+    ) -> Result<Self, JsonFileError> {
         if let Err(err) = file_utils::get_launcher_dir() {
             err!("Could not get launcher dir (This is a bug):");
             return Ok(Self::with_error(format!(
@@ -100,7 +104,8 @@ impl Launcher {
             )));
         }
 
-        let (mut config, theme) = load_config_and_theme()?;
+        let mut config = config?;
+        let theme = get_theme(&config);
 
         let mut launch = if let Some(message) = message {
             MenuLaunch::with_message(message)
@@ -192,11 +197,16 @@ impl Launcher {
 
         let (config, theme) = launcher_dir
             .as_ref()
-            .and_then(|_| match load_config_and_theme() {
-                Ok(n) => Some(n),
-                Err(err) => {
-                    err!("Error loading config: {err}");
-                    None
+            .and_then(|_| {
+                match LauncherConfig::load_s().map(|n| {
+                    let theme = get_theme(&n);
+                    (n, theme)
+                }) {
+                    Ok(n) => Some(n),
+                    Err(err) => {
+                        err!("Error loading config: {err}");
+                        None
+                    }
                 }
             })
             .unwrap_or((LauncherConfig::default(), LauncherTheme::default()));
@@ -304,8 +314,7 @@ fn load_account(
     }
 }
 
-fn load_config_and_theme() -> Result<(LauncherConfig, LauncherTheme), JsonFileError> {
-    let config = LauncherConfig::load_s()?;
+fn get_theme(config: &LauncherConfig) -> LauncherTheme {
     let theme = match config.theme.as_deref() {
         Some("Dark") => LauncherThemeLightness::Dark,
         Some("Light") => LauncherThemeLightness::Light,
@@ -320,8 +329,7 @@ fn load_config_and_theme() -> Result<(LauncherConfig, LauncherTheme), JsonFileEr
         .as_deref()
         .and_then(|n| LauncherThemeColor::from_str(n).ok())
         .unwrap_or_default();
-    let theme = LauncherTheme::from_vals(style, theme);
-    Ok((config, theme))
+    LauncherTheme::from_vals(style, theme)
 }
 
 pub async fn get_entries(path: String, is_server: bool) -> Res<(Vec<String>, bool)> {

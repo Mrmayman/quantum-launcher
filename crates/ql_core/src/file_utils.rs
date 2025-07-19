@@ -434,7 +434,7 @@ pub fn create_symlink(src: &Path, dest: &Path) -> Result<(), IoError> {
 pub async fn clean_log_spam() -> Result<(), IoError> {
     const SIZE_LIMIT_BYTES: u64 = 100 * 1024 * 1024; // 100 MB
 
-    let logs_dir = LAUNCHER_DIR.join("logs");
+    let logs_dir = get_launcher_dir()?.join("logs");
     if !logs_dir.is_dir() {
         tokio::fs::create_dir_all(&logs_dir).await.path(logs_dir)?;
         return Ok(());

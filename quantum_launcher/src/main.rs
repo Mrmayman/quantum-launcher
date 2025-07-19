@@ -24,19 +24,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_precision_loss)]
 
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
-use arguments::{cmd_list_available_versions, cmd_list_instances, PrintCmd};
 use config::LauncherConfig;
 use iced::{futures::executor::block_on, Settings, Task};
 use state::{get_entries, Launcher, Message, ServerProcess};
 
-use ql_core::{err, err_no_log, file_utils, info_no_log, IntoStringError};
+use ql_core::{err, err_no_log, file_utils, info_no_log, IntoStringError, JsonFileError};
 use ql_instances::OS_NAME;
 use tokio::io::AsyncWriteExt;
 
 /// The CLI interface of the launcher.
-mod arguments;
+mod cli;
 /// Launcher configuration (global).
 mod config;
 /// Definitions of certain icons (like Download,
@@ -83,7 +82,10 @@ mod tick;
 const LAUNCHER_ICON: &[u8] = include_bytes!("../../assets/icon/ql_logo.ico");
 
 impl Launcher {
-    fn new(is_new_user: bool) -> (Self, iced::Task<Message>) {
+    fn new(
+        is_new_user: bool,
+        config: Result<LauncherConfig, JsonFileError>,
+    ) -> (Self, iced::Task<Message>) {
         let check_for_updates_command = Task::perform(
             async move { ql_instances::check_for_launcher_updates().await.strerr() },
             Message::UpdateCheckResult,
@@ -99,7 +101,7 @@ impl Launcher {
         });
 
         (
-            Launcher::load_new(None, is_new_user).unwrap_or_else(Launcher::with_error),
+            Launcher::load_new(None, is_new_user, config).unwrap_or_else(Launcher::with_error),
             Task::batch([check_for_updates_command, get_entries_command, log_cmd]),
         )
     }
@@ -160,90 +162,20 @@ fn main() {
     let is_new_user = file_utils::is_new_user();
     // let is_new_user = true; // Uncomment to test the intro screen.
 
-    let launcher_dir_res = file_utils::get_launcher_dir();
-    let mut launcher_dir = None;
-    let is_dir_err = match launcher_dir_res {
-        Ok(n) => {
-            info_no_log!("Launcher dir: {}", n.display());
-            launcher_dir = Some(n);
-            false
-        }
-        Err(err) => {
-            err!("Couldn't get launcher dir: {err}");
-            true
-        }
-    };
-
-    let command = arguments::command();
-    let matches = command.clone().get_matches();
-
-    if let Some(subcommand) = matches.subcommand() {
-        if is_dir_err {
-            std::process::exit(1);
-        }
-        match subcommand.0 {
-            "list-instances" => {
-                let command = get_list_instance_subcommand(subcommand);
-                cmd_list_instances(&command, "instances");
-                return;
-            }
-            "list-servers" => {
-                let command = get_list_instance_subcommand(subcommand);
-                cmd_list_instances(&command, "servers");
-                return;
-            }
-            "list-available-versions" => {
-                cmd_list_available_versions();
-                return;
-            }
-            "--no-sandbox" => {
-                err_no_log!("Unknown command --no-sandbox, ignoring...");
-            }
-            err => panic!("Unimplemented command! {err}"),
-        }
-    } else {
-        arguments::print_intro();
-    }
+    let (launcher_dir, is_dir_err) = load_launcher_dir();
+    cli::start_cli(is_dir_err);
 
     info_no_log!("Starting up the launcher... (OS: {OS_NAME})");
 
-    let icon =
-        match iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico)) {
-            Ok(n) => Some(n),
-            Err(err) => {
-                err_no_log!("Couldn't load launcher icon! (bug detected): {err}");
-                None
-            }
-        };
-
-    let scale = if let Some(cfg) = launcher_dir
-        .as_ref()
-        .and_then(|_| LauncherConfig::load_s().ok())
-    {
-        cfg.ui_scale.unwrap_or(1.0) as f32
-    } else {
-        1.0
-    };
+    let icon = load_icon();
+    let (scale, config) = load_ui_scale(launcher_dir.is_some());
 
     iced::application("QuantumLauncher", Launcher::update, Launcher::view)
         .subscription(Launcher::subscription)
         .scale_factor(Launcher::scale_factor)
         .theme(Launcher::theme)
         .settings(Settings {
-            fonts: vec![
-                include_bytes!("../../assets/fonts/Inter-Regular.ttf")
-                    .as_slice()
-                    .into(),
-                include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
-                    .as_slice()
-                    .into(),
-                include_bytes!("../../assets/fonts/password_asterisks/password-asterisks.ttf")
-                    .as_slice()
-                    .into(),
-                include_bytes!("../../assets/fonts/icons.ttf")
-                    .as_slice()
-                    .into(),
-            ],
+            fonts: load_fonts(),
             default_font: iced::Font::with_name("Inter"),
             ..Default::default()
         })
@@ -260,27 +192,66 @@ fn main() {
             }),
             ..Default::default()
         })
-        .run_with(move || Launcher::new(is_new_user))
+        .run_with(move || Launcher::new(is_new_user, config))
         .unwrap();
 }
 
-fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<PrintCmd> {
-    if let Some((cmd, _)) = subcommand.1.subcommand() {
-        let mut cmds = Vec::new();
-        for cmd in cmd.split('-') {
-            match cmd {
-                "name" => cmds.push(PrintCmd::Name),
-                "version" => cmds.push(PrintCmd::Version),
-                "loader" => cmds.push(PrintCmd::Loader),
-                invalid => {
-                    panic!("Invalid subcommand {invalid}! Use any combination of name, version and loader separated by hyphen '-'");
-                }
-            }
+fn load_launcher_dir() -> (Option<std::path::PathBuf>, bool) {
+    let launcher_dir_res = file_utils::get_launcher_dir();
+    let mut launcher_dir = None;
+    let is_dir_err = match launcher_dir_res {
+        Ok(n) => {
+            info_no_log!("Launcher dir: {}", n.display());
+            launcher_dir = Some(n);
+            false
         }
-        cmds
+        Err(err) => {
+            err!("Couldn't get launcher dir: {err}");
+            true
+        }
+    };
+    (launcher_dir, is_dir_err)
+}
+
+fn load_ui_scale(dir_is_ok: bool) -> (f32, Result<LauncherConfig, JsonFileError>) {
+    if let Some(cfg) = dir_is_ok.then(|| LauncherConfig::load_s()) {
+        match cfg {
+            Ok(cfg) => (cfg.ui_scale.unwrap_or(1.0) as f32, Ok(cfg)),
+            Err(err) => (1.0, Err(err)),
+        }
     } else {
-        vec![PrintCmd::Name]
+        (
+            1.0,
+            Err(JsonFileError::Io(ql_core::IoError::ConfigDirNotFound)),
+        )
     }
+}
+
+fn load_icon() -> Option<iced::window::Icon> {
+    match iced::window::icon::from_file_data(LAUNCHER_ICON, Some(image::ImageFormat::Ico)) {
+        Ok(n) => Some(n),
+        Err(err) => {
+            err_no_log!("Couldn't load launcher icon! (bug detected): {err}");
+            None
+        }
+    }
+}
+
+fn load_fonts() -> Vec<Cow<'static, [u8]>> {
+    vec![
+        include_bytes!("../../assets/fonts/Inter-Regular.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../../assets/fonts/JetBrainsMono-Regular.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../../assets/fonts/password_asterisks/password-asterisks.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../../assets/fonts/icons.ttf")
+            .as_slice()
+            .into(),
+    ]
 }
 
 #[cfg(windows)]

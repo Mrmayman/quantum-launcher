@@ -1,6 +1,7 @@
 use clap::Command;
 use colored::Colorize;
 use ql_core::{
+    err_no_log,
     json::{instance_config::InstanceConfigJson, version::VersionDetails},
     IntoStringError, LAUNCHER_DIR, LAUNCHER_VERSION_NAME,
 };
@@ -11,7 +12,7 @@ use crate::{
     state::get_entries,
 };
 
-pub fn command() -> Command {
+fn command() -> Command {
     Command::new(if cfg!(target_os = "windows") {
         ".\\quantum_launcher.exe"
     } else {
@@ -57,7 +58,7 @@ fn get_list_instance_subcommands(name: &'static str) -> Command {
         .subcommand(Command::new("loader-version-name"))
 }
 
-pub fn cmd_list_available_versions() {
+fn cmd_list_available_versions() {
     eprintln!("Listing downloadable versions...");
     let versions = match tokio::runtime::Runtime::new()
         .unwrap()
@@ -76,7 +77,7 @@ pub fn cmd_list_available_versions() {
     }
 }
 
-pub fn long_about() -> String {
+fn long_about() -> String {
     format!(
         r"
 QuantumLauncher: A simple, powerful Minecraft launcher by Mrmayman
@@ -88,13 +89,13 @@ Discord: {DISCORD}
     )
 }
 
-pub enum PrintCmd {
+enum PrintCmd {
     Name,
     Version,
     Loader,
 }
 
-pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
+fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
     let instances = match tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(get_entries(dirname.to_owned(), false))
@@ -157,7 +158,7 @@ pub fn cmd_list_instances(cmds: &[PrintCmd], dirname: &str) {
 /// - `assets/ascii/text.txt` for the text logo
 ///
 /// The other files in `assets/ascii` are unused.
-pub fn print_intro() {
+fn print_intro() {
     /// Helper function to pad lines to a fixed width
     fn pad_line(line: Option<&str>, width: usize) -> String {
         let line = line.unwrap_or_default();
@@ -252,4 +253,56 @@ fn get_side_text() -> (String, usize) {
     text.push_str(&message);
 
     (text, text_len_old)
+}
+
+pub fn start_cli(is_dir_err: bool) {
+    let command = command();
+    let matches = command.clone().get_matches();
+
+    if let Some(subcommand) = matches.subcommand() {
+        if is_dir_err {
+            std::process::exit(1);
+        }
+        match subcommand.0 {
+            "list-instances" => {
+                let command = get_list_instance_subcommand(subcommand);
+                cmd_list_instances(&command, "instances");
+                std::process::exit(0);
+            }
+            "list-servers" => {
+                let command = get_list_instance_subcommand(subcommand);
+                cmd_list_instances(&command, "servers");
+                std::process::exit(0);
+            }
+            "list-available-versions" => {
+                cmd_list_available_versions();
+                std::process::exit(0);
+            }
+            "--no-sandbox" => {
+                err_no_log!("Unknown command --no-sandbox, ignoring...");
+            }
+            err => panic!("Unimplemented command! {err}"),
+        }
+    } else {
+        print_intro();
+    }
+}
+
+fn get_list_instance_subcommand(subcommand: (&str, &clap::ArgMatches)) -> Vec<PrintCmd> {
+    if let Some((cmd, _)) = subcommand.1.subcommand() {
+        let mut cmds = Vec::new();
+        for cmd in cmd.split('-') {
+            match cmd {
+                "name" => cmds.push(PrintCmd::Name),
+                "version" => cmds.push(PrintCmd::Version),
+                "loader" => cmds.push(PrintCmd::Loader),
+                invalid => {
+                    panic!("Invalid subcommand {invalid}! Use any combination of name, version and loader separated by hyphen '-'");
+                }
+            }
+        }
+        cmds
+    } else {
+        vec![PrintCmd::Name]
+    }
 }
