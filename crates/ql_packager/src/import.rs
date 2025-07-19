@@ -123,8 +123,8 @@ async fn import_quantumlauncher(
         let (d_send, d_recv) = std::sync::mpsc::channel();
 
         if let Some(sender) = sender.clone() {
-            std::thread::spawn(|| {
-                pipe_progress(d_recv, sender);
+            std::thread::spawn(move || {
+                pipe_progress(d_recv, &sender);
             });
         }
 
@@ -164,7 +164,7 @@ async fn import_quantumlauncher(
     Ok(instance)
 }
 
-pub fn pipe_progress<T: Progress>(rec: Receiver<T>, snd: Arc<Sender<GenericProgress>>) {
+pub fn pipe_progress<T: Progress>(rec: Receiver<T>, snd: &Sender<GenericProgress>) {
     for item in rec {
         _ = snd.send(item.into_generic());
     }

@@ -82,7 +82,7 @@ impl Launcher {
             let msg_absolute = msg_absolute.clone();
             let text = text.clone();
 
-            let (text_len, column) = log_inner(text, text_size, scroll, size.height);
+            let (text_len, column) = log_inner(&text, text_size, scroll, size.height);
             let text_len = text_len as f64;
 
             widget::mouse_area(
@@ -108,7 +108,7 @@ impl Launcher {
 }
 
 fn log_inner<'a>(
-    text: Vec<String>,
+    text: &[String],
     text_size: f32,
     scroll: isize,
     height_limit: f32,

@@ -162,6 +162,7 @@ impl VersionDetails {
         // TODO: More fields in the future
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn is_legacy_version(&mut self) -> bool {
         if let Some(n) = self.ql_is_legacy_version {
             n
@@ -179,6 +180,7 @@ impl VersionDetails {
         }
     }
 
+    #[must_use]
     pub fn needs_launchwrapper_fix(&self) -> bool {
         self.libraries
             .iter()
@@ -375,6 +377,7 @@ pub struct LibraryDownloadArtifact {
 }
 
 impl LibraryDownloadArtifact {
+    #[must_use]
     pub fn get_path(&self) -> String {
         self.path.clone().unwrap_or_else(|| {
             // https://libraries.minecraft.net/net/java/jinput/jinput/2.0.5/jinput-2.0.5.jar

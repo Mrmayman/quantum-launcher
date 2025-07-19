@@ -121,18 +121,19 @@ impl MenuLauncherSettings {
             widget::column![
                 widget::row![widget::text!("UI Scale ({:.2}x)  ", self.temp_scale)]
                     .push_maybe(
-                        (self.temp_scale != config.ui_scale.unwrap_or(1.0)).then_some(
-                            widget::button(widget::text("Apply").size(12))
-                                .padding(iced::Padding {
-                                    top: 2.0,
-                                    bottom: 2.0,
-                                    right: 5.0,
-                                    left: 5.0,
-                                })
-                                .on_press(Message::LauncherSettings(
-                                    LauncherSettingsMessage::UiScaleApply
-                                ))
-                        )
+                        ((self.temp_scale - config.ui_scale.unwrap_or(1.0)).abs() > 0.01)
+                            .then_some(
+                                widget::button(widget::text("Apply").size(12))
+                                    .padding(iced::Padding {
+                                        top: 2.0,
+                                        bottom: 2.0,
+                                        right: 5.0,
+                                        left: 5.0,
+                                    })
+                                    .on_press(Message::LauncherSettings(
+                                        LauncherSettingsMessage::UiScaleApply
+                                    ))
+                            )
                     )
                     .align_y(iced::Alignment::Center),
                 widget::slider(0.5..=2.0, self.temp_scale, |n| Message::LauncherSettings(

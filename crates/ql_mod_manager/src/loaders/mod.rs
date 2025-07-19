@@ -62,8 +62,8 @@ pub async fn install_specified_loader(
         Loader::Forge => {
             let (send, recv) = std::sync::mpsc::channel();
             if let Some(progress) = progress {
-                std::thread::spawn(|| {
-                    pipe_progress(recv, progress);
+                std::thread::spawn(move || {
+                    pipe_progress(recv, &progress);
                 });
             }
 
@@ -75,8 +75,8 @@ pub async fn install_specified_loader(
         Loader::Neoforge => {
             let (send, recv) = std::sync::mpsc::channel();
             if let Some(progress) = progress {
-                std::thread::spawn(|| {
-                    pipe_progress(recv, progress);
+                std::thread::spawn(move || {
+                    pipe_progress(recv, &progress);
                 });
             }
 
@@ -103,7 +103,7 @@ pub async fn install_specified_loader(
     Ok(LoaderInstallResult::Ok)
 }
 
-fn pipe_progress(rec: Receiver<ForgeInstallProgress>, snd: Arc<Sender<GenericProgress>>) {
+fn pipe_progress(rec: Receiver<ForgeInstallProgress>, snd: &Sender<GenericProgress>) {
     for item in rec {
         _ = snd.send(item.into_generic());
     }

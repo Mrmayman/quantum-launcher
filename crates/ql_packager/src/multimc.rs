@@ -138,8 +138,8 @@ async fn mmc_minecraft(
     };
     let (d_send, d_recv) = std::sync::mpsc::channel();
     if let Some(sender) = sender.clone() {
-        std::thread::spawn(|| {
-            pipe_progress(d_recv, sender);
+        std::thread::spawn(move || {
+            pipe_progress(d_recv, &sender);
         });
     }
     ql_instances::create_instance(
@@ -160,8 +160,8 @@ async fn mmc_forge(
 ) -> Result<(), InstancePackageError> {
     let (f_send, f_recv) = std::sync::mpsc::channel();
     if let Some(sender) = sender.clone() {
-        std::thread::spawn(|| {
-            pipe_progress(f_recv, sender);
+        std::thread::spawn(move || {
+            pipe_progress(f_recv, &sender);
         });
     }
     if is_neoforge {

@@ -17,23 +17,7 @@ impl MenuModsDownload {
     /// Renders the main store page, with the search bar,
     /// back button and list of searched mods.
     fn view_main<'a>(&'a self, images: &'a ImageState, tick_timer: usize) -> Element<'a> {
-        let mods_list = if let Some(results) = self.results.as_ref() {
-            if results.mods.is_empty() {
-                widget::column!["No results found."]
-            } else {
-                widget::column(
-                    results
-                        .mods
-                        .iter()
-                        .enumerate()
-                        .map(|(i, hit)| self.view_mod_entry(i, hit, images, results.backend)),
-                )
-            }
-            .push(widget::horizontal_space())
-        } else {
-            let dots = ".".repeat((tick_timer % 3) + 1);
-            widget::column!(widget::text!("Loading{dots}"))
-        };
+        let mods_list = self.get_mods_list(images, tick_timer);
         widget::row!(
             widget::scrollable(
                 widget::column!(
@@ -145,6 +129,30 @@ impl MenuModsDownload {
                 )
         )
         .into()
+    }
+
+    fn get_mods_list<'a>(
+        &'a self,
+        images: &'a ImageState,
+        tick_timer: usize,
+    ) -> widget::Column<'a, Message, LauncherTheme> {
+        if let Some(results) = self.results.as_ref() {
+            if results.mods.is_empty() {
+                widget::column!["No results found."]
+            } else {
+                widget::column(
+                    results
+                        .mods
+                        .iter()
+                        .enumerate()
+                        .map(|(i, hit)| self.view_mod_entry(i, hit, images, results.backend)),
+                )
+            }
+            .push(widget::horizontal_space())
+        } else {
+            let dots = ".".repeat((tick_timer % 3) + 1);
+            widget::column!(widget::text!("Loading{dots}"))
+        }
     }
 
     /// Renders a single mod entry (and button) in the search results.

@@ -9,6 +9,7 @@ use ql_core::{err, json::Manifest, JsonDownloadError, ListEntry};
 /// - couldn't be parsed into JSON.
 ///
 /// Prints an error to log if Omniarchive versions couldn't be loaded.
+#[allow(clippy::missing_panics_doc)]
 pub async fn list() -> Result<Vec<ListEntry>, JsonDownloadError> {
     // TODO: Allow sideloading server jars
     // In Minecraft Server ecosystem, it's more common

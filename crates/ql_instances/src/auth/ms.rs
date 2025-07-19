@@ -498,9 +498,8 @@ async fn get_final_details(
                 } else {
                     Error::Response(response_err)
                 });
-            } else {
-                return Err(err.into());
             }
+            return Err(err.into());
         }
     };
     Ok(info)

@@ -180,10 +180,7 @@ impl widget::text::Catalog for LauncherTheme {
         Box::new(|n| n.style_text(Color::White))
     }
 
-    fn style<'a>(
-        &self,
-        style_fn: &<Self as widget::text::Catalog>::Class<'a>,
-    ) -> widget::text::Style {
+    fn style(&self, style_fn: &<Self as widget::text::Catalog>::Class<'_>) -> widget::text::Style {
         style_fn(self)
     }
 }
@@ -437,9 +434,9 @@ impl widget::text_editor::Catalog for LauncherTheme {
         Box::new(LauncherTheme::style_text_editor_box)
     }
 
-    fn style<'a>(
+    fn style(
         &self,
-        class: &<Self as widget::text_editor::Catalog>::Class<'a>,
+        class: &<Self as widget::text_editor::Catalog>::Class<'_>,
         status: widget::text_editor::Status,
     ) -> widget::text_editor::Style {
         class(self, status)

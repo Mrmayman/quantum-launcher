@@ -5,9 +5,9 @@ use crate::{
     config::LauncherConfig,
     icon_manager,
     state::{
-        CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage, LicenseTab,
-        ManageModsMessage, MenuCreateInstance, MenuCurseforgeManualDownload, MenuLauncherUpdate,
-        MenuLicense, MenuServerCreate, Message, ProgressBar,
+        AccountMessage, CreateInstanceMessage, InstallModsMessage, LauncherSettingsMessage,
+        LicenseTab, ManageModsMessage, MenuCreateInstance, MenuCurseforgeManualDownload,
+        MenuLauncherUpdate, MenuLicense, MenuServerCreate, Message, ProgressBar,
     },
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
 };
@@ -400,4 +400,37 @@ impl MenuLicense {
         ]
         .into()
     }
+}
+
+pub fn view_account_login<'a>() -> Element<'a> {
+    widget::column![
+        back_button().on_press(Message::LaunchScreenOpen {
+            message: None,
+            clear_selection: false
+        }),
+        widget::vertical_space(),
+        widget::row![
+            widget::horizontal_space(),
+            widget::column![
+                widget::text("Login").size(20),
+                widget::button("Login with Microsoft").on_press(Message::Account(
+                    AccountMessage::OpenMicrosoft {
+                        is_from_welcome_screen: false
+                    }
+                )),
+                widget::button("Login with ely.by").on_press(Message::Account(
+                    AccountMessage::OpenElyBy {
+                        is_from_welcome_screen: false
+                    }
+                )),
+            ]
+            .align_x(iced::Alignment::Center)
+            .spacing(5),
+            widget::horizontal_space(),
+        ],
+        widget::vertical_space(),
+    ]
+    .padding(10)
+    .spacing(5)
+    .into()
 }

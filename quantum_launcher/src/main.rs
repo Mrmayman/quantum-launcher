@@ -214,7 +214,7 @@ fn load_launcher_dir() -> (Option<std::path::PathBuf>, bool) {
 }
 
 fn load_ui_scale(dir_is_ok: bool) -> (f32, Result<LauncherConfig, JsonFileError>) {
-    if let Some(cfg) = dir_is_ok.then(|| LauncherConfig::load_s()) {
+    if let Some(cfg) = dir_is_ok.then(LauncherConfig::load_s) {
         match cfg {
             Ok(cfg) => (cfg.ui_scale.unwrap_or(1.0) as f32, Ok(cfg)),
             Err(err) => (1.0, Err(err)),

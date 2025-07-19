@@ -1,5 +1,5 @@
-use ql_core::{GenericProgress, file_utils};
-use ql_core::{InstanceSelection, IntoIoError, IntoJsonError, info, pt};
+use ql_core::{file_utils, GenericProgress};
+use ql_core::{info, pt, InstanceSelection, IntoIoError, IntoJsonError};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;

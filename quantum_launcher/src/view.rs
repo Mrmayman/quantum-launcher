@@ -3,8 +3,10 @@ use ql_core::LOGGER;
 
 use crate::{
     icon_manager,
-    menu_renderer::{back_button, button_with_icon, changelog::changelog_0_4_1, Element, DISCORD},
-    state::{AccountMessage, Launcher, Message, State},
+    menu_renderer::{
+        button_with_icon, changelog::changelog_0_4_1, view_account_login, Element, DISCORD,
+    },
+    state::{Launcher, Message, State},
     stylesheet::{color::Color, styles::LauncherTheme, widgets::StyleButton},
     DEBUG_LOG_BUTTON_HEIGHT,
 };
@@ -71,36 +73,7 @@ impl Launcher {
             .into(),
             State::GenericMessage(msg) => widget::column![widget::text(msg)].padding(10).into(),
             State::LoginMS(menu) => menu.view(),
-            State::AccountLogin => widget::column![
-                back_button().on_press(Message::LaunchScreenOpen {
-                    message: None,
-                    clear_selection: false
-                }),
-                widget::vertical_space(),
-                widget::row![
-                    widget::horizontal_space(),
-                    widget::column![
-                        widget::text("Login").size(20),
-                        widget::button("Login with Microsoft").on_press(Message::Account(
-                            AccountMessage::OpenMicrosoft {
-                                is_from_welcome_screen: false
-                            }
-                        )),
-                        widget::button("Login with ely.by").on_press(Message::Account(
-                            AccountMessage::OpenElyBy {
-                                is_from_welcome_screen: false
-                            }
-                        )),
-                    ]
-                    .align_x(iced::Alignment::Center)
-                    .spacing(5),
-                    widget::horizontal_space(),
-                ],
-                widget::vertical_space(),
-            ]
-            .padding(10)
-            .spacing(5)
-            .into(),
+            State::AccountLogin => view_account_login(),
             State::EditMods(menu) => {
                 menu.view(self.selected_instance.as_ref().unwrap(), self.tick_timer)
             }
